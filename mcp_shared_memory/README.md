@@ -10,14 +10,14 @@
 ## 启动
 
 ```bash
-python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/server.py
+python3 mcp_shared_memory/server.py
 ```
 
 可选：指定数据库位置（方便备份/同步）
 
 ```bash
 MCP_MEMORY_DB_PATH="$HOME/.codex/mcp/shared-memory/memory.sqlite3" \
-  python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/server.py
+  python3 mcp_shared_memory/server.py
 ```
 
 ## 在 Codex 里接入（stdio）
@@ -29,7 +29,7 @@ MCP_MEMORY_DB_PATH="$HOME/.codex/mcp/shared-memory/memory.sqlite3" \
 建议把启动命令设置为：
 
 ```bash
-env PYTHONUNBUFFERED=1 python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/server.py
+env PYTHONUNBUFFERED=1 python3 mcp_shared_memory/server.py
 ```
 
 说明：本 server 会自动兼容两种 stdio 传输格式（按首条消息自动探测并用同种格式响应）：
@@ -65,11 +65,11 @@ env PYTHONUNBUFFERED=1 python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/
 ## 开发自测
 
 ```bash
-python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/smoke_test_mcp.py
+python3 mcp_shared_memory/smoke_test_mcp.py
 ```
 
 ## 写入种子记忆（可选）
 
 ```bash
-python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/seed_memories.py
+python3 mcp_shared_memory/seed_memories.py
 ```
