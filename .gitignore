@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 *.sqlite3
 .DS_Store
+
+.vscode/
+
+# Keep Codex repo-scoped skills, ignore other local Codex state.
+.codex/**
+!.codex/skills/
+!.codex/skills/**
