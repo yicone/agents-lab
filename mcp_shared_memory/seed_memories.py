@@ -11,7 +11,10 @@ from server import MemoryStore  # type: ignore
 
 
 SEED_SOURCE = "seed-2026-02-27"
-SEED_TAG = "seed/2026-02-27"
+SEED_TAG = "seed/2026-02-27"  # legacy/global-ish seed tag (kept for backwards compatibility)
+PROJECT_SLUG = os.environ.get("MCP_PROJECT_SLUG", "agents-lab").strip()
+SCOPED_SEED_TAG = f"seed/{PROJECT_SLUG}/2026-02-27"
+PROJECT_TAG = os.environ.get("MCP_PROJECT_TAG", f"proj/{PROJECT_SLUG}").strip()
 
 
 @dataclass(frozen=True)
@@ -24,7 +27,7 @@ class SeedMemory:
         return f"title: {self.title}\nseed_source: {SEED_SOURCE}\n\n{self.body}".strip() + "\n"
 
     def all_tags(self) -> List[str]:
-        out = [SEED_TAG, "seed", *self.tags]
+        out = [PROJECT_TAG, SCOPED_SEED_TAG, SEED_TAG, "seed", *self.tags]
         # de-dupe while preserving order
         seen: set[str] = set()
         deduped: List[str] = []
@@ -44,7 +47,7 @@ def _title_from_text(text: str) -> Optional[str]:
     return None
 
 
-def _existing_seed_titles(store: MemoryStore, limit: int = 200) -> Dict[str, str]:
+def _existing_seed_by_title(store: MemoryStore, limit: int = 200) -> Dict[str, str]:
     pairs = store.search(query="", tags=[SEED_TAG], limit=limit)
     out: Dict[str, str] = {}
     for rec, _score in pairs:
@@ -54,12 +57,24 @@ def _existing_seed_titles(store: MemoryStore, limit: int = 200) -> Dict[str, str
     return out
 
 
-def _ensure_seed(store: MemoryStore, existing_titles: Dict[str, str], mem: SeedMemory) -> Tuple[str, str]:
-    # Idempotency: if we already have a memory with this title under the seed tag, skip.
-    if mem.title in existing_titles:
-        return ("skipped", existing_titles[mem.title])
+def _ensure_seed(store: MemoryStore, existing_by_title: Dict[str, str], mem: SeedMemory) -> Tuple[str, str]:
+    # Idempotency: if we already have a memory with this title under the seed tag, ensure project tag is present.
+    if mem.title in existing_by_title:
+        mem_id = existing_by_title[mem.title]
+        existing = store.get(mem_id)
+        if existing and PROJECT_TAG not in (existing.tags or []):
+            new_tags: List[str] = []
+            seen: set[str] = set()
+            for t in ([PROJECT_TAG] + list(existing.tags or [])):
+                if t not in seen:
+                    seen.add(t)
+                    new_tags.append(t)
+            updated = store.update(mem_id=mem_id, tags=new_tags)
+            return ("updated", (updated.id if updated else mem_id))
+        return ("skipped", mem_id)
+
     rec = store.add(text=mem.render_text(), tags=mem.all_tags(), source=SEED_SOURCE)
-    existing_titles[mem.title] = rec.id
+    existing_by_title[mem.title] = rec.id
     return ("created", rec.id)
 
 
@@ -149,10 +164,10 @@ def main() -> int:
         ),
     ]
 
-    existing_titles = _existing_seed_titles(store)
+    existing_by_title = _existing_seed_by_title(store)
     results: List[Dict[str, str]] = []
     for s in seeds:
-        status, mem_id = _ensure_seed(store, existing_titles, s)
+        status, mem_id = _ensure_seed(store, existing_by_title, s)
         results.append({"title": s.title, "status": status, "id": mem_id})
 
     sys.stdout.write(json.dumps({"ok": True, "seed_source": SEED_SOURCE, "results": results}, ensure_ascii=False, indent=2) + "\n")
