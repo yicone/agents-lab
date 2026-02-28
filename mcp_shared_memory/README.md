@@ -33,6 +33,7 @@ env PYTHONUNBUFFERED=1 python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/
 ```
 
 说明：本 server 会自动兼容两种 stdio 传输格式（按首条消息自动探测并用同种格式响应）：
+
 - JSONL（每行一条 JSON-RPC 消息）
 - LSP-style framing（`Content-Length` headers + JSON payload）
 
@@ -53,6 +54,13 @@ env PYTHONUNBUFFERED=1 python3 /Users/tr/Workspace/agents-lab/mcp_shared_memory/
 - 你的研究目标、边界、偏好（例如：优先本地优先/隐私优先/可脚本化）
 - 某项目的架构约束、目录结构、常见坑
 - 你的术语表/分类标准（方便后续持续积累）
+
+如果你同时在多个项目里使用同一个 shared DB（默认就是这样），建议用 **project namespace tag** 做逻辑隔离：
+
+- 例如本仓库：`proj/agents-lab`
+- 以及项目级 seed tag：`seed/agents-lab/2026-02-27`（避免不同项目 seed 日期相同导致误命中）
+- 写入时：所有本项目相关记忆都带上该 tag
+- 检索时：默认 `tags` 里包含该 tag，避免跨项目误命中
 
 ## 开发自测
 

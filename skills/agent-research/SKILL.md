@@ -8,6 +8,7 @@ description: "Workflow for researching AI Agents (especially coding agents): cla
 ## What this skill is for
 
 Use this skill when the user is researching:
+
 - Coding Agents (Windsurf/Codex/Claude Code/OpenCode/Amp/Cursor…)
 - Orchestrators / multi-agent workflows (Agent Teams, agent orchestrators, plugins)
 - Memory / context layers (MCP memory servers, long-term memory)
@@ -20,6 +21,7 @@ Use this skill when the user is researching:
 
 2) **Pull prior context (if MCP memory is available)**  
    - Search: query = project name + axis + “pitfalls/benchmarks”
+   - Repo scope (agents-lab): always filter by `proj/agents-lab` to avoid cross-project leakage
    - If there’s a prior conclusion, reuse it and only update deltas
 
 3) **Classify the item (one primary, one secondary)**
@@ -37,6 +39,8 @@ Use this skill when the user is researching:
 
 ## Suggested memory tags
 
+- `proj/agents-lab` (project namespace; always include when writing/searching in this repo)
+- `seed/agents-lab/2026-02-27` (repo-scoped seed tag for this project’s taxonomy/products/workflow/rubric)
 - `axis/coding-agent` `axis/orchestrator` `axis/memory` `axis/skills`
 - `product/windsurf` `product/codex` `product/claude-code` `product/opencode` `product/amp` `product/cursor`
 - `topic/mcp` `topic/evals` `topic/benchmarks` `topic/workflow` `topic/context-engineering`
@@ -44,6 +48,7 @@ Use this skill when the user is researching:
 ## If the user asks “what skill should I install?”
 
 Use the Skills CLI search flow:
+
 - Run `npx skills find <keywords>` (examples: `mcp`, `github`, `research`, `playwright`, `repo review`)
 - Present 2–5 options with install commands and what each covers
 
