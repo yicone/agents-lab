@@ -1,14 +1,14 @@
 ---
 name: notion-wechat-reading-helper
-description: Use when processing the agents-lab Notion reading database that stores WeChat article URLs and requires MCP-based row discovery, browser-based article extraction, Notion writeback, and distill-memory after each row.
+description: Use when processing the agents-lab Notion reading database that stores article URLs, requires MCP-based row discovery and writeback, uses source-specific extraction with WeChat special handling, and runs distill-memory after each row.
 ---
 
-# Notion WeChat Reading Helper
+# Notion Reading Helper
 
 ## Overview
 
 Use this for the `文章列表` Notion database in this repo's reading-helper automation.
-The stable path is: Notion MCP for row discovery and writeback, `agent-browser` for WeChat article extraction, and `distill-memory` for article-level distillation into `nmem`.
+The stable path is: Notion MCP for row discovery and writeback, source-appropriate article extraction, and `distill-memory` for article-level distillation into `nmem`.
 
 ## Workflow
 
@@ -32,23 +32,31 @@ The stable path is: Notion MCP for row discovery and writeback, `agent-browser` 
    - `Last Attempt At = now`
    - clear `Error` if appropriate
 
-4. For `mp.weixin.qq.com` URLs, prefer a real browser session.
-   - Do not use `curl` as the primary extraction method; it often hits WeChat environment verification.
-   - Open the URL with `agent-browser`.
-   - Read article data from page JS:
-     - `window.cgiDataNew.title`
-     - `window.cgiDataNew.nick_name`
-     - `window.cgiDataNew.content_noencode`
-   - Parse `content_noencode` with `DOMParser`, then extract text from `doc.body.innerText`.
+4. Extract the article with a source-specific path.
+   - First classify the URL by domain and page behavior.
+   - For `mp.weixin.qq.com` URLs, prefer a real browser session.
+     - Do not use `curl` as the primary extraction method; it often hits WeChat environment verification.
+     - Open the URL with `agent-browser`.
+     - Read article data from page JS:
+       - `window.cgiDataNew.title`
+       - `window.cgiDataNew.nick_name`
+       - `window.cgiDataNew.content_noencode`
+     - Parse `content_noencode` with `DOMParser`, then extract text from `doc.body.innerText`.
+   - For non-WeChat URLs, prefer the simplest trustworthy path that yields the article body, title, and author:
+     - use direct fetch for static pages when the article text is present in HTML
+     - use a real browser when the page is client-rendered, gated, or parsing quality is poor
+     - extract from the primary article container instead of navigation or comments
+   - If the page is inaccessible or does not expose enough trustworthy text, mark the row as blocked instead of speculating.
 
 5. Summarize and write back.
    - Fill `Title` with the real article title.
    - Fill `Author`.
-   - Generate `Tags` from the existing Notion options when possible.
+   - Generate `Tags` as plain text because the database field is text-based.
+   - Use 2-5 concise tags that reflect the article's actual themes, separated by `, `.
    - Replace blank page content with a concise Chinese summary.
    - Set `Processing Status = Done`.
 
-6. If WeChat blocks extraction with captcha or environment verification:
+6. If extraction fails because of captcha, environment verification, paywall, login wall, or parsing failure:
    - If a trustworthy title is available from a related-link anchor, you may fill it.
    - Set `Processing Status = Blocked`.
    - Write the blocker to `Error`.
@@ -61,7 +69,7 @@ The stable path is: Notion MCP for row discovery and writeback, `agent-browser` 
 ## Notes
 
 - Treat Notion MCP as the source of truth for row state.
-- Treat `agent-browser` as the source of truth for WeChat article content.
+- Use `agent-browser` when the site requires a real browser, especially for WeChat.
 - Treat `nmem` as the destination for article-level distill output.
 - Keep output scannable and team-ready.
 - Do not speculate when article text is unavailable.
