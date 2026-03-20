@@ -8,7 +8,7 @@ Read [AGENTS.md](/Users/tr/Workspace/agents-lab/AGENTS.md).
 
 ## Step 2: Load Project Seeds
 
-If Shared Memory MCP is available, load:
+If the current runtime exposes Shared Memory MCP, load:
 
 - `taxonomy_v1`
 - `products_scope_v1`
@@ -22,7 +22,7 @@ Use the project tags:
 
 ## Step 3: Verify Tooling Before Falling Back
 
-If Shared Memory MCP appears unavailable:
+If the runtime is expected to provide Shared Memory MCP but it appears unavailable:
 
 1. Run `python3 mcp_shared_memory/smoke_test_mcp.py`
 2. Inspect `/MCP` output or the relevant logs
@@ -39,4 +39,4 @@ Before answering substantively, the agent should know:
 - the project namespace
 - the current research taxonomy
 - the default workflow for weekly and ad hoc research
-- whether memory tooling is functioning or genuinely blocked
+- whether memory tooling is functioning, unsupported in the current runtime, or genuinely blocked

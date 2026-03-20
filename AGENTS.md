@@ -7,6 +7,7 @@ Read this first, then follow the linked docs instead of expanding this file into
 ## Purpose
 
 - This repo studies coding agents, orchestration, memory, skills, and related workflows.
+- This repo may be accessed by multiple agent runtimes, including Codex, Windsurf, Claude Code, Antigravity, OpenCode, and GitHub Copilot.
 - The default project namespace for reusable memory is `proj/agents-lab`.
 - Repository-specific operating rules should stay repo-scoped and should not silently leak into other projects.
 
@@ -20,6 +21,7 @@ At the start of each new conversation:
 
 ## Working Rules
 
+- Keep durable repository rules tool-agnostic unless a step is inherently runtime-specific.
 - Default to Shared Memory reads and writes scoped to `proj/agents-lab`.
 - Reuse prior conclusions when they exist; update only the delta.
 - When a result is likely to be reused, store a short memory entry with stable tags.

@@ -1,6 +1,7 @@
 # Repo-Scoped Skills
 
 Skills that are tightly bound to this repository should remain repo-scoped.
+The workflow itself should stay portable across agent runtimes even when one runtime stores its adapter files in a tool-specific directory.
 
 ## Why
 
@@ -14,7 +15,8 @@ then exposing it globally risks contaminating work in other projects.
 
 ## Default Policy
 
-- Prefer storing repo-specific skills under `.codex/skills/`
+- Keep durable instructions in `docs/` when they should apply across tools.
+- Prefer storing runtime-specific repo-scoped skill adapters under that runtime's local convention, such as `.codex/skills/` for Codex.
 - If you need a checked-in source path, mirror or link it under `skills/`
 - Only make a global skill when the instructions are generalized and parameterized
 

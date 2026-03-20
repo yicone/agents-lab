@@ -1,6 +1,7 @@
 # agents-lab docs
 
 This directory is the durable system of record for repository rules that agents need during work.
+The rules here should stay tool-agnostic by default so they remain usable across multiple coding-agent runtimes.
 
 ## Structure
 

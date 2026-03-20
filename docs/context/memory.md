@@ -1,6 +1,6 @@
 # Shared Memory Conventions
 
-This repository uses Shared Memory MCP for cross-session reuse of research framing, conclusions, and workflow knowledge.
+This repository uses Shared Memory MCP for cross-session reuse of research framing, conclusions, and workflow knowledge when the current runtime supports it.
 
 ## Namespace
 
@@ -12,7 +12,7 @@ The default namespace is `proj/agents-lab`.
 
 ## Seed Memories
 
-At conversation start, load these seed memories when the MCP tool is available:
+At conversation start, load these seed memories when Shared Memory MCP is available in the current runtime:
 
 - `taxonomy_v1`
 - `products_scope_v1`
@@ -34,7 +34,7 @@ When the user mentions a product, topic, or axis such as `coding-agent`, `orches
 
 ## MCP Failure Rule
 
-Do not claim Shared Memory is unavailable without evidence.
+Do not claim Shared Memory is unavailable without evidence when the current runtime is expected to expose it.
 
 Acceptable evidence:
 
