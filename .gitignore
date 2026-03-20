@@ -4,6 +4,8 @@ __pycache__/
 .DS_Store
 
 .vscode/
+tmp/
+scripts/cleanup-skills.sh
 
 # Keep Codex repo-scoped skills, ignore other local Codex state.
 .codex/**
