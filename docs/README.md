@@ -8,6 +8,7 @@ The rules here should stay tool-agnostic by default so they remain usable across
 - `context/`: durable context the agent should respect across tasks
 - `workflows/`: ordered procedures the agent should follow
 - `conventions/`: writing and organization conventions
+- `api-gateway-cache-probe/`: reusable notes for testing caching behavior on AI gateways
 
 ## Start Here
 
@@ -16,6 +17,7 @@ The rules here should stay tool-agnostic by default so they remain usable across
 - Research loop: [workflows/research-loop.md](/Users/tr/Workspace/agents-lab/docs/workflows/research-loop.md)
 - Skills policy: [conventions/skills.md](/Users/tr/Workspace/agents-lab/docs/conventions/skills.md)
 - Memory writing format: [conventions/memory-writing.md](/Users/tr/Workspace/agents-lab/docs/conventions/memory-writing.md)
+- API gateway cache probes: [api-gateway-cache-probe/README.md](/Users/tr/Workspace/agents-lab/docs/api-gateway-cache-probe/README.md)
 
 ## Maintenance Rule
 
