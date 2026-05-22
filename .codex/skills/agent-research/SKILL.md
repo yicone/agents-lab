@@ -1,1 +1,0 @@
-../../../skills/agent-research/SKILL.md
