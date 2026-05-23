@@ -1,6 +1,9 @@
 ---
 name: logseq-acns-vault
 description: Use when operating on the user's ACNS Logseq vault as the context brain, especially when deciding page ownership, namespace choice, structured properties, Inbox/Journal boundaries, and how Logseq relates to Notion and the current-real-tasks layer.
+metadata:
+  owner: agents-lab
+  scope: repo
 ---
 
 # Logseq ACNS Semantic Guide

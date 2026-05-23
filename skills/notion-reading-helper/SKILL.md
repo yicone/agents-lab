@@ -1,6 +1,9 @@
 ---
 name: notion-reading-helper
 description: Use when processing the agents-lab Notion reading database that stores article URLs, requires MCP-based row discovery and writeback, uses source-specific extraction with WeChat special handling, and runs distill-memory after each row.
+metadata:
+  owner: agents-lab
+  scope: repo
 ---
 
 # Notion Reading Helper

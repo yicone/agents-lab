@@ -1,6 +1,9 @@
 ---
 name: agent-research
 description: "Workflow for researching AI Agents (especially coding agents): classify projects, keep an evidence log, and write durable cross-session memories via an MCP memory server."
+metadata:
+  owner: agents-lab
+  scope: repo
 ---
 
 # Agent Research (Coding Agents)

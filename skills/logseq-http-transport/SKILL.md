@@ -1,6 +1,9 @@
 ---
 name: logseq-http-transport
 description: Thin Logseq HTTP transport for the local Vault. Owns API calling, token loading, and response normalization only. It must not decide page naming, page classes, templates, or ACNS write policy.
+metadata:
+  owner: agents-lab
+  scope: repo
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

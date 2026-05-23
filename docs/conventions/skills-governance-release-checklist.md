@@ -16,7 +16,7 @@ Applies to:
 
 - Each skill has a narrow and non-overlapping responsibility
 - Each skill explicitly says what it does **not** handle
-- Output fields are structurally aligned across the three skills
+- Output fields are structurally aligned across the governance skills where they intentionally overlap
 - Each skill points to the other related governance skills
 - Each skill points state updates to `[[OS-LOG/Skills 当前状态清单]]`
 - Each skill explicitly avoids writing live state back into `[[OS-RES/Skills 管理与治理原则]]`

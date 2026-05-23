@@ -1,6 +1,9 @@
 ---
 name: logseq-acns-write
 description: Build ACNS-compliant Logseq write plans before any transport call. Owns page classification, naming, properties, and valid block-tree construction for the user's main Vault.
+metadata:
+  owner: agents-lab
+  scope: repo
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

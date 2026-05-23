@@ -42,6 +42,23 @@ Proactive use:
 
 When local skill ownership changes, update the appropriate inventory/conventions docs in `agents-lab`, not generic "Context OS" docs.
 
+## Coordination Boundary
+
+Use `acns-skills-manager` for user-facing skill discovery and lifecycle tasks such as:
+
+- finding candidate skills before building from scratch
+- evaluating whether a third-party skill looks useful enough to install
+- checking whether ACNS-local skills need inventory or naming follow-up
+
+Do not use `acns-skills-manager` as the main workflow for repo-internal skills governance design.
+
+Instead use:
+
+- `skills-governance-audit` for read-only scanning of ownership, conflicts, and naming taxonomy
+- `skills-cli-reconcile` for third-party takeover into `skills CLI`
+- `skills-intake-local` for canonical-source intake of self-authored skills
+- `skills-promote-global` for global-promotion review
+
 ## Workflow
 
 1. Discover relevant skills

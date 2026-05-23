@@ -1,6 +1,9 @@
 ---
 name: vaultwarden-secret-migration
 description: Use when Logseq notes contain API tokens, secrets, passwords, recovery codes, or private keys that should be migrated into Vaultwarden and replaced with Vaultwarden reference text instead of raw secret values.
+metadata:
+  owner: agents-lab
+  scope: repo
 ---
 
 # Vaultwarden Secret Migration
