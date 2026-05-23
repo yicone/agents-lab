@@ -202,6 +202,10 @@ Required Changes:
 Recommended Next Step: <one sentence>
 ```
 
+## Example
+
+- See `examples/keep-local-acns-pdf-summary.md` for a target-scoped ACNS skill that should stay local until its Logseq- and ACNS-specific assumptions are removed.
+
 ## Success Criteria
 
 This skill has succeeded when:

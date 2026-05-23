@@ -277,6 +277,10 @@ Per-Skill Records:
   Follow-up: <...>
 ```
 
+## Example
+
+- See `examples/runtime-adapter-normalization.md` for a directory-level local intake case where multiple ACNS skills were normalized from runtime-facing adapters back into the canonical repo.
+
 ## Success Criteria
 
 This skill has succeeded when:

@@ -213,6 +213,10 @@ Follow-up:
 - ...
 ```
 
+## Example
+
+- See `examples/minimal-cli-reconcile.md` for a minimal third-party takeover case with known provenance and preserved risk notes.
+
 ## Success Criteria
 
 This skill has succeeded when:
