@@ -32,6 +32,12 @@ If the runtime is expected to provide Shared Memory MCP but it appears unavailab
 
 When available, read the current Working Memory briefing to recover recent priorities and context.
 
+## Step 5: Check Skills Governance Backlog When Relevant
+
+If the conversation resumes or extends skills-governance work, check:
+
+- `[[OS-LOG/Skills 治理待办与未决事项]]`
+
 ## Outcome
 
 Before answering substantively, the agent should know:

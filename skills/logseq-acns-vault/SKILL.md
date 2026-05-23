@@ -54,6 +54,20 @@ Do not use this skill as the main decision layer when:
 - the task is purely about editing Logseq or Obsidian config directories
 - the task is purely about API/tool debugging with no vault semantic decision
 
+## Coordination Boundary
+
+Use `logseq-acns-vault` to decide:
+- whether content belongs in the vault at all
+- which page owns it
+- which namespace and page type fit
+- whether the destination should be `Inbox`, `Journals`, `AREA`, `PROJ`, `RES`, or `LOG`
+
+If the task already clearly belongs in the vault and the next problem is building an ACNS-compliant write payload, pair or hand off to:
+- `logseq-acns-write`
+
+If the task is only about HTTP execution, token loading, or API response handling, do not stay in this skill. Pair or hand off to:
+- `logseq-http-transport`
+
 ## Core Decisions
 
 ### 1. Bare Name vs Namespace

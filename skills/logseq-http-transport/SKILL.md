@@ -25,6 +25,21 @@ It must not own:
 - default page templates
 - content formatting beyond transport needs
 
+## Coordination Boundary
+
+Use `logseq-http-transport` only after semantic and write-plan decisions are already made.
+
+Do not use this skill to decide:
+
+- whether content belongs in Logseq
+- which page should own the content
+- how ACNS should split properties or blocks
+
+Pair or hand off to:
+
+- `logseq-acns-vault` for vault semantics and page ownership
+- `logseq-acns-write` for ACNS-compliant write-plan construction
+
 ## Required Boundaries
 
 - Use this only after a higher-level ACNS policy layer has already produced a write plan.

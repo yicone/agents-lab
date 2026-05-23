@@ -24,6 +24,16 @@ It must not own:
 - token loading
 - API response parsing
 
+## Coordination Boundary
+
+Use `logseq-acns-write` when the destination is already known or can be decided through ACNS write rules and the immediate need is to build a valid write plan.
+
+If page ownership, namespace choice, or system-layer placement is still unclear, pair or defer first to:
+- `logseq-acns-vault`
+
+After the write plan is produced, hand off execution concerns to:
+- `logseq-http-transport`
+
 ## Required Inputs
 
 - `intent_type`

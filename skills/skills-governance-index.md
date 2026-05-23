@@ -1,6 +1,6 @@
 # Skills Governance Actions
 
-This note is a lightweight index for the three core governance workflows.
+This note is a lightweight index for the core governance workflows.
 
 ## Use These Skills
 
@@ -10,12 +10,15 @@ This note is a lightweight index for the three core governance workflows.
   - for locally owned skills that should be adopted into the canonical skills repository
 - `skills-promote-global`
   - for deciding whether a local or project-scoped skill should be generalized and promoted to global scope
+- `skills-governance-audit`
+  - for read-only scanning of ownership drift, conflict signals, provenance gaps, and naming-taxonomy issues before choosing another workflow
 
 ## Decision Shortcut
 
 - If the skill is third-party -> use `skills-cli-reconcile`
 - If the skill is self-authored and should be maintained locally -> use `skills-intake-local`
 - If the user explicitly wants broader reuse/global availability -> use `skills-promote-global`
+- If the first question is “what is going on in this skill set?” -> use `skills-governance-audit`
 
 ## Related Principles
 

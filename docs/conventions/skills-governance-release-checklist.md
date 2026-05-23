@@ -9,6 +9,7 @@ Applies to:
 - `skills-cli-reconcile`
 - `skills-intake-local`
 - `skills-promote-global`
+- `skills-governance-audit`
 - `skills-governance-index.md`
 
 ## Checklist
@@ -21,6 +22,7 @@ Applies to:
 - Each skill explicitly avoids writing live state back into `[[OS-RES/Skills 管理与治理原则]]`
 - Each skill has explicit stop conditions
 - The governance index gives a short routing rule
+- The audit skill stays read-only and routes findings instead of mutating layouts
 - The principle page defines stable rules only
 - The state page carries current status only
 
