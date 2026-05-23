@@ -5,7 +5,7 @@ metadata:
   owner: agents-lab
   scope: repo
   adapter_targets:
-    - /Users/tr/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/.agents/skills/acns-weekly-review
+    - <target-project-skill-dir>/acns-weekly-review
 ---
 
 # ACNS Weekly Review

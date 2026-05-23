@@ -6,7 +6,7 @@ metadata:
   owner: agents-lab
   scope: repo
   adapter_targets:
-    - /Users/tr/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/.agents/skills/acns-skills-manager
+    - <target-project-skill-dir>/acns-skills-manager
 ---
 
 # ACNS Skills Manager

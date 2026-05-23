@@ -5,7 +5,7 @@ metadata:
   owner: agents-lab
   scope: repo
   adapter_targets:
-    - /Users/tr/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/.agents/skills/acns-inbox
+    - <target-project-skill-dir>/acns-inbox
 ---
 
 # ACNS Inbox

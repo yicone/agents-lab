@@ -4,7 +4,7 @@ Follow this sequence at the start of each new conversation in this repository.
 
 ## Step 1: Read Repository Entry Point
 
-Read [AGENTS.md](/Users/tr/Workspace/agents-lab/AGENTS.md).
+Read [AGENTS.md](../../AGENTS.md).
 
 ## Step 2: Load Project Seeds
 

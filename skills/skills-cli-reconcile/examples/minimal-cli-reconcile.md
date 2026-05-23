@@ -7,7 +7,7 @@ Show the smallest valid case for bringing a third-party skill back under `skills
 ## Case
 
 - `skill_name`: `analyze`
-- `skill_path`: `/Users/tr/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/.agents/skills/analyze`
+- `skill_path`: `<target-project-skill-dir>/analyze`
 - `known_provenance`: `AllenAI2014/ai-investment-advisor@analyze`
 - current situation:
   - the skill already exists locally

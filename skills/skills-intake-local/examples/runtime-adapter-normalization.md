@@ -16,9 +16,9 @@ Show the canonical batch case for local-skill intake: multiple self-authored ski
   - `acns-suggest-archive`
   - `acns-pdf-summary`
 - canonical destination:
-  - `/Users/tr/Workspace/agents-lab/skills/<skill-name>`
+  - `<skills-canonical-repo>/skills/<skill-name>`
 - adapter destination:
-  - `/Users/tr/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/.agents/skills/<skill-name>`
+  - `<target-project-skill-dir>/<skill-name>`
 
 ## Expected Routing
 
@@ -44,12 +44,12 @@ Batch Members:
 - acns-skills-manager
 - acns-suggest-archive
 - acns-pdf-summary
-Verification Result: canonical source moved to /Users/tr/Workspace/agents-lab/skills/<skill-name>; vault path left as adapter only
+Verification Result: canonical source moved to <skills-canonical-repo>/skills/<skill-name>; target path left as adapter only
 Per-Skill Records:
 - Skill: acns-inbox
   Ownership: local_custom
   Scope: target_scoped
-  Canonical Source: /Users/tr/Workspace/agents-lab/skills/acns-inbox
+  Canonical Source: <skills-canonical-repo>/skills/acns-inbox
   Adapter Strategy: target
   Risk Summary: source_of_truth_drift
   Changes Made: moved canonical source into repo and replaced target path with adapter link

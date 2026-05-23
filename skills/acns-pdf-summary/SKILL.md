@@ -5,7 +5,7 @@ metadata:
   owner: agents-lab
   scope: repo
   adapter_targets:
-    - /Users/tr/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/.agents/skills/acns-pdf-summary
+    - <target-project-skill-dir>/acns-pdf-summary
 ---
 
 # ACNS PDF Summary

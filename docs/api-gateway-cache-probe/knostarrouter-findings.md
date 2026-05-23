@@ -79,10 +79,10 @@ For user-visible validation, current evidence supports:
 ## Reproduction Pointers
 
 - OpenAI-compatible probe:
-  [openai_compat_cache_probe.py](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/openai_compat_cache_probe.py)
+  [openai_compat_cache_probe.py](../../scripts/api-gateway-cache-probe/openai_compat_cache_probe.py)
 - Anthropic-style probe over `/v1`:
-  [anthropic_compat_cache_probe.py](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/anthropic_compat_cache_probe.py)
+  [anthropic_compat_cache_probe.py](../../scripts/api-gateway-cache-probe/anthropic_compat_cache_probe.py)
 - Claude Code gateway probe:
-  [claude_code_gateway_cache_probe.sh](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/claude_code_gateway_cache_probe.sh)
+  [claude_code_gateway_cache_probe.sh](../../scripts/api-gateway-cache-probe/claude_code_gateway_cache_probe.sh)
 - Claude Code run artifacts:
-  [/private/tmp/claude-code-cache-probe-20260513-150334](/private/tmp/claude-code-cache-probe-20260513-150334)
+  `/private/tmp/claude-code-cache-probe-20260513-150334`

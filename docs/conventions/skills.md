@@ -26,7 +26,7 @@ then exposing it globally risks contaminating work in other projects.
 - Treat `skills/` as the canonical version-controlled source tree for repo-owned skills.
 - Treat `.agents/skills/` as a compatibility layer, not the primary authoring location.
 - Do not keep editing repo-owned skills directly in `~/.agents/skills/`; intake them into `skills/` first.
-- See [skills-versioning.md](/Users/tr/Workspace/agents-lab/docs/conventions/skills-versioning.md) for the detailed layout and versioning rules.
+- See [skills-versioning.md](skills-versioning.md) for the detailed layout and versioning rules.
 
 ## Requirement for Generalized Skills
 
