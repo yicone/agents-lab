@@ -4,6 +4,8 @@ This note is a lightweight index for the core governance workflows.
 
 ## Use These Skills
 
+- `skills-lifecycle-manager`
+  - for user-facing skill discovery, build-vs-install decisions, and lightweight preinstall screening
 - `skills-cli-reconcile`
   - for third-party skills that should be brought back under `npx skills` management
 - `skills-intake-local`
@@ -15,6 +17,7 @@ This note is a lightweight index for the core governance workflows.
 
 ## Decision Shortcut
 
+- If the user first needs to decide reuse vs install vs build -> use `skills-lifecycle-manager`
 - If the skill is third-party -> use `skills-cli-reconcile`
 - If the skill is self-authored and should be maintained locally -> use `skills-intake-local`
 - If the user explicitly wants broader reuse/global availability -> use `skills-promote-global`

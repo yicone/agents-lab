@@ -7,6 +7,7 @@ This repository treats local skills as versioned source assets, not as ad hoc fi
 - `skills/` is the canonical source tree for repo-managed skills.
 - Each skill lives at `skills/<skill-name>/`.
 - The skill directory should contain `SKILL.md` and only the supporting folders it actually needs, such as `references/`, `scripts/`, `assets/`, or `evals/`.
+- In this environment, `~/Workspace/agents-lab/skills/` is also the default canonical intake destination for self-authored local skills that originate in other local projects, unless the user explicitly chooses another canonical repo.
 
 ## Runtime Compatibility Layer
 
@@ -68,6 +69,8 @@ When adopting an already-existing local skill:
 3. Decide whether any private or machine-local material must stay out of Git
 4. Add the repo-scoped `.agents/skills/` symlink
 5. Update docs if the skill changes the repository's durable conventions
+
+For this environment, this intake rule is not limited to skills first created inside `agents-lab`. Self-authored skills discovered in other local projects should also be collected into this canonical source tree when they are intended for long-term maintenance.
 
 ## Publishing And Installation
 

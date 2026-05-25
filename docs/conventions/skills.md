@@ -20,6 +20,7 @@ then exposing it globally risks contaminating work in other projects.
 - For cross-client interoperability, prefer `.agents/skills/` as the shared runtime-facing convention.
 - Keep the canonical checked-in source under `skills/`, and mirror or link runtime-facing entries back to it.
 - Only make a global skill when the instructions are generalized and parameterized
+- In this environment, self-authored skills from other local projects should still intake into `~/Workspace/agents-lab/skills/` when this repo is acting as the canonical skills home.
 
 ## Version-Management Policy
 

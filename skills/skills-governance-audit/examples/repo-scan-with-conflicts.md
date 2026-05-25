@@ -42,7 +42,6 @@ Local Skills:
 - acns-inbox
 - acns-route-inbox
 - acns-weekly-review
-- acns-skills-manager
 - acns-suggest-archive
 - acns-pdf-summary
 - logseq-acns-vault

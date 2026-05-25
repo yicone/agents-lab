@@ -12,7 +12,6 @@ Show the canonical batch case for local-skill intake: multiple self-authored ski
   - `acns-inbox`
   - `acns-route-inbox`
   - `acns-weekly-review`
-  - `acns-skills-manager`
   - `acns-suggest-archive`
   - `acns-pdf-summary`
 - canonical destination:
@@ -41,7 +40,6 @@ Batch Members:
 - acns-inbox
 - acns-route-inbox
 - acns-weekly-review
-- acns-skills-manager
 - acns-suggest-archive
 - acns-pdf-summary
 Verification Result: canonical source moved to <skills-canonical-repo>/skills/<skill-name>; target path left as adapter only

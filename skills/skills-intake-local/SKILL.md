@@ -12,6 +12,10 @@ metadata:
 
 Use this skill when a skill is locally owned and should be brought under the canonical Git repository for long-term maintenance.
 
+For this environment, the default canonical destination for self-authored skills across local projects is:
+
+- `~/Workspace/agents-lab/skills/`
+
 It can be used for either:
 
 - a single-skill intake
@@ -26,6 +30,7 @@ It helps answer:
 - Is it repo-scoped, target-scoped, or globalizable?
 - What should become canonical source vs. runtime-facing adapter?
 - What metadata, links, or state notes should be updated?
+- Which repository conventions docs should be updated as part of the intake?
 
 ## Do Not Use This Skill For
 
@@ -134,6 +139,8 @@ Canonical source belongs under:
 
 - `<skills-canonical-repo>/skills/<skill-name>/`
 
+In this environment, treat `<skills-canonical-repo>` as the default intake home for self-authored local skills across projects unless the user explicitly overrides it.
+
 Normalize the structure:
 
 - keep `SKILL.md`
@@ -189,7 +196,17 @@ Do not write live inventory state back into:
 
 - `[[OS-RES/Skills 管理与治理原则]]`
 
-### 7. Document Follow-up Work
+### 7. Update Conventions Docs When Needed
+
+If the intake changes durable repository rules, naming guidance, scope policy, or skill layout expectations, update the relevant conventions docs in the canonical skills repo as part of the governance action.
+
+Typical targets include:
+
+- `docs/conventions/skills.md`
+- `docs/conventions/skills-versioning.md`
+- related indexes or checklists when the intake changes durable operator guidance
+
+### 8. Document Follow-up Work
 
 Call out any remaining work, such as:
 
