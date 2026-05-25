@@ -70,6 +70,12 @@ Always report:
 - `changes_made`
 - `followups`
 
+For batch or directory-level cases, also report:
+
+- `batch_members`
+- `verification_result`
+- `per_skill_records`
+
 Suggested values:
 
 - `case_classification`
