@@ -1,0 +1,5 @@
+{
+  "name": "example-skill",
+  "version": "0.1.0",
+  "notes": "Optional manifest for tooling when SKILL.md frontmatter alone is not enough. Do not duplicate required frontmatter fields here without a tool-specific reason."
+}

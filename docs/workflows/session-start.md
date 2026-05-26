@@ -4,7 +4,7 @@ Follow this sequence at the start of each new conversation in this repository.
 
 ## Step 1: Read Repository Entry Point
 
-Read [AGENTS.md](/Users/tr/Workspace/agents-lab/AGENTS.md).
+Read [AGENTS.md](../../AGENTS.md).
 
 ## Step 2: Load Project Seeds
 
@@ -31,6 +31,12 @@ If the runtime is expected to provide Shared Memory MCP but it appears unavailab
 ## Step 4: Read Daily Working Memory
 
 When available, read the current Working Memory briefing to recover recent priorities and context.
+
+## Step 5: Check Skills Governance Backlog When Relevant
+
+If the conversation resumes or extends skills-governance work, check:
+
+- `[[OS-LOG/Skills 治理待办与未决事项]]`
 
 ## Outcome
 

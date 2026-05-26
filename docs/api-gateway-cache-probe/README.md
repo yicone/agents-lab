@@ -22,16 +22,16 @@ different:
 ## Scripts
 
 Scripts live in
-[scripts/api-gateway-cache-probe](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe).
+[`../../scripts/api-gateway-cache-probe`](../../scripts/api-gateway-cache-probe).
 
-- [openai_compat_cache_probe.py](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/openai_compat_cache_probe.py)
+- [openai_compat_cache_probe.py](../../scripts/api-gateway-cache-probe/openai_compat_cache_probe.py)
   tests OpenAI-compatible chat completions and summarizes `cached_tokens`
-- [anthropic_compat_cache_probe.py](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/anthropic_compat_cache_probe.py)
+- [anthropic_compat_cache_probe.py](../../scripts/api-gateway-cache-probe/anthropic_compat_cache_probe.py)
   tests Anthropic-style caching hints over an OpenAI-compatible client wrapper
-- [compare_knostar_base_urls.py](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/compare_knostar_base_urls.py)
+- [compare_knostar_base_urls.py](../../scripts/api-gateway-cache-probe/compare_knostar_base_urls.py)
   compares a root gateway URL and a `/v1` API URL to catch documentation or
   routing mismatches
-- [claude_code_gateway_cache_probe.sh](/Users/tr/Workspace/agents-lab/scripts/api-gateway-cache-probe/claude_code_gateway_cache_probe.sh)
+- [claude_code_gateway_cache_probe.sh](../../scripts/api-gateway-cache-probe/claude_code_gateway_cache_probe.sh)
   runs Claude Code itself against a gateway and records both JSON results and
   per-attempt debug logs
 
@@ -70,8 +70,8 @@ after the run if you changed it for the probe.
 ## Current Knostar Notes
 
 The current working notes for `knostarrouter.com` are in
-[knostarrouter-findings.md](/Users/tr/Workspace/agents-lab/docs/api-gateway-cache-probe/knostarrouter-findings.md).
+[knostarrouter-findings.md](knostarrouter-findings.md).
 
 Known local run artifacts are kept outside the repo. The Claude Code run from
 2026-05-13 is in
-[/private/tmp/claude-code-cache-probe-20260513-150334](/private/tmp/claude-code-cache-probe-20260513-150334).
+`/private/tmp/claude-code-cache-probe-20260513-150334`.
