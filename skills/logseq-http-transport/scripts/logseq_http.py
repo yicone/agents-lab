@@ -36,7 +36,11 @@ class LogseqTransportConnectionError(LogseqTransportError):
 
 
 def _load_token_from_logseq_app_config() -> str:
-    config_path = Path.home() / "Library" / "Application Support" / "Logseq" / "configs.edn"
+    explicit_path = os.environ.get("LOGSEQ_CONFIG_PATH", "").strip()
+    if explicit_path:
+        config_path = Path(explicit_path).expanduser()
+    else:
+        config_path = Path.home() / "Library" / "Application Support" / "Logseq" / "configs.edn"
     if not config_path.exists():
         return ""
 
@@ -64,20 +68,9 @@ class LogseqHTTPTransport:
         if not self.token:
             raise LogseqTransportAuthError("No Logseq API token is available.")
 
-        request = urllib.request.Request(
-            f"{self.url}/api",
-            data=json.dumps({"method": method, "args": args or []}).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.token}",
-            },
-            method="POST",
-        )
-
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                payload = json.loads(response.read().decode())
-                return self._normalize_payload(payload)
+            payload = self._send_request(method, args)
+            return self._normalize_payload(payload)
         except urllib.error.HTTPError as exc:
             if exc.code == 401:
                 raise LogseqTransportAuthError("Invalid Logseq API token.") from exc
@@ -154,6 +147,16 @@ class LogseqHTTPTransport:
         if not self.token:
             raise LogseqTransportAuthError("No Logseq API token is available.")
 
+        try:
+            return self._send_request(method, args)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                raise LogseqTransportAuthError("Invalid Logseq API token.") from exc
+            raise LogseqTransportConnectionError(f"HTTP error {exc.code}: {exc.reason}") from exc
+        except urllib.error.URLError as exc:
+            raise LogseqTransportConnectionError(f"Connection failed: {exc.reason}") from exc
+
+    def _send_request(self, method: str, args: Optional[list[Any]] = None) -> Any:
         request = urllib.request.Request(
             f"{self.url}/api",
             data=json.dumps({"method": method, "args": args or []}).encode(),
@@ -163,16 +166,8 @@ class LogseqHTTPTransport:
             },
             method="POST",
         )
-
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                return json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:
-            if exc.code == 401:
-                raise LogseqTransportAuthError("Invalid Logseq API token.") from exc
-            raise LogseqTransportConnectionError(f"HTTP error {exc.code}: {exc.reason}") from exc
-        except urllib.error.URLError as exc:
-            raise LogseqTransportConnectionError(f"Connection failed: {exc.reason}") from exc
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.loads(response.read().decode())
 
     @staticmethod
     def _describe_payload_shape(payload: Any) -> str:

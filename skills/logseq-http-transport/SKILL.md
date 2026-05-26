@@ -55,7 +55,8 @@ Pair or hand off to:
 - Token source priority:
   1. explicit parameter
   2. environment variable
-  3. local Logseq app config
+  3. `LOGSEQ_CONFIG_PATH`
+  4. local Logseq app config on this machine's default path
 
 ## Minimum Interface
 

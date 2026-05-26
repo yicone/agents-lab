@@ -39,10 +39,13 @@ bw get template item \
 Create a login item:
 
 ```bash
+read -rs BW_SECRET_PASSWORD
+echo
 bw get template item \
-  | jq '.type=1 | .name="GitHub / yicone@gmail.com" | .login.username="yicone@gmail.com" | .login.password="..." | .login.uris=[{"match":0,"uri":"https://github.com"}]' \
+  | jq --arg password "$BW_SECRET_PASSWORD" '.type=1 | .name="GitHub / yicone@gmail.com" | .login.username="yicone@gmail.com" | .login.password=$password | .login.uris=[{"match":0,"uri":"https://github.com"}]' \
   | bw encode \
   | bw create item
+unset BW_SECRET_PASSWORD
 ```
 
 Create a generic secret note with tags:
