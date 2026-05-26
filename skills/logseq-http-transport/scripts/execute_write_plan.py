@@ -71,7 +71,11 @@ def preview_operations(plan: WritePlan) -> list[dict[str, Any]]:
     })
     target_ref = f"page:{plan.page_title}"
     target_mode = plan.append_mode
-    if plan.destination_kind == "note-update" and plan.append_mode == "section-heading":
+    if (
+        plan.destination_kind == "note-update"
+        and plan.append_mode == "section-heading"
+        and plan.target_section_heading
+    ):
         target_ref = f"section:{plan.target_section_heading}"
         ops.append(
             {
@@ -81,6 +85,8 @@ def preview_operations(plan: WritePlan) -> list[dict[str, Any]]:
                 "fallback": "page-end",
             }
         )
+    elif plan.destination_kind == "note-update" and plan.append_mode == "section-heading":
+        target_mode = "page-end"
     for block in plan.blocks:
         _preview_block_ops(block, parent_ref=target_ref, ops=ops, root_append_mode=target_mode)
     return ops

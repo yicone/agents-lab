@@ -8,9 +8,9 @@ Use the official Bitwarden CLI to write items into self-hosted Vaultwarden.
 - `bw status`
 - `bw config server`
 
-Expected server for this environment:
+Before creating anything, verify that `bw config server` points to your intended Vaultwarden instance. Example:
 
-- `https://bw.yic.one`
+- `https://vaultwarden.example.com`
 
 ## Authentication Guidance
 
@@ -42,7 +42,7 @@ Create a login item:
 read -rs BW_SECRET_PASSWORD
 echo
 bw get template item \
-  | jq --arg password "$BW_SECRET_PASSWORD" '.type=1 | .name="GitHub / yicone@gmail.com" | .login.username="yicone@gmail.com" | .login.password=$password | .login.uris=[{"match":0,"uri":"https://github.com"}]' \
+  | jq --arg password "$BW_SECRET_PASSWORD" '.type=1 | .name="GitHub / user@example.com" | .login.username="user@example.com" | .login.password=$password | .login.uris=[{"match":0,"uri":"https://github.com"}]' \
   | bw encode \
   | bw create item
 unset BW_SECRET_PASSWORD

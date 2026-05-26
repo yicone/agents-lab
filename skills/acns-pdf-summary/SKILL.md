@@ -39,7 +39,7 @@ Possible destinations:
 ## Output Guidance
 
 When creating a new page, choose namespace based on actual ownership:
-- topic or knowledge reference -> likely `I-/P-/A-/F-/E--RES`
+- topic or knowledge reference -> likely `I-/P-/A-/F-/E-RES`
 - project-bound reading note -> possibly project-related RES or linked from the project page
 
 ## Logseq PDF Highlight Format
