@@ -59,11 +59,17 @@ Do not use this skill as the main decision layer when:
 
 ## Coordination Boundary
 
+Vault-local agents also load vault `AGENTS.md` first for file-path / Edit / 禁止事项 / ops. This skill must not contradict AGENTS on shared semantic rules; file `%2F` disk ops are AGENTS-owned.
+
+Vault ops / skills-runtime details live in vault `AGENTS-ops.md` / `[[OS-RES/Vault Agent 运维附录]]`, not in the AGENTS notes core.
+
 Use `logseq-acns-vault` to decide:
 - whether content belongs in the vault at all
 - which page owns it
 - which namespace and page type fit
 - whether the destination should be `Inbox`, `Journals`, `AREA`, `PROJ`, `RES`, or `LOG`
+
+If destination ownership is already known and the content is a one-liner, use **Fast Path** below — skip remaining vault decisions and hand off to `logseq-acns-write` (`fast-append` / `inbox`).
 
 If the task already clearly belongs in the vault and the next problem is building an ACNS-compliant write payload, pair or hand off to:
 - `logseq-acns-write`
@@ -159,6 +165,8 @@ Once a task becomes today's real focus:
 
 ## Required Conventions
 
+Inbox field schema lives in vault `AGENTS.md` + `acns-inbox` (do not duplicate enums here).
+
 ### Minimal Properties for New Structured Pages
 
 For most new namespaced pages, start with:
@@ -248,6 +256,29 @@ Use LOG for:
 - time-bound conclusions
 
 If the main value is "why we decided this", it likely belongs in a LOG.
+
+## Fast Path (known ownership, one-liner)
+
+Use this when friction would hurt more than ceremony helps.
+
+**Eligible when all are true:**
+- destination page (or layer) is already known: existing Logseq page title, today's `Journals`, or clear `[[Inbox]]` parking
+- content is one short bullet / one sentence (single block; no multi-section body)
+- not creating a new long-term `AREA` / `PROJ` structure
+- not a confirmed project delivery action that belongs in Notion
+
+**Then:**
+1. Skip the rest of vault semantic deliberation (do not re-run bare-vs-namespace / full Write Workflow).
+2. Hand off directly to `logseq-acns-write` with `intent_type: fast-append` (or `inbox` if parking in Inbox).
+3. Execute via `logseq-http-transport` (or AGENTS file Edit if already on the disk path).
+
+**Still forbidden on the fast path:**
+- dumping transient tasks into AREA hubs
+- stuffing multiple headings/lists into one block
+- inventing third-party namespaces (`Claude Notes/`, etc.)
+- leaving confirmed Notion delivery actions only in Logseq
+
+If ownership is unclear, content needs structure, or a new durable page might be required → leave the fast path and use the full vault → write → transport stack.
 
 ## Write Workflow
 

@@ -92,6 +92,8 @@ def build_write_plan(
         return _build_inbox_plan(title, summary, related, metadata, body_sections)
     if intent_type == "note-update":
         return _build_note_update_plan(title, summary, related, metadata, body_sections)
+    if intent_type == "fast-append":
+        return _build_fast_append_plan(title, summary, related, metadata, body_sections)
 
     raise ValueError(f"Unsupported intent_type: {intent_type}")
 
@@ -185,6 +187,44 @@ def _build_note_update_plan(
         warnings.append("section-heading append_mode requires target_section_heading; falling back to page-end.")
         append_mode = "page-end"
     return WritePlan("note-update", title, props, False, append_mode, target_section_heading, blocks, warnings)
+
+
+def _build_fast_append_plan(
+    title: str,
+    summary: str,
+    related: list[str],
+    metadata: dict[str, Any],
+    body_sections: list[dict[str, Any]],
+) -> WritePlan:
+    """Known-ownership one-liner: append one block to an existing page."""
+    page_title = title.strip()
+    line = summary.strip()
+    append_mode = str(metadata.get("append_mode", "page-end")).strip() or "page-end"
+    target_section_heading = str(metadata.get("target_section_heading", "")).strip() or None
+
+    blocks: list[BlockNode] = []
+    if line:
+        blocks.append(BlockNode(content=line))
+
+    warnings: list[str] = []
+    if not page_title:
+        warnings.append("fast-append requires an existing page title.")
+    if not line:
+        warnings.append("fast-append requires a non-empty one-liner summary.")
+    if body_sections:
+        warnings.append("fast-append ignores body_sections; use note-update for multi-section writes.")
+    if related:
+        warnings.append("fast-append does not write related into page properties; weave links into the one-liner if needed.")
+    if append_mode not in {"page-end", "section-heading"}:
+        warnings.append(f"Unsupported append_mode '{append_mode}', falling back to page-end.")
+        append_mode = "page-end"
+        target_section_heading = None
+    if append_mode == "section-heading" and not target_section_heading:
+        warnings.append("section-heading append_mode requires target_section_heading; falling back to page-end.")
+        append_mode = "page-end"
+
+    # No new page properties on the fast path — preserve existing page schema.
+    return WritePlan("fast-append", page_title, {}, False, append_mode, target_section_heading, blocks, warnings)
 
 
 def _sections_to_blocks(body_sections: list[dict[str, Any]]) -> list[BlockNode]:

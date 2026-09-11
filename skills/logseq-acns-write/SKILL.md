@@ -31,6 +31,8 @@ It must not own:
 
 Use `logseq-acns-write` when the destination is already known or can be decided through ACNS write rules and the immediate need is to build a valid write plan.
 
+For **Fast Path** (known page + one-liner), prefer `intent_type: fast-append`: skip vault deliberation, do not create pages, emit a single block, then hand to `logseq-http-transport`.
+
 If page ownership, namespace choice, or system-layer placement is still unclear, pair or defer first to:
 - `logseq-acns-vault`
 
@@ -71,6 +73,14 @@ A write plan with:
 - `log`
 - `inbox`
 - `note-update`
+- `fast-append` — known existing page (or Inbox/Journal title), one block only; `page_should_create=false`; minimal/no new page properties
+
+### `fast-append` rules
+
+- Required: non-empty `title` (existing page) and non-empty `summary` (the one-liner)
+- Optional: `related` (ignored for page props on fast path; may be woven into the block text by the caller)
+- Do not invent headings or multi-section `body_sections` on this path; if sections are needed, use `note-update` instead
+- Warnings if title empty, summary empty, or body_sections non-empty (suggest `note-update`)
 
 ## Implementation Entry
 

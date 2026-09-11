@@ -1,6 +1,6 @@
 ---
 name: acns-inbox
-description: Use when the user wants to capture ideas, tasks, questions, or info into the ACNS global Inbox for later triage and routing.
+description: Use when the user wants to capture ideas, tasks, questions, or info into the ACNS global Inbox for later triage and routing. If ownership is already known, prefer the Logseq fast-append path (logseq-acns-vault Fast Path) instead of Inbox.
 metadata:
   owner: agents-lab
   scope: repo
@@ -20,11 +20,12 @@ Its role is:
 3. preserve enough context for later routing
 4. avoid premature system spread
 
-Read these before acting when relevant:
+Read when ownership is unclear or routing is non-trivial:
 - `pages/Inbox.md`
-- `pages/OS-AREA%2F信息管理%2FAI处理Inbox工作流.md`
-- `pages/OS-RES%2FAI 信息管家运行规则 v1.md`
 - `AGENTS.md`
+- (optional deeper) `pages/OS-AREA%2F信息管理%2FAI处理Inbox工作流.md`, `pages/OS-RES%2FAI 信息管家运行规则 v1.md`
+
+For a known-ownership one-liner, skip these reads and use Fast Path above.
 
 ## Core Principle
 
@@ -41,6 +42,20 @@ Do not use Inbox as a reflex when the item is already a clearly defined project 
 Rule:
 - unclear global capture -> `[[Inbox]]`
 - clear project delivery action in an existing project context -> usually `Notion` project task pool, not `Inbox`
+
+
+## Fast Path (skip Inbox ceremony)
+
+If the user already names an existing Logseq page / today's Journal / a clear Notion delivery task, **do not** force Inbox.
+
+| Known destination | Action |
+|---|---|
+| Existing Logseq page + one sentence | `logseq-acns-write` `fast-append` → transport (skip vault deliberation) |
+| Today's focus / execution slice | append to `Journals` via `fast-append` |
+| Confirmed project delivery | Notion task pool — not Inbox, not Logseq task dump |
+| Ownership still unclear | stay on this Inbox skill (minimal metadata below) |
+
+For unclear one-liners into Inbox: write one block with light metadata only — do not over-read reference pages or invent structure.
 
 ## Workflow
 
