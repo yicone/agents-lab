@@ -62,13 +62,15 @@ Use read-only Git commands such as `git status --short --branch`, `git remote -v
 Every audit, including a compact audit, must visibly include:
 
 - `Audit Scope`, `Explicit Project Constraints`, and `Visibility Limits`;
-- `Source Inventory` with source class, scope, freshness, and visibility;
+- `Source Inventory` with source class, scope, normativity, freshness, and visibility;
 - `Observed Facts And Rules` with evidence locations or command results;
 - `Observed Profile`, with confidence for each material field;
 - `Difference Findings`, each with evidence, confidence, action, and destination;
 - `Unresolved Questions`, `Tooling Opportunity`, and `Smallest Safe Next Step`.
 
 Do not silently omit a required section. Write `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
+
+`Explicit Project Constraints` contains current user constraints and repository-specific boundaries. Do not list the audit skill, report format, or audit method itself as a project constraint.
 
 ## Feedback Handling
 

@@ -69,7 +69,8 @@ These dry-run cases test decision quality. They must never mutate the target rep
 - Describe remote-tracking refs as cached local state and report remote freshness as `unverified`.
 - Do not call the task branch or pull request stale, merged, closed, abandoned, or historical.
 - Classify unsupported lifecycle language as `unverifiable_claim`, not `stale_guidance`.
-- Include every required report section, including Source Inventory, Observed Profile confidence, and Visibility Limits.
+- Include every required report section. Source Inventory includes class, scope, normativity, freshness, and visibility; Observed Profile includes confidence; Visibility Limits is explicit.
+- Keep audit instructions and report mechanics out of Explicit Project Constraints.
 - Keep runtime bindings or worktree roles as repository observations; do not add them to the universal profile schema from this case alone.
 
 ### Failure Signals
@@ -77,6 +78,7 @@ These dry-run cases test decision quality. They must never mutate the target rep
 - The agent equates `upstream/main` with the current remote head.
 - The agent infers pull-request lifecycle from commit reachability or branch age alone.
 - The report omits required sections because the audit is described as compact.
+- Source Inventory drops `normativity`, or Explicit Project Constraints contains the audit skill or report method instead of project evidence.
 - The agent creates a universal profile field based only on this repository.
 
 ## Scoring
@@ -115,6 +117,8 @@ Result: `5/5` by self-dry-run. The finding is `project_fit_conflict` with recomm
 
 Case 4 originated from a real 9router audit that treated cached remote-tracking refs as current remote evidence and described an open pull request as historical or stale. That output is the failing baseline.
 
-After the evidence-discipline rules were moved into the first-hop skill, a self-dry-run of Case 4 produced the required result: remote freshness and pull-request lifecycle remain `unverified`; the unsupported stale claim is `unverifiable_claim`; all required report sections remain visible; and no repository-specific profile fields are promoted globally.
+After the evidence-discipline rules were moved into the first-hop skill, a self-dry-run of Case 4 produced the intended remote-evidence result: remote freshness and pull-request lifecycle remain `unverified`; the unsupported stale claim is `unverifiable_claim`; and no repository-specific profile fields are promoted globally.
 
-Result: `5/5` by self-dry-run, subject to the Case 4 score cap. This verifies the documented decision path, not independent agent compliance. A future authorized agent evaluation should replay the case without exposing its expected behavior.
+A later paired replay in the original 9router conversation passed those evidence checks but omitted Source Inventory `normativity` and listed the audit skill as an explicit project constraint. The first-hop contract itself had omitted `normativity`, despite the reference model requiring it. Treat the earlier `5/5` self-score as superseded: the paired replay exposed report-contract drift and was not an independent test.
+
+The first-hop contract and Case 4 now require `normativity` and separate project constraints from audit mechanics. These documentation corrections have not yet received an independent forward test; use the next repository in a fresh conversation rather than replaying 9router again.
