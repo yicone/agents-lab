@@ -40,12 +40,12 @@ Any mutation requires a separate, explicitly approved task.
 
 1. Define the repository root, requested scope, and explicit user constraints.
 2. Inventory relevant instruction files, skills, directly linked docs, Git facts, and deployment or runtime files that change branch meaning.
-3. Record every source with path, scope, source class, and visibility status.
+3. Record every source with path, scope, source class, normativity, freshness, and visibility status. Every source used by a finding must appear in the inventory, including prior conversations, memories, global skills, and inferred runtime facts.
 4. Separate normative rules, observed facts, current state, examples, and inference.
 5. Build the short **observed profile** before proposing a desired profile.
 6. Compare sources with any candidate profile, or with the evidence-supported proposal when no candidate exists, and classify each difference using [references/audit-model.md](references/audit-model.md).
 7. Recommend `keep`, `rewrite`, `move`, `retire`, `enforce_mechanically`, `narrow_global_default`, or `clarify`; never apply the recommendation during the audit.
-8. Assess whether repeated deterministic findings justify evaluating `agentslint`, `agnix`, or another checker; do not recommend tooling for unresolved semantic judgment.
+8. Assess whether repeated deterministic findings justify evaluating `agentslint`, `agnix`, or another checker; do not recommend tooling for unresolved semantic judgment. Consult the dated [tooling evaluation](references/tooling-evaluation.md) before claiming one of these tools validates audit output.
 9. End with unresolved questions and the smallest safe next step.
 
 Use read-only Git commands such as `git status --short --branch`, `git remote -v`, `git branch --all --verbose --no-abbrev`, `git worktree list --porcelain`, and relevant `git config --get` queries. Do not fetch or contact remotes unless the user separately requests current remote state.
@@ -68,9 +68,15 @@ Every audit, including a compact audit, must visibly include:
 - `Difference Findings`, each with evidence, confidence, action, and destination;
 - `Unresolved Questions`, `Tooling Opportunity`, and `Smallest Safe Next Step`.
 
-Do not silently omit a required section. Write `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
+Do not silently omit a required section or compress required Source Inventory fields into ambiguous prose. Write one complete record per source and use `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
 
-`Explicit Project Constraints` contains current user constraints and repository-specific boundaries. Do not list the audit skill, report format, or audit method itself as a project constraint.
+`Explicit Project Constraints` contains normative current user constraints and repository-specific boundaries. Put repository facts and temporary state under `Observed Facts And Rules`. Do not list the audit skill, report format, or audit method itself as a project constraint; write `none discovered` when no normative constraint was found.
+
+## Scope And Attribution Checks
+
+- Distinguish the workspace or Codex project root, the target Git repository root, and any narrower audit scope. A non-Git parent containing multiple repositories is not the target repository.
+- A global skill is evidence only when it is visible and relevant. Do not apply or attribute its requirements to this audit skill; inventory it explicitly and assess project fit first.
+- The existence of `.worktrees/` or `worktrees/` does not prove that the directory is adopted, preferred, safe, or required. Require an applicable rule, an actual linked worktree, or other project evidence before reporting a location policy or enforcement gap.
 
 ## Feedback Handling
 
@@ -78,4 +84,4 @@ When the user resolves a finding, classify the decision as repository-specific, 
 
 ## Validation
 
-Use [regression-tests.md](regression-tests.md) when this skill changes materially. The global-default-versus-project-fit and cached-remote-lifecycle cases are mandatory.
+Use [regression-tests.md](regression-tests.md) when this skill changes materially. The global-default-versus-project-fit, cached-remote-lifecycle, and local-runtime-fork-scope cases are mandatory.

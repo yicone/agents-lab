@@ -42,6 +42,8 @@ Start with directly relevant sources:
 
 Use `rg` and explicit paths. Do not recursively ingest every prose file by default. List skipped or inaccessible source classes in the report.
 
+Every source cited or relied on by a finding must have its own complete Source Inventory record. This includes global skills, previous conversation evidence, memory results, and user statements. Do not cite a rule under the audit skill when it actually came from another skill.
+
 ## 3. Separate Evidence Kinds
 
 Classify each extracted statement as one of:
@@ -74,6 +76,22 @@ environment_coupling: none | local-runtime | docker | test-server | preview | pr
 The observed profile describes evidence. A proposed profile is a separate section.
 
 Do not prescribe agent-branded branch prefixes. Report existing naming and prefer purpose-based names only when making a proposal and no project convention says otherwise.
+
+`worktree_location` describes an evidenced preferred or authorized location, not merely an empty directory that happens to exist. Put actual current and historical worktree paths in Observed Facts; use `unspecified` when no location policy is evidenced.
+
+`branch_families` contains normalized semantic roles from the listed vocabulary. Put literal branch names, prefixes such as `fix-*`, and tags in Observed Facts. Do not treat release tags as branch families.
+
+### Conditional Extension Candidates
+
+For a fork that may replace an upstream-installed local runtime, observe these candidates without adding them to the required core profile:
+
+```text
+upstream_base_sync: mirror | periodic-sync | manual | unknown
+local_patch_flow: none | upstream-contribution | persistent-local | mixed | unknown
+runtime_binding: upstream-install | fork-main | patch-branch | worktree | unknown
+```
+
+These are experimental `local-runtime-fork` observations. Promote them into a stable conditional extension only after independent testing across more than one project archetype.
 
 ## 5. Difference Types
 
@@ -119,7 +137,7 @@ Explicit Project Constraints:
 Visibility Limits:
 
 Source Inventory:
-- source, class, scope, normativity, freshness
+- source, class, scope, normativity, freshness, visibility
 
 Observed Facts And Rules:
 - statement

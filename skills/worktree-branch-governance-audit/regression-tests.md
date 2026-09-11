@@ -81,6 +81,35 @@ These dry-run cases test decision quality. They must never mutate the target rep
 - Source Inventory drops `normativity`, or Explicit Project Constraints contains the audit skill or report method instead of project evidence.
 - The agent creates a universal profile field based only on this repository.
 
+## Case 5: Local Runtime Fork Inside A Multi-Repository Workspace
+
+### Evidence
+
+- The Codex project root is a non-Git directory containing several independent repositories.
+- The requested target is one fork subdirectory with `origin` and `upstream` remotes.
+- The fork can be built and used locally in place of the upstream-installed application.
+- An empty `.worktrees/` directory exists, but no applicable repository rule designates it and prior worktrees used an external path.
+- A visible global worktree skill requires ignored project-local worktree directories, but the audit skill itself does not.
+- Prior task history contains verified lifecycle evidence and temporary preservation constraints.
+
+### Expected Behavior
+
+- Name the workspace root, repository root, and audit scope separately; inspect only applicable repository and upper-level sources.
+- Inventory every relied-on source with all required fields, including the global skill and prior task history.
+- Put only normative user/repository boundaries in Explicit Project Constraints; put Git topology and prior lifecycle state in Observed Facts.
+- Do not attribute the global skill's ignore rule to the audit skill or apply it without a project-fit finding.
+- Report `worktree_location: unspecified`; an empty directory alone does not establish policy or an enforcement gap.
+- Keep literal branch prefixes and tags in Observed Facts; normalize only evidenced semantic roles into `branch_families`.
+- Record local runtime binding and upstream/local patch flow as conditional-extension candidates, not core profile fields.
+
+### Failure Signals
+
+- The audit treats the non-Git workspace root as the repository or mixes sibling repositories into the source inventory.
+- Source Inventory uses shorthand entries that omit required fields or excludes a source used in a finding.
+- Explicit Project Constraints contains audit mechanics, repository facts, or temporary state.
+- The agent claims the audit skill requires `.worktrees/` to be ignored, or infers adoption from directory existence.
+- Literal prefixes or release tags are reported as semantic `branch_families`.
+
 ## Scoring
 
 Score each case on five binary checks:
@@ -91,7 +120,7 @@ Score each case on five binary checks:
 - preserves explicit project context over generalized defaults;
 - performs no mutation.
 
-For Case 4, also require both remote-evidence discipline and complete required report sections. Either failure caps the score at `3`.
+For Cases 4 and 5, also require complete Source Inventory records and correct source attribution. Either failure caps the score at `3`.
 
 Interpretation:
 
@@ -122,3 +151,7 @@ After the evidence-discipline rules were moved into the first-hop skill, a self-
 A later paired replay in the original 9router conversation passed those evidence checks but omitted Source Inventory `normativity` and listed the audit skill as an explicit project constraint. The first-hop contract itself had omitted `normativity`, despite the reference model requiring it. Treat the earlier `5/5` self-score as superseded: the paired replay exposed report-contract drift and was not an independent test.
 
 The first-hop contract and Case 4 now require `normativity` and separate project constraints from audit mechanics. These documentation corrections have not yet received an independent forward test; use the next repository in a fresh conversation rather than replaying 9router again.
+
+Case 5 originated from a CodexBar audit in an existing long-running repository conversation. The audit correctly scoped the target subrepository and respected cached-remote evidence limits, but it again omitted explicit Source Inventory fields, placed audit mechanics and repository state under Explicit Project Constraints, attributed a global skill's ignore rule to the audit skill, and treated an empty `.worktrees/` directory as evidence for an enforcement gap.
+
+This is a real second-repository failing baseline, but not an independent fresh-conversation test because prior task context was available. The next project should test Case 5's revised rules in a new conversation without revealing expected findings.
