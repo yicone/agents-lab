@@ -14,6 +14,8 @@ This note is a lightweight index for the core governance workflows.
   - for deciding whether a local or project-scoped skill should be generalized and promoted to global scope
 - `skills-governance-audit`
   - for read-only scanning of ownership drift, conflict signals, provenance gaps, and naming-taxonomy issues before choosing another workflow
+- `worktree-branch-governance-audit`
+  - for read-only reconciliation of branch and worktree guidance against project-specific evidence, including global-default fit, upstream topology, deployment coupling, and rule placement
 
 ## Decision Shortcut
 
@@ -22,6 +24,7 @@ This note is a lightweight index for the core governance workflows.
 - If the skill is self-authored and should be maintained locally -> use `skills-intake-local`
 - If the user explicitly wants broader reuse/global availability -> use `skills-promote-global`
 - If the first question is “what is going on in this skill set?” -> use `skills-governance-audit`
+- If the question is whether branch or worktree rules fit a repository, conflict across AGENTS.md/skills/docs, or belong at another scope -> use `worktree-branch-governance-audit`
 
 ## Related Principles
 
