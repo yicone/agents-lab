@@ -24,7 +24,7 @@ For every relevant source, record:
 | `scope` | user, repository, subtree, task, runtime adapter, or external |
 | `normativity` | required, recommended, example, current state, historical, or unknown |
 | `visibility` | read, inaccessible, not discovered, or runtime-dependent |
-| `freshness` | current, dated, suspected stale, or unknown |
+| `freshness` | current, dated, suspected stale, or unknown; for remotes, state whether freshness was remotely verified |
 
 Do not infer one universal precedence model across agent runtimes. Record known runtime semantics and unresolved precedence explicitly. Subject to system safety and permissions, an explicit current user decision about the target repository is stronger project-fit evidence than a generalized global default.
 
@@ -53,6 +53,8 @@ Classify each extracted statement as one of:
 - **Inference:** an analyst conclusion derived from other evidence.
 
 Never promote state or examples into durable rules without explicit evidence.
+
+A local remote-tracking ref is cached local state. It may establish what was last fetched, but it cannot establish the remote's current head or a pull request's lifecycle. Label those claims `unknown` or `unverified` unless an authoritative remote source was checked.
 
 ## 4. Short Observed Profile
 
@@ -89,6 +91,8 @@ Do not prescribe agent-branded branch prefixes. Report existing naming and prefe
 | `naming_coupling` | A repository convention is unnecessarily tied to one agent or runtime. |
 
 Semantic findings are candidates, not automatic verdicts. State confidence as `high`, `medium`, or `low` and explain what would change the conclusion.
+
+Do not use `stale_guidance` merely because evidence is old or absent. Use it only when newer evidence demonstrates drift; otherwise use `unverifiable_claim` or record an unresolved question.
 
 ## 6. Placement Actions
 

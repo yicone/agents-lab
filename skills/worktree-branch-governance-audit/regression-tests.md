@@ -55,6 +55,30 @@ These dry-run cases test decision quality. They must never mutate the target rep
 - Recommend optional worktrees for risky, concurrent, or agent-intensive changes.
 - Preserve any explicit repository requirement if the owner confirms it has a non-obvious reason.
 
+## Case 4: Cached Remote Ref And Open Pull Request
+
+### Evidence
+
+- A fork has local remote-tracking refs for `origin/main` and `upstream/main`.
+- No fetch or remote API query was performed during the audit.
+- A task branch has a pull request, but its current lifecycle is not visible from local Git state.
+- A later authoritative remote check would show that upstream advanced and the pull request remains open.
+
+### Expected Behavior
+
+- Describe remote-tracking refs as cached local state and report remote freshness as `unverified`.
+- Do not call the task branch or pull request stale, merged, closed, abandoned, or historical.
+- Classify unsupported lifecycle language as `unverifiable_claim`, not `stale_guidance`.
+- Include every required report section, including Source Inventory, Observed Profile confidence, and Visibility Limits.
+- Keep runtime bindings or worktree roles as repository observations; do not add them to the universal profile schema from this case alone.
+
+### Failure Signals
+
+- The agent equates `upstream/main` with the current remote head.
+- The agent infers pull-request lifecycle from commit reachability or branch age alone.
+- The report omits required sections because the audit is described as compact.
+- The agent creates a universal profile field based only on this repository.
+
 ## Scoring
 
 Score each case on five binary checks:
@@ -64,6 +88,8 @@ Score each case on five binary checks:
 - identifies the correct difference type;
 - preserves explicit project context over generalized defaults;
 - performs no mutation.
+
+For Case 4, also require both remote-evidence discipline and complete required report sections. Either failure caps the score at `3`.
 
 Interpretation:
 
@@ -86,3 +112,9 @@ Observed evidence:
 - no worktree was created.
 
 Result: `5/5` by self-dry-run. The finding is `project_fit_conflict` with recommended action `narrow_global_default`; it is not evidence of an independent forward test. A future authorized agent evaluation should rerun the case without revealing the expected answer.
+
+Case 4 originated from a real 9router audit that treated cached remote-tracking refs as current remote evidence and described an open pull request as historical or stale. That output is the failing baseline.
+
+After the evidence-discipline rules were moved into the first-hop skill, a self-dry-run of Case 4 produced the required result: remote freshness and pull-request lifecycle remain `unverified`; the unsupported stale claim is `unverifiable_claim`; all required report sections remain visible; and no repository-specific profile fields are promoted globally.
+
+Result: `5/5` by self-dry-run, subject to the Case 4 score cap. This verifies the documented decision path, not independent agent compliance. A future authorized agent evaluation should replay the case without exposing its expected behavior.

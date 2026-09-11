@@ -50,10 +50,30 @@ Any mutation requires a separate, explicitly approved task.
 
 Use read-only Git commands such as `git status --short --branch`, `git remote -v`, `git branch --all --verbose --no-abbrev`, `git worktree list --porcelain`, and relevant `git config --get` queries. Do not fetch or contact remotes unless the user separately requests current remote state.
 
+## Remote Evidence Discipline
+
+- A local remote-tracking ref such as `upstream/main` is a **cached ref**, not proof of current remote state.
+- Never describe a branch or pull request as `stale`, merged, closed, abandoned, superseded, or current without lifecycle evidence from the remote service or another authoritative source.
+- When remote access was not requested, available, or performed, report remote freshness and lifecycle as `unknown` or `unverified` and state the visibility limit.
+- `stale_guidance` requires evidence that the guidance no longer matches reality. Use `unverifiable_claim` when the problem is missing evidence rather than demonstrated drift.
+
+## Required Report Sections
+
+Every audit, including a compact audit, must visibly include:
+
+- `Audit Scope`, `Explicit Project Constraints`, and `Visibility Limits`;
+- `Source Inventory` with source class, scope, freshness, and visibility;
+- `Observed Facts And Rules` with evidence locations or command results;
+- `Observed Profile`, with confidence for each material field;
+- `Difference Findings`, each with evidence, confidence, action, and destination;
+- `Unresolved Questions`, `Tooling Opportunity`, and `Smallest Safe Next Step`.
+
+Do not silently omit a required section. Write `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
+
 ## Feedback Handling
 
 When the user resolves a finding, classify the decision as repository-specific, reusable cross-repository guidance, runtime adapter behavior, or deterministic enforcement. Recommend a durable destination, but do not persist the decision unless asked.
 
 ## Validation
 
-Use [regression-tests.md](regression-tests.md) when this skill changes materially. The global-default-versus-project-fit case is mandatory.
+Use [regression-tests.md](regression-tests.md) when this skill changes materially. The global-default-versus-project-fit and cached-remote-lifecycle cases are mandatory.
