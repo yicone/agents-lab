@@ -47,7 +47,7 @@ Per-Skill Records:
 - Skill: acns-inbox
   Ownership: local_custom
   Scope: target_scoped
-  Canonical Source: <skills-canonical-repo>/skills/acns-inbox
+  Canonical Source: <skills-canonical-repo>/skills/acns/acns-inbox
   Adapter Strategy: target
   Risk Summary: source_of_truth_drift
   Changes Made: moved canonical source into repo and replaced target path with adapter link

@@ -7,7 +7,7 @@ Show the minimal case where a useful local skill is still too coupled to be prom
 ## Case
 
 - `skill_name`: `acns-pdf-summary`
-- `skill_path`: `<skills-canonical-repo>/skills/acns-pdf-summary`
+- `skill_path`: `<skills-canonical-repo>/skills/acns/acns-pdf-summary`
 - `current_scope`: `target_scoped`
 - current usage:
   - adapted into the Logseq vault only
