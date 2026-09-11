@@ -1,6 +1,6 @@
 ---
 name: acns-route-inbox
-description: Use when reviewing Inbox items and deciding whether they should stay in Inbox or route into Notion, GitHub, reminder tools, Journals, or Logseq context pages.
+description: Use when reviewing Inbox items and deciding whether they should stay in Inbox or route into Notion, GitHub, reminder tools, Journals, or Logseq context pages. Placement alone is not success — apply the Content Quality Gate before routing so thin captures stay incubating.
 metadata:
   owner: agents-lab
   scope: repo
@@ -16,10 +16,13 @@ metadata:
 
 The goal is:
 1. read Inbox items
-2. identify their real object type
-3. recommend the narrowest useful destination
-4. avoid duplicate systems
-5. close the loop from capture into the real execution system
+2. apply the Content Quality Gate (thought density)
+3. identify their real object type
+4. recommend the narrowest useful destination
+5. avoid duplicate systems
+6. close the loop from capture into the real execution system
+
+Routing improves **placement**. It does not by itself raise **content quality**. Do not treat a successful move as archival quality.
 
 Read these before acting:
 - `pages/Inbox.md`
@@ -40,9 +43,41 @@ Route only when doing so improves one of these:
 
 If the best destination is still ambiguous, keep the item in `[[Inbox]]` and make the ambiguity explicit.
 
+
+## Content Quality Gate
+
+Run this **before** destination choice. Placement quality ≠ content quality.
+
+An item is **route-ready** only if it has enough thought density to be useful at the destination without the agent inventing missing meaning.
+
+### Minimum bar (need at least 2 of 3)
+
+1. **Retrievable summary** — one clear sentence stating what this is (not a vague fragment like "看看这个" / "TODO later")
+2. **Anchor** — at least one of: `related-to::` / wikilink to an existing page, project name, or explicit Notion/GitHub target
+3. **Why / next** — one short clause: why it matters, or the concrete next step
+
+### Failures → stay in Inbox as incubating
+
+If the bar fails:
+- do **not** route to Notion / GitHub / Logseq durable pages / Journals just to clear Inbox
+- set `inbox-status:: incubating` (or keep `raw` if still unclassified)
+- add `ai-note::` naming what is missing (summary / anchor / why-next)
+- optionally ask the user one sharp clarifying question; do not pad the note with invented detail
+
+### Soft exceptions (may route with a thinner body)
+
+- **Reminder layer**: short self-explanatory action + clear time trigger (still needs an unambiguous verb phrase)
+- **Journals today-slice**: already-known today's focus phrase the user just confirmed in conversation
+- Still record `ai-note::` if anchor is missing
+
+### Pass → continue Decision Order
+
+Only after the gate passes (or a soft exception applies) proceed to Action / Notion / GitHub / etc.
+
 ## Decision Order
 
 For each item, answer in this order:
+0. Does it pass the Content Quality Gate? If no → Keep in Inbox (`incubating`) and stop
 1. Is it really an `Action`
 2. If yes, is it already a clear project delivery action
 3. If yes, does it belong in GitHub or Notion
@@ -55,6 +90,7 @@ For each item, answer in this order:
 ### Keep in Inbox
 
 Use when:
+- the item fails the Content Quality Gate (thin / no anchor / no why-next)
 - the item is still ambiguous
 - the item is incubating
 - the item may become `Project`, `Area`, or `Resource` but is not ready
@@ -124,7 +160,7 @@ Rule:
 ## Output Format
 
 When reviewing a batch, group results into:
-- `留在 Inbox`
+- `留在 Inbox`（含质量门槛未过 / incubating）
 - `进入 Notion Tasks`
 - `进入 GitHub Issues`
 - `进入提醒层`
@@ -134,6 +170,7 @@ When reviewing a batch, group results into:
 
 For each item, provide:
 - original item label
+- content-quality: `pass` | `fail` | `soft-exception` (and which bar items were missing)
 - inferred object type
 - recommended destination
 - short reason

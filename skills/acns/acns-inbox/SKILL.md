@@ -57,6 +57,8 @@ If the user already names an existing Logseq page / today's Journal / a clear No
 
 For unclear one-liners into Inbox: write one block with light metadata only — do not over-read reference pages or invent structure.
 
+Capture may be thin; **routing** must not pretend thin items are done — `acns-route-inbox` Content Quality Gate keeps low-density items `incubating` until summary/anchor/why-next improve.
+
 ## Workflow
 
 1. Receive input
