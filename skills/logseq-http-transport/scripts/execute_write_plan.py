@@ -108,14 +108,14 @@ def _preview_block_ops(block: BlockNode, parent_ref: str, ops: list[dict[str, An
 
 def execute_plan(plan: WritePlan, transport: LogseqHTTPTransport) -> dict[str, Any]:
     page = transport.get_page(plan.page_title)
+    is_new_page = False
     if not page and plan.page_should_create:
         page = transport.create_page(plan.page_title, create_first_block=False)
+        is_new_page = True
     elif not page:
         raise ValueError(f"Target page does not exist and page_should_create is false: {plan.page_title}")
 
     page_uuid = page["uuid"]
-    for key, value in plan.page_properties.items():
-        transport.upsert_block_property(page_uuid, key, value)
 
     inserted = []
     anchor_parent_uuid, anchor_mode = _resolve_execution_anchor(plan, transport, page_uuid)
@@ -133,6 +133,21 @@ def execute_plan(plan: WritePlan, transport: LogseqHTTPTransport) -> dict[str, A
             previous_root_uuid = block_result["uuid"]
         inserted.append(block_result)
 
+    # Page properties must be upserted onto the page's first block, not the page uuid.
+    # Logseq UI only renders properties from the first block; upserting to the page
+    # uuid is silently accepted by the API but never shown in the UI.
+    if plan.page_properties:
+        first_block_uuid = _resolve_first_block_uuid(
+            transport, plan.page_title, is_new_page, inserted
+        )
+        if first_block_uuid:
+            for key, value in plan.page_properties.items():
+                transport.upsert_block_property(first_block_uuid, key, value)
+        else:
+            plan.warnings.append(
+                "Page properties were skipped because the page has no first block to attach them to."
+            )
+
     return {
         "page": page,
         "append_mode": plan.append_mode,
@@ -140,6 +155,25 @@ def execute_plan(plan: WritePlan, transport: LogseqHTTPTransport) -> dict[str, A
         "inserted_root_blocks": inserted,
         "warnings": plan.warnings,
     }
+
+
+def _resolve_first_block_uuid(
+    transport: LogseqHTTPTransport,
+    page_title: str,
+    is_new_page: bool,
+    inserted: list[dict[str, Any]],
+) -> str | None:
+    """Return the uuid of the page's first block.
+
+    For newly created pages, the first inserted root block is the first block.
+    For existing pages, fetch the block tree and return the first root block's uuid.
+    """
+    if is_new_page and inserted:
+        return inserted[0]["uuid"]
+    blocks = transport.get_page_blocks_tree(page_title)
+    if blocks:
+        return blocks[0].get("uuid")
+    return None
 
 
 def _resolve_execution_anchor(
