@@ -21,6 +21,7 @@ The rules here should stay tool-agnostic by default so they remain usable across
 - Skills versioning: [conventions/skills-versioning.md](conventions/skills-versioning.md)
 - Skills governance release checklist: [conventions/skills-governance-release-checklist.md](conventions/skills-governance-release-checklist.md)
 - Skills governance case prompt: [conventions/skills-governance-case-prompt.md](conventions/skills-governance-case-prompt.md)
+- Multi-repo AGENTS.md governance research: [research/agents-md-multi-repo-governance.md](research/agents-md-multi-repo-governance.md)
 - Logseq vault skill inventory stub: [conventions/logseq-vault-skill-inventory.md](conventions/logseq-vault-skill-inventory.md)
 - Memory writing format: [conventions/memory-writing.md](conventions/memory-writing.md)
 - API gateway cache probes: [api-gateway-cache-probe/README.md](api-gateway-cache-probe/README.md)
