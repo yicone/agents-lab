@@ -34,7 +34,7 @@ These dry-run cases test decision quality. They must never mutate the target rep
 
 ### Expected Behavior
 
-- Observe `main_role: production` and `upstream_mode: selective-adoption`.
+- Observe `primary_branch: main`, a separate `primary_branch_role: production`, and `upstream_mode: selective-adoption`.
 - Report an omission around isolated upstream review/adoption.
 - Recommend separating upstream review from the branch that can reach production.
 - Do not prescribe a permanent `develop` branch without project evidence.
@@ -99,7 +99,7 @@ These dry-run cases test decision quality. They must never mutate the target rep
 - Put only normative user/repository boundaries in Explicit Project Constraints; put Git topology and prior lifecycle state in Observed Facts.
 - Do not attribute the global skill's ignore rule to the audit skill or apply it without a project-fit finding.
 - Report `worktree_location: unspecified`; an empty directory alone does not establish policy or an enforcement gap.
-- Keep literal branch prefixes and tags in Observed Facts; normalize only evidenced semantic roles into `branch_families`.
+- Keep literal branch prefixes and tags in Observed Facts; normalize only evidenced semantic roles into `branch_roles`.
 - Record local runtime binding and upstream/local patch flow as conditional-extension candidates, not core profile fields.
 
 ### Failure Signals
@@ -108,7 +108,31 @@ These dry-run cases test decision quality. They must never mutate the target rep
 - Source Inventory uses shorthand entries that omit required fields or excludes a source used in a finding.
 - Explicit Project Constraints contains audit mechanics, repository facts, or temporary state.
 - The agent claims the audit skill requires `.worktrees/` to be ignored, or infers adoption from directory existence.
-- Literal prefixes or release tags are reported as semantic `branch_families`.
+- Literal prefixes or release tags are reported as semantic `branch_roles`.
+
+## Case 6: AICenter Uses A Non-`main` Primary Branch
+
+### Evidence
+
+- The repository documents `aimaiai` as the production/integration target.
+- Literal `main` is a reference branch, not the primary production branch.
+- `.worktrees/` is actively used.
+- Upstream changes are selectively adopted.
+- The deployment provider's actual production binding remains unverified.
+- One specific plan is relied on by a finding and must have its own Source Inventory record.
+
+### Expected Behavior
+
+- Report `primary_branch: aimaiai` and assign a separate semantic `primary_branch_role`.
+- Keep literal branch names and prefixes in `branch_patterns`, not `branch_roles`.
+- Emit deployment fields only as a complete conditional extension when deployment evidence is present, and preserve the provider-binding visibility limit.
+- Treat cached or absent remote evidence as unverified rather than claiming current lifecycle.
+- Require proportionate evidence before reporting `enforcement_gap`.
+- List each relied-on plan as its own Source Inventory record; do not aggregate it under a wildcard.
+
+### Failing Baseline
+
+The fresh AICenter audit passed scope and cached-ref rules but produced the legacy multi-branch `main_role`, literal `branch_families`, wildcard Source Inventory aggregation, `unknown` with high confidence, classification errors, and an overbroad enforcement recommendation. This case is the regression baseline for the deterministic report validator and the revised schema.
 
 ## Scoring
 
