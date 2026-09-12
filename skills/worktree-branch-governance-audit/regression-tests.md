@@ -150,7 +150,20 @@ For Cases 4 and 5, also require complete Source Inventory records and correct so
 
 The YR replay is a solo-maintained commercial monorepo with repository-scoped worktree rules, active sibling worktrees, and worktree-bound backend runtimes. The audit was read-only, did not contact remotes, and did not inspect deployment-system bindings. The RED baseline incorrectly treated the task-local no-worktree constraint as a project conflict, targeted a repository rule with `narrow_global_default`, labeled correct cached-ref discipline as `git_object_confusion`, emitted positive worktree alignment as `omission`, coupled runtime evidence to irrelevant upstream fields, promoted deployable-state language to production binding, invented deployment values despite visibility limits, added a second deployment confidence field, combined multiple Git sources in one row, and omitted the effective-control and proportionality fields for `enforcement_gap`.
 
-The corrected report keeps task constraints separate, uses `primary_branch_role: release-ready` absent production evidence, uses a runtime-only extension when appropriate, leaves uninspected deployment values unknown, and writes `none discovered` when no source difference is established. Any invented difference, inferred production binding, or runtime-to-fork coupling caps the score at `3`; mutation of the audited repository remains an automatic failure.
+A second independent YR replay passed the structural validator but remained semantic RED. It:
+
+- mixed the run-local read-only constraint into `Explicit Project Constraints`;
+- weakened the repository's explicit `worktree_policy: required` to `conditional` because this audit did not use a worktree;
+- inferred selective-adoption and upstream-contribution semantics from a repository with only `origin` and no qualifying upstream source;
+- concatenated API/admin and mini-program release sources into one scalar production-branch value instead of using component-specific deployment bindings and matching triggers;
+- turned correct cached-ref discipline into an `unverifiable_claim` finding whose action was `keep`;
+- classified non-Git sibling residue as a difference without a conflicting source or evidenced guidance omission;
+- grouped two Git commands in one Source Inventory row; and
+- wrote a report filename containing the literal text `$(date +%s)` instead of first resolving a concrete temporary path.
+
+The corrected report keeps task constraints separate and preserves the repository's required worktree policy regardless of how the audit itself runs. It uses `primary_branch_role: release-ready` absent production evidence, emits no fork extension without a qualifying upstream source, uses the complete component-specific deployment extension when release-source evidence supports it, and records positive alignment and unregistered sibling residue as observations unless an evidenced difference exists. Each Source Inventory row names one invocation or artifact, and the report uses a concrete path returned by `mktemp` outside the target repository. Any invented difference, inferred production binding, unsupported upstream extension, policy weakening, or runtime-to-fork coupling caps the score at `3`; target mutation, unapproved remote access, or contamination from a prior report is an automatic failure.
+
+A valid forward trial must use the record and independence requirements in [references/evaluation-protocol.md](references/evaluation-protocol.md). Validator success is required but does not turn this RED baseline into a semantic pass.
 
 Interpretation:
 

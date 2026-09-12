@@ -114,3 +114,5 @@ When the user resolves a finding, classify the decision as repository-specific, 
 ## Validation
 
 Use [regression-tests.md](regression-tests.md) when this skill changes materially. The global-default-versus-project-fit, cached-remote-lifecycle, and local-runtime-fork-scope cases are mandatory.
+
+Use [references/evaluation-protocol.md](references/evaluation-protocol.md) for independent trial records, semantic scoring, v1 release acceptance, and the post-v1 schema freeze; validator success alone is not semantic acceptance.
