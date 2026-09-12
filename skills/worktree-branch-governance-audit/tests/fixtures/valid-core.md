@@ -56,6 +56,8 @@ Remote lifecycle was not inspected.
 ### Finding 1
 
 - type: project_fit_conflict
+- baseline: The global default treats every repository as requiring the same worktree placement.
+- deviation: This repository explicitly permits direct work in its checked-out repository.
 - difference: The repository-specific rule is narrower than the global default.
 - evidence: The repository-specific rule is narrower than the global default.
 - confidence: high

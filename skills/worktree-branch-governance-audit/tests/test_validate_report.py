@@ -38,6 +38,11 @@ class ValidateReportFixturesTest(unittest.TestCase):
             "invalid-deployment-component-mismatch.md": "profile.deployment-components",
             "invalid-deployment-binding.md": "profile.invalid-deployment-binding",
             "invalid-deployment-trigger.md": "profile.invalid-deployment-trigger",
+            "invalid-finding-baseline.md": "finding.missing-field",
+            "invalid-finding-deviation.md": "finding.missing-field",
+            "invalid-finding-keep.md": "finding.invalid-action",
+            "invalid-compound-command-source.md": "source.compound",
+            "invalid-task-constraint-leak.md": "constraint.task-leak",
         }
         for name, code in expected.items():
             with self.subTest(name=name):
