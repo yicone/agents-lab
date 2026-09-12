@@ -18,13 +18,13 @@ none
 - confidence: high
 - primary_branch_role: integration
 - confidence: medium
-- direct_primary_changes: none
+- direct_primary_changes: prohibited
 - confidence: high
 - worktree_policy: optional
 - confidence: medium
 - worktree_adoption: none
 - confidence: medium
-- worktree_location: unknown
+- worktree_location: unspecified
 - confidence: low
 - branch_roles: [feature]
 - confidence: medium
