@@ -16,8 +16,8 @@ class ValidateReportFixturesTest(unittest.TestCase):
 
     def test_valid_fixtures(self):
         for name in (
-            "valid-core.md", "valid-deployment.md", "valid-no-findings.md",
-            "valid-fork-only.md", "valid-runtime-only.md",
+            "valid-core.md", "valid-deployment.md", "valid-component-deployment.md",
+            "valid-no-findings.md", "valid-fork-only.md", "valid-runtime-only.md",
         ):
             with self.subTest(name=name):
                 self.assertEqual([], self.diagnostics_for(name))
@@ -34,6 +34,10 @@ class ValidateReportFixturesTest(unittest.TestCase):
             "invalid-deployment-binding-confidence.md": "profile.unknown-key",
             "invalid-enforcement-gap-fields.md": "finding.missing-field",
             "invalid-compound-source.md": "source.compound",
+            "invalid-legacy-deployment-fields.md": "profile.unknown-key",
+            "invalid-deployment-component-mismatch.md": "profile.deployment-components",
+            "invalid-deployment-binding.md": "profile.invalid-deployment-binding",
+            "invalid-deployment-trigger.md": "profile.invalid-deployment-trigger",
         }
         for name, code in expected.items():
             with self.subTest(name=name):

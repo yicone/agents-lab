@@ -50,11 +50,9 @@ The deployment provider API was not inspected.
 - confidence: medium
 - environment_coupling: production
 - confidence: high
-- deployment_topology: single-source
+- production_branch: trunk
 - confidence: high
-- deployment_bindings: [site=branch:trunk]
-- confidence: high
-- deployment_triggers: [site=merge]
+- production_trigger: merge
 - confidence: high
 - preview_behavior: pull-request-preview
 - confidence: high

@@ -52,7 +52,7 @@ The deployment provider API was not inspected.
 - confidence: high
 - deployment_topology: single-source
 - confidence: high
-- deployment_bindings: [site=branch:trunk]
+- deployment_bindings: [site=main]
 - confidence: high
 - deployment_triggers: [site=merge]
 - confidence: high

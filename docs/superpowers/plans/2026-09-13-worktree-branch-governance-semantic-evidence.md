@@ -43,7 +43,7 @@ Use the complete new extension with adjacent confidence after every field:
 ```text
 deployment_topology: single-source
 confidence: high
-deployment_bindings: [site=branch:main]
+deployment_bindings: [site=branch:trunk]
 confidence: high
 deployment_triggers: [site=merge]
 confidence: high

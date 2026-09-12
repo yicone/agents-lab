@@ -24,7 +24,7 @@ The deployment provider API was not inspected.
 
 ## Observed Facts And Rules
 
-- Production deploys from a named branch.
+- Components have distinct release sources.
 
 ## Observed Profile
 
@@ -50,21 +50,21 @@ The deployment provider API was not inspected.
 - confidence: medium
 - environment_coupling: production
 - confidence: high
-- deployment_topology: single-source
+- deployment_topology: component-specific
 - confidence: high
-- deployment_bindings: [site=branch:trunk]
+- deployment_bindings: [api=branch:main, admin=branch:main, miniapp=branch-pattern:release/miniapp-*]
 - confidence: high
-- deployment_triggers: [site=merge]
+- deployment_triggers: [api=manual, admin=manual, miniapp=manual]
 - confidence: high
-- preview_behavior: pull-request-preview
-- confidence: high
+- preview_behavior: environment-preview
+- confidence: medium
 
 ## Difference Findings
 none discovered
 
 ## Unresolved Questions
 
-Confirm the provider's production binding.
+Confirm the provider bindings read-only.
 
 ## Tooling Opportunity
 
@@ -72,4 +72,4 @@ evaluate-now
 
 ## Smallest Safe Next Step
 
-Validate the provider binding read-only.
+Validate the provider bindings read-only.
