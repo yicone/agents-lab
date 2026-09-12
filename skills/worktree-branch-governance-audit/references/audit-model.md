@@ -86,12 +86,14 @@ Do not prescribe agent-branded branch prefixes. Report existing naming and prefe
 
 ### Conditional Fork Extension
 
-When evidence shows an upstream/fork relationship, add this complete fork extension:
+Add this complete fork extension only when an applicable rule, configured upstream remote or other explicitly identified upstream source, or authoritative project document establishes an upstream/fork relationship:
 
 ```text
 upstream_base_sync: mirror | periodic-sync | manual | unknown
 local_patch_flow: none | upstream-contribution | persistent-local | mixed | unknown
 ```
+
+One `origin` remote, third-party dependencies, generic contribution prose, and branch names that merely resemble upstream workflows are insufficient. Without qualifying evidence, use core `upstream_mode: none` when absence was directly established or `unknown` when the surface was not inspected, and omit the fork extension.
 
 ### Conditional Runtime Extension
 
@@ -108,14 +110,15 @@ Fork and runtime extensions are independent. Runtime evidence does not require f
 When evidence shows deployment behavior, add this complete conditional extension:
 
 ```text
-production_branch: <literal branch name> | unknown
-production_trigger: merge | push | tag | manual | external | unknown
-preview_behavior: none | branch-preview | pull-request-preview | mixed | unknown
+deployment_topology: single-source | component-specific | external | unknown
+deployment_bindings: [<component>=branch:<literal>, <component>=branch-pattern:<literal>, <component>=tag-pattern:<literal>, ...]
+deployment_triggers: [<component>=merge|push|tag|manual|external|unknown, ...]
+preview_behavior: none | branch-preview | pull-request-preview | environment-preview | mixed | unknown
 ```
 
-A local provider project link does not prove the production branch. “Deployable” means `release-ready` unless actual production binding is evidenced. Keep uninspected deployment values `unknown` with low or medium confidence.
+The binding and trigger lists must use non-empty, unique component keys and matching component sets. These values describe release-source policy, not proof that a live deployment succeeded. Record provider or runtime status separately with its visibility limit. A local provider project link does not prove a live production binding. “Deployable” means `release-ready` unless actual production binding is evidenced.
 
-Keep Task Execution Constraints separate from Explicit Project Constraints. Run-local read-only, no-fetch, and no-worktree instructions do not establish a project-fit conflict. Difference Findings contains only evidenced differences; use `none discovered` when there is no actual difference. An `enforcement_gap` must state `missing_effective_control` and `proportionality`.
+Keep Task Execution Constraints separate from Explicit Project Constraints. Run-local read-only, no-fetch, no-worktree, and temporary-report instructions cannot weaken `worktree_policy`, branch policy, or repository constraints and do not establish a project-fit conflict. Difference Findings contains only evidenced differences; correct cached-ref discipline and unregistered sibling directories are observations unless an applicable source creates a disagreement. Use `none discovered` when there is no actual difference. An `enforcement_gap` must state `missing_effective_control` and `proportionality`.
 
 ## 5. Difference Types
 
@@ -139,9 +142,8 @@ Do not use `stale_guidance` merely because evidence is old or absent. Use it onl
 
 ## 6. Placement Actions
 
-Recommend one action per finding:
+Recommend one action per evidenced difference:
 
-- `keep`: correct scope, owner, and level of detail;
 - `rewrite`: same location, clearer or narrower wording;
 - `move_to_repo_entry`: mandatory first-hop project boundary;
 - `move_to_project_doc`: durable explanation, facts, or rationale;
@@ -160,7 +162,7 @@ Use this shape. The Source Inventory must be a Markdown table with one complete 
 source | class | scope | normativity | freshness | visibility
 ```
 
-The profile must contain every core field and an adjacent confidence value. Conditional extensions are all-or-nothing when used. Validate a temporary draft with `scripts/validate_report.py` when available; keep it outside the audited target repository.
+The profile must contain every core field and an adjacent confidence value. Conditional extensions are all-or-nothing when used. Before writing a draft, run `report_path=$(mktemp -t branch-governance-audit)` outside the audited target repository and capture its resolved value. Use that exact path for every write, validator invocation, and final reference; never use an unexpanded shell substitution as a patch path or filename. Resolve `scripts/validate_report.py` from the actual loaded skill directory rather than the audited repository, then validate with `python3 "$validator_path" "$report_path"`.
 
 ```text
 Audit Scope:
@@ -181,6 +183,8 @@ Observed Profile:
 
 Difference Findings:
 - type:
+- baseline:
+- deviation:
   difference:
   evidence:
   confidence:
@@ -192,7 +196,9 @@ Tooling Opportunity: none | watch | evaluate-now
 Smallest Safe Next Step:
 ```
 
-Each Difference Finding requires `type`, `difference`, `evidence`, `confidence`, `recommended action`, and `proposed destination`. If `type` is `enforcement_gap`, also include `missing_effective_control` and `proportionality`. When no difference is established, use the exact value `none discovered`.
+Each Difference Finding requires `type`, `baseline`, `deviation`, `difference`, `evidence`, `confidence`, `recommended action`, and `proposed destination`. `baseline` names the applicable rule, candidate profile, documented expectation, or source claim; `deviation` names the conflicting source, current evidence, missing guidance destination, or visibility gap. They must be non-empty, distinct, and concrete. For `omission`, the deviation may state `missing guidance` plus material evidence; for `unverifiable_claim`, baseline is the claim and deviation is the visibility gap. If `type` is `enforcement_gap`, also include `missing_effective_control` and `proportionality`. When no difference is established, use the exact value `none discovered`.
+
+Positive alignment belongs in `Observed Facts And Rules`, not in Difference Findings. Correct treatment of cached refs is an observation, and an unregistered directory beside registered worktrees is only a filesystem observation unless an applicable source incorrectly presents it as registered/current or a material guidance omission is evidenced. There is no `keep` finding action; when one side of a real conflict remains unchanged, name the action for the other side.
 
 Every material finding must point to evidence. Label inference and recommendations explicitly so they are not mistaken for repository facts.
 

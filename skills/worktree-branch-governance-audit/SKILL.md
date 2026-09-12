@@ -11,7 +11,7 @@ metadata:
 
 ## Purpose
 
-Audit a repository's branch and worktree governance before deciding whether any rule should be kept, rewritten, moved, retired, or enforced mechanically.
+Audit a repository's branch and worktree governance before deciding whether any rule should be rewritten, moved, retired, clarified, or enforced mechanically.
 
 This is a **read-only advisory skill**. It produces an observed profile and evidence-backed differences; it does not impose a universal branch topology.
 
@@ -38,13 +38,13 @@ Any mutation of the audited target requires a separate, explicitly approved task
 
 ## Workflow
 
-1. Define the repository root, requested scope, and explicit user constraints.
+1. Define the repository root, requested scope, explicit project constraints, and separate task execution constraints.
 2. Inventory relevant instruction files, skills, directly linked docs, Git facts, and deployment or runtime files that change branch meaning.
 3. Record every source with path, scope, source class, normativity, freshness, and visibility status. Every source used by a finding must appear in the inventory, including prior conversations, memories, global skills, and inferred runtime facts.
 4. Separate normative rules, observed facts, current state, examples, and inference.
 5. Build the short **observed profile** before proposing a desired profile.
 6. Compare sources with any candidate profile, or with the evidence-supported proposal when no candidate exists, and classify each difference using [references/audit-model.md](references/audit-model.md).
-7. Recommend `keep`, `rewrite`, `move_to_repo_entry`, `move_to_project_doc`, `move_to_project_skill`, `retire`, `enforce_mechanically`, `narrow_global_default`, `adapter_only`, or `clarify`; never apply the recommendation during the audit.
+7. For each evidenced difference, recommend `rewrite`, `move_to_repo_entry`, `move_to_project_doc`, `move_to_project_skill`, `retire`, `enforce_mechanically`, `narrow_global_default`, `adapter_only`, or `clarify`; never apply the recommendation during the audit. Record alignment as an observation, not a finding.
 8. Assess whether repeated deterministic findings justify evaluating `agentslint`, `agnix`, or another checker; do not recommend tooling for unresolved semantic judgment. Consult the dated [tooling evaluation](references/tooling-evaluation.md) before claiming one of these tools validates audit output.
 9. End with unresolved questions and the smallest safe next step.
 
@@ -65,12 +65,12 @@ Every audit, including a compact audit, must visibly include:
 - `Source Inventory` with source class, scope, normativity, freshness, and visibility;
 - `Observed Facts And Rules` with evidence locations or command results;
 - `Observed Profile`, with confidence for each material field;
-- `Difference Findings`, each with `difference`, evidence, confidence, action, and destination, or `none discovered`;
+- `Difference Findings`, each with `type`, distinct `baseline` and `deviation`, `difference`, evidence, confidence, action, and destination, or `none discovered`;
 - `Unresolved Questions`, `Tooling Opportunity`, and `Smallest Safe Next Step`.
 
 Do not silently omit a required section or compress required Source Inventory fields into ambiguous prose. Each row identifies exactly one source, not a wildcard or compound expression. Write one complete record per source and use `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
 
-`Explicit Project Constraints` contains normative current user constraints and repository-specific boundaries. Put repository facts and temporary state under `Observed Facts And Rules`. Do not list the audit skill, report format, or audit method itself as a project constraint; write `none discovered` when no normative constraint was found.
+`Explicit Project Constraints` contains normative current user constraints and repository-specific boundaries. Put repository facts and temporary state under `Observed Facts And Rules`. Put run-local read-only, no-fetch, no-worktree, and temporary-report requirements under `Task Execution Constraints`, `Audit Scope`, or `Visibility Limits`; they cannot weaken `worktree_policy`, branch policy, or any repository constraint. Do not list the audit skill, report format, or audit method itself as a project constraint; write `none discovered` when no normative constraint was found.
 
 ## Report Schema Boundary
 
@@ -87,19 +87,19 @@ environment_coupling
 
 Run-local execution constraints are not evidence that repository governance is overbroad. Difference Findings contains only an evidenced incompatible, missing, drifting, misplaced, duplicated, or unverifiable relationship; positive alignment belongs in Observed Facts And Rules. An `enforcement_gap` additionally requires `missing_effective_control` and `proportionality`.
 
-Fork evidence requires `upstream_base_sync` and `local_patch_flow`. Runtime evidence independently permits `runtime_binding`; it does not force fork fields. Deployment evidence independently permits `production_branch`, `production_trigger`, and `preview_behavior`, each with adjacent confidence. Do not add partial extensions or a second deployment confidence field.
+Fork evidence requires `upstream_base_sync` and `local_patch_flow`. Activate those fields only from an applicable rule, a configured upstream remote or other explicitly identified upstream source, or an authoritative project document describing the relationship. One `origin`, third-party dependencies, generic contribution prose, and suggestive branch names are insufficient. Runtime evidence independently permits `runtime_binding`; it does not force fork fields.
 
-“Keep this branch deployable” supports `release-ready`, not `production`; production requires actual binding evidence. If deployment sources were not inspected, keep deployment values `unknown` at low or medium confidence.
+Deployment evidence independently permits the complete extension `deployment_topology`, keyed `deployment_bindings`, keyed `deployment_triggers`, and `preview_behavior`, each with adjacent confidence. Binding items use `<component>=branch:<literal>`, `<component>=branch-pattern:<literal>`, or `<component>=tag-pattern:<literal>`; trigger items use the same component keys with `merge|push|tag|manual|external|unknown`. Do not add a partial extension or a second deployment confidence field. Release-source policy does not prove a live deployment. “Keep this branch deployable” supports `release-ready`, not `production`; live production state requires actual provider or deployment evidence.
 
 Use `git_object_confusion` when a finding conflates a local branch, remote-tracking ref, tag, commit, or worktree. Use `unverifiable_claim` when a material claim lacks accessible evidence. Use `enforcement_gap` only when the report establishes a material consequence, deterministic enforceability, absence of an effective control, and a proportionate control for the repository's risk and maintenance model; absence of a local hook alone is insufficient.
 
-When the bundled validator is available, validate a temporary report draft before finalizing:
+When the bundled validator is available, resolve a concrete temporary path outside the audited repository before writing:
 
 ```bash
-python3 skills/worktree-branch-governance-audit/scripts/validate_report.py REPORT.md
+report_path=$(mktemp -t branch-governance-audit)
 ```
 
-Keep the temporary report outside the audited target repository. The validator checks report structure and enumerated values; it does not decide whether evidence is true, whether a recommendation is wise, or whether a global rule fits the project. Validation does not authorize writes to the audited repository.
+Capture the value printed and assigned by `mktemp`, then use that exact resolved path for every write, validator invocation, and final reference. Never pass a literal shell substitution such as `$(date +%s)` or `$(mktemp ...)` as a patch path or filename. Resolve `scripts/validate_report.py` relative to the actual directory from which this skill was loaded; do not assume the audited repository contains a `skills/` directory. Validate with `python3 "$validator_path" "$report_path"`. The validator checks report structure and enumerated values; it does not decide whether evidence is true, whether a recommendation is wise, or whether a global rule fits the project. Validation does not authorize writes to the audited repository.
 
 ## Scope And Attribution Checks
 
