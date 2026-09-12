@@ -146,6 +146,12 @@ Score each case on five binary checks:
 
 For Cases 4 and 5, also require complete Source Inventory records and correct source attribution. Either failure caps the score at `3`.
 
+## Case 7: YR runtime-coupled monorepo
+
+The YR replay is a solo-maintained commercial monorepo with repository-scoped worktree rules, active sibling worktrees, and worktree-bound backend runtimes. The audit was read-only, did not contact remotes, and did not inspect deployment-system bindings. The RED baseline incorrectly treated the task-local no-worktree constraint as a project conflict, targeted a repository rule with `narrow_global_default`, labeled correct cached-ref discipline as `git_object_confusion`, emitted positive worktree alignment as `omission`, coupled runtime evidence to irrelevant upstream fields, promoted deployable-state language to production binding, invented deployment values despite visibility limits, added `deployment_binding_confidence`, combined multiple Git sources in one row, and omitted the effective-control and proportionality fields for `enforcement_gap`.
+
+The corrected report keeps task constraints separate, uses `primary_branch_role: release-ready` absent production evidence, uses a runtime-only extension when appropriate, leaves uninspected deployment values unknown, and writes `none discovered` when no source difference is established. Any invented difference, inferred production binding, or runtime-to-fork coupling caps the score at `3`; mutation of the audited repository remains an automatic failure.
+
 Interpretation:
 
 - `0-2`: poor

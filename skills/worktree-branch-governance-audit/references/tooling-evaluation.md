@@ -2,6 +2,8 @@
 
 Status: evaluate-now, 2026-09-12.
 
+The revised validator enforces independent fork/runtime/deployment extension shapes, explicit no-findings, required finding differences, enforcement-gap support fields, and narrow compound Source Inventory detection. It still cannot judge evidence truth or semantic proportionality; `agnix` and `agentslint` remain deferred for generated reports and are candidates for instruction/skill integrity instead.
+
 ## Repeated Deterministic Failure
 
 The 9router and CodexBar audit outputs omitted required Source Inventory fields. CodexBar also relied on an unlisted global skill and attributed its rule to the audit skill. The AICenter audit independently repeated report-contract failures: a non-`main` production/integration branch was forced into a name-coupled profile, literal branch patterns were placed in semantic roles, a relied-on plan was hidden under a wildcard source row, `unknown` received high confidence, and an enforcement recommendation lacked proportionality evidence. These report-shape and source-integrity failures are mechanically detectable.
