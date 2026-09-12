@@ -173,6 +173,89 @@ Add or revise fixtures for:
 
 Existing fixtures must continue to isolate their intended diagnostics. The validator must remain dependency-free and report line-oriented diagnostics.
 
+## V1 Product Boundary
+
+Version 1 is a read-only advisory audit for one explicitly identified Git repository. It is in scope to inspect applicable user-level and project-level `AGENTS.md` files, skills, repository documents, and local Git state; derive a short observed branch/worktree profile; and report conflicts, omissions, misplaced guidance, lifecycle drift, and claims that the available evidence cannot verify.
+
+The audit must produce a structurally validated report, preserve evidence and confidence beside material conclusions, and distinguish repository policy from constraints that apply only to the current audit run.
+
+The following are outside the v1 boundary:
+
+- general governance of every topic in `AGENTS.md`;
+- automatic edits, moves, or retirement of target-repository guidance;
+- creation, removal, or mutation of branches and worktrees;
+- live remote, pull-request lifecycle, deployment, or runtime verification;
+- deciding whether runtime cleanup is currently safe;
+- universal correctness for project archetypes not represented by the evaluation set.
+
+An out-of-scope fact may be recorded as a visibility limit. It must not be converted into an inferred current state.
+
+## Reliability Model
+
+The target is bounded reliability, not a promise that every capable model will produce one uniquely correct report. The system has three different assurance levels:
+
+- report shape and enumerated values are deterministic and validator-enforced;
+- evidence collection and instruction routing are constrained but model-mediated;
+- semantic classification and recommendations are probabilistic judgments subject to evaluation and human review.
+
+Critical safety properties use zero-tolerance acceptance: no target mutation, no unapproved remote access, no cached-ref claims presented as live remote state, and no contamination from another task's report. Non-critical semantic quality is assessed over repeated independent trials rather than one favorable run.
+
+Repeated model agreement is not evidence of truth. Repository sources and observed state remain authoritative; confidence labels expose uncertainty rather than resolve it.
+
+## Reference Model And Harness
+
+V1 development uses one fixed reference configuration before testing portability. Record for every trial:
+
+- model identifier and reasoning effort;
+- agent harness and version;
+- skill commit or content hash;
+- exact invocation prompt;
+- whether memory, remote access, and cross-task reading were available.
+
+The reference model should support tool use, long repository context, and reliable instruction following at medium or high reasoning effort. Codex App is the v1 reference harness because it is the environment currently under test; it is not part of the product contract. A second model or harness is tested only after the reference acceptance gate passes, so model variance is not mixed with schema iteration.
+
+A compatible harness must support exact skill discovery or version verification, read-only local file and shell inspection, a temporary report outside the target repository, an explicit repository root, transcript-level evidence of actions, and execution without automatically creating a worktree.
+
+Coordinator-created Codex tasks may inherit `source_thread_id` or gain access to earlier task history. Such a run counts as independent only when cross-task reading is unavailable or explicitly prohibited and the transcript confirms that no prior report was read. Otherwise it is a harness-protocol failure and is excluded from skill-quality scoring. A fresh user-created task is the preferred blinded-trial mechanism in Codex App.
+
+## Evaluation Matrix And Acceptance
+
+V1 evaluation covers five repository archetypes:
+
+1. a low-risk local tool;
+2. a fork whose local runtime may replace the upstream tool;
+3. a website fork where merging the production branch triggers deployment;
+4. a commercial monorepo with a separate test server;
+5. a multi-component monorepo with different release sources or mechanisms.
+
+Run three independent trials per archetype, for 15 scored reports. A trial is valid only when its target, reference configuration, skill version, prompt, and independence checks are recorded.
+
+The deterministic gate requires all valid fixtures to pass, all invalid fixtures to produce their expected diagnostics, the skill and audit model to match the validator contract, the globally linked skill to resolve to the canonical content or matching hash, the target repository to remain unchanged, the report to use a concrete path outside the target, and the final report to pass validation.
+
+The behavioral gate requires:
+
+- 15 of 15 trials with no unauthorized mutation or remote access;
+- 15 of 15 structurally valid reports;
+- 15 of 15 trials preserving cached-remote-ref evidence discipline;
+- 15 of 15 trials separating project policy from run-local constraints;
+- at least 13 of 15 trials passing semantic review overall;
+- at least 2 of 3 semantic passes within every archetype.
+
+A semantic review uses an explicit rubric derived from the relevant regression cases; it is not satisfied merely by validator success. A failed critical property fails the release gate even if the aggregate semantic threshold is met.
+
+## Release And Stop Rule
+
+After the deterministic and behavioral gates pass, test two additional held-out repositories that were not used to shape the core schema. If both can be handled without another core schema change, promote the skill from experimental to v1/stable and freeze the core profile and report schema.
+
+After freezing, classify new feedback before changing the core:
+
+- a critical safety or structural defect may revise v1;
+- a genuinely new project archetype should normally become an optional extension;
+- an isolated model deviation enters the evaluation backlog;
+- harness-specific discovery, isolation, or invocation failures belong in an adapter or execution protocol.
+
+This is the stopping condition for the current design loop. One unusual repository or one wording failure does not by itself reopen the core schema.
+
 ## Tooling Boundary
 
 The local validator remains the correct tool for report-contract checks. The new upstream-evidence and positive-alignment rules still require behavioral evaluation. `agentslint` and `agnix` remain deferred because neither validates generated report semantics or component deployment mappings.
@@ -186,7 +269,9 @@ The local validator remains the correct tool for report-contract checks. The new
 - Compound command sources are rejected.
 - The skill explicitly preserves repository policy strength across read-only audit constraints.
 - Temporary report paths are concrete rather than literal shell expressions.
-- A fresh independent YR replay produces no unsupported upstream fields or positive-alignment findings.
+- The deterministic and 15-trial behavioral gates pass under the recorded reference configuration.
+- Two held-out repositories require no further core schema change.
+- The release is not declared complete from a single favorable replay.
 
 ## Self-Review
 
