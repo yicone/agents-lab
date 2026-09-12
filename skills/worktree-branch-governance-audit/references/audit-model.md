@@ -104,10 +104,11 @@ When evidence shows deployment behavior, add this complete conditional extension
 production_branch: <literal branch name> | unknown
 production_trigger: merge | push | tag | manual | external | unknown
 preview_behavior: none | branch-preview | pull-request-preview | mixed | unknown
-deployment_binding_confidence: high | medium | low
 ```
 
-A local provider project link does not prove the production branch. Keep provider lifecycle and remote freshness limits explicit.
+A local provider project link does not prove the production branch. “Deployable” means `release-ready` unless actual production binding is evidenced. Keep uninspected deployment values `unknown` with low or medium confidence.
+
+Keep Task Execution Constraints separate from Explicit Project Constraints. Run-local read-only, no-fetch, and no-worktree instructions do not establish a project-fit conflict. Difference Findings contains only evidenced differences; use `none discovered` when there is no actual difference. An `enforcement_gap` must state `missing_effective_control` and `proportionality`.
 
 ## 5. Difference Types
 

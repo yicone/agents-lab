@@ -61,14 +61,14 @@ Use read-only Git commands such as `git status --short --branch`, `git remote -v
 
 Every audit, including a compact audit, must visibly include:
 
-- `Audit Scope`, `Explicit Project Constraints`, and `Visibility Limits`;
+- `Audit Scope`, `Explicit Project Constraints`, `Task Execution Constraints`, and `Visibility Limits`;
 - `Source Inventory` with source class, scope, normativity, freshness, and visibility;
 - `Observed Facts And Rules` with evidence locations or command results;
 - `Observed Profile`, with confidence for each material field;
-- `Difference Findings`, each with evidence, confidence, action, and destination;
+- `Difference Findings`, each with `difference`, evidence, confidence, action, and destination, or `none discovered`;
 - `Unresolved Questions`, `Tooling Opportunity`, and `Smallest Safe Next Step`.
 
-Do not silently omit a required section or compress required Source Inventory fields into ambiguous prose. Write one complete record per source and use `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
+Do not silently omit a required section or compress required Source Inventory fields into ambiguous prose. Each row identifies exactly one source, not a wildcard or compound expression. Write one complete record per source and use `none`, `unknown`, or `not inspected` when appropriate. Keep observed evidence, inference, and proposed policy separate.
 
 `Explicit Project Constraints` contains normative current user constraints and repository-specific boundaries. Put repository facts and temporary state under `Observed Facts And Rules`. Do not list the audit skill, report format, or audit method itself as a project constraint; write `none discovered` when no normative constraint was found.
 
@@ -85,7 +85,11 @@ environment_coupling
 
 `branch_roles` contains semantic roles; `branch_patterns` contains literal branch names or prefixes. Do not put tags, remote-tracking refs, or literal prefixes in semantic roles. Use `unknown` only when evidence is missing or uninspected, and pair it with low or medium confidence; an explicit negative such as `none` or `not-used` is required for a high-confidence negative.
 
-When evidence shows a fork/runtime concern, add the complete conditional extension `upstream_base_sync`, `local_patch_flow`, and `runtime_binding`. When evidence shows deployment concerns, add the complete conditional extension `production_branch`, `production_trigger`, `preview_behavior`, and `deployment_binding_confidence`. Do not add a partial extension or infer a production branch from a local provider link alone.
+Run-local execution constraints are not evidence that repository governance is overbroad. Difference Findings contains only an evidenced incompatible, missing, drifting, misplaced, duplicated, or unverifiable relationship; positive alignment belongs in Observed Facts And Rules. An `enforcement_gap` additionally requires `missing_effective_control` and `proportionality`.
+
+Fork evidence requires `upstream_base_sync` and `local_patch_flow`. Runtime evidence independently permits `runtime_binding`; it does not force fork fields. Deployment evidence independently permits `production_branch`, `production_trigger`, and `preview_behavior`, each with adjacent confidence. Do not add partial extensions or `deployment_binding_confidence`.
+
+“Keep this branch deployable” supports `release-ready`, not `production`; production requires actual binding evidence. If deployment sources were not inspected, keep deployment values `unknown` at low or medium confidence.
 
 Use `git_object_confusion` when a finding conflates a local branch, remote-tracking ref, tag, commit, or worktree. Use `unverifiable_claim` when a material claim lacks accessible evidence. Use `enforcement_gap` only when the report establishes a material consequence, deterministic enforceability, absence of an effective control, and a proportionate control for the repository's risk and maintenance model; absence of a local hook alone is insufficient.
 
