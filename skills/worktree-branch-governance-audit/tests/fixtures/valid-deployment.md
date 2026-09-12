@@ -58,15 +58,7 @@ The deployment provider API was not inspected.
 - confidence: medium
 
 ## Difference Findings
-
-### Finding 1
-
-- type: omission
-- difference: Preview behavior is documented separately from the production trigger.
-- evidence: Preview behavior is documented separately from the production trigger.
-- confidence: medium
-- recommended action: keep
-- proposed destination: repository deployment documentation
+none discovered
 
 ## Unresolved Questions
 

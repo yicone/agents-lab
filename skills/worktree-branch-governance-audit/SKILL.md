@@ -87,7 +87,7 @@ environment_coupling
 
 Run-local execution constraints are not evidence that repository governance is overbroad. Difference Findings contains only an evidenced incompatible, missing, drifting, misplaced, duplicated, or unverifiable relationship; positive alignment belongs in Observed Facts And Rules. An `enforcement_gap` additionally requires `missing_effective_control` and `proportionality`.
 
-Fork evidence requires `upstream_base_sync` and `local_patch_flow`. Runtime evidence independently permits `runtime_binding`; it does not force fork fields. Deployment evidence independently permits `production_branch`, `production_trigger`, and `preview_behavior`, each with adjacent confidence. Do not add partial extensions or `deployment_binding_confidence`.
+Fork evidence requires `upstream_base_sync` and `local_patch_flow`. Runtime evidence independently permits `runtime_binding`; it does not force fork fields. Deployment evidence independently permits `production_branch`, `production_trigger`, and `preview_behavior`, each with adjacent confidence. Do not add partial extensions or a second deployment confidence field.
 
 “Keep this branch deployable” supports `release-ready`, not `production`; production requires actual binding evidence. If deployment sources were not inspected, keep deployment values `unknown` at low or medium confidence.
 

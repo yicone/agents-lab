@@ -84,17 +84,24 @@ Do not prescribe agent-branded branch prefixes. Report existing naming and prefe
 
 `branch_roles` contains normalized semantic roles from the listed vocabulary. `branch_patterns` contains literal branch names or prefixes such as `fix-*`. Put tags and remote-tracking refs in Observed Facts. Do not treat release tags as branch roles or patterns unless a repository rule explicitly uses them as naming examples.
 
-### Conditional Fork/Runtime Extension
+### Conditional Fork Extension
 
-When evidence shows a fork that may replace an upstream-installed local runtime, add this complete conditional extension:
+When evidence shows an upstream/fork relationship, add this complete fork extension:
 
 ```text
 upstream_base_sync: mirror | periodic-sync | manual | unknown
 local_patch_flow: none | upstream-contribution | persistent-local | mixed | unknown
+```
+
+### Conditional Runtime Extension
+
+When evidence shows that branch or worktree identity affects the executable local runtime, add:
+
+```text
 runtime_binding: upstream-install | fork-primary | patch-branch | worktree | unknown
 ```
 
-The extension is conditional, not part of every report. Do not emit only some of its fields.
+Fork and runtime extensions are independent. Runtime evidence does not require fork fields, and fork evidence does not require runtime binding.
 
 ### Conditional Deployment Extension
 
@@ -158,6 +165,7 @@ The profile must contain every core field and an adjacent confidence value. Cond
 ```text
 Audit Scope:
 Explicit Project Constraints:
+Task Execution Constraints:
 Visibility Limits:
 
 Source Inventory:
@@ -173,6 +181,7 @@ Observed Profile:
 
 Difference Findings:
 - type:
+  difference:
   evidence:
   confidence:
   recommended action:
@@ -183,7 +192,7 @@ Tooling Opportunity: none | watch | evaluate-now
 Smallest Safe Next Step:
 ```
 
-Each Difference Finding requires `type`, `evidence`, `confidence`, `recommended action`, and `proposed destination`.
+Each Difference Finding requires `type`, `difference`, `evidence`, `confidence`, `recommended action`, and `proposed destination`. If `type` is `enforcement_gap`, also include `missing_effective_control` and `proportionality`. When no difference is established, use the exact value `none discovered`.
 
 Every material finding must point to evidence. Label inference and recommendations explicitly so they are not mistaken for repository facts.
 
