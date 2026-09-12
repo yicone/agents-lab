@@ -18,6 +18,7 @@ from typing import Iterable, Optional, Sequence
 REQUIRED_SECTIONS = (
     "Audit Scope",
     "Explicit Project Constraints",
+    "Task Execution Constraints",
     "Visibility Limits",
     "Source Inventory",
     "Observed Facts And Rules",
@@ -44,20 +45,19 @@ CORE_FIELDS = {
     "environment_coupling": {"none", "local-runtime", "docker", "test-server", "preview", "production", "mixed", "unknown"},
 }
 
-FORK_RUNTIME_FIELDS = {
+FORK_FIELDS = {
     "upstream_base_sync": {"mirror", "periodic-sync", "manual", "unknown"},
     "local_patch_flow": {"none", "upstream-contribution", "persistent-local", "mixed", "unknown"},
-    "runtime_binding": {"upstream-install", "fork-primary", "patch-branch", "worktree", "unknown"},
 }
+RUNTIME_FIELDS = {"runtime_binding": {"upstream-install", "fork-primary", "patch-branch", "worktree", "unknown"}}
 
 DEPLOYMENT_FIELDS = {
     "production_branch": None,
     "production_trigger": {"merge", "push", "tag", "manual", "external", "unknown"},
     "preview_behavior": {"none", "branch-preview", "pull-request-preview", "mixed", "unknown"},
-    "deployment_binding_confidence": {"high", "medium", "low"},
 }
 
-PROFILE_FIELDS = set(CORE_FIELDS) | set(FORK_RUNTIME_FIELDS) | set(DEPLOYMENT_FIELDS)
+PROFILE_FIELDS = set(CORE_FIELDS) | set(FORK_FIELDS) | set(RUNTIME_FIELDS) | set(DEPLOYMENT_FIELDS)
 SEMANTIC_BRANCH_ROLES = {
     "feature",
     "fix",
@@ -227,11 +227,18 @@ def _validate_source_inventory(lines: Sequence[str], bounds: tuple[int, int, int
             diagnostics.append(_diagnostic("source.columns", "each Source Inventory row must have six cells", number))
             continue
         source = cells[0]
+        if _has_compound_inline_sources(source):
+            diagnostics.append(_diagnostic("source.compound", "Source Inventory source cells must identify one exact source", number))
         if _has_unescaped_glob(source):
             diagnostics.append(_diagnostic("source.wildcard", "Source Inventory source cells must identify one exact source, not a wildcard aggregate", number))
     if data_rows == 0:
         diagnostics.append(_diagnostic("source.empty", "Source Inventory must contain at least one source record", separator + 1))
     return diagnostics
+
+
+def _has_compound_inline_sources(value: str) -> bool:
+    spans = re.findall(r"`([^`]+)`", value)
+    return len([s for s in spans if "/" in s or s.endswith((".md", ".toml", ".yaml", ".yml"))]) > 1
 
 
 def _parse_field_line(line: str) -> Optional[tuple[str, str]]:
@@ -299,14 +306,14 @@ def _validate_profile(lines: Sequence[str], bounds: tuple[int, int, int]) -> lis
         if key not in seen:
             diagnostics.append(_diagnostic("profile.missing-key", f"required core profile key '{key}' is missing"))
 
-    for group_name, group in (("fork/runtime", FORK_RUNTIME_FIELDS), ("deployment", DEPLOYMENT_FIELDS)):
+    for group_name, group in (("fork", FORK_FIELDS), ("runtime", RUNTIME_FIELDS), ("deployment", DEPLOYMENT_FIELDS)):
         present = set(seen) & set(group)
-        if present and present != set(group):
+        if len(group) > 1 and present and present != set(group):
             missing = ", ".join(sorted(set(group) - present))
             diagnostics.append(_diagnostic("profile.incomplete-extension", f"{group_name} extension is incomplete; missing {missing}"))
 
     for key, record in seen.items():
-        allowed = CORE_FIELDS.get(key, FORK_RUNTIME_FIELDS.get(key, DEPLOYMENT_FIELDS.get(key)))
+        allowed = CORE_FIELDS.get(key, FORK_FIELDS.get(key, RUNTIME_FIELDS.get(key, DEPLOYMENT_FIELDS.get(key))))
         if allowed is not None and record.value not in allowed:
             diagnostics.append(_diagnostic("profile.invalid-value", f"profile field '{key}' has unsupported value '{record.value}'", record.line))
         if key in {"branch_roles", "branch_patterns"}:
@@ -339,8 +346,11 @@ def _validate_findings(lines: Sequence[str], bounds: tuple[int, int, int], headi
     diagnostics: list[Diagnostic] = []
     blocks = _finding_blocks(lines, bounds, headings)
     if not blocks:
+        prose = [lines[n - 1].strip().lower() for n in range(bounds[0], bounds[1]) if lines[n - 1].strip()]
+        if prose in (["none"], ["none discovered"]):
+            return []
         return [_diagnostic("finding.missing", "Difference Findings must contain at least one finding", bounds[0])]
-    required = {"type", "evidence", "confidence", "recommended_action", "proposed_destination"}
+    required = {"type", "difference", "evidence", "confidence", "recommended_action", "proposed_destination"}
     for block_start, block_end in blocks:
         fields: dict[str, tuple[str, int]] = {}
         for number in range(block_start, block_end):
@@ -355,6 +365,10 @@ def _validate_findings(lines: Sequence[str], bounds: tuple[int, int, int], headi
             diagnostics.append(_diagnostic("finding.invalid-confidence", "finding confidence must be high, medium, or low", fields["confidence"][1]))
         if "recommended_action" in fields and fields["recommended_action"][0] not in FINDING_ACTIONS:
             diagnostics.append(_diagnostic("finding.invalid-action", f"unsupported recommended action '{fields['recommended_action'][0]}'", fields["recommended_action"][1]))
+        if fields.get("type", (None,))[0] == "enforcement_gap":
+            for key in ("missing_effective_control", "proportionality"):
+                if key not in fields:
+                    diagnostics.append(_diagnostic("finding.missing-field", f"finding is missing required field '{key.replace('_', ' ')}'", block_start))
     return diagnostics
 
 
