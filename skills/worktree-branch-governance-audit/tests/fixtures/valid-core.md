@@ -6,7 +6,7 @@
 
 ## Explicit Project Constraints
 
-The repository owner permits direct work in the checked-out repository.
+The repository does not require worktrees and permits direct work in the checked-out repository.
 
 ## Task Execution Constraints
 

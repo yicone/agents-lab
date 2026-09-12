@@ -93,7 +93,6 @@ FINDING_TYPES = {
     "git_object_confusion",
 }
 FINDING_ACTIONS = {
-    "keep",
     "rewrite",
     "move_to_repo_entry",
     "move_to_project_doc",
@@ -105,6 +104,34 @@ FINDING_ACTIONS = {
     "clarify",
 }
 CONFIDENCE_VALUES = {"high", "medium", "low"}
+GENERIC_FINDING_COMPARISONS = {
+    "baseline",
+    "correct behavior",
+    "current behavior",
+    "deviation",
+    "difference",
+    "expected behavior",
+}
+COMMAND_SOURCE_PREFIXES = {
+    "find",
+    "gh",
+    "git",
+    "ls",
+    "pwd",
+    "python",
+    "python3",
+    "realpath",
+    "rg",
+    "shasum",
+    "stat",
+}
+TASK_CONSTRAINT_PATTERNS = (
+    r"\b(?:this|the|current) audit\b.{0,80}\bread[- ]only\b",
+    r"\b(?:this|the|current) audit\b.{0,80}\b(?:do not|don't|must not)\s+fetch\b",
+    r"\b(?:this|the|current) audit\b.{0,80}\bworktree\b",
+    r"\b(?:temporary|temp)[- ]+audit[- ]+report\b",
+    r"\baudit[- ]+report\b.{0,80}(?:^|\s)/private/tmp(?:/|\b)",
+)
 
 
 @dataclass(frozen=True)
@@ -248,7 +275,35 @@ def _validate_source_inventory(lines: Sequence[str], bounds: tuple[int, int, int
 
 def _has_compound_inline_sources(value: str) -> bool:
     spans = re.findall(r"`([^`]+)`", value)
-    return len([s for s in spans if "/" in s or s.endswith((".md", ".toml", ".yaml", ".yml"))]) > 1
+    return len([span for span in spans if _is_source_like_inline_span(span)]) > 1
+
+
+def _is_source_like_inline_span(value: str) -> bool:
+    stripped = value.strip()
+    first_word = stripped.split(maxsplit=1)[0] if stripped else ""
+    return (
+        first_word in COMMAND_SOURCE_PREFIXES
+        or "/" in stripped
+        or stripped.endswith((".md", ".toml", ".yaml", ".yml"))
+    )
+
+
+def _validate_explicit_project_constraints(
+    lines: Sequence[str], bounds: tuple[int, int, int]
+) -> list[Diagnostic]:
+    start, end, _ = bounds
+    diagnostics: list[Diagnostic] = []
+    for number in range(start, end):
+        value = lines[number - 1].casefold()
+        if any(re.search(pattern, value) for pattern in TASK_CONSTRAINT_PATTERNS):
+            diagnostics.append(
+                _diagnostic(
+                    "constraint.task-leak",
+                    "Explicit Project Constraints must not contain audit task mechanics",
+                    number,
+                )
+            )
+    return diagnostics
 
 
 def _parse_field_line(line: str) -> Optional[tuple[str, str]]:
@@ -418,7 +473,16 @@ def _validate_findings(lines: Sequence[str], bounds: tuple[int, int, int], headi
         if prose in (["none"], ["none discovered"]):
             return []
         return [_diagnostic("finding.missing", "Difference Findings must contain at least one finding", bounds[0])]
-    required = {"type", "difference", "evidence", "confidence", "recommended_action", "proposed_destination"}
+    required = {
+        "type",
+        "baseline",
+        "deviation",
+        "difference",
+        "evidence",
+        "confidence",
+        "recommended_action",
+        "proposed_destination",
+    }
     for block_start, block_end in blocks:
         fields: dict[str, tuple[str, int]] = {}
         for number in range(block_start, block_end):
@@ -427,6 +491,41 @@ def _validate_findings(lines: Sequence[str], bounds: tuple[int, int, int], headi
                 fields.setdefault(parsed[0], (parsed[1], number))
         for key in sorted(required - set(fields)):
             diagnostics.append(_diagnostic("finding.missing-field", f"finding is missing required field '{key.replace('_', ' ')}'", block_start))
+        comparison_values: dict[str, tuple[str, int]] = {}
+        for key in ("baseline", "deviation", "difference"):
+            if key not in fields:
+                continue
+            value, line = fields[key]
+            normalized = re.sub(r"[\W_]+", " ", value.casefold()).strip()
+            if not normalized:
+                diagnostics.append(
+                    _diagnostic(
+                        "finding.missing-field",
+                        f"finding field '{key}' must not be blank",
+                        line,
+                    )
+                )
+            elif normalized in GENERIC_FINDING_COMPARISONS:
+                diagnostics.append(
+                    _diagnostic(
+                        "finding.invalid-comparison",
+                        f"finding field '{key}' must not use a generic placeholder",
+                        line,
+                    )
+                )
+            comparison_values[key] = (normalized, line)
+        if (
+            comparison_values.get("baseline", (None,))[0]
+            and comparison_values.get("baseline", (None,))[0]
+            == comparison_values.get("deviation", (None,))[0]
+        ):
+            diagnostics.append(
+                _diagnostic(
+                    "finding.invalid-comparison",
+                    "finding baseline and deviation must be distinct",
+                    comparison_values["deviation"][1],
+                )
+            )
         if "type" in fields and fields["type"][0] not in FINDING_TYPES:
             diagnostics.append(_diagnostic("finding.invalid-type", f"unsupported finding type '{fields['type'][0]}'", fields["type"][1]))
         if "confidence" in fields and fields["confidence"][0] not in CONFIDENCE_VALUES:
@@ -451,6 +550,12 @@ def validate_lines(lines: Sequence[str]) -> list[Diagnostic]:
             bounds_by_title[title] = bounds
     if "Source Inventory" in bounds_by_title:
         diagnostics.extend(_validate_source_inventory(lines, bounds_by_title["Source Inventory"]))
+    if "Explicit Project Constraints" in bounds_by_title:
+        diagnostics.extend(
+            _validate_explicit_project_constraints(
+                lines, bounds_by_title["Explicit Project Constraints"]
+            )
+        )
     if "Observed Profile" in bounds_by_title:
         diagnostics.extend(_validate_profile(lines, bounds_by_title["Observed Profile"]))
     if "Difference Findings" in bounds_by_title:
