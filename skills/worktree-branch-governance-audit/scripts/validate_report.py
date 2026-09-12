@@ -52,10 +52,20 @@ FORK_FIELDS = {
 RUNTIME_FIELDS = {"runtime_binding": {"upstream-install", "fork-primary", "patch-branch", "worktree", "unknown"}}
 
 DEPLOYMENT_FIELDS = {
-    "production_branch": None,
-    "production_trigger": {"merge", "push", "tag", "manual", "external", "unknown"},
-    "preview_behavior": {"none", "branch-preview", "pull-request-preview", "mixed", "unknown"},
+    "deployment_topology": {"single-source", "component-specific", "external", "unknown"},
+    "deployment_bindings": None,
+    "deployment_triggers": None,
+    "preview_behavior": {
+        "none",
+        "branch-preview",
+        "pull-request-preview",
+        "environment-preview",
+        "mixed",
+        "unknown",
+    },
 }
+DEPLOYMENT_BINDING_KINDS = {"branch", "branch-pattern", "tag-pattern"}
+DEPLOYMENT_TRIGGERS = {"merge", "push", "tag", "manual", "external", "unknown"}
 
 PROFILE_FIELDS = set(CORE_FIELDS) | set(FORK_FIELDS) | set(RUNTIME_FIELDS) | set(DEPLOYMENT_FIELDS)
 SEMANTIC_BRANCH_ROLES = {
@@ -286,6 +296,44 @@ def _list_value(value: str) -> list[str]:
     return [item.strip().strip("`") for item in value.split(",") if item.strip()]
 
 
+def _parse_deployment_items(record: FieldRecord, binding: bool) -> tuple[Optional[set[str]], list[Diagnostic]]:
+    code = "profile.invalid-deployment-binding" if binding else "profile.invalid-deployment-trigger"
+    item_name = "binding" if binding else "trigger"
+    value = record.value.strip()
+    if not (value.startswith("[") and value.endswith("]")):
+        return None, [
+            _diagnostic("profile.invalid-list", f"profile field '{record.key}' must be a list", record.line)
+        ]
+
+    raw_items = value[1:-1].split(",")
+    components: set[str] = set()
+    diagnostics: list[Diagnostic] = []
+    for raw_item in raw_items:
+        item = raw_item.strip().strip("`")
+        component, separator, item_value = item.partition("=")
+        component = component.strip()
+        item_value = item_value.strip()
+        malformed = not separator or not component or not item_value
+        if binding and not malformed:
+            kind, kind_separator, literal = item_value.partition(":")
+            malformed = (
+                not kind_separator
+                or kind.strip() not in DEPLOYMENT_BINDING_KINDS
+                or not literal.strip()
+            )
+        if not binding and not malformed:
+            malformed = item_value not in DEPLOYMENT_TRIGGERS
+        if component in components:
+            malformed = True
+        if malformed:
+            diagnostics.append(
+                _diagnostic(code, f"invalid deployment {item_name} '{item}'", record.line)
+            )
+            continue
+        components.add(component)
+    return components, diagnostics
+
+
 def _validate_profile(lines: Sequence[str], bounds: tuple[int, int, int]) -> list[Diagnostic]:
     records, diagnostics = _parse_profile(lines, bounds)
     seen: dict[str, FieldRecord] = {}
@@ -324,6 +372,26 @@ def _validate_profile(lines: Sequence[str], bounds: tuple[int, int, int]) -> lis
                 for role in values:
                     if role not in SEMANTIC_BRANCH_ROLES:
                         diagnostics.append(_diagnostic("profile.invalid-role", f"'{role}' is not a semantic branch role", record.line))
+
+    deployment_components: dict[str, set[str]] = {}
+    for key, binding in (("deployment_bindings", True), ("deployment_triggers", False)):
+        if key not in seen:
+            continue
+        components, item_diagnostics = _parse_deployment_items(seen[key], binding)
+        diagnostics.extend(item_diagnostics)
+        if components is not None and not item_diagnostics:
+            deployment_components[key] = components
+    if (
+        len(deployment_components) == 2
+        and deployment_components["deployment_bindings"] != deployment_components["deployment_triggers"]
+    ):
+        diagnostics.append(
+            _diagnostic(
+                "profile.deployment-components",
+                "deployment binding and trigger component sets must match",
+                seen["deployment_triggers"].line,
+            )
+        )
     return diagnostics
 
 
