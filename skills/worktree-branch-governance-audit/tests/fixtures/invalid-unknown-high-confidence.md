@@ -12,6 +12,10 @@ None discovered.
 
 Remote state was not inspected.
 
+## Task Execution Constraints
+
+Read-only audit.
+
 ## Source Inventory
 
 | source | class | scope | normativity | freshness | visibility |
@@ -52,6 +56,7 @@ Remote state was not inspected.
 ### Finding 1
 
 - type: unverifiable_claim
+- difference: The primary branch was not inspected.
 - evidence: The primary branch was not inspected.
 - confidence: high
 - recommended action: clarify

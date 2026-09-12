@@ -1,74 +1,47 @@
 # Governance Audit Report
 
 ## Audit Scope
-
-`/workspace/example-repo`.
-
+`repo`.
 ## Explicit Project Constraints
-
-None discovered.
-
+none discovered
 ## Task Execution Constraints
-
-Read-only audit.
-
+read-only audit
 ## Visibility Limits
-
-None.
-
+none discovered
 ## Source Inventory
-
 | source | class | scope | normativity | freshness | visibility |
 |---|---|---|---|---|---|
-| AGENTS.md | instruction | repository | required | current | read |
-
+| `AGENTS.md` | instruction | repository | required | current | read |
 ## Observed Facts And Rules
-
-- A material difference was observed.
-
+none discovered
 ## Observed Profile
-
 - primary_branch: main
 - confidence: high
-- primary_branch_role: production
-- confidence: high
+- primary_branch_role: release-ready
+- confidence: medium
 - direct_primary_changes: prohibited
 - confidence: high
 - worktree_policy: optional
 - confidence: medium
 - worktree_adoption: none
-- confidence: high
-- worktree_location: unspecified
-- confidence: high
+- confidence: medium
+- worktree_location: repository-local
+- confidence: low
 - branch_roles: [feature]
 - confidence: medium
 - branch_patterns: [feature/*]
-- confidence: high
+- confidence: medium
 - upstream_mode: none
 - confidence: high
 - release_freeze: none
-- confidence: high
+- confidence: medium
 - environment_coupling: none
 - confidence: high
-
 ## Difference Findings
-
-### Finding 1
-
-- type: omission
-- difference: A report field is absent from the finding.
-- evidence: A report field is absent from the finding.
-- confidence: medium
-- recommended action: rewrite
-
+none discovered
 ## Unresolved Questions
-
-None.
-
+none
 ## Tooling Opportunity
-
-evaluate-now
-
+none
 ## Smallest Safe Next Step
-
-Add the destination before publishing.
+none

@@ -15,7 +15,10 @@ class ValidateReportFixturesTest(unittest.TestCase):
         return validate_report(FIXTURES / name)
 
     def test_valid_fixtures(self):
-        for name in ("valid-core.md", "valid-deployment.md"):
+        for name in (
+            "valid-core.md", "valid-deployment.md", "valid-no-findings.md",
+            "valid-fork-only.md", "valid-runtime-only.md",
+        ):
             with self.subTest(name=name):
                 self.assertEqual([], self.diagnostics_for(name))
 
@@ -26,6 +29,11 @@ class ValidateReportFixturesTest(unittest.TestCase):
             "invalid-wildcard-source.md": "source.wildcard",
             "invalid-unknown-high-confidence.md": "profile.unknown-confidence",
             "invalid-finding-destination.md": "finding.missing-field",
+            "invalid-missing-task-constraints.md": "section.missing",
+            "invalid-incomplete-fork-extension.md": "profile.incomplete-extension",
+            "invalid-deployment-binding-confidence.md": "profile.unknown-key",
+            "invalid-enforcement-gap-fields.md": "finding.missing-field",
+            "invalid-compound-source.md": "source.compound",
         }
         for name, code in expected.items():
             with self.subTest(name=name):

@@ -8,6 +8,10 @@
 
 None discovered.
 
+## Task Execution Constraints
+
+Read-only audit.
+
 ## Visibility Limits
 
 None.
@@ -54,6 +58,7 @@ None.
 ### Finding 1
 
 - type: omission
+- difference: A legacy branch role is unsupported.
 - evidence: A required branch role was not represented by the old key.
 - confidence: medium
 - recommended action: rewrite

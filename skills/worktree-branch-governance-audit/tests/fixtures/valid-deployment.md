@@ -8,6 +8,10 @@
 
 Production changes require review.
 
+## Task Execution Constraints
+
+- Read-only audit; do not create a worktree or contact remotes.
+
 ## Visibility Limits
 
 The deployment provider API was not inspected.
@@ -52,14 +56,13 @@ The deployment provider API was not inspected.
 - confidence: high
 - preview_behavior: pull-request-preview
 - confidence: medium
-- deployment_binding_confidence: high
-- confidence: high
 
 ## Difference Findings
 
 ### Finding 1
 
 - type: omission
+- difference: Preview behavior is documented separately from the production trigger.
 - evidence: Preview behavior is documented separately from the production trigger.
 - confidence: medium
 - recommended action: keep

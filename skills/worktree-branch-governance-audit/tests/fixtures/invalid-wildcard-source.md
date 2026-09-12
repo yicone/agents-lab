@@ -8,6 +8,10 @@
 
 None discovered.
 
+## Task Execution Constraints
+
+Read-only audit.
+
 ## Visibility Limits
 
 None.
@@ -52,6 +56,7 @@ None.
 ### Finding 1
 
 - type: omission
+- difference: The source record is aggregated with a wildcard.
 - evidence: The source record is aggregated with a wildcard.
 - confidence: high
 - recommended action: rewrite

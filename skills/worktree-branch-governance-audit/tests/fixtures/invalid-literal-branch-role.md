@@ -8,6 +8,10 @@
 
 None discovered.
 
+## Task Execution Constraints
+
+Read-only audit.
+
 ## Visibility Limits
 
 None.
@@ -52,6 +56,7 @@ None.
 ### Finding 1
 
 - type: naming_coupling
+- difference: A literal prefix was placed in a semantic role list.
 - evidence: A literal prefix was placed in a semantic role list.
 - confidence: high
 - recommended action: rewrite

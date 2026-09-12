@@ -8,6 +8,10 @@
 
 The repository owner permits direct work in the checked-out repository.
 
+## Task Execution Constraints
+
+- Read-only audit; do not create a worktree or contact remotes.
+
 ## Visibility Limits
 
 Remote lifecycle was not inspected.
@@ -52,6 +56,7 @@ Remote lifecycle was not inspected.
 ### Finding 1
 
 - type: project_fit_conflict
+- difference: The repository-specific rule is narrower than the global default.
 - evidence: The repository-specific rule is narrower than the global default.
 - confidence: high
 - recommended action: narrow_global_default

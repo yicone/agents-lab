@@ -1,74 +1,52 @@
 # Governance Audit Report
-
 ## Audit Scope
-
-`/workspace/example-repo`.
-
+`repo`.
 ## Explicit Project Constraints
-
-None discovered.
-
+none
 ## Task Execution Constraints
-
-Read-only audit.
-
+read-only
 ## Visibility Limits
-
-None.
-
+none
 ## Source Inventory
-
 | source | class | scope | normativity | freshness | visibility |
 |---|---|---|---|---|---|
-| AGENTS.md | instruction | repository | required | current | read |
-
+| `AGENTS.md` | instruction | repository | required | current | read |
 ## Observed Facts And Rules
-
-- A material difference was observed.
-
+none
 ## Observed Profile
-
 - primary_branch: main
 - confidence: high
-- primary_branch_role: production
-- confidence: high
-- direct_primary_changes: prohibited
+- primary_branch_role: integration
+- confidence: medium
+- direct_primary_changes: none
 - confidence: high
 - worktree_policy: optional
 - confidence: medium
 - worktree_adoption: none
-- confidence: high
-- worktree_location: unspecified
-- confidence: high
+- confidence: medium
+- worktree_location: unknown
+- confidence: low
 - branch_roles: [feature]
 - confidence: medium
 - branch_patterns: [feature/*]
-- confidence: high
+- confidence: medium
 - upstream_mode: none
 - confidence: high
 - release_freeze: none
-- confidence: high
+- confidence: medium
 - environment_coupling: none
 - confidence: high
-
 ## Difference Findings
-
 ### Finding 1
-
-- type: omission
-- difference: A report field is absent from the finding.
-- evidence: A report field is absent from the finding.
-- confidence: medium
-- recommended action: rewrite
-
+- type: enforcement_gap
+- difference: Direct primary writes are not mechanically rejected.
+- evidence: no effective control was found
+- confidence: high
+- recommended action: enforce_mechanically
+- proposed destination: repository hook
 ## Unresolved Questions
-
-None.
-
+none
 ## Tooling Opportunity
-
-evaluate-now
-
+none
 ## Smallest Safe Next Step
-
-Add the destination before publishing.
+none
