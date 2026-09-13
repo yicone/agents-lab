@@ -1,21 +1,21 @@
-# Worktree/Branch Governance Evaluation v1-r1
+# Worktree/Branch Governance Evaluation v1-r2
 
-Status: **terminated before any trial; no trials ran; superseded by [`v1-r2`](../v1-r2/README.md)**. The frozen `v1-r1` matrix is retained as historical evidence, but it was not started because its model/reasoning configuration did not fit the approved quota strategy. Do not execute or score trials under this version.
+Status: **frozen; staged execution authorized for Round A only; no trials run**. This directory supersedes `v1-r1`, which was terminated before any trial because of quota strategy. Full v1 acceptance still requires 15 valid trials and both held-outs under the canonical evaluation protocol.
 
 ## Frozen configuration
 
 | Field | Frozen value |
 |---|---|
-| Evaluation version | `v1-r1` |
-| Reference model | `gpt-6-astra` |
-| Reasoning effort | `high` |
+| Evaluation version | `v1-r2` |
+| Reference model | `gpt-5.6-sol` |
+| Reasoning effort | `medium` |
 | Harness | `Codex App 26.903.71938 (build 8576)` |
 | Canonical skill commit | `19ad6abf50b7f4b6ce1bed68112231a1a9725536` |
 | Canonical `SKILL.md` SHA-256 | `6b666518d08e7b680aa3449e98db8586ed2538c6c5e66ddee1831353cdfaad7e` |
 | Invocation prompt | Exact text in [`invocation-prompt.md`](invocation-prompt.md); only `{{REPOSITORY_ROOT}}` may be replaced |
 | Trial-record schema | [`trial-record-template.md`](trial-record-template.md) |
 | Matrix | [`scorecard.md`](scorecard.md) |
-| Semantic rubric | `v1-r1-semantic-rubric`, frozen below |
+| Semantic rubric | `v1-r2-semantic-rubric`, frozen below |
 | Memory | Prohibited: do not read or use local, shared, or cross-tool memory |
 | Remote access | Prohibited: no fetch, pull, remote API, web, provider, or other network access |
 | Cross-task reading | Prohibited: no source-task, sibling-task, prior-trial, or coordinator-task reads |
@@ -27,12 +27,22 @@ Status: **terminated before any trial; no trials ran; superseded by [`v1-r2`](..
 - The trial may inspect only the recorded target repository, applicable upper-level instructions, the discovered frozen skill, and local read-only state allowed by the prompt.
 - The trial must not mutate the target. It must not create, switch, merge, rename, or delete branches or worktrees, and must not edit target files, configuration, or documentation.
 - The report must be written to a concrete absolute path outside the target repository. It must not contain a literal shell substitution in its path.
-- The completed report and the trial transcript are returned to this coordinator for deterministic, critical, contamination, and human semantic scoring. The trial agent does not score itself.
+- The completed report and transcript return to the coordinator for deterministic, critical, contamination, and human semantic scoring. The trial agent does not score itself.
 - No audit is authorized by this scaffold. Start a trial only through the user-created-task procedure above.
+
+## Staged execution and quota gates
+
+Execution is round-major, with one trial per archetype in each round:
+
+1. **Round A (`01`-`05`) is authorized:** run one trial for each of the five archetypes, recording a quota checkpoint after every trial.
+2. **Mandatory gate after trial `05`:** stop before trial `06`. Review actual quota/usage and trial-record/report-schema stability across all five Round A records. Record the gate decision and evidence in the scorecard.
+3. **Rounds B/C are locked:** trials `06`-`15` require explicit authorization after the trial-05 gate. If authorized, continue to record a quota checkpoint after every trial.
+
+A quota checkpoint is operational metadata only. It does not relax validity, independence, deterministic, critical, or semantic gates. If usage data is unavailable, record that fact and its evidence; do not invent a value. A behavior-affecting change to any frozen input terminates this matrix and requires a new evaluation version.
 
 ## Frozen target assignments
 
-| Order | Target | Absolute repository root | Archetype |
+| Round order | Target | Absolute repository root | Archetype |
 |---:|---|---|---|
 | 1 | `song-metadata-checker` | `/Users/tr/Workspace/song-metadata-checker` | low-risk local tool |
 | 2 | `agent-helpers/9router` | `/Users/tr/Workspace/agent-helpers/9router` | fork whose local runtime may replace the upstream tool |
