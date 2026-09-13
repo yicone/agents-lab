@@ -32,6 +32,8 @@ It must not own:
 
 Use `logseq-http-transport` only after semantic and write-plan decisions are already made.
 
+This is the **HTTP exit** of the dual-write setup (decided 2026-09-14). When the API is unavailable or the caller is editing vault files in an IDE, use disk Edit per vault `AGENTS.md` instead — do not invent another transport.
+
 Do not use this skill to decide:
 
 - whether content belongs in Logseq

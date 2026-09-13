@@ -37,7 +37,10 @@ If page ownership, namespace choice, or system-layer placement is still unclear,
 - `logseq-acns-vault`
 
 After the write plan is produced, hand off execution concerns to:
-- `logseq-http-transport`
+- `logseq-http-transport` when the Logseq HTTP API is available
+- vault disk Edit per `AGENTS.md` (`pages/%2F`) when API is unavailable or the agent is already editing on disk
+
+Decided 2026-09-14: dual exits by scenario; no third path; no forced single playbook.
 
 ## Required Inputs
 

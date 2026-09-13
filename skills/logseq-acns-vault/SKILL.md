@@ -257,6 +257,14 @@ Use LOG for:
 
 If the main value is "why we decided this", it likely belongs in a LOG.
 
+## Write exits (decided 2026-09-14)
+
+Long-term **dual exits**, choose by scenario:
+- Logseq HTTP API available → `logseq-acns-write` → `logseq-http-transport`
+- API unavailable, or editing pages in an IDE → vault disk path per `AGENTS.md` (`pages/%2F` + precise Edit)
+
+Do not invent a third write path. Do not force-merge into a single playbook. Semantics (this skill) stay shared across both exits.
+
 ## Fast Path (known ownership, one-liner)
 
 Use this when friction would hurt more than ceremony helps.
