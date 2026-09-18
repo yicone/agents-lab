@@ -11,6 +11,8 @@ metadata:
 
 This is a narrow adapter between an agent harness, the local `devin` CLI, and GitHub. Devin inspects the repository and returns findings; `gh` is the only writer to the PR.
 
+It is not a review-loop controller. A harness may run this adapter only after the control thread has recorded an explicit bounded review-round decision under [review-round-contract.md](references/review-round-contract.md). A new commit, a fixed finding, or an unresolved thread alone is never an automatic reason to invoke Devin again.
+
 ## Contract
 
 - Use exactly `SWE-2 High`, valid only through **2026-10-26** (local date). After that date, stop with `model_expired`; never silently substitute another model.
@@ -29,6 +31,7 @@ This is a narrow adapter between an agent harness, the local `devin` CLI, and Gi
 5. **Validate before publishing.** Keep the response outside the repository or in a mode-0600 temporary file. Derive a mode-0600 JSON map of changed paths to added RIGHT line numbers from the exact PR diff, then run `scripts/validate_review.py` with `--session-id`, `--pr-number`, and `--changed-lines`. Reject malformed JSON, missing identity, missing path/line/side, out-of-diff locations, duplicates, secrets, or executable shell text.
 6. **Publish with `gh` only.** For every validated finding, call the pull-request review-comment endpoint through `gh api`, bound to owner/name, PR number, head SHA, relative path, `line`, and `side=RIGHT`. Add a stable marker with session id and finding id; query existing comments first so retries do not duplicate. Do not create an empty “LGTM” thread.
 7. **Report evidence.** Return root, PR URL/number, head SHA, fixed session id, model, expiry check, finding count, comment URLs/ids, and skipped/failed findings. A successful Devin process is not proof that GitHub accepted a comment.
+8. **Hand off to round control.** Record the completed run with `scripts/validate_review_round.py`. The control thread classifies findings, obtains any required product decision, batches approved fixes, validates them, and selects exactly one next action. This adapter must not fix findings, resolve threads, request another review, or infer that a re-review is wanted.
 
 ## Registry
 
@@ -54,4 +57,4 @@ Fail closed on expiry/unavailability, missing auth, root/session mismatch, dirty
 
 Do not use `gh pr review --approve` or `--request-changes`: this skill creates review threads, not a review verdict.
 
-Read [references/protocol.md](references/protocol.md) when constructing or interpreting the Devin response. Run `scripts/validate_review.py --help` before publishing.
+Read [references/protocol.md](references/protocol.md) when constructing or interpreting the Devin response, and [references/review-round-contract.md](references/review-round-contract.md) before starting or continuing a review loop. Run `scripts/validate_review.py --help` before publishing and `scripts/validate_review_round.py --help` before recording the round.
