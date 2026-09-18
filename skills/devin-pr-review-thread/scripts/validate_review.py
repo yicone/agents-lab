@@ -26,12 +26,14 @@ def main() -> int:
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--pr-number", required=True, type=int)
-    parser.add_argument("--changed-lines", required=True, help="JSON object mapping changed paths to added RIGHT line numbers")
+    parser.add_argument("--changed-lines", required=True, help="path to a mode-0600 JSON file mapping changed paths to added RIGHT line numbers")
     args = parser.parse_args()
     try:
-        data = json.loads(pathlib.Path(args.review_json).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
+        data = json.loads(pathlib.Path(args.review_json).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return fail(str(exc))
+    if not isinstance(data, dict):
+        return fail("top-level review must be an object")
     if data.get("schema") != "devin-pr-review/v1":
         return fail("schema must be devin-pr-review/v1")
     repository_root = data.get("repository_root")
@@ -41,15 +43,17 @@ def main() -> int:
         return fail("repository_root mismatch")
     if data.get("session_id") != args.session_id:
         return fail("session_id mismatch")
+    if not isinstance(data.get("pr_number"), int) or isinstance(data.get("pr_number"), bool):
+        return fail("pr_number must be an integer")
     if data.get("pr_number") != args.pr_number:
         return fail("pr_number mismatch")
     if data.get("head_sha") != args.head_sha or not HEX40.fullmatch(data.get("head_sha", "")):
         return fail("head_sha mismatch or invalid")
     try:
-        changed_lines = json.loads(pathlib.Path(args.changed_lines).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
+        changed_lines = json.loads(pathlib.Path(args.changed_lines).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return fail(f"invalid changed-lines file: {exc}")
-    if not isinstance(changed_lines, dict) or any(not isinstance(v, list) or any(not isinstance(n, int) for n in v) for v in changed_lines.values()):
+    if not isinstance(changed_lines, dict) or any(not isinstance(v, list) or any(not isinstance(n, int) or isinstance(n, bool) for n in v) for v in changed_lines.values()):
         return fail("changed-lines must map paths to integer arrays")
     findings = data.get("findings")
     if not isinstance(findings, list):
