@@ -1,0 +1,4 @@
+interface:
+  display_name: "Devin PR Review Threads"
+  short_description: "Review GitHub PRs with one fixed Devin session"
+  default_prompt: "Use the fixed per-repository Devin review session for one explicitly authorized review round, publish validated findings as GitHub review threads, and record the bounded round decision. Do not start an implicit re-review loop."
