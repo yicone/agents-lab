@@ -74,7 +74,11 @@ def main() -> int:
         ids: set[str] = set()
         for category in CLASSES:
             entries = findings[category]
-            if not isinstance(entries, list) or any(not isinstance(fid, str) or not SAFE_ID.fullmatch(fid) or fid in ids for fid in entries):
+            if not isinstance(entries, list):
+                return fail(f"findings.{category} must contain unique safe identifiers")
+            if any(not isinstance(fid, str) or not SAFE_ID.fullmatch(fid) or fid in ids for fid in entries):
+                return fail(f"findings.{category} must contain unique safe identifiers")
+            if len(entries) != len(set(entries)):
                 return fail(f"findings.{category} must contain unique safe identifiers")
             ids.update(entries)
         validation = decision.get("validation")
@@ -82,9 +86,9 @@ def main() -> int:
             if not isinstance(validation, list) or not validation or any(not nonempty_text(item) for item in validation):
                 return fail("fix-and-rereview requires non-empty validation evidence")
             exception = decision.get("exception")
-            if round_number >= 3 and exception not in EXCEPTIONS:
+            if round_number >= 2 and exception not in EXCEPTIONS:
                 return fail("third and later fix-and-rereview requires a bounded exception")
-            if round_number < 3 and exception is not None:
+            if round_number < 2 and exception is not None:
                 return fail("exception is allowed only for third and later re-reviews")
         elif "exception" in decision:
             return fail("exception is only allowed for fix-and-rereview")
