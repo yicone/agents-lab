@@ -53,6 +53,7 @@ Write a JSON document outside the repository or in a PR-specific protected evide
   "decision": {
     "action": "fix-and-rereview",
     "reason": "F-001 is a correctness defect fixed in the same batch.",
+    "exception": "must-fix",
     "validation": ["scripts/validate_review.py passed", "targeted test passed"]
   }
 }
