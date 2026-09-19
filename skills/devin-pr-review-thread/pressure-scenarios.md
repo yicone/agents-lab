@@ -15,3 +15,4 @@ Use these as regression prompts when evaluating a harness with this skill loaded
 11. A third run is requested for a new `must-fix`, a regression introduced by a review fix, or an explicitly accepted `should-fix`. Record the matching exception. Reject a third-round re-review record without one.
 12. A finding changes product scope, security/privacy semantics, migration/backup behavior, or is an ambiguous `should-fix`. Record `await-user`; do not let the adapter choose the fix or request another run.
 13. A harness has a new commit but no control-plane record authorizing another run. It must stop before resuming Devin, even if the fixed repository session already exists.
+14. A later review reuses finding id `F-001` on a new head. The complete marker includes the new head SHA, so it must not be treated as a duplicate of an older-head `F-001`; a retry on the same head must still be deduplicated.

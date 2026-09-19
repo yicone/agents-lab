@@ -13,7 +13,7 @@ The contract borrows the finite-loop policy from `pr-review-fix`; it does not im
 5. Record one post-triage action: `fix-and-rereview`, `fix-and-stop`, `stop`, `follow-up`, or `await-user`.
 6. Start another provider run only if the prior record says `fix-and-rereview`, its validation evidence is recorded, and the next round is allowed by the budget below.
 
-The record is an auditable decision, not a background task or a merge approval. It does not authorize resolving a GitHub thread, changing scope, or merging a PR.
+The record is an auditable decision, not a background task or a merge approval. It does not authorize resolving a GitHub thread, changing scope, or merging a PR. Provider markers include the reviewed `head_sha`, so the same fixed session can safely reuse finding IDs on a later head.
 
 ## Finite budget
 
@@ -67,4 +67,3 @@ For a third or later `fix-and-rereview`, add `exception` with exactly one of `mu
 - **Provider (Devin adapter):** fixed session, structured findings, safety validation, idempotent GitHub review-thread publishing, and run evidence.
 - **Control thread / `pr-review-fix`:** thread-aware retrieval, classification, human-decision gate, batching fixes, local/CI/QA validation, round record, and next-review decision.
 - **Human maintainer:** product/scope choices, ambiguous should-fix choices, explicit thread resolution authorization, and merge acceptance.
-
