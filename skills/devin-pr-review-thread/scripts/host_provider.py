@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host-side JSON broker; never expose Devin/gh internals to sandbox callers."""
 from __future__ import annotations
-import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess
+import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess, re
 from contextlib import contextmanager
 
 SCHEMA = "devin-host-review/v1"
@@ -75,10 +75,13 @@ def root_lock(root):
         try:
             holder = int(path.read_text().strip())
             os.kill(holder, 0)
-        except (OSError, ValueError):
+        except ProcessLookupError:
             try: path.unlink()
             except FileNotFoundError: raise RuntimeError("busy")
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            try: fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError: raise RuntimeError("busy")
+        except (PermissionError, ValueError, OSError):
+            raise RuntimeError("busy")
         else:
             raise RuntimeError("busy")
     try:
@@ -88,15 +91,21 @@ def root_lock(root):
         except FileNotFoundError: pass
 
 def changed_lines(root, origin, pr):
-    p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=30)
+    try:
+        p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
     if p.returncode: return None
     result, path, line = {}, None, 0
     for raw in p.stdout.splitlines():
         if raw.startswith("+++ b/"): path = raw[6:]; result.setdefault(path, [])
         elif raw.startswith("@@") and path:
-            import re
             m = re.search(r"\+(\d+)(?:,(\d+))?", raw)
-            if m: line = int(m.group(1)); count = int(m.group(2) or 1); result[path].extend(range(line, line + count))
+            if m: line = int(m.group(1))
+        elif path and raw.startswith("+") and not raw.startswith("+++"):
+            result[path].append(line); line += 1
+        elif path and not raw.startswith("-"):
+            line += 1
     return result
 
 def run_review(root, origin, req, pf, evidence_payload):
@@ -135,12 +144,16 @@ def run_review(root, origin, req, pf, evidence_payload):
         listed = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "--paginate"], text=True, capture_output=True, timeout=30)
         if listed.returncode == 0:
             data = json.loads(listed.stdout)
-            existing = {f"finding={f['id']}" for item in (data if isinstance(data, list) else []) for f in [item] if isinstance(item, dict) and isinstance(item.get("body"), str) and f"session={sid}" in item["body"]}
+            for item in (data if isinstance(data, list) else []):
+                body = item.get("body", "") if isinstance(item, dict) else ""
+                marker_match = re.search(r"session=([^ ]+) head=([^ ]+) finding=([^ >]+)", body)
+                if marker_match and marker_match.group(1) == sid and marker_match.group(2) == head:
+                    existing.add(marker_match.group(3))
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         pass
     for f in review["findings"]:
         marker = f"<!-- devin-pr-review session={sid} head={head} finding={f['id']} -->"
-        if f"finding={f['id']}" in existing:
+        if f["id"] in existing:
             continue
         body = marker + "\n**[" + f["severity"] + "] " + f["title"] + "**\n\n" + f["body"]
         try:
@@ -174,12 +187,15 @@ def main():
             ledger_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             atomic_write(ledger_path, ledger)
             preflight = pathlib.Path(__file__).with_name("preflight.py")
-            proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=30)
-            try: pf = json.loads(proc.stdout)
-            except json.JSONDecodeError: pf = {"status": "provider-unavailable"}
+            try:
+                proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=30)
+                try: pf = json.loads(proc.stdout)
+                except json.JSONDecodeError: pf = {"status": "provider-unavailable"}
+            except (OSError, subprocess.SubprocessError) as exc:
+                proc = None; pf = {"status": "provider-unavailable", "error": type(exc).__name__}
             if proc.returncode != 0 or pf.get("status") != "ok":
                 out = response("await-user", req, retryable=False)
-                evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:]})
+                evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:] if proc else ""})
             elif req["authorization"]["head_sha"] != pf.get("pr", {}).get("head_sha"):
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "error": "head_mismatch"})

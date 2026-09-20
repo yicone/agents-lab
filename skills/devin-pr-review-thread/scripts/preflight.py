@@ -103,7 +103,7 @@ def session_state(root: str, registry: pathlib.Path) -> tuple[dict[str, Any], st
     if not isinstance(data, dict):
         return empty, "session_output_invalid"
     entry = data.get(root)
-    if not entry:
+    if not isinstance(entry, dict):
         return empty, "session_registry_missing"
     sid = entry.get("session_id")
     result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None}
