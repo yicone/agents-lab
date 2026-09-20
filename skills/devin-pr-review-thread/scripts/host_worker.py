@@ -39,7 +39,7 @@ def main():
     args = p.parse_args(); queue = pathlib.Path(args.queue); queue.mkdir(mode=0o700, parents=True, exist_ok=True)
     while True:
         for request in sorted(queue.glob("*.request.json")):
-            response = request.with_suffix(".response.json")
+            response = request.with_name(request.name.replace(".request.json", ".response.json"))
             if response.exists(): continue
             try:
                 payload = json.loads(request.read_text())
