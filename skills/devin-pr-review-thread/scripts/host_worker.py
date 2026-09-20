@@ -42,13 +42,17 @@ def main():
         for request in sorted(queue.glob("*.request.json")):
             response = request.with_name(request.name.replace(".request.json", ".response.json"))
             if response.exists(): continue
+            if request in active: continue
+            out_path = err_path = None; out = err = proc = None
             try:
                 payload = json.loads(request.read_text())
                 payload = authorize(payload, queue, pathlib.Path(args.authorizations).expanduser(), pathlib.Path(__file__).with_name("preflight.py"))
                 payload = json.dumps(payload)
                 out_path = request.with_name("." + response.name + ".out")
                 err_path = request.with_name("." + response.name + ".err")
-                out = open(out_path, "w+"); err = open(err_path, "w+")
+                out_fd = os.open(out_path, os.O_CREAT | os.O_TRUNC | os.O_RDWR, 0o600)
+                err_fd = os.open(err_path, os.O_CREAT | os.O_TRUNC | os.O_RDWR, 0o600)
+                out = os.fdopen(out_fd, "w+"); err = os.fdopen(err_fd, "w+")
                 proc = subprocess.Popen([sys.executable, str(pathlib.Path(__file__).with_name("host_provider.py"))], stdin=subprocess.PIPE, stdout=out, stderr=err, text=True)
                 proc.stdin.write(payload); proc.stdin.close()
                 active[request] = (proc, response, out, err, out_path, err_path)
@@ -57,15 +61,25 @@ def main():
                 data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
                 tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
                 request.unlink(missing_ok=True)
+                if proc is not None and proc.poll() is None: proc.kill()
+                for handle in (out, err):
+                    if handle is not None: handle.close()
+                for sidecar in (out_path, err_path):
+                    if sidecar is not None: pathlib.Path(sidecar).unlink(missing_ok=True)
         for request, (proc, response, out, err, out_path, err_path) in list(active.items()):
             if proc.poll() is None: continue
-            out.close(); err.close()
-            try: data = json.loads(out_path.read_text())
-            except (OSError, json.JSONDecodeError):
+            try:
+                out.close(); err.close()
+                data = json.loads(pathlib.Path(out_path).read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
                 data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
-            tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
-            out_path.unlink(missing_ok=True); err_path.unlink(missing_ok=True); del active[request]
-        if args.once: return 0
+            try:
+                tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
+                pathlib.Path(out_path).unlink(missing_ok=True); pathlib.Path(err_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+            del active[request]
+        if args.once and not active and not list(queue.glob("*.request.json")): return 0
         time.sleep(1)
 
 if __name__ == "__main__": raise SystemExit(main())

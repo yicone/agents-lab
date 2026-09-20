@@ -149,7 +149,7 @@ def run_review(root, origin, req, pf, evidence_payload):
         if not bad_line or not isinstance(parsed, dict):
             return "await-user", [], evidence_payload | {"error": "invalid_review_output", "validator_stderr": valid.stderr[-4000:]}
         bad_id = bad_line.group(1); dropped.append(bad_id)
-        parsed["findings"] = [f for f in parsed.get("findings", []) if f.get("id") != bad_id]
+        parsed["findings"] = [f for f in parsed.get("findings", []) if not isinstance(f, dict) or f.get("id") != bad_id]
     else:
         return "await-user", [], evidence_payload | {"error": "invalid_review_output", "validator_stderr": "validator did not converge"}
     if dropped:
