@@ -141,7 +141,7 @@ def run_review(root, origin, req, pf, evidence_payload):
     comments = []
     existing = set()
     try:
-        listed = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "--paginate"], text=True, capture_output=True, timeout=30)
+        listed = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments"], text=True, capture_output=True, timeout=30)
         if listed.returncode == 0:
             data = json.loads(listed.stdout)
             for item in (data if isinstance(data, list) else []):
@@ -193,7 +193,7 @@ def main():
                 except json.JSONDecodeError: pf = {"status": "provider-unavailable"}
             except (OSError, subprocess.SubprocessError) as exc:
                 proc = None; pf = {"status": "provider-unavailable", "error": type(exc).__name__}
-            if proc.returncode != 0 or pf.get("status") != "ok":
+            if proc is None or proc.returncode != 0 or pf.get("status") != "ok":
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:] if proc else ""})
             elif req["authorization"]["head_sha"] != pf.get("pr", {}).get("head_sha"):
