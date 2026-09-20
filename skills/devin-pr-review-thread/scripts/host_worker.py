@@ -37,6 +37,7 @@ def main():
     p.add_argument("--authorizations", default="~/.config/devin/round-authorizations.json")
     p.add_argument("--once", action="store_true")
     args = p.parse_args(); queue = pathlib.Path(args.queue); queue.mkdir(mode=0o700, parents=True, exist_ok=True)
+    active = {}
     while True:
         for request in sorted(queue.glob("*.request.json")):
             response = request.with_name(request.name.replace(".request.json", ".response.json"))
@@ -45,12 +46,25 @@ def main():
                 payload = json.loads(request.read_text())
                 payload = authorize(payload, queue, pathlib.Path(args.authorizations).expanduser(), pathlib.Path(__file__).with_name("preflight.py"))
                 payload = json.dumps(payload)
-                proc = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("host_provider.py"))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, input=payload)
-                data = json.loads(proc.stdout)
+                out_path = request.with_name("." + response.name + ".out")
+                err_path = request.with_name("." + response.name + ".err")
+                out = open(out_path, "w+"); err = open(err_path, "w+")
+                proc = subprocess.Popen([sys.executable, str(pathlib.Path(__file__).with_name("host_provider.py"))], stdin=subprocess.PIPE, stdout=out, stderr=err, text=True)
+                proc.stdin.write(payload); proc.stdin.close()
+                active[request] = (proc, response, out, err, out_path, err_path)
+                request.unlink(missing_ok=True)
             except Exception:
                 data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
+                tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
+                request.unlink(missing_ok=True)
+        for request, (proc, response, out, err, out_path, err_path) in list(active.items()):
+            if proc.poll() is None: continue
+            out.close(); err.close()
+            try: data = json.loads(out_path.read_text())
+            except (OSError, json.JSONDecodeError):
+                data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
             tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
-            request.unlink(missing_ok=True)
+            out_path.unlink(missing_ok=True); err_path.unlink(missing_ok=True); del active[request]
         if args.once: return 0
         time.sleep(1)
 
