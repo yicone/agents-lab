@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host-side JSON broker; never expose Devin/gh internals to sandbox callers."""
 from __future__ import annotations
-import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile
+import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess
 from contextlib import contextmanager
 
 SCHEMA = "devin-host-review/v1"
@@ -88,9 +88,18 @@ def main():
         with root_lock(str(pathlib.Path(req["repository_root"]).resolve())):
             ledger[aid] = {"status": "running", "started_at": dt.datetime.now(dt.timezone.utc).isoformat()}
             ledger_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True); ledger_path.write_text(json.dumps(ledger))
-            # Provider execution is deliberately a host integration seam; no shell command is accepted from stdin.
-            out = response("provider-unavailable", req, retryable=False)
-            evidence = write_evidence({"request": req, "status": "provider-unavailable"}); out["evidence_ref"] = evidence
+            preflight = pathlib.Path(__file__).with_name("preflight.py")
+            proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=30)
+            try: pf = json.loads(proc.stdout)
+            except json.JSONDecodeError: pf = {"status": "provider-unavailable"}
+            if proc.returncode != 0 or pf.get("status") != "ok":
+                out = response("await-user", req, retryable=False)
+                evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:]})
+            else:
+                # Devin execution/publication is the next host integration seam; never fabricate a review result.
+                out = response("provider-unavailable", req, retryable=False)
+                evidence = write_evidence({"request": req, "preflight": pf, "status": "provider-unavailable"})
+            out["evidence_ref"] = evidence
             ledger[aid] = {"status": "complete", "response": out}; ledger_path.write_text(json.dumps(ledger))
     except RuntimeError:
         out = response("provider-unavailable", req, retryable=False)
