@@ -19,6 +19,16 @@ def load_json(path):
     try: return json.loads(path.read_text())
     except (OSError, json.JSONDecodeError): return None
 
+def atomic_write(path, value):
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f: json.dump(value, f, ensure_ascii=False)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp): os.unlink(tmp)
+
 def evidence_dir():
     p = pathlib.Path(os.environ.get("DEVIN_PROVIDER_EVIDENCE_DIR", "~/.local/share/devin/host-provider/evidence")).expanduser()
     p.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -43,8 +53,8 @@ def validate_request(req, allowlist, authorizations):
     if not isinstance(root, str) or not os.path.isabs(root): return "invalid-request"
     root = str(pathlib.Path(root).resolve())
     if root not in allowlist: return "invalid-request"
-    if not isinstance(req.get("pr_number"), int) or req["pr_number"] <= 0: return "invalid-request"
-    if not isinstance(req.get("round"), int) or req["round"] <= 0: return "invalid-request"
+    if isinstance(req.get("pr_number"), bool) or not isinstance(req.get("pr_number"), int) or req["pr_number"] <= 0: return "invalid-request"
+    if isinstance(req.get("round"), bool) or not isinstance(req.get("round"), int) or req["round"] <= 0: return "invalid-request"
     timeout = req.get("timeout_seconds", 900)
     if not isinstance(timeout, int) or not 30 <= timeout <= 1800: return "invalid-request"
     auth = req.get("authorization")
@@ -62,7 +72,15 @@ def root_lock(root):
     try:
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
-        raise RuntimeError("busy")
+        try:
+            holder = int(path.read_text().strip())
+            os.kill(holder, 0)
+        except (OSError, ValueError):
+            try: path.unlink()
+            except FileNotFoundError: raise RuntimeError("busy")
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        else:
+            raise RuntimeError("busy")
     try:
         os.write(fd, str(os.getpid()).encode()); os.close(fd); yield
     finally:
@@ -89,21 +107,46 @@ def run_review(root, origin, req, pf, evidence_payload):
               f"Review PR {pr} at head {head} in repository {root}. "
               f"Your session_id is {sid}; repository_root is {root}. "
               "Do not edit, commit, push, or call GitHub. Report only actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.")
-    p = subprocess.run(["devin", "-r", sid, "--model", "swe-2-high", "--permission-mode", "auto", "--respect-workspace-trust", "true", "-p", "--", prompt], cwd=root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
+    devin_args = ["devin"]
+    config = os.environ.get("DEVIN_REVIEW_CONFIG")
+    if config: devin_args += ["--config", config]
+    devin_args += ["-r", sid, "--model", "swe-2-high", "--permission-mode", "auto", "--respect-workspace-trust", "true", "-p", "--", prompt]
+    try:
+        p = subprocess.run(devin_args, cwd=root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "await-user", [], evidence_payload | {"error": "deving_process_failure", "detail": type(exc).__name__}
     evidence_payload |= {"returncode": p.returncode, "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}
     if p.returncode != 0 or "requires confirmation" in p.stderr.lower(): return "await-user", [], evidence_payload | {"error": "permission_or_process_failure"}
-    fd, path = tempfile.mkstemp(prefix="devin-review-", suffix=".json"); os.close(fd); pathlib.Path(path).write_text(p.stdout); os.chmod(path, 0o600)
+    start = p.stdout.find("{")
+    cleaned = p.stdout[start:] if start >= 0 else p.stdout
+    fd, path = tempfile.mkstemp(prefix="devin-review-", suffix=".json"); os.close(fd); pathlib.Path(path).write_text(cleaned); os.chmod(path, 0o600)
     linefile = path + ".lines"; pathlib.Path(linefile).write_text(json.dumps(lines)); os.chmod(linefile, 0o600)
-    valid = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("validate_review.py")), path, "--root", root, "--head-sha", head, "--session-id", sid, "--pr-number", str(pr), "--changed-lines", linefile], text=True, capture_output=True)
+    try:
+        valid = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("validate_review.py")), path, "--root", root, "--head-sha", head, "--session-id", sid, "--pr-number", str(pr), "--changed-lines", linefile], text=True, capture_output=True)
+    except (OSError, subprocess.SubprocessError):
+        return "await-user", [], evidence_payload | {"error": "validator_failure"}
     if valid.returncode: return "await-user", [], evidence_payload | {"error": "invalid_review_output"}
-    try: review = json.loads(p.stdout)
+    try: review = json.loads(cleaned)
     except json.JSONDecodeError: return "await-user", [], evidence_payload | {"error": "invalid_review_output"}
     if not review.get("findings"): return "no-findings", [], evidence_payload
     comments = []
+    existing = set()
+    try:
+        listed = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "--paginate"], text=True, capture_output=True, timeout=30)
+        if listed.returncode == 0:
+            data = json.loads(listed.stdout)
+            existing = {f"finding={f['id']}" for item in (data if isinstance(data, list) else []) for f in [item] if isinstance(item, dict) and isinstance(item.get("body"), str) and f"session={sid}" in item["body"]}
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        pass
     for f in review["findings"]:
         marker = f"<!-- devin-pr-review session={sid} head={head} finding={f['id']} -->"
+        if f"finding={f['id']}" in existing:
+            continue
         body = marker + "\n**[" + f["severity"] + "] " + f["title"] + "**\n\n" + f["body"]
-        c = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "-f", f"body={body}", "-f", f"commit_id={head}", "-f", f"path={f['path']}", "-F", f"line={f['line']}", "-f", "side=RIGHT"], text=True, capture_output=True, timeout=30)
+        try:
+            c = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "-f", f"body={body}", "-f", f"commit_id={head}", "-f", f"path={f['path']}", "-F", f"line={f['line']}", "-f", "side=RIGHT"], text=True, capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
         if c.returncode != 0: return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
         try:
             obj = json.loads(c.stdout); comments.append({"id": str(obj.get("id")), "url": obj.get("html_url")})
@@ -128,7 +171,8 @@ def main():
     try:
         with root_lock(str(pathlib.Path(req["repository_root"]).resolve())):
             ledger[aid] = {"status": "running", "started_at": dt.datetime.now(dt.timezone.utc).isoformat()}
-            ledger_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True); ledger_path.write_text(json.dumps(ledger))
+            ledger_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            atomic_write(ledger_path, ledger)
             preflight = pathlib.Path(__file__).with_name("preflight.py")
             proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=30)
             try: pf = json.loads(proc.stdout)
@@ -136,12 +180,15 @@ def main():
             if proc.returncode != 0 or pf.get("status") != "ok":
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:]})
+            elif req["authorization"]["head_sha"] != pf.get("pr", {}).get("head_sha"):
+                out = response("await-user", req, retryable=False)
+                evidence = write_evidence({"request": req, "preflight": pf, "error": "head_mismatch"})
             else:
                 status, comments, evidence_payload = run_review(req["repository_root"], allowlist[str(pathlib.Path(req["repository_root"]).resolve())], req, pf, {"request": req, "preflight": pf})
                 out = response(status, req, retryable=False, findings_count=len(comments), comments=comments)
                 evidence = write_evidence(evidence_payload)
             out["evidence_ref"] = evidence
-            ledger[aid] = {"status": "complete", "response": out}; ledger_path.write_text(json.dumps(ledger))
+            ledger[aid] = {"status": "complete", "response": out}; atomic_write(ledger_path, ledger)
     except RuntimeError:
         out = response("provider-unavailable", req, retryable=False)
     print(json.dumps(out, ensure_ascii=False)); return 0

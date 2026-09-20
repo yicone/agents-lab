@@ -53,12 +53,14 @@ def origin_name(root: str) -> str | None:
         return value.split(":", 1)[1]
     if "/github.com/" in value:
         return value.split("/github.com/", 1)[1]
-    return value.rsplit("/", 1)[-1]
+    return value if value.count("/") == 1 else None
 
 
-def pr_identity(root: str, number: int) -> tuple[dict[str, Any], str | None]:
+def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, Any], str | None]:
     result = {"number": number, "head_sha": None}
-    data, error = command_json(["gh", "pr", "view", str(number), "--json", "headRefOid"])
+    if not origin:
+        return result, "origin_identity_failed"
+    data, error = command_json(["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"])
     if error or not isinstance(data, dict) or not data.get("headRefOid"):
         return result, "pr_identity_failed"
     result["head_sha"] = data["headRefOid"]
@@ -70,7 +72,10 @@ def model_state() -> tuple[dict[str, Any], str | None]:
     result = {"label": None, "model_uid": None, "expires_on": EXPIRY.isoformat(), "available": False}
     if error:
         return result, "model_output_invalid"
-    matches = [v for family in data.get("families", []) for v in family.get("variants", []) if v.get("model_uid") == MODEL_UID]
+    if not isinstance(data, dict) or not isinstance(data.get("families"), list):
+        return result, "model_output_invalid"
+    matches = [v for family in data["families"] if isinstance(family, dict) and isinstance(family.get("variants"), list)
+               for v in family["variants"] if isinstance(v, dict) and v.get("model_uid") == MODEL_UID]
     exact = [v for v in matches if v.get("label") == MODEL_LABEL]
     if exact:
         result.update(label=MODEL_LABEL, model_uid=MODEL_UID, available=dt.date.today() <= EXPIRY)
@@ -95,6 +100,8 @@ def session_state(root: str, registry: pathlib.Path) -> tuple[dict[str, Any], st
         data = json.loads(registry.read_text())
     except (OSError, json.JSONDecodeError):
         return empty, "session_registry_missing"
+    if not isinstance(data, dict):
+        return empty, "session_output_invalid"
     entry = data.get(root)
     if not entry:
         return empty, "session_registry_missing"
@@ -102,6 +109,8 @@ def session_state(root: str, registry: pathlib.Path) -> tuple[dict[str, Any], st
     result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None}
     sessions, error = command_json(["devin", "list", "--format", "json"])
     if error:
+        return result, "session_output_invalid"
+    if not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
         return result, "session_output_invalid"
     found = next((x for x in sessions if x.get("id") == sid), None)
     if not found:
@@ -159,7 +168,7 @@ def main() -> int:
         out["status"] = "repo_identity_failed"; out["diagnostics"].append(root_error or "missing root")
     else:
         out["repository"]["origin"] = origin_name(root)
-        out["pr"], pr_error = pr_identity(root, args.pr)
+        out["pr"], pr_error = pr_identity(root, args.pr, out["repository"]["origin"])
         if pr_error:
             out["status"] = pr_error
         out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces))
