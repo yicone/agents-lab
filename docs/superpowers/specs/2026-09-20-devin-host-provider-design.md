@@ -29,7 +29,7 @@ The sandbox-facing command is a narrow request/response interface. The request i
 }
 ```
 
-The provider accepts only a host-issued `pr-review-round/v1` `phase=run` authorization with a stable opaque single-use `authorization_id`, canonical repository binding, PR/head/round binding, and finite-budget eligibility. The provider rejects self-asserted or missing authorization, path traversal, non-absolute roots, stale head SHA, invalid round numbers, unknown keys that could carry commands, and timeouts outside a bounded range. The canonical root must also be in a host-side allowlist bound to the expected GitHub owner/name.
+The host worker accepts a minimal review request and issues a host-owned `pr-review-round/v1` `phase=run` authorization after preflight. The provider itself accepts only that authorization with a stable opaque single-use `authorization_id`, canonical repository binding, PR/head/round binding, and finite-budget eligibility. Consumers never create or repair the authorization ledger. The provider rejects self-asserted or missing authorization, path traversal, non-absolute roots, stale head SHA, invalid round numbers, unknown keys that could carry commands, and timeouts outside a bounded range. The canonical root must also be in a host-side allowlist bound to the expected GitHub owner/name.
 
 ### Response
 
