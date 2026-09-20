@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Host-side request queue worker. Run this outside any agent sandbox."""
+from __future__ import annotations
+import argparse, json, os, pathlib, subprocess, sys, time, secrets, datetime as dt
+
+def authorize(payload, root, auth_path, preflight_path):
+    """Issue a host-owned one-shot authorization for a minimal black-box request."""
+    if payload.get("authorization"):
+        return payload
+    if not isinstance(payload.get("repository_root"), str) or not isinstance(payload.get("pr_number"), int):
+        return payload
+    round_number = payload.get("round", 1)
+    if isinstance(round_number, bool) or not isinstance(round_number, int) or not 1 <= round_number <= 3:
+        return payload
+    try:
+        pf = subprocess.run([sys.executable, str(preflight_path), "--repo-root", payload["repository_root"], "--pr", str(payload["pr_number"])], text=True, capture_output=True, timeout=30)
+        data = json.loads(pf.stdout)
+        head = data.get("pr", {}).get("head_sha")
+        if pf.returncode != 0 or data.get("status") != "ok" or not isinstance(head, str):
+            return payload
+        aid = "host-" + secrets.token_urlsafe(18)
+        records = {}
+        try: records = json.loads(auth_path.read_text())
+        except (OSError, json.JSONDecodeError): pass
+        if not isinstance(records, dict): records = {}
+        records[aid] = {"used": False, "repository_root": str(pathlib.Path(payload["repository_root"]).resolve()), "pr_number": payload["pr_number"], "round": round_number, "head_sha": head, "issued_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+        auth_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        tmp = auth_path.with_name("." + auth_path.name + ".tmp"); tmp.write_text(json.dumps(records)); os.chmod(tmp, 0o600); os.replace(tmp, auth_path)
+        enriched = dict(payload); enriched["round"] = round_number; enriched["authorization"] = {"action": "run", "authorization_id": aid, "head_sha": head}
+        return enriched
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return payload
+
+def main():
+    p = argparse.ArgumentParser(description="Run Devin review requests from a host-side queue")
+    p.add_argument("--queue", default="/private/tmp/devin-host-review")
+    p.add_argument("--authorizations", default="~/.config/devin/round-authorizations.json")
+    p.add_argument("--once", action="store_true")
+    args = p.parse_args(); queue = pathlib.Path(args.queue); queue.mkdir(mode=0o700, parents=True, exist_ok=True)
+    while True:
+        for request in sorted(queue.glob("*.request.json")):
+            response = request.with_name(request.name.replace(".request.json", ".response.json"))
+            if response.exists(): continue
+            try:
+                payload = json.loads(request.read_text())
+                payload = authorize(payload, queue, pathlib.Path(args.authorizations).expanduser(), pathlib.Path(__file__).with_name("preflight.py"))
+                payload = json.dumps(payload)
+                proc = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("host_provider.py"))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, input=payload)
+                data = json.loads(proc.stdout)
+            except Exception:
+                data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
+            tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
+            request.unlink(missing_ok=True)
+        if args.once: return 0
+        time.sleep(1)
+
+if __name__ == "__main__": raise SystemExit(main())
