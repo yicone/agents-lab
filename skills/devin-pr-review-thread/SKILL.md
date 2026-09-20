@@ -31,7 +31,7 @@ It is not a review-loop controller. A harness may run this adapter only after th
 
 ## Provider-owned state
 
-The provider, not the consuming agent, owns the registry and one-session invariant. The registry is non-secret metadata keyed by canonical root; its schema and recovery rules are implementation details in the provider runtime. Consuming agents must not read, write, rotate, or repair it.
+The provider, not the consuming agent, owns the registry and one-session invariant. The registry is non-secret metadata keyed by canonical root; its schema and recovery rules are implementation details in the provider runtime. Consuming agents must not read, write, rotate, or repair it. Host maintainers enroll a repository once with `python3 scripts/host_enroll.py --repo-root <root>`; this is host setup, not a consuming-agent step.
 
 ## Failure policy
 
