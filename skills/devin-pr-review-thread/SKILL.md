@@ -17,8 +17,8 @@ It is not a review-loop controller. A harness may run this adapter only after th
 
 - Run the provider through its preflight interface: `python3 scripts/preflight.py --repo-root <root> --pr <number>`. Consume the JSON `status`; do not reinterpret it.
 - Sandbox callers must use the host broker `python3 scripts/host_provider.py` with a JSON request on stdin; they must not invoke Devin, `gh`, or preflight directly. The broker returns one `devin-host-review/v1` response object.
-- In sandbox deployments, submit the request to the host queue consumed by `python3 scripts/host_worker.py`; the worker must be started in a host-side terminal/runtime, not by the sandbox agent. Read the response file and consume only its stable `status`.
-- Start only after the round-control record authorizes this run. The provider owns the one fixed repository session, exact free model, canonical root, read-only permission mode, structured output validation, and GitHub publication.
+- In sandbox deployments, submit a minimal request (`schema`, `repository_root`, `pr_number`, optional `round`, and bounded `timeout_seconds`) to the host queue consumed by `python3 scripts/host_worker.py`; the worker must be started in a host-side terminal/runtime, not by the sandbox agent. The worker issues the one-shot host authorization after host preflight, then invokes the provider. Read the response file and consume only its stable `status`.
+- The consuming agent must not create or repair `round-authorizations.json`; authorization issuance is a host-worker responsibility. The provider owns the one fixed repository session, exact free model, canonical root, read-only permission mode, structured output validation, and GitHub publication.
 - On any non-`ok` status, return `await-user` with the protected evidence path. Do not retry, repair, or substitute anything yourself.
 - Publish only the provider's validated findings; never paste provider output into a PR thread.
 
