@@ -69,6 +69,47 @@ def root_lock(root):
         try: path.unlink()
         except FileNotFoundError: pass
 
+def changed_lines(root, origin, pr):
+    p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--unified=0"], cwd=root, text=True, capture_output=True, timeout=30)
+    if p.returncode: return None
+    result, path, line = {}, None, 0
+    for raw in p.stdout.splitlines():
+        if raw.startswith("+++ b/"): path = raw[6:]; result.setdefault(path, [])
+        elif raw.startswith("@@") and path:
+            import re
+            m = re.search(r"\+(\d+)(?:,(\d+))?", raw)
+            if m: line = int(m.group(1)); count = int(m.group(2) or 1); result[path].extend(range(line, line + count))
+    return result
+
+def run_review(root, origin, req, pf, evidence_payload):
+    sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
+    lines = changed_lines(root, origin, pr)
+    if not lines: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
+    prompt = ("Return exactly one JSON document matching devin-pr-review/v1, no Markdown. "
+              f"Review PR {pr} at head {head} in repository {root}. "
+              f"Your session_id is {sid}; repository_root is {root}. "
+              "Do not edit, commit, push, or call GitHub. Report only actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.")
+    p = subprocess.run(["devin", "-r", sid, "--model", "swe-2-high", "--permission-mode", "auto", "--respect-workspace-trust", "true", "-p", "--", prompt], cwd=root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
+    evidence_payload |= {"returncode": p.returncode, "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}
+    if p.returncode != 0 or "requires confirmation" in p.stderr.lower(): return "await-user", [], evidence_payload | {"error": "permission_or_process_failure"}
+    fd, path = tempfile.mkstemp(prefix="devin-review-", suffix=".json"); os.close(fd); pathlib.Path(path).write_text(p.stdout); os.chmod(path, 0o600)
+    linefile = path + ".lines"; pathlib.Path(linefile).write_text(json.dumps(lines)); os.chmod(linefile, 0o600)
+    valid = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("validate_review.py")), path, "--root", root, "--head-sha", head, "--session-id", sid, "--pr-number", str(pr), "--changed-lines", linefile], text=True, capture_output=True)
+    if valid.returncode: return "await-user", [], evidence_payload | {"error": "invalid_review_output"}
+    try: review = json.loads(p.stdout)
+    except json.JSONDecodeError: return "await-user", [], evidence_payload | {"error": "invalid_review_output"}
+    if not review.get("findings"): return "no-findings", [], evidence_payload
+    comments = []
+    for f in review["findings"]:
+        marker = f"<!-- devin-pr-review session={sid} head={head} finding={f['id']} -->"
+        body = marker + "\n**[" + f["severity"] + "] " + f["title"] + "**\n\n" + f["body"]
+        c = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "-f", f"body={body}", "-f", f"commit_id={head}", "-f", f"path={f['path']}", "-F", f"line={f['line']}", "-f", "side=RIGHT"], text=True, capture_output=True, timeout=30)
+        if c.returncode != 0: return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
+        try:
+            obj = json.loads(c.stdout); comments.append({"id": str(obj.get("id")), "url": obj.get("html_url")})
+        except json.JSONDecodeError: return "await-user", comments, evidence_payload | {"error": "github_publish_invalid"}
+    return "review-published", comments, evidence_payload
+
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument("--allowlist", default="~/.config/devin/provider-allowlist.json"); parser.add_argument("--authorizations", default="~/.config/devin/round-authorizations.json"); parser.add_argument("--ledger", default="~/.local/share/devin/host-provider/ledger.json")
     args = parser.parse_args(); raw = sys.stdin.read()
@@ -96,9 +137,9 @@ def main():
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:]})
             else:
-                # Devin execution/publication is the next host integration seam; never fabricate a review result.
-                out = response("provider-unavailable", req, retryable=False)
-                evidence = write_evidence({"request": req, "preflight": pf, "status": "provider-unavailable"})
+                status, comments, evidence_payload = run_review(req["repository_root"], allowlist[str(pathlib.Path(req["repository_root"]).resolve())], req, pf, {"request": req, "preflight": pf})
+                out = response(status, req, retryable=False, findings_count=len(comments), comments=comments)
+                evidence = write_evidence(evidence_payload)
             out["evidence_ref"] = evidence
             ledger[aid] = {"status": "complete", "response": out}; ledger_path.write_text(json.dumps(ledger))
     except RuntimeError:
