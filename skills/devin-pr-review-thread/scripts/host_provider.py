@@ -136,12 +136,24 @@ def run_review(root, origin, req, pf, evidence_payload):
         parsed = None
     fd, path = tempfile.mkstemp(prefix="devin-review-", suffix=".json"); os.close(fd); pathlib.Path(path).write_text(cleaned); os.chmod(path, 0o600)
     linefile = path + ".lines"; pathlib.Path(linefile).write_text(json.dumps(lines)); os.chmod(linefile, 0o600)
-    try:
-        valid = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("validate_review.py")), path, "--root", root, "--head-sha", head, "--session-id", sid, "--pr-number", str(pr), "--changed-lines", linefile], text=True, capture_output=True)
-    except (OSError, subprocess.SubprocessError):
-        return "await-user", [], evidence_payload | {"error": "validator_failure"}
-    if valid.returncode:
-        return "await-user", [], evidence_payload | {"error": "invalid_review_output", "validator_stderr": valid.stderr[-4000:]}
+    dropped = []
+    for _ in range(len(parsed.get("findings", [])) + 1 if isinstance(parsed, dict) else 1):
+        pathlib.Path(path).write_text(json.dumps(parsed, ensure_ascii=False))
+        try:
+            valid = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("validate_review.py")), path, "--root", root, "--head-sha", head, "--session-id", sid, "--pr-number", str(pr), "--changed-lines", linefile], text=True, capture_output=True)
+        except (OSError, subprocess.SubprocessError):
+            return "await-user", [], evidence_payload | {"error": "validator_failure"}
+        if valid.returncode == 0:
+            break
+        bad_line = re.search(r"invalid review: ([A-Za-z0-9._-]+): path/line is not an added RIGHT line", valid.stderr)
+        if not bad_line or not isinstance(parsed, dict):
+            return "await-user", [], evidence_payload | {"error": "invalid_review_output", "validator_stderr": valid.stderr[-4000:]}
+        bad_id = bad_line.group(1); dropped.append(bad_id)
+        parsed["findings"] = [f for f in parsed.get("findings", []) if f.get("id") != bad_id]
+    else:
+        return "await-user", [], evidence_payload | {"error": "invalid_review_output", "validator_stderr": "validator did not converge"}
+    if dropped:
+        evidence_payload["dropped_invalid_findings"] = dropped
     if parsed is None:
         return "await-user", [], evidence_payload | {"error": "invalid_review_output", "parse_error": "no_complete_json_document"}
     review = parsed
