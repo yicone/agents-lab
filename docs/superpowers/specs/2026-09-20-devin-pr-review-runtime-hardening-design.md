@@ -6,14 +6,14 @@ Make `devin-pr-review-thread` deterministic across agent harnesses by replacing 
 
 ## Scope
 
-The change adds a read-only preflight helper, documents runtime failure classes, and extends pressure coverage. It does not publish reviews, trust workspaces, terminate processes, delete locks, open or close Devin Desktop, rotate sessions, change permission mode, or control review rounds.
+The change adds a read-only preflight helper, documents runtime failure classes, and extends pressure coverage. The consuming-agent interface is intentionally black-box: it receives a stable status and protected evidence path, while Devin/ACP, model, trust, lock, Desktop, and permission details remain provider-owned. It does not publish reviews, trust workspaces, terminate processes, delete locks, open or close Devin Desktop, rotate sessions, change permission mode, or control review rounds.
 
 ## Components
 
 1. `scripts/preflight.py` resolves and reports the canonical repository identity, exact `SWE-2 High` model mapping, workspace trust, fixed session binding, session-lock ownership, relevant Devin/ACP processes, required CLI flags, GitHub authentication, and PR identity. Its output is one JSON object with a stable status and evidence fields.
 2. `references/runtime-recovery.md` defines failure classification, whether human action is required, and the only permitted retry for startup failures. Devin Desktop is explicitly not a prerequisite; a possible live owner is evidence to investigate, not proof of conflict.
-3. `SKILL.md` invokes preflight before starting Devin and routes runtime failures to the recovery reference. It retains the provider/control-plane split.
-4. Fixture-driven tests exercise model parsing, trusted and untrusted roots, live and stale locks, missing registry entries, and process evidence without changing real user configuration.
+3. `SKILL.md` exposes only the provider preflight and stable result contract to consuming agents; runtime recovery remains a maintainer reference.
+4. Pressure scenarios exercise model parsing, trusted and untrusted roots, live and stale locks, missing registry entries, ACP/tool permission separation, and process evidence without changing real user configuration.
 
 ## Preflight Interface
 
@@ -75,7 +75,7 @@ Devin Desktop need not be open for CLI review and the skill must not open it. If
 
 ## Validation
 
-- Unit tests run entirely against temporary fixtures and stub CLI executables, including timeout, non-zero, malformed, and mixed-output dependencies.
+- Preflight runs read-only against the current CLI and emits the documented JSON contract; malformed and unavailable dependencies fail closed.
 - Existing review and review-round validators continue to pass.
 - Skill structure validation passes.
 - Pressure scenarios cover the observed model-gate, workspace-trust, Desktop/ACP, permission, and non-JSON-output failures.
