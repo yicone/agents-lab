@@ -70,7 +70,7 @@ def root_lock(root):
         except FileNotFoundError: pass
 
 def changed_lines(root, origin, pr):
-    p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--unified=0"], cwd=root, text=True, capture_output=True, timeout=30)
+    p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=30)
     if p.returncode: return None
     result, path, line = {}, None, 0
     for raw in p.stdout.splitlines():
