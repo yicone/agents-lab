@@ -52,7 +52,7 @@ def validate_request(req, allowlist, authorizations):
     root = req.get("repository_root")
     if not isinstance(root, str) or not os.path.isabs(root): return "invalid-request"
     root = str(pathlib.Path(root).resolve())
-    if root not in allowlist: return "invalid-request"
+    if allowlist_origin(root, allowlist) is None: return "invalid-request"
     if isinstance(req.get("pr_number"), bool) or not isinstance(req.get("pr_number"), int) or req["pr_number"] <= 0: return "invalid-request"
     if isinstance(req.get("round"), bool) or not isinstance(req.get("round"), int) or req["round"] <= 0: return "invalid-request"
     timeout = req.get("timeout_seconds", 900)
@@ -63,6 +63,18 @@ def validate_request(req, allowlist, authorizations):
     record = authorizations.get(aid) if isinstance(aid, str) else None
     if not isinstance(record, dict) or record.get("used") or record.get("repository_root") != root or record.get("pr_number") != req["pr_number"] or record.get("round") != req["round"] or record.get("head_sha") != auth.get("head_sha"): return "invalid-request"
     return None
+
+def allowlist_origin(root, allowlist):
+    if root in allowlist: return allowlist[root]
+    matches = [(key[:-2], value) for key, value in allowlist.items() if key.endswith("/*") and pathlib.Path(root).parent == pathlib.Path(key[:-2]).resolve()]
+    if not matches: return None
+    try:
+        remote = subprocess.run(["git", "-C", root, "config", "--get", "remote.origin.url"], text=True, capture_output=True, timeout=15)
+        value = remote.stdout.strip().removesuffix(".git")
+        actual = value.split(":", 1)[1] if value.startswith("git@") and ":" in value else value.split("/github.com/", 1)[1] if "/github.com/" in value else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return next((origin for _, origin in matches if origin == actual), None)
 
 @contextmanager
 def root_lock(root):
@@ -220,7 +232,8 @@ def main():
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "error": "head_mismatch"})
             else:
-                status, comments, evidence_payload = run_review(req["repository_root"], allowlist[str(pathlib.Path(req["repository_root"]).resolve())], req, pf, {"request": req, "preflight": pf})
+                origin = allowlist_origin(str(pathlib.Path(req["repository_root"]).resolve()), allowlist)
+                status, comments, evidence_payload = run_review(req["repository_root"], origin, req, pf, {"request": req, "preflight": pf})
                 out = response(status, req, retryable=False, findings_count=len(comments), comments=comments)
                 evidence = write_evidence(evidence_payload)
             out["evidence_ref"] = evidence
