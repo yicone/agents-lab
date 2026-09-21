@@ -8,6 +8,12 @@ def run(argv):
     if p.returncode: raise RuntimeError(p.stderr.strip() or "command failed")
     return p.stdout.strip()
 
+def origin_for(root):
+    remote = run(["git", "-C", str(root), "config", "--get", "remote.origin.url"]).removesuffix(".git")
+    if remote.startswith("git@") and ":" in remote: return remote.split(":", 1)[1]
+    if "/github.com/" in remote: return remote.split("/github.com/", 1)[1]
+    raise RuntimeError("origin is not a GitHub repository")
+
 def main():
     p = argparse.ArgumentParser(); group = p.add_mutually_exclusive_group(required=True); group.add_argument("--repo-root"); group.add_argument("--worktree-parent"); p.add_argument("--allowlist", default="~/.config/devin/provider-allowlist.json")
     args = p.parse_args()
@@ -18,13 +24,12 @@ def main():
             try: roots.append(pathlib.Path(run(["git", "-C", str(candidate), "rev-parse", "--show-toplevel"])).resolve())
             except (OSError, RuntimeError, subprocess.SubprocessError): pass
         if not roots: raise RuntimeError("no Git worktree found under parent")
+        origins = {origin_for(x) for x in roots}
+        if len(origins) != 1: raise RuntimeError("worktrees under parent have different origins")
         root = roots[0]
     else:
         root = pathlib.Path(run(["git", "-C", args.repo_root, "rev-parse", "--show-toplevel"])).resolve()
-    remote = run(["git", "-C", str(root), "config", "--get", "remote.origin.url"]).removesuffix(".git")
-    if remote.startswith("git@") and ":" in remote: origin = remote.split(":", 1)[1]
-    elif "/github.com/" in remote: origin = remote.split("/github.com/", 1)[1]
-    else: raise RuntimeError("origin is not a GitHub repository")
+    origin = origin_for(root)
     if origin.count("/") != 1: raise RuntimeError("origin identity is ambiguous")
     path = pathlib.Path(args.allowlist).expanduser(); path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     try: data = json.loads(path.read_text())

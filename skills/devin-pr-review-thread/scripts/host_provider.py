@@ -66,8 +66,15 @@ def validate_request(req, allowlist, authorizations):
 
 def allowlist_origin(root, allowlist):
     if root in allowlist: return allowlist[root]
-    matches = [(key[:-2], value) for key, value in allowlist.items() if key.endswith("/*") and root.startswith(key[:-2] + os.sep)]
-    return max(matches, key=lambda item: len(item[0]))[1] if matches else None
+    matches = [(key[:-2], value) for key, value in allowlist.items() if key.endswith("/*") and pathlib.Path(root).parent == pathlib.Path(key[:-2]).resolve()]
+    if not matches: return None
+    try:
+        remote = subprocess.run(["git", "-C", root, "config", "--get", "remote.origin.url"], text=True, capture_output=True, timeout=15)
+        value = remote.stdout.strip().removesuffix(".git")
+        actual = value.split(":", 1)[1] if value.startswith("git@") and ":" in value else value.split("/github.com/", 1)[1] if "/github.com/" in value else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return next((origin for _, origin in matches if origin == actual), None)
 
 @contextmanager
 def root_lock(root):
