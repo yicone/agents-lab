@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Devin PR review v2：仓库级 session 与 worktree 边界",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1240, 760]
+  },
+  "components": [
+    { "id": "agent", "type": "external", "label": "Sandbox agent", "sublabel": "提交最小 review request", "pos": [40, 300], "size": [180, 76] },
+    { "id": "queue", "type": "messagebus", "label": "Host review queue", "sublabel": "受保护 JSON queue", "pos": [280, 300], "size": [180, 76] },
+    { "id": "worker", "type": "backend", "label": "host_worker.py", "sublabel": "宿主机常驻 supervisor", "pos": [520, 300], "size": [190, 76] },
+    { "id": "provider", "type": "security", "label": "host_provider.py", "sublabel": "preflight、校验、发布", "pos": [760, 300], "size": [190, 76] },
+    { "id": "github", "type": "cloud", "label": "GitHub", "sublabel": "PR/head SHA/review threads", "pos": [1010, 145], "size": [190, 76] },
+    { "id": "session", "type": "backend", "label": "固定 Devin session", "sublabel": "主 workspace：/Workspace/yr", "pos": [1010, 430], "size": [190, 76] },
+    { "id": "worktrees", "type": "external", "label": "Nested worktrees", "sublabel": "具体 review target", "pos": [760, 660], "size": [190, 76] },
+    { "id": "enroll", "type": "security", "label": "Host enrollment", "sublabel": "host_enroll + session_enroll（一次）", "pos": [520, 660], "size": [190, 76] }
+  ],
+  "boundaries": [
+    { "kind": "security-group", "label": "Sandbox：只提交 request，不访问 GH/Devin", "wraps": ["agent"] },
+    { "kind": "security-group", "label": "Host：持有 GH、Devin、registry 与 trust 能力", "wraps": ["queue", "worker", "provider", "enroll"] }
+  ],
+  "connections": [
+    { "id": "agent-queue", "from": "agent", "to": "queue", "label": "JSON request", "variant": "emphasis", "labelDy": 62 },
+    { "id": "queue-worker", "from": "queue", "to": "worker", "label": "dequeue" },
+    { "id": "worker-provider", "from": "worker", "to": "provider", "label": "host authorization", "labelAt": [735, 390] },
+    { "id": "provider-github-read", "from": "provider", "to": "github", "label": "gh：读取 PR/head SHA；发布 review thread", "via": [[1000, 338], [1000, 183]], "labelAt": [1000, 260] },
+    { "id": "session-worktree", "from": "session", "to": "worktrees", "label": "review target path", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "enroll-session", "from": "enroll", "to": "session", "label": "registry：origin → session", "labelAt": [800, 540] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "一次性 host setup", "items": ["host_enroll.py：登记 GitHub origin allowlist", "session_enroll.py：登记一个固定 Devin session"] },
+    { "dot": "amber", "title": "每次 review", "items": ["sandbox 只写 queue request", "worker 访问 GitHub，provider 使用固定 session 检查具体 worktree"] },
+    { "dot": "rose", "title": "Fail closed", "items": ["origin、trust、registry 或 head SHA 不可验证时不启动 review", "不创建第二个 session，不发布未经校验的 thread"] }
+  ]
+}
