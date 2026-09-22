@@ -21,7 +21,7 @@ It is not a review-loop controller. A harness may run this adapter only after th
 - In sandbox deployments, submit a minimal request (`schema`, `repository_root`, `pr_number`, optional `round`, and bounded `timeout_seconds`) to the host queue consumed by `python3 scripts/host_worker.py`; the worker must be started in a host-side terminal/runtime, not by the sandbox agent. The worker issues the one-shot host authorization after host preflight, then invokes the provider asynchronously. A slow Devin review must not block other requests; read the matching response file and consume only its stable `status` when it appears.
 - The consuming agent must not create or repair `round-authorizations.json`; authorization issuance is a host-worker responsibility. The provider owns the one fixed repository session, exact free model, canonical root, read-only permission mode, structured output validation, and GitHub publication.
 - The consuming agent is a black-box client: it should submit a minimal request and consume the stable response. Reading `host_worker.py`, `host_provider.py`, or preflight implementation is not part of the review workflow; implementation diagnosis belongs to host maintainers.
-- On any non-`ok` status, return `await-user` with the protected evidence path. Do not retry, repair, or substitute anything yourself.
+- On any non-`ok` status, return `await-user` with the protected evidence path and consume `failure_code` for host diagnosis. Do not retry, repair, or substitute anything yourself.
 - Publish only the provider's validated findings; never paste provider output into a PR thread.
 
 ## Workflow
