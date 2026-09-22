@@ -39,15 +39,13 @@ def main():
         roots = []
         for current, dirs, _ in os.walk(parent):
             dirs[:] = [d for d in dirs if d != ".git"]
+            if not (pathlib.Path(current) / ".git").exists():
+                continue
             try:
                 candidate = pathlib.Path(current)
                 discovered = pathlib.Path(run(["git", "-C", str(candidate), "rev-parse", "--show-toplevel"])).resolve()
                 if discovered not in roots:
                     roots.append(discovered)
-                    if discovered == candidate:
-                        dirs[:] = []
-                    else:
-                        dirs[:] = [d for d in dirs if pathlib.Path(current, d).resolve() != discovered]
             except (OSError, RuntimeError, subprocess.SubprocessError):
                 pass
         if not roots:

@@ -33,13 +33,17 @@ def roots_under(parent: pathlib.Path) -> list[pathlib.Path]:
     for current, dirs, _ in os.walk(parent):
         dirs[:] = [d for d in dirs if d != ".git"]
         child = pathlib.Path(current)
+        # Worktrees expose a .git file while regular repositories expose a
+        # .git directory.  Avoid spawning git once per ordinary directory;
+        # nested worktrees remain discoverable because traversal continues.
+        if not (child / ".git").exists():
+            continue
         try:
             candidate = root_for(str(child))
         except (OSError, RuntimeError, subprocess.SubprocessError):
             continue
         if candidate not in roots:
             roots.append(candidate)
-            dirs[:] = [d for d in dirs if pathlib.Path(current, d).resolve() != candidate]
     return roots
 
 
