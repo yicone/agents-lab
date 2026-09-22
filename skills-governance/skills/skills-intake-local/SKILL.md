@@ -202,8 +202,8 @@ If the intake changes durable repository rules, naming guidance, scope policy, o
 
 Typical targets include:
 
-- `docs/conventions/skills.md`
-- `docs/conventions/skills-versioning.md`
+- `skills-governance/docs/skills.md`
+- `skills-governance/docs/skills-versioning.md`
 - related indexes or checklists when the intake changes durable operator guidance
 
 ### 8. Document Follow-up Work

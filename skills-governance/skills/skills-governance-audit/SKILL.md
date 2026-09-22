@@ -10,14 +10,14 @@ metadata:
 
 ## Purpose
 
-Use this skill when the goal is to audit a directory or skill set before deciding which governance action should run next.
+Use this skill when the goal is to audit a directory, runtime, plugin surface, or Skill set before deciding which governance action should run next.
 
 This skill is a **read-only governance scanner**.
 
 It helps answer:
 
 - what skills exist in the scanned scope
-- which ones look local, third-party, or unclear
+- which ones are local, runtime-bundled, plugin-provided, Skills CLI-managed, customized, or unclear
 - whether there are conflict signals between skills
 - whether naming conventions look coherent
 - which follow-up workflow should handle each finding
@@ -34,6 +34,7 @@ Use:
 - `skills-intake-local` for local canonical-source intake
 - `skills-cli-reconcile` for third-party takeover
 - `skills-promote-global` for global-promotion review
+- `skills-lifecycle-manager` for reuse/install/fork/build decisions across source classes
 
 ## Expected Inputs
 
@@ -47,6 +48,9 @@ Helpful optional context:
 - `known_targets`
 - `known_local_skills`
 - `known_third_party_skills`
+- `known_runtime_skills`
+- `known_plugin_skills`
+- `known_cli_sources`
 - `focus`
   - `ownership`
   - `provenance`
@@ -60,9 +64,12 @@ Always report:
 
 - `audit_scope`
 - `scope_summary`
+- `source_classifications`
 - `local_skills`
 - `third_party_skills`
 - `unknown_skills`
+- `source_authority_findings`
+- `upgrade_drift_findings`
 - `conflict_findings`
 - `naming_findings`
 - `routing_recommendations`
@@ -112,22 +119,40 @@ Keep the scope explicit in the output.
 Scan the requested scope and list:
 
 - canonical source entries under `skills/`
+- governance source entries under `skills-governance/skills/`
 - runtime-facing adapters under `.agents/skills/` or `.codex/skills/`
+- runtime-bundled and plugin-provided entries when the runtime exposes them
+- Skills CLI install records and lock metadata when available
 - externally adapted targets when they are part of the case
 
 Do not assume every visible entry is a true source directory.
 
-### 3. Classify Ownership At A High Level
+### 3. Classify Source Authority At A High Level
 
 For each relevant skill, classify whether it looks:
 
-- local/custom
-- third-party
-- unknown
+- `local_custom`
+- `runtime_builtin`
+- `runtime_plugin`
+- `skills_cli_managed`
+- `third_party_unmanaged`
+- `third_party_customized`
+- `unknown`
 
-This is a routing aid, not a full takeover or intake decision.
+Runtime visibility is not proof of ownership. Record the source authority and update channel separately from the visible path.
 
-### 4. Detect Conflict Signals
+### 4. Check Upgrade Drift And Customization
+
+When a baseline or upstream version is available, compare it with the current copy. Record:
+
+- version or commit change
+- changed trigger and scope text
+- new scripts, binaries, network calls, or secret handling
+- local edits that would be lost by replacement
+
+If no baseline can be captured, report `unverified` rather than implying that the Skill is current.
+
+### 5. Detect Conflict Signals
 
 Look for conflicts such as:
 
@@ -143,7 +168,7 @@ When trigger ambiguity is the main issue, classify it as:
 
 Use this especially when an agent may reasonably hesitate between two skills because each appears eligible for the same request.
 
-### 5. Check Naming Taxonomy
+### 6. Check Naming Taxonomy
 
 Audit whether current names follow a coherent taxonomy:
 
@@ -161,7 +186,7 @@ Flag a naming issue only when:
 - one family mixes policy and transport without distinction
 - a rename would materially reduce routing confusion
 
-### 6. Route Findings To The Right Workflow
+### 7. Route Findings To The Right Workflow
 
 For each finding, recommend the next step:
 
@@ -169,10 +194,11 @@ For each finding, recommend the next step:
 - `skills-cli-reconcile`
 - `skills-promote-global`
 - `manual clarification only`
+- `runtime/plugin review`
 
 Do not perform the follow-up action inside the audit.
 
-### 7. Suggest State Updates
+### 8. Suggest State Updates
 
 If a state note or backlog should change, suggest:
 
@@ -214,6 +240,12 @@ Audit Scope: <path / project / skill set>
 Scope Summary:
 - ...
 - ...
+Source Classifications:
+- <skill> -> <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_unmanaged / third_party_customized / unknown>
+Source Authority Findings:
+- <skill> -> <provider / repository / plugin / upstream / unknown>
+Upgrade Drift Findings:
+- <skill> -> <baseline / changed scope / changed behavior / unavailable>
 Local Skills:
 - <skill>
 Third-Party Skills:
@@ -229,7 +261,7 @@ Naming Findings:
 - Status: <consistent / taxonomy_mixed_but_explained / naming_taxonomy_drift / rename_candidate>
   Evidence: <...>
 Routing Recommendations:
-- <skill or finding> -> <skills-intake-local / skills-cli-reconcile / skills-promote-global / manual clarification only>
+- <skill or finding> -> <skills-intake-local / skills-cli-reconcile / skills-promote-global / runtime/plugin review / manual clarification only>
 State Update Suggestions:
 - <...>
 Follow-up:

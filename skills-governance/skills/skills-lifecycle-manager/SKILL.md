@@ -10,13 +10,14 @@ metadata:
 
 ## Purpose
 
-Use this skill for the general lifecycle decision that happens before a skill is built, installed, or updated.
+Use this skill for the general lifecycle decision that happens before a Skill is built, installed, customized, or updated, regardless of where the Skill came from.
 
 It helps answer:
 
 - is there already a suitable skill for this need
 - should the user install, reuse, fork, or build
 - does a candidate skill look safe enough to evaluate further
+- what authority will control future updates
 - is the next step discovery, takeover, local intake, or promotion review
 
 ## Do Not Use This Skill For
@@ -55,6 +56,8 @@ Helpful optional context:
 - `known_local_skills`
 - `known_global_skills`
 - `known_third_party_candidates`
+- `known_runtime_candidates`
+- `known_plugin_candidates`
 - `constraints`
   - such as security, token budget, portability, or required runtimes
 
@@ -66,6 +69,10 @@ Always report:
 - `candidate_sources`
 - `existing_fit_assessment`
 - `security_screening_summary`
+- `source_classification`
+- `update_authority`
+- `customization_options`
+- `baseline_and_diff_requirement`
 - `recommended_path`
 - `why_not_the_other_paths`
 - `followups`
@@ -77,6 +84,16 @@ Suggested values for `recommended_path`:
 - `fork_then_adapt`
 - `build_new`
 - `route_to_governance_workflow`
+
+Source classification should distinguish:
+
+- local custom
+- runtime builtin
+- runtime plugin
+- Skills CLI managed
+- third-party unmanaged
+- third-party customized
+- unknown
 
 ## Coordination Boundary
 
@@ -117,6 +134,7 @@ Check, in this order when available:
 - already-owned local skills
 - user-global skills
 - third-party install candidates
+- runtime-bundled and enabled-plugin candidates
 
 Prefer reuse before new build.
 
@@ -140,7 +158,11 @@ Before recommending install or fork, note:
 
 This is a screening step, not a full audit.
 
-### 5. Choose The Best Path
+### 5. Establish Upgrade Safety
+
+For an existing non-local candidate, require a baseline and before/after diff review when the source allows it. If a diff cannot be produced, make that limitation explicit and lower confidence in an automatic update.
+
+### 6. Choose The Best Path
 
 Use these defaults:
 
@@ -155,7 +177,7 @@ Use these defaults:
 - `route_to_governance_workflow`
   - when the real next step is takeover, intake, audit, or promotion review
 
-### 6. Route To Specialized Workflow When Needed
+### 7. Route To Specialized Workflow When Needed
 
 If the decision exposes a governance problem, route explicitly:
 
@@ -163,8 +185,9 @@ If the decision exposes a governance problem, route explicitly:
 - third-party local copy that should return to installer ownership -> `skills-cli-reconcile`
 - self-authored local skill that should move into canonical source control -> `skills-intake-local`
 - locally owned skill that may deserve global scope -> `skills-promote-global`
+- runtime/plugin supplied skill requiring provider/version review -> `skills-governance-audit`
 
-### 7. Keep Repo-Specific State Updates Out Of Scope By Default
+### 8. Keep Repo-Specific State Updates Out Of Scope By Default
 
 This skill may recommend that another workflow or the caller update:
 
@@ -190,10 +213,15 @@ Use this summary format:
 Task Or Domain: <name>
 Candidate Sources:
 - <local/global/third-party candidate>
+Source Classification: <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_unmanaged / third_party_customized / unknown>
+Update Authority: <git / runtime / plugin / skills CLI / explicit review / unknown>
 Existing Fit Assessment:
 - <candidate> -> <fit summary>
 Security Screening Summary:
 - <candidate> -> <signal>
+Customization Options:
+- <none / wrapper / overlay / fork / policy exclusion / local replacement>
+Baseline And Diff Requirement: <required / reviewed / unavailable with limitation>
 Recommended Path: <reuse_local / install_third_party / fork_then_adapt / build_new / route_to_governance_workflow>
 Why Not The Other Paths:
 - <path> -> <reason>

@@ -350,7 +350,7 @@ Vercel 的 [product-design 实践](https://vercel.com/blog/teaching-agents-produ
 - 只有一行的 repo 规则；
 - 仅仅为了避开根文件长度而把核心规则藏起来。
 
-在当前 `agents-lab` 仓库中，已有的 `skills-governance-audit`、`skills-cli-reconcile`、`skills-intake-local`、`skills-promote-global` 和 `agent-research` 可以作为多仓库治理的参考形态：前者分别覆盖只读审计、canonical source/adapter reconciliation、本地 skill intake 和 global suitability judgment，后者覆盖证据记录与研究沉淀。它们是仓库内的 repo-scoped skills，不应未经参数化就直接提升为所有项目的 global skill。
+在当前 `agents-lab` 仓库中，`skills-governance/skills/` 下的 `skills-governance-audit`、`skills-cli-reconcile`、`skills-intake-local`、`skills-promote-global` 和 `skills-lifecycle-manager` 可以作为多仓库治理的参考形态：前者覆盖只读审计、canonical source/adapter reconciliation、本地 Skill intake、global suitability judgment 和生命周期选择。它们是治理包内的 repo-scoped Skills，不应未经参数化就直接提升为所有项目的 global Skill；`agent-research` 则继续负责证据记录与研究沉淀。
 
 ## 8. 建议的验证体系
 

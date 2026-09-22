@@ -1,0 +1,63 @@
+schema_version: 1
+
+# Source authority is separate from where an agent happens to discover a Skill.
+source_classes:
+  local_custom:
+    ownership: local
+    source_authority: canonical_git
+    update_authority: repository_maintainer
+    default_workflow: skills-intake-local
+    baseline_required_before_update: true
+
+  runtime_builtin:
+    ownership: runtime_provider
+    source_authority: runtime_distribution
+    update_authority: runtime_upgrade
+    default_workflow: skills-governance-audit
+    baseline_required_before_update: true
+
+  runtime_plugin:
+    ownership: plugin_provider
+    source_authority: enabled_plugin
+    update_authority: plugin_upgrade
+    default_workflow: skills-governance-audit
+    baseline_required_before_update: true
+
+  skills_cli_managed:
+    ownership: third_party
+    source_authority: upstream_repository
+    update_authority: skills_cli
+    default_workflow: skills-cli-reconcile
+    baseline_required_before_update: true
+
+  third_party_unmanaged:
+    ownership: third_party
+    source_authority: upstream_repository
+    update_authority: explicit_review
+    default_workflow: skills-governance-audit
+    baseline_required_before_update: true
+
+  third_party_customized:
+    ownership: third_party_with_local_delta
+    source_authority: upstream_repository_plus_local_delta
+    update_authority: explicit_review
+    default_workflow: skills-governance-audit
+    baseline_required_before_update: true
+
+  unknown:
+    ownership: unresolved
+    source_authority: unknown
+    update_authority: none_until_confirmed
+    default_workflow: skills-governance-audit
+    baseline_required_before_update: true
+
+required_record_fields:
+  - skill
+  - source_class
+  - source_authority
+  - visible_paths
+  - current_install_shape
+  - local_customization
+  - baseline_reference
+  - conflict_status
+  - last_reviewed

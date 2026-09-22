@@ -1,79 +1,52 @@
 # Skill Versioning And Layout
 
-This repository treats local skills as versioned source assets, not as ad hoc files under a home directory.
+This repository treats local Skills as versioned source assets, while also tracking Skills that are supplied by runtimes, plugins, and third-party installers.
 
 ## Canonical Source
 
-- `skills/` is the canonical source tree for repo-managed skills.
-- Each skill lives at `skills/<skill-name>/`.
-- The skill directory should contain `SKILL.md` and only the supporting folders it actually needs, such as `references/`, `scripts/`, `assets/`, or `evals/`.
-- In this environment, `~/Workspace/agents-lab/skills/` is also the default canonical intake destination for self-authored local skills that originate in other local projects, unless the user explicitly chooses another canonical repo.
+- Ordinary repo-managed Skills live at `skills/<skill-name>/`.
+- Governance-specific Skills live at `skills-governance/skills/<skill-name>/`.
+- A Skill directory should contain `SKILL.md` and only the supporting folders it needs, such as `references/`, `scripts/`, `assets/`, or `evals/`.
+- Self-authored Skills discovered in other local projects should be collected into the canonical repository when they are intended for long-term maintenance.
 
-## Runtime Compatibility Layer
+## Runtime And Target Adapters
 
-- `.agents/skills/` is the repo-scoped compatibility layer for agents that scan the shared `.agents/skills/` convention.
-- Entries under `.agents/skills/` should normally be symlinks pointing back to `../../skills/<skill-name>`.
-- Do not treat `.agents/skills/` as the place to author skill content.
-- If a runtime still scans a runtime-specific path such as `.codex/skills/`, keep that path as a compatibility layer only and point it back to `../../skills/<skill-name>` as well.
+- `.agents/skills/` and `.codex/skills/` are compatibility layers.
+- `~/.agents/skills/` is user-global scope, not the default authoring location for repo-managed Skills.
+- External project or vault directories are target-scoped adapters.
+- Adapters should normally be symlinks or thin wrappers that point to a source whose ownership is recorded.
+- Never treat an adapter path as proof that the target owns the Skill.
 
-## Target-Scoped Adapters Outside This Repository
+## Source Authority And Versions
 
-- Some repo-managed skills are intentionally adapted only into a specific external project or vault.
-- In those cases, keep the canonical source in this repository under `skills/`, but do not expose the skill through this repository's own `.agents/skills/` unless it is meant to be consumed here.
-- Instead, point the target project's `.agents/skills/<skill-name>` entry directly at this repository's `skills/<skill-name>`.
-- Record the target scope and provenance in the skill frontmatter when that routing is important.
+Different source classes have different version authorities:
 
-## User Scope
+- `local_custom`: Git history and tags in the canonical repository
+- `runtime_builtin`: runtime release and bundled content
+- `runtime_plugin`: plugin version and bundled content
+- `skills_cli_managed`: upstream repository plus Skills CLI metadata
+- `third_party_unmanaged`: upstream repository with an update channel requiring explicit review
+- `third_party_customized`: upstream baseline plus a separately reviewable local delta
+- `unknown`: no update until provenance is verified
 
-- `~/.agents/skills/` is user scope, not the primary authoring location for repo-managed skills.
-- A skill should stay in `~/.agents/skills/` only if it is intentionally global and not owned by this repository.
-- If a skill becomes repo-owned, move its canonical source into `skills/` and expose it through `.agents/skills/` instead of editing the home-directory copy in place.
-
-## Versioning Policy
-
-- Default version authority is Git history in this repository.
-- Use commits and tags for real version boundaries.
-- Add an explicit per-skill version only when at least one of these is true:
-  - the skill is shared across repositories
-  - the skill needs compatibility promises
-  - the skill is distributed outside this repository
-  - the skill needs independent rollback tracking
+Before upgrading a non-local Skill, retain a baseline reference and inspect the resulting diff when possible. A successful installer command is not evidence that the new behavior is acceptable.
 
 ## Per-Skill Metadata
 
-- Keep required metadata in `SKILL.md` frontmatter.
-- If a skill needs an explicit version marker, prefer `metadata.version` in `SKILL.md`.
-- If a separate manifest is useful for tooling, keep it beside the skill as an additional file, but do not duplicate required frontmatter fields there without a reason.
+Keep required metadata in `SKILL.md` frontmatter. For governed non-local Skills, the inventory should additionally record:
 
-Example:
+- source class and source authority
+- visible paths and install shape
+- current version or baseline reference
+- local customization mode
+- conflict status
+- last review time
 
-```yaml
----
-name: example-skill
-description: Use when the user asks for an example.
-metadata:
-  owner: agents-lab
-  scope: repo
-  version: "0.1.0"
-  adapter_targets:
-    - /absolute/path/to/project/.agents/skills/example-skill
----
-```
-
-## Intake Workflow For Existing Local Skills
-
-When adopting an already-existing local skill:
-
-1. Copy its canonical contents into `skills/<skill-name>/`
-2. Normalize structure to the Agent Skills convention
-3. Decide whether any private or machine-local material must stay out of Git
-4. Add the repo-scoped `.agents/skills/` symlink
-5. Update docs if the skill changes the repository's durable conventions
-
-For this environment, this intake rule is not limited to skills first created inside `agents-lab`. Self-authored skills discovered in other local projects should also be collected into this canonical source tree when they are intended for long-term maintenance.
+Use `metadata.version` only when a Skill needs an explicit compatibility marker. Do not duplicate inventory state in every `SKILL.md`.
 
 ## Publishing And Installation
 
-- Being in Git is the primary version-management mechanism.
-- Tools such as `npx skills` are useful for discovery, installation, and update workflows.
-- They do not replace the repository's canonical source policy.
+- Git is the version authority for local canonical Skills.
+- Runtime and plugin managers remain the authority for their supplied Skills.
+- `npx skills` remains the authority for third-party CLI-managed installation and update operations.
+- The governance package adds inventory, diff review, customization, and conflict controls around those authorities; it does not replace them.

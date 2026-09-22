@@ -16,6 +16,10 @@ Goal:
 Relevant governance references:
 - OS-RES/Skills 管理与治理原则
 - OS-LOG/Skills 当前状态清单
+- skills-governance/backlog.md
+- skills-governance/config/source-types.yaml
+- skills-governance-audit
+- skills-lifecycle-manager
 - skills-cli-reconcile
 - skills-intake-local
 - skills-promote-global
@@ -49,6 +53,9 @@ Case content:
 The prompt works well for cases like:
 
 - a third-party skill being reinstalled through `npx skills`
+- a runtime or enabled plugin introducing a new Skill
+- a non-local Skill being upgraded with an unexpected diff
+- a third-party Skill requiring a local wrapper, overlay, or fork
 - a local skill being adopted into the canonical repo
 - a directory-level normalization event affecting multiple local skills at once
 - a local skill being considered for global promotion

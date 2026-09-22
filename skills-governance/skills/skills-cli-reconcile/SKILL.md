@@ -19,6 +19,7 @@ It helps answer:
 - Is this skill really third-party rather than locally owned?
 - What is its upstream provenance?
 - Is the current local copy original, outdated, modified, or already CLI-managed?
+- What changed between the current baseline and the candidate upstream version?
 - Can it be safely reinstalled through `skills CLI`?
 - What risks or follow-up actions should be recorded?
 
@@ -41,6 +42,8 @@ Minimum:
 Helpful optional context:
 
 - `known_provenance`
+- `baseline_reference`
+- `candidate_version`
 - `target_project`
 - `state_note_path`
 - whether reinstall/overwrite is allowed
@@ -54,6 +57,9 @@ Always report:
 - `provenance`
 - `scope`
 - `current_install_shape`
+- `baseline_reference`
+- `diff_summary`
+- `customization_status`
 - `action_taken`
 - `risk_summary`
 - `required_changes`
@@ -74,12 +80,21 @@ Suggested values:
   - `third_party`
   - `third_party_target_scoped`
 
+Suggested values:
+
+- `customization_status`
+  - `none_detected`
+  - `local_delta_detected`
+  - `unknown`
+
 ## Related Skills
 
 - `skills-intake-local`
   - use when the skill is actually locally owned and should move into the canonical repo
 - `skills-promote-global`
   - use when the user wants broader/global reuse rather than CLI reconciliation
+- `skills-governance-audit`
+  - use first when the source class, local delta, or conflict state is unclear
 
 ## Workflow
 
@@ -130,6 +145,8 @@ Key signals:
 - does the current directory look like a CLI/installer result?
 - is there evidence of manual local edits?
 
+Before any overwrite, preserve a baseline and produce a human-reviewable diff when technically possible. If a local delta is detected, classify it as `third_party_customized` and stop before replacement unless the user explicitly authorizes the chosen customization or fork path.
+
 ### 5. Reinstall Through Skills CLI When Safe
 
 If provenance is known and overwrite is allowed:
@@ -142,6 +159,7 @@ After reinstall, verify:
 
 - the actual install directory now reflects Skills CLI ownership
 - runtime-specific directories remain only as exposure/symlink layers where expected
+- the post-install copy was compared with the reviewed candidate
 
 ### 6. Record Risks
 
@@ -190,6 +208,7 @@ Stop and ask before continuing when:
 Hard stop conditions:
 
 - evidence suggests the skill is locally owned
+- a local delta exists and no replacement decision has been made
 - the only available action would destroy meaningful local modifications
 - provenance is still ambiguous after normal checks
 
@@ -205,6 +224,9 @@ Scope: <third_party / third_party_target_scoped>
 Current Shape: <real directory / symlink / mixed>
 Action Taken: <none / CLI reinstalled / marked unknown / skipped>
 Risk Summary: <gen/socket/snyk>
+Baseline Reference: <version / commit / snapshot / unavailable>
+Diff Summary: <none / reviewed / unexpected changes / unavailable>
+Customization Status: <none_detected / local_delta_detected / unknown>
 Required Changes:
 - ...
 - ...

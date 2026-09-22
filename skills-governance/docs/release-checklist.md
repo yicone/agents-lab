@@ -10,7 +10,10 @@ Applies to:
 - `skills-intake-local`
 - `skills-promote-global`
 - `skills-governance-audit`
-- `skills-governance-index.md`
+- `skills-lifecycle-manager`
+- `skills-governance/docs/index.md`
+- `skills-governance/config/source-types.yaml`
+- `skills-governance/backlog.md`
 
 ## Checklist
 
@@ -22,9 +25,13 @@ Applies to:
 - Each skill explicitly avoids writing live state back into `[[OS-RES/Skills 管理与治理原则]]`
 - Each skill has explicit stop conditions
 - The governance index gives a short routing rule
+- The package README identifies source authority separately from runtime visibility
 - The audit skill stays read-only and routes findings instead of mutating layouts
 - The principle page defines stable rules only
 - The state page carries current status only
+- Source class and update authority are explicit for every reviewed Skill
+- Non-local upgrades have a baseline and diff review when technically possible
+- Local customization is recorded instead of silently overwriting upstream content
 
 ## Current Release Notes
 
