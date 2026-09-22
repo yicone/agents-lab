@@ -97,14 +97,21 @@ def model_state() -> tuple[dict[str, Any], str | None]:
     return result, "model_unavailable"
 
 
-def trust_state(root: str, trust_file: pathlib.Path) -> dict[str, Any]:
+def trust_state(root: str, trust_file: pathlib.Path, additional_paths: set[str] | None = None) -> dict[str, Any]:
     result = {"state": "unknown", "source": str(trust_file)}
     try:
         data = json.loads(trust_file.read_text())
         paths = {str(pathlib.Path(p).resolve()) for p in data.get("trusted_paths", [])}
     except (OSError, json.JSONDecodeError, AttributeError):
         return result
-    result["state"] = "trusted" if root in paths else "untrusted"
+    paths |= {str(pathlib.Path(path).resolve()) for path in (additional_paths or set())}
+    trusted = root in paths
+    if not trusted and pathlib.Path(root, ".git").exists():
+        # Devin stores trust for the main workspace. A Git worktree below a
+        # trusted workspace inherits that trust, while ordinary subdirectories
+        # do not qualify because they lack a .git marker.
+        trusted = any(pathlib.Path(root).is_relative_to(pathlib.Path(path)) for path in paths)
+    result["state"] = "trusted" if trusted else "untrusted"
     return result
 
 
@@ -123,7 +130,7 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
     except BindingError as exc:
         return empty, "session_registry_missing" if "missing" in str(exc) else "session_output_invalid"
     sid = entry.get("session_id")
-    result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None}
+    result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None, "enrolled_parent": None}
     registered_root = entry.get("session_root")
     if not isinstance(registered_root, str) or not registered_root:
         return result, "session_root_mismatch"
@@ -147,6 +154,7 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
         return result, "session_root_mismatch"
     if not validate_worktree_boundary(root, registered_root, enrolled_parent):
         return result, "session_root_mismatch"
+    result["enrolled_parent"] = enrolled_parent
     return result, None
 
 
@@ -199,10 +207,13 @@ def main() -> int:
         if pr_error:
             out["status"] = pr_error
             out["diagnostics"].append({"code": pr_error, "detail": pr_detail})
-        out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces))
         out["model"], model_error = model_state()
         if model_error and out["status"] == "ok": out["status"] = model_error
         out["session"], session_error = session_state(root, out["repository"]["origin"], pathlib.Path(args.registry))
+        extra_trust = set()
+        if isinstance(out["session"].get("enrolled_parent"), str):
+            extra_trust.add(out["session"]["enrolled_parent"])
+        out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces), extra_trust)
         if session_error and out["status"] == "ok": out["status"] = session_error
         out["lock"] = lock_state(out["session"].get("id"), pathlib.Path(args.session_lock_dir))
         if out["workspace_trust"]["state"] != "trusted" and out["status"] == "ok": out["status"] = "workspace_untrusted"
