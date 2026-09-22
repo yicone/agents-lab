@@ -1,38 +1,50 @@
-# Repo-Scoped Skills
+# Skills Source And Scope Policy
 
-Skills that are tightly bound to this repository should remain repo-scoped.
-The workflow itself should stay portable across agent runtimes even when one runtime stores its adapter files in a tool-specific directory.
+This policy covers every Skill visible to an agent on the local machine, not only self-authored Skills.
 
-## Why
+Runtime visibility is not ownership. A Skill may be visible because it is local, bundled with a runtime, introduced by a plugin, installed through Skills CLI, or copied and customized locally. Governance must record the source authority separately from the runtime-facing path.
 
-If a skill assumes:
+## Source Classes
 
-- the namespace `proj/agents-lab`
-- this repository's paths
-- this repository's research workflow
+- `local_custom`: maintained in this repository or another explicitly managed canonical Git source
+- `runtime_builtin`: distributed by the agent runtime and updated with that runtime
+- `runtime_plugin`: introduced by an enabled plugin and updated with that plugin
+- `skills_cli_managed`: third-party Skill whose upstream and update channel are managed by Skills CLI
+- `third_party_customized`: third-party Skill with a local wrapper, overlay, fork, patch, or replacement
+- `unknown`: source or update authority has not been verified
 
-then exposing it globally risks contaminating work in other projects.
+The machine-readable baseline is [../config/source-types.yaml](../config/source-types.yaml).
 
-## Default Policy
+## Canonical And Runtime Layers
 
-- Keep durable instructions in `docs/` when they should apply across tools.
-- Prefer storing runtime-specific repo-scoped skill adapters under that runtime's local convention, such as `.codex/skills/` for Codex.
-- For cross-client interoperability, prefer `.agents/skills/` as the shared runtime-facing convention.
-- Keep the canonical checked-in source under `skills/`, and mirror or link runtime-facing entries back to it.
-- Only make a global skill when the instructions are generalized and parameterized
-- In this environment, self-authored skills from other local projects should still intake into `~/Workspace/agents-lab/skills/` when this repo is acting as the canonical skills home.
+- Ordinary repo-owned Skills use `skills/<skill-name>/` as canonical source.
+- Governance Skills use `skills-governance/skills/<skill-name>/` because they belong to the governance package.
+- `.agents/skills/`, `.codex/skills/`, `~/.agents/skills/`, and target project directories are runtime-facing or target-facing layers, not authoring locations.
+- An adapter can expose a Skill without transferring its ownership to this repository.
 
-## Version-Management Policy
+## Upgrade And Customization Rules
 
-- Treat `skills/` as the canonical version-controlled source tree for repo-owned skills.
-- Treat `.agents/skills/` as a compatibility layer, not the primary authoring location.
-- Do not keep editing repo-owned skills directly in `~/.agents/skills/`; intake them into `skills/` first.
-- See [skills-versioning.md](skills-versioning.md) for the detailed layout and versioning rules.
+Before changing a non-local Skill, capture the current version or content baseline when the source permits it. Review the before/after diff for:
 
-## Requirement for Generalized Skills
+- trigger and scope changes
+- new scripts, binaries, network access, or secret handling
+- changed instructions or safety boundaries
+- changed dependencies and adapter paths
+- behavior overlap with another visible Skill
 
-A globalizable skill must not hard-code:
+Do not edit a third-party or runtime-provided Skill in place and then call it upstream-managed. Record the local delta explicitly and choose one of the supported future models: wrapper, overlay, fork, policy exclusion, or local replacement. The concrete automation for snapshots, diffs, and rollback is tracked in [../backlog.md](../backlog.md).
 
-- `proj/agents-lab`
-- repository-only file paths
-- repository-only assumptions about workflow
+## Scope And Generalization
+
+- Keep Skills tied to this repository, its namespace, or its research workflow repo-scoped.
+- Keep vault- or project-coupled Skills target-scoped.
+- Promote a Skill globally only after a separate generalization and conflict review.
+- Do not infer global suitability from repeated installation alone.
+
+## Routing
+
+- Need to understand what is installed, who owns it, or what conflicts: `skills-governance-audit`
+- Need to choose reuse, install, fork, or build: `skills-lifecycle-manager`
+- Need to restore a confirmed third-party Skill to Skills CLI: `skills-cli-reconcile`
+- Need to bring a self-authored Skill into canonical Git: `skills-intake-local`
+- Need to evaluate global promotion: `skills-promote-global`

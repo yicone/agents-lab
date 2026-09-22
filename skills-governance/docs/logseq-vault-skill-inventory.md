@@ -10,9 +10,10 @@ The current state inventory for Logseq-vault skills now lives in Logseq:
 
 That page is the source of truth for:
 
-- locally owned vs third-party classification
+- locally owned, runtime-bundled, plugin-provided, third-party, and unknown classification
 - provenance
-- Skills CLI takeover status
+- source/update authority and Skills CLI takeover status
+- baseline, local customization, conflict status, and last review time
 - risk review queue
 - recent changes
 
