@@ -25,6 +25,7 @@ Different source classes have different version authorities:
 - `runtime_builtin`: runtime release and bundled content
 - `runtime_plugin`: plugin version and bundled content
 - `skills_cli_managed`: upstream repository plus Skills CLI metadata
+- `third_party_unmanaged`: upstream repository with an update channel requiring explicit review
 - `third_party_customized`: upstream baseline plus a separately reviewable local delta
 - `unknown`: no update until provenance is verified
 

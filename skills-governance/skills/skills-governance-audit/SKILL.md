@@ -135,6 +135,7 @@ For each relevant skill, classify whether it looks:
 - `runtime_builtin`
 - `runtime_plugin`
 - `skills_cli_managed`
+- `third_party_unmanaged`
 - `third_party_customized`
 - `unknown`
 
@@ -240,7 +241,7 @@ Scope Summary:
 - ...
 - ...
 Source Classifications:
-- <skill> -> <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_customized / unknown>
+- <skill> -> <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_unmanaged / third_party_customized / unknown>
 Source Authority Findings:
 - <skill> -> <provider / repository / plugin / upstream / unknown>
 Upgrade Drift Findings:

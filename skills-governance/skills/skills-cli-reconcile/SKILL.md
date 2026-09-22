@@ -78,7 +78,7 @@ Suggested values:
   - `mixed`
 - `scope`
   - `third_party`
-- `third_party_target_scoped`
+  - `third_party_target_scoped`
 
 Suggested values:
 

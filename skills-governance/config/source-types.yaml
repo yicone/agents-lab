@@ -30,6 +30,13 @@ source_classes:
     default_workflow: skills-cli-reconcile
     baseline_required_before_update: true
 
+  third_party_unmanaged:
+    ownership: third_party
+    source_authority: upstream_repository
+    update_authority: explicit_review
+    default_workflow: skills-governance-audit
+    baseline_required_before_update: true
+
   third_party_customized:
     ownership: third_party_with_local_delta
     source_authority: upstream_repository_plus_local_delta

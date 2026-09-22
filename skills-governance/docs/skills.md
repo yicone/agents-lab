@@ -10,6 +10,7 @@ Runtime visibility is not ownership. A Skill may be visible because it is local,
 - `runtime_builtin`: distributed by the agent runtime and updated with that runtime
 - `runtime_plugin`: introduced by an enabled plugin and updated with that plugin
 - `skills_cli_managed`: third-party Skill whose upstream and update channel are managed by Skills CLI
+- `third_party_unmanaged`: third-party Skill with verified upstream provenance but no confirmed Skills CLI update authority
 - `third_party_customized`: third-party Skill with a local wrapper, overlay, fork, patch, or replacement
 - `unknown`: source or update authority has not been verified
 

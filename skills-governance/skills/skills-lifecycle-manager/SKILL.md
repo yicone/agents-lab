@@ -212,7 +212,7 @@ Use this summary format:
 Task Or Domain: <name>
 Candidate Sources:
 - <local/global/third-party candidate>
-Source Classification: <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_customized / unknown>
+Source Classification: <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_unmanaged / third_party_customized / unknown>
 Update Authority: <git / runtime / plugin / skills CLI / explicit review / unknown>
 Existing Fit Assessment:
 - <candidate> -> <fit summary>
