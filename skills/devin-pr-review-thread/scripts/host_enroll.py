@@ -1,54 +1,110 @@
 #!/usr/bin/env python3
 """Host-only enrollment for a repository allowed to use the Devin provider."""
 from __future__ import annotations
-import argparse, json, os, pathlib, subprocess, tempfile
+
+import argparse
+import json
+import os
+import pathlib
+import subprocess
+import tempfile
+
 
 def run(argv):
-    p = subprocess.run(argv, text=True, capture_output=True, timeout=15)
-    if p.returncode: raise RuntimeError(p.stderr.strip() or "command failed")
-    return p.stdout.strip()
+    process = subprocess.run(argv, text=True, capture_output=True, timeout=15)
+    if process.returncode:
+        raise RuntimeError(process.stderr.strip() or "command failed")
+    return process.stdout.strip()
+
 
 def origin_for(root):
     remote = run(["git", "-C", str(root), "config", "--get", "remote.origin.url"]).removesuffix(".git")
-    if remote.startswith("git@") and ":" in remote: return remote.split(":", 1)[1]
-    if "/github.com/" in remote: return remote.split("/github.com/", 1)[1]
+    if remote.startswith("git@") and ":" in remote:
+        return remote.split(":", 1)[1]
+    if "/github.com/" in remote:
+        return remote.split("/github.com/", 1)[1]
     raise RuntimeError("origin is not a GitHub repository")
 
+
 def main():
-    p = argparse.ArgumentParser(); group = p.add_mutually_exclusive_group(required=True); group.add_argument("--repo-root"); group.add_argument("--worktree-parent"); p.add_argument("--allowlist", default="~/.config/devin/provider-allowlist.json")
-    args = p.parse_args()
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--repo-root")
+    group.add_argument("--worktree-parent")
+    parser.add_argument("--allowlist", default="~/.config/devin/provider-allowlist.json")
+    args = parser.parse_args()
+
     if args.worktree_parent:
-        parent = pathlib.Path(args.worktree_parent).expanduser().resolve(); candidates = [x for x in parent.iterdir() if x.is_dir()]
+        parent = pathlib.Path(args.worktree_parent).expanduser().resolve()
         roots = []
-        for candidate in candidates:
-            try: roots.append(pathlib.Path(run(["git", "-C", str(candidate), "rev-parse", "--show-toplevel"])).resolve())
-            except (OSError, RuntimeError, subprocess.SubprocessError): pass
-        if not roots: raise RuntimeError("no Git worktree found under parent")
-        origins = {origin_for(x) for x in roots}
-        if len(origins) != 1: raise RuntimeError("worktrees under parent have different origins")
+        for current, dirs, _ in os.walk(parent):
+            dirs[:] = [d for d in dirs if d != ".git"]
+            try:
+                candidate = pathlib.Path(current)
+                discovered = pathlib.Path(run(["git", "-C", str(candidate), "rev-parse", "--show-toplevel"])).resolve()
+                if discovered not in roots:
+                    roots.append(discovered)
+                    dirs[:] = [d for d in dirs if pathlib.Path(current, d).resolve() != discovered]
+            except (OSError, RuntimeError, subprocess.SubprocessError):
+                pass
+        if not roots:
+            raise RuntimeError("no Git worktree found under parent")
+        origins = {origin_for(root) for root in roots}
+        if len(origins) != 1:
+            raise RuntimeError("worktrees under parent have different origins")
         root = roots[0]
     else:
         root = pathlib.Path(run(["git", "-C", args.repo_root, "rev-parse", "--show-toplevel"])).resolve()
+
     origin = origin_for(root)
-    if origin.count("/") != 1: raise RuntimeError("origin identity is ambiguous")
-    path = pathlib.Path(args.allowlist).expanduser(); path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    try: data = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError): data = {}
-    if not isinstance(data, dict): raise RuntimeError("allowlist is not an object")
-    key = str(pathlib.Path(args.worktree_parent).expanduser().resolve()) + "/*" if args.worktree_parent else str(root)
-    existing = data.get(key)
-    if existing and existing != origin: raise RuntimeError("repository is already bound to a different origin")
-    data[key] = origin
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    if origin.count("/") != 1:
+        raise RuntimeError("origin identity is ambiguous")
+
+    allowlist_path = pathlib.Path(args.allowlist).expanduser()
+    allowlist_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w") as f: json.dump(data, f, indent=2, sort_keys=True); f.write("\n")
-        os.replace(tmp, path)
+        data = json.loads(allowlist_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    if not isinstance(data, dict):
+        raise RuntimeError("allowlist is not an object")
+
+    key = (
+        str(pathlib.Path(args.worktree_parent).expanduser().resolve()) + "/*"
+        if args.worktree_parent
+        else str(root)
+    )
+    existing = data.get(key)
+    if existing and existing != origin:
+        raise RuntimeError("repository is already bound to a different origin")
+    data[key] = origin
+
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{allowlist_path.name}.", dir=allowlist_path.parent)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w") as stream:
+            json.dump(data, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+        os.replace(temporary, allowlist_path)
     finally:
-        if os.path.exists(tmp): os.unlink(tmp)
-    print(json.dumps({"schema":"devin-host-enrollment/v1","status":"enrolled","repository_root":key,"origin":origin}))
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+    print(json.dumps({
+        "schema": "devin-host-enrollment/v1",
+        "status": "enrolled",
+        "repository_root": key,
+        "origin": origin,
+    }))
+
 
 if __name__ == "__main__":
-    try: main()
+    try:
+        main()
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
-        print(json.dumps({"schema":"devin-host-enrollment/v1","status":"failed","error":str(exc)})); raise SystemExit(2)
+        print(json.dumps({
+            "schema": "devin-host-enrollment/v1",
+            "status": "failed",
+            "error": str(exc),
+        }))
+        raise SystemExit(2)

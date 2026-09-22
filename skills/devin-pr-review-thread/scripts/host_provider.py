@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess, re
 from contextlib import contextmanager
+from repository_binding import BindingError, normalize_origin
 
 SCHEMA = "devin-host-review/v1"
 ALLOWED_REQUEST = {"schema", "repository_root", "pr_number", "round", "authorization", "timeout_seconds"}
@@ -52,7 +53,14 @@ def validate_request(req, allowlist, authorizations):
     root = req.get("repository_root")
     if not isinstance(root, str) or not os.path.isabs(root): return "invalid-request"
     root = str(pathlib.Path(root).resolve())
-    if allowlist_origin(root, allowlist) is None: return "invalid-request"
+    enrolled = allowlist_origin(root, allowlist)
+    if enrolled is None: return "await-user"
+    try:
+        remote = subprocess.run(["git", "-C", root, "config", "--get", "remote.origin.url"], text=True, capture_output=True, timeout=15)
+        if remote.returncode == 0 and remote.stdout.strip() and normalize_origin(remote.stdout.strip()) != enrolled:
+            return "invalid-request"
+    except (OSError, subprocess.SubprocessError, BindingError):
+        pass
     if isinstance(req.get("pr_number"), bool) or not isinstance(req.get("pr_number"), int) or req["pr_number"] <= 0: return "invalid-request"
     if isinstance(req.get("round"), bool) or not isinstance(req.get("round"), int) or req["round"] <= 0: return "invalid-request"
     timeout = req.get("timeout_seconds", 900)
@@ -70,8 +78,7 @@ def allowlist_origin(root, allowlist):
     if not matches: return None
     try:
         remote = subprocess.run(["git", "-C", root, "config", "--get", "remote.origin.url"], text=True, capture_output=True, timeout=15)
-        value = remote.stdout.strip().removesuffix(".git")
-        actual = value.split(":", 1)[1] if value.startswith("git@") and ":" in value else value.split("/github.com/", 1)[1] if "/github.com/" in value else None
+        actual = normalize_origin(remote.stdout.strip())
     except (OSError, subprocess.SubprocessError):
         return None
     return next((origin for _, origin in matches if origin == actual), None)

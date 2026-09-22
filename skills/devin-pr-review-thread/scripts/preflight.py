@@ -12,6 +12,8 @@ import subprocess
 import sys
 from typing import Any
 
+from repository_binding import BindingError, load_origin_entry, normalize_origin, validate_worktree_boundary
+
 SCHEMA = "devin-pr-review/preflight-v1"
 MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
@@ -48,12 +50,10 @@ def origin_name(root: str) -> str | None:
     code, out, _ = run(["git", "-C", root, "config", "--get", "remote.origin.url"])
     if code or not out.strip():
         return None
-    value = out.strip().removesuffix(".git")
-    if value.startswith("git@") and ":" in value:
-        return value.split(":", 1)[1]
-    if "/github.com/" in value:
-        return value.split("/github.com/", 1)[1]
-    return value if value.count("/") == 1 else None
+    try:
+        return normalize_origin(out.strip())
+    except BindingError:
+        return None
 
 
 def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, Any], str | None]:
@@ -94,7 +94,7 @@ def trust_state(root: str, trust_file: pathlib.Path) -> dict[str, Any]:
     return result
 
 
-def session_state(root: str, registry: pathlib.Path) -> tuple[dict[str, Any], str | None]:
+def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tuple[dict[str, Any], str | None]:
     empty = {"id": None, "registry_state": "missing", "list_state": "unknown", "root": None}
     try:
         data = json.loads(registry.read_text())
@@ -102,9 +102,12 @@ def session_state(root: str, registry: pathlib.Path) -> tuple[dict[str, Any], st
         return empty, "session_registry_missing"
     if not isinstance(data, dict):
         return empty, "session_output_invalid"
-    entry = data.get(root)
-    if not isinstance(entry, dict):
+    if not origin:
         return empty, "session_registry_missing"
+    try:
+        entry = load_origin_entry(data, origin)
+    except BindingError as exc:
+        return empty, "session_registry_missing" if "missing" in str(exc) else "session_output_invalid"
     sid = entry.get("session_id")
     result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None}
     sessions, error = command_json(["devin", "list", "--format", "json"])
@@ -118,7 +121,17 @@ def session_state(root: str, registry: pathlib.Path) -> tuple[dict[str, Any], st
         return result, "session_missing"
     result["list_state"] = "present"
     result["root"] = found.get("working_directory")
-    if result["root"] and str(pathlib.Path(result["root"]).resolve()) != root:
+    registered_root = entry.get("session_root")
+    if not isinstance(registered_root, str) or not registered_root:
+        return result, "session_root_mismatch"
+    registered_root = str(pathlib.Path(registered_root).resolve())
+    if result["root"] and str(pathlib.Path(result["root"]).resolve()) != registered_root:
+        return result, "session_root_mismatch"
+    result["root"] = registered_root
+    enrolled_parent = entry.get("enrolled_parent")
+    if enrolled_parent is not None and not isinstance(enrolled_parent, str):
+        return result, "session_root_mismatch"
+    if not validate_worktree_boundary(root, registered_root, enrolled_parent):
         return result, "session_root_mismatch"
     return result, None
 
@@ -174,7 +187,7 @@ def main() -> int:
         out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces))
         out["model"], model_error = model_state()
         if model_error and out["status"] == "ok": out["status"] = model_error
-        out["session"], session_error = session_state(root, pathlib.Path(args.registry))
+        out["session"], session_error = session_state(root, out["repository"]["origin"], pathlib.Path(args.registry))
         if session_error and out["status"] == "ok": out["status"] = session_error
         out["lock"] = lock_state(out["session"].get("id"), pathlib.Path(args.session_lock_dir))
         if out["workspace_trust"]["state"] != "trusted" and out["status"] == "ok": out["status"] = "workspace_untrusted"

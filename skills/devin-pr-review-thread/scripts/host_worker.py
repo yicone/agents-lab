@@ -17,7 +17,7 @@ def authorize(payload, root, auth_path, preflight_path):
         data = json.loads(pf.stdout)
         head = data.get("pr", {}).get("head_sha")
         if pf.returncode != 0 or data.get("status") != "ok" or not isinstance(head, str):
-            return payload
+            enriched = dict(payload); enriched["_authorization_error"] = "await-user"; return enriched
         aid = "host-" + secrets.token_urlsafe(18)
         records = {}
         try: records = json.loads(auth_path.read_text())
@@ -29,7 +29,7 @@ def authorize(payload, root, auth_path, preflight_path):
         enriched = dict(payload); enriched["round"] = round_number; enriched["authorization"] = {"action": "run", "authorization_id": aid, "head_sha": head}
         return enriched
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
-        return payload
+        enriched = dict(payload); enriched["_authorization_error"] = "provider-unavailable"; return enriched
 
 def main():
     p = argparse.ArgumentParser(description="Run Devin review requests from a host-side queue")
@@ -47,6 +47,10 @@ def main():
             try:
                 payload = json.loads(request.read_text())
                 payload = authorize(payload, queue, pathlib.Path(args.authorizations).expanduser(), pathlib.Path(__file__).with_name("preflight.py"))
+                if payload.get("_authorization_error"):
+                    data = {"schema": "devin-host-review/v1", "status": payload["_authorization_error"], "repository_root": payload.get("repository_root"), "pr_number": payload.get("pr_number"), "head_sha": None, "round": payload.get("round"), "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
+                    tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
+                    request.unlink(missing_ok=True); continue
                 payload = json.dumps(payload)
                 out_path = request.with_name("." + response.name + ".out")
                 err_path = request.with_name("." + response.name + ".err")
