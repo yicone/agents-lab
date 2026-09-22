@@ -33,7 +33,8 @@ At the start of each new conversation:
 - [docs/context/memory.md](docs/context/memory.md): Shared Memory conventions
 - [docs/workflows/session-start.md](docs/workflows/session-start.md): required session bootstrap
 - [docs/workflows/research-loop.md](docs/workflows/research-loop.md): how to run research and distill reusable output
-- [docs/conventions/skills.md](docs/conventions/skills.md): repo-scoped skill guidance
+- [skills-governance/README.md](skills-governance/README.md): local-machine Skills governance entrypoint
+- [skills-governance/docs/skills.md](skills-governance/docs/skills.md): Skills source and scope guidance
 - [docs/conventions/memory-writing.md](docs/conventions/memory-writing.md): how to write reusable memories
 
 ## Change Policy

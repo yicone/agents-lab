@@ -37,6 +37,7 @@ When available, read the current Working Memory briefing to recover recent prior
 If the conversation resumes or extends skills-governance work, check:
 
 - `[[OS-LOG/Skills 治理待办与未决事项]]`
+- `skills-governance/backlog.md`
 
 ## Outcome
 
