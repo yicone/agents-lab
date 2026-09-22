@@ -30,7 +30,10 @@ def authorize(payload, root, auth_path, preflight_path):
         data = json.loads(pf.stdout)
         head = data.get("pr", {}).get("head_sha")
         if pf.returncode != 0 or data.get("status") != "ok" or not isinstance(head, str):
-            enriched = dict(payload); enriched["_authorization_error"] = "await-user"; return enriched
+            enriched = dict(payload)
+            enriched["_authorization_error"] = data.get("status") or "provider-unavailable"
+            enriched["_preflight"] = data
+            return enriched
         aid = "host-" + secrets.token_urlsafe(18)
         records = {}
         try: records = json.loads(auth_path.read_text())
@@ -49,14 +52,17 @@ def main():
     p.add_argument("--queue", default="/private/tmp/devin-host-review")
     p.add_argument("--authorizations", default="~/.config/devin/round-authorizations.json")
     p.add_argument("--once", action="store_true")
-    p.add_argument("--startup-check", action="store_true", help="run one preflight before serving requests")
+    p.add_argument("--startup-check", action="store_true", help="run preflight before serving requests")
+    p.add_argument("--check-only", action="store_true", help="exit after --startup-check")
     p.add_argument("--repo-root", help="repository root used by --startup-check")
     p.add_argument("--pr", type=int, help="PR number used by --startup-check")
     args = p.parse_args(); queue = pathlib.Path(args.queue); queue.mkdir(mode=0o700, parents=True, exist_ok=True)
     if args.startup_check:
         if not args.repo_root or not args.pr:
             p.error("--startup-check requires --repo-root and --pr")
-        return startup_check(pathlib.Path(__file__).with_name("preflight.py"), args.repo_root, args.pr)
+        startup_rc = startup_check(pathlib.Path(__file__).with_name("preflight.py"), args.repo_root, args.pr)
+        if startup_rc != 0 or args.check_only:
+            return startup_rc
     active = {}
     while True:
         for request in sorted(queue.glob("*.request.json")):
@@ -68,7 +74,7 @@ def main():
                 payload = json.loads(request.read_text())
                 payload = authorize(payload, queue, pathlib.Path(args.authorizations).expanduser(), pathlib.Path(__file__).with_name("preflight.py"))
                 if payload.get("_authorization_error"):
-                    data = {"schema": "devin-host-review/v1", "status": payload["_authorization_error"], "repository_root": payload.get("repository_root"), "pr_number": payload.get("pr_number"), "head_sha": None, "round": payload.get("round"), "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
+                    data = {"schema": "devin-host-review/v1", "status": payload["_authorization_error"], "repository_root": payload.get("repository_root"), "pr_number": payload.get("pr_number"), "head_sha": None, "round": payload.get("round"), "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False, "preflight": payload.get("_preflight")}
                     tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
                     request.unlink(missing_ok=True); continue
                 payload = json.dumps(payload)
