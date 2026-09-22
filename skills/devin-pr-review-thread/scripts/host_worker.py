@@ -3,6 +3,19 @@
 from __future__ import annotations
 import argparse, json, os, pathlib, subprocess, sys, time, secrets, datetime as dt
 
+
+def startup_check(preflight_path, repo_root, pr_number):
+    proc = subprocess.run([sys.executable, str(preflight_path), "--repo-root", repo_root, "--pr", str(pr_number)], text=True, capture_output=True, timeout=30)
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        data = {"status": "provider-unavailable", "diagnostics": [{"code": "preflight_output_invalid"}]}
+    if proc.returncode != 0 or data.get("status") != "ok":
+        print(json.dumps({"schema": "devin-host-startup/v1", "status": "host-unavailable", "preflight": data}, ensure_ascii=False))
+        return 2
+    print(json.dumps({"schema": "devin-host-startup/v1", "status": "ready", "preflight": data}, ensure_ascii=False))
+    return 0
+
 def authorize(payload, root, auth_path, preflight_path):
     """Issue a host-owned one-shot authorization for a minimal black-box request."""
     if payload.get("authorization"):
@@ -36,7 +49,14 @@ def main():
     p.add_argument("--queue", default="/private/tmp/devin-host-review")
     p.add_argument("--authorizations", default="~/.config/devin/round-authorizations.json")
     p.add_argument("--once", action="store_true")
+    p.add_argument("--startup-check", action="store_true", help="run one preflight before serving requests")
+    p.add_argument("--repo-root", help="repository root used by --startup-check")
+    p.add_argument("--pr", type=int, help="PR number used by --startup-check")
     args = p.parse_args(); queue = pathlib.Path(args.queue); queue.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if args.startup_check:
+        if not args.repo_root or not args.pr:
+            p.error("--startup-check requires --repo-root and --pr")
+        return startup_check(pathlib.Path(__file__).with_name("preflight.py"), args.repo_root, args.pr)
     active = {}
     while True:
         for request in sorted(queue.glob("*.request.json")):

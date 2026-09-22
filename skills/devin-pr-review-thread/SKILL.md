@@ -17,6 +17,7 @@ It is not a review-loop controller. A harness may run this adapter only after th
 
 - Run the provider through its preflight interface: `python3 scripts/preflight.py --repo-root <root> --pr <number>`. Consume the JSON `status`; do not reinterpret it.
 - Sandbox callers must use the host broker `python3 scripts/host_provider.py` with a JSON request on stdin; they must not invoke Devin, `gh`, or preflight directly. The broker returns one `devin-host-review/v1` response object.
+- The host worker must inherit the host's GitHub transport environment. A wrapper may export `https_proxy`, `http_proxy`, and `all_proxy` before invoking Python; `exec` only replaces the wrapper shell process and is not what makes exported variables visible. Run `host_worker.py --startup-check --repo-root <root> --pr <number>` from that same environment and require `status=ready` before serving requests.
 - In sandbox deployments, submit a minimal request (`schema`, `repository_root`, `pr_number`, optional `round`, and bounded `timeout_seconds`) to the host queue consumed by `python3 scripts/host_worker.py`; the worker must be started in a host-side terminal/runtime, not by the sandbox agent. The worker issues the one-shot host authorization after host preflight, then invokes the provider asynchronously. A slow Devin review must not block other requests; read the matching response file and consume only its stable `status` when it appears.
 - The consuming agent must not create or repair `round-authorizations.json`; authorization issuance is a host-worker responsibility. The provider owns the one fixed repository session, exact free model, canonical root, read-only permission mode, structured output validation, and GitHub publication.
 - On any non-`ok` status, return `await-user` with the protected evidence path. Do not retry, repair, or substitute anything yourself.
@@ -36,6 +37,8 @@ The provider, not the consuming agent, owns the registry and one-session invaria
 ## Failure policy
 
 The provider fails closed on unavailable review infrastructure, identity mismatch, malformed output, invalid findings, or unsuccessful publication. It returns a stable status and protected evidence path. The consuming agent must not inspect raw output or attempt a technical recovery; it should report `await-user` and preserve the control-plane round decision.
+
+Preflight reports `github_transport_unavailable` for proxy, TLS, DNS, timeout, or connection failures; `pr_not_found_or_forbidden` for a non-transport `gh` identity failure; and `github_response_invalid` for malformed GitHub output. These statuses identify host connectivity versus PR identity problems without asking the consuming agent to repair either one.
 
 The provider creates review threads only; it does not create a review verdict. Technical recovery rules belong to [runtime-recovery.md](references/runtime-recovery.md) and are not part of the consuming agent contract.
 

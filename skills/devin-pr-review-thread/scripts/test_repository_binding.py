@@ -55,6 +55,14 @@ class RepositoryBindingTests(unittest.TestCase):
             self.assertFalse(validate_worktree_boundary(parent / "sibling", root))
             self.assertFalse(validate_worktree_boundary(outside, root, parent / "main-parent"))
 
+    def test_session_root_can_be_beside_enrolled_parent(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            session = base / "main"
+            enrolled_parent = base / "worktrees"
+            session.mkdir(); enrolled_parent.mkdir()
+            self.assertTrue(validate_worktree_boundary(session, session, enrolled_parent))
+
 
 if __name__ == "__main__":
     unittest.main()

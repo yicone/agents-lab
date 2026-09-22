@@ -95,6 +95,10 @@ def validate_worktree_boundary(requested_root: str | pathlib.Path,
     """Ensure a requested Git root is within the enrolled repository boundary."""
     requested = pathlib.Path(requested_root).resolve()
     anchor = pathlib.Path(session_root).resolve()
+    # The registered main workspace may live beside the enrolled worktree
+    # parent; it is itself always an eligible review root.
+    if requested == anchor:
+        return True
     # Without an explicit host-enrolled parent, only the registered root is
     # eligible; never infer a broad filesystem parent from the session root.
     boundary = pathlib.Path(enrolled_parent).resolve() if enrolled_parent else anchor
@@ -102,4 +106,4 @@ def validate_worktree_boundary(requested_root: str | pathlib.Path,
         requested.relative_to(boundary)
     except ValueError:
         return False
-    return requested == anchor or requested.is_dir()
+    return requested.is_dir()

@@ -20,16 +20,16 @@ MODEL_LABEL = "SWE-2 High"
 EXPIRY = dt.date(2026, 10, 26)
 
 
-def run(argv: list[str], timeout: float = 12) -> tuple[int, str, str]:
+def run(argv: list[str], timeout: float = 12, cwd: str | None = None) -> tuple[int, str, str]:
     try:
-        p = subprocess.run(argv, text=True, capture_output=True, timeout=timeout)
+        p = subprocess.run(argv, cwd=cwd, text=True, capture_output=True, timeout=timeout)
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         return 127, "", type(exc).__name__
     return p.returncode, p.stdout, p.stderr
 
 
-def command_json(argv: list[str]) -> tuple[Any | None, str | None]:
-    code, out, err = run(argv)
+def command_json(argv: list[str], cwd: str | None = None) -> tuple[Any | None, str | None]:
+    code, out, err = run(argv, cwd=cwd)
     if code != 0:
         return None, f"{argv[0]} exit={code}: {err.strip()[-500:]}"
     try:
@@ -56,15 +56,29 @@ def origin_name(root: str) -> str | None:
         return None
 
 
-def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, Any], str | None]:
+def classify_github_error(code: int, stderr: str) -> str:
+    text = stderr.lower()
+    transport_markers = ("eof", "timeout", "timed out", "connection", "tls", "ssl", "proxy", "network", "no such host", "temporary failure")
+    if code == 127 or any(marker in text for marker in transport_markers):
+        return "github_transport_unavailable"
+    return "pr_not_found_or_forbidden"
+
+
+def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, Any], str | None, str | None]:
     result = {"number": number, "head_sha": None}
     if not origin:
-        return result, "origin_identity_failed"
-    data, error = command_json(["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"])
-    if error or not isinstance(data, dict) or not data.get("headRefOid"):
-        return result, "pr_identity_failed"
+        return result, "origin_identity_failed", None
+    code, out, err = run(["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"])
+    if code != 0:
+        return result, classify_github_error(code, err), err.strip()[-500:]
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        return result, "github_response_invalid", out[-500:]
+    if not isinstance(data, dict) or not data.get("headRefOid"):
+        return result, "github_response_invalid", repr(data)[-500:]
     result["head_sha"] = data["headRefOid"]
-    return result, None
+    return result, None, None
 
 
 def model_state() -> tuple[dict[str, Any], str | None]:
@@ -110,7 +124,11 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
         return empty, "session_registry_missing" if "missing" in str(exc) else "session_output_invalid"
     sid = entry.get("session_id")
     result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None}
-    sessions, error = command_json(["devin", "list", "--format", "json"])
+    registered_root = entry.get("session_root")
+    if not isinstance(registered_root, str) or not registered_root:
+        return result, "session_root_mismatch"
+    registered_root = str(pathlib.Path(registered_root).resolve())
+    sessions, error = command_json(["devin", "list", "--format", "json"], cwd=registered_root)
     if error:
         return result, "session_output_invalid"
     if not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
@@ -121,10 +139,6 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
         return result, "session_missing"
     result["list_state"] = "present"
     result["root"] = found.get("working_directory")
-    registered_root = entry.get("session_root")
-    if not isinstance(registered_root, str) or not registered_root:
-        return result, "session_root_mismatch"
-    registered_root = str(pathlib.Path(registered_root).resolve())
     if result["root"] and str(pathlib.Path(result["root"]).resolve()) != registered_root:
         return result, "session_root_mismatch"
     result["root"] = registered_root
@@ -181,9 +195,10 @@ def main() -> int:
         out["status"] = "repo_identity_failed"; out["diagnostics"].append(root_error or "missing root")
     else:
         out["repository"]["origin"] = origin_name(root)
-        out["pr"], pr_error = pr_identity(root, args.pr, out["repository"]["origin"])
+        out["pr"], pr_error, pr_detail = pr_identity(root, args.pr, out["repository"]["origin"])
         if pr_error:
             out["status"] = pr_error
+            out["diagnostics"].append({"code": pr_error, "detail": pr_detail})
         out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces))
         out["model"], model_error = model_state()
         if model_error and out["status"] == "ok": out["status"] = model_error
