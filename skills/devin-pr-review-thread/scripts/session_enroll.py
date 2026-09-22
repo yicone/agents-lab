@@ -48,7 +48,9 @@ def roots_under(parent: pathlib.Path) -> list[pathlib.Path]:
 
 
 def verify_session(session_id: str, session_root: pathlib.Path) -> None:
-    data = json.loads(run(["devin", "list", "--format", "json"]))
+    # Devin's local list is workspace-scoped; querying from the caller's cwd
+    # can hide a valid session registered against the requested main workspace.
+    data = json.loads(run(["devin", "list", "--format", "json"], cwd=str(session_root)))
     if not isinstance(data, list):
         raise RuntimeError("devin session list is not an array")
     matches = [item for item in data if isinstance(item, dict) and item.get("id") == session_id]
@@ -59,7 +61,10 @@ def verify_session(session_id: str, session_root: pathlib.Path) -> None:
     if not isinstance(actual_root, str) or pathlib.Path(actual_root).resolve() != session_root:
         raise RuntimeError("session root mismatch")
     model = item.get("model") or item.get("model_label")
-    if model != "SWE-2 High":
+    # Some Devin CLI versions omit model metadata from `list --format json`.
+    # The registry remains pinned to SWE-2 High; reject an explicit mismatch,
+    # but do not treat an unavailable display field as a different model.
+    if model is not None and model != "SWE-2 High":
         raise RuntimeError("session model mismatch")
 
 
