@@ -61,6 +61,8 @@ def load_origin_entry(registry: dict[str, Any], origin: str) -> dict[str, Any]:
     normalized = normalize_origin(origin)
     if not isinstance(registry, dict):
         raise BindingError("registry must be an object")
+    if any(isinstance(key, str) and key.startswith("/") for key in registry):
+        raise BindingError("legacy root-keyed registry requires migration")
     matches: list[tuple[str, dict[str, Any]]] = []
     session_ids: dict[str, str] = {}
     for key, raw in registry.items():

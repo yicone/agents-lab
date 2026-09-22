@@ -9,6 +9,8 @@ import pathlib
 import subprocess
 import tempfile
 
+from repository_binding import BindingError, normalize_origin
+
 
 def run(argv):
     process = subprocess.run(argv, text=True, capture_output=True, timeout=15)
@@ -18,12 +20,10 @@ def run(argv):
 
 
 def origin_for(root):
-    remote = run(["git", "-C", str(root), "config", "--get", "remote.origin.url"]).removesuffix(".git")
-    if remote.startswith("git@") and ":" in remote:
-        return remote.split(":", 1)[1]
-    if "/github.com/" in remote:
-        return remote.split("/github.com/", 1)[1]
-    raise RuntimeError("origin is not a GitHub repository")
+    try:
+        return normalize_origin(run(["git", "-C", str(root), "config", "--get", "remote.origin.url"]))
+    except BindingError as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 def main():
@@ -44,7 +44,10 @@ def main():
                 discovered = pathlib.Path(run(["git", "-C", str(candidate), "rev-parse", "--show-toplevel"])).resolve()
                 if discovered not in roots:
                     roots.append(discovered)
-                    dirs[:] = [d for d in dirs if pathlib.Path(current, d).resolve() != discovered]
+                    if discovered == candidate:
+                        dirs[:] = []
+                    else:
+                        dirs[:] = [d for d in dirs if pathlib.Path(current, d).resolve() != discovered]
             except (OSError, RuntimeError, subprocess.SubprocessError):
                 pass
         if not roots:

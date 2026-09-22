@@ -40,6 +40,10 @@ class RepositoryBindingTests(unittest.TestCase):
         with self.assertRaises(BindingError):
             load_origin_entry({"yicone/yr-monorepo": {"repository": "other/repo", "session_id": "s1"}}, "yicone/yr-monorepo")
 
+    def test_rejects_legacy_root_registry_until_migrated(self):
+        with self.assertRaises(BindingError):
+            load_origin_entry({"/Users/tr/Workspace/yr": {"session_id": "s1"}}, "yicone/yr-monorepo")
+
     def test_worktree_boundary(self):
         with tempfile.TemporaryDirectory() as temp:
             parent = pathlib.Path(temp)

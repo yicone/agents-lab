@@ -122,6 +122,9 @@ def main() -> int:
             data = {}
         if not isinstance(data, dict):
             raise RuntimeError("registry must be an object")
+        legacy_keys = [key for key in data if isinstance(key, str) and key.startswith("/")]
+        if any(key != str(root) for key in legacy_keys):
+            raise RuntimeError("mixed legacy registry requires explicit migration")
         # Legacy root-keyed records are migration input only; do not review
         # until this host-only command rewrites the v2 origin-keyed registry.
         entry = data.get(origin)
