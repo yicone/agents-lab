@@ -91,6 +91,7 @@ Source classification should distinguish:
 - runtime builtin
 - runtime plugin
 - Skills CLI managed
+- third-party unmanaged
 - third-party customized
 - unknown
 
