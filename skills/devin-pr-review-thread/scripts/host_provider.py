@@ -127,14 +127,26 @@ def changed_lines(root, origin, pr):
             line += 1
     return result
 
+def changed_patch(root, origin, pr):
+    try:
+        p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=45)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode != 0 or not p.stdout.strip(): return None
+    return p.stdout
+
 def run_review(root, origin, req, pf, evidence_payload):
     sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
     lines = changed_lines(root, origin, pr)
     if not lines: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
+    patch = changed_patch(root, origin, pr)
+    if not patch: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
     prompt = ("Return exactly one JSON document matching devin-pr-review/v1, no Markdown. "
               f"Review PR {pr} at head {head} in repository {root}. "
               f"Your session_id is {sid}; repository_root is {root}. "
-              "Do not edit, commit, push, or call GitHub. Report only actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.")
+              "The complete verified PR patch is supplied below. Do not invoke tools, run commands, open files, call GitHub, edit, commit, or push. "
+              "Use only this patch and report actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.\n\n"
+              "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
     devin_args = ["devin"]
     config = os.environ.get("DEVIN_REVIEW_CONFIG")
     if config: devin_args += ["--config", config]
