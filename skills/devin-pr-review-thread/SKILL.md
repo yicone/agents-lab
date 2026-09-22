@@ -31,7 +31,7 @@ It is not a review-loop controller. A harness may run this adapter only after th
 
 ## Provider-owned state
 
-The provider, not the consuming agent, owns the registry and one-session invariant. The registry is non-secret metadata keyed by canonical root; its schema and recovery rules are implementation details in the provider runtime. Consuming agents must not read, write, rotate, or repair it. Host maintainers enroll a repository once with `python3 scripts/host_enroll.py --repo-root <root>`. For a worktree parent, use `--worktree-parent <parent>` once; future Git worktrees below that parent inherit the same origin binding. This is host setup, not a consuming-agent step.
+The provider, not the consuming agent, owns the registry and one-session invariant. The v2 registry is non-secret metadata keyed by normalized `owner/repository`; legacy root-keyed entries must be migrated by host-only enrollment before review. Consuming agents must not read, write, rotate, or repair it. Host maintainers enroll the GitHub allowlist with `python3 scripts/host_enroll.py --repo-root <root>`, then enroll the fixed Devin session with `python3 scripts/session_enroll.py --repo-root <root> --session-id <id>`. For worktree parents, pass `--worktree-parent <parent>` to both host enrollment and session enrollment. This is host setup, not a consuming-agent step.
 
 ## Failure policy
 
