@@ -135,7 +135,9 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
     if not isinstance(registered_root, str) or not registered_root:
         return result, "session_root_mismatch"
     registered_root = str(pathlib.Path(registered_root).resolve())
-    sessions, error = command_json(["devin", "list", "--format", "json"], cwd=registered_root)
+    # Devin lists sessions for the current workspace. Review requests may
+    # target an enrolled nested worktree, so query from the requested root.
+    sessions, error = command_json(["devin", "list", "--format", "json"], cwd=root)
     if error:
         return result, "session_output_invalid"
     if not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
@@ -146,13 +148,15 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
         return result, "session_missing"
     result["list_state"] = "present"
     result["root"] = found.get("working_directory")
-    if result["root"] and str(pathlib.Path(result["root"]).resolve()) != registered_root:
+    if not isinstance(result["root"], str) or not result["root"]:
         return result, "session_root_mismatch"
-    result["root"] = registered_root
+    actual_root = str(pathlib.Path(result["root"]).resolve())
     enrolled_parent = entry.get("enrolled_parent")
     if enrolled_parent is not None and not isinstance(enrolled_parent, str):
         return result, "session_root_mismatch"
     if not validate_worktree_boundary(root, registered_root, enrolled_parent):
+        return result, "session_root_mismatch"
+    if actual_root != root and not validate_worktree_boundary(actual_root, registered_root, enrolled_parent):
         return result, "session_root_mismatch"
     result["enrolled_parent"] = enrolled_parent
     return result, None
