@@ -3,9 +3,14 @@
 from __future__ import annotations
 import argparse, hashlib, json, os, pathlib, subprocess, sys, time, secrets, datetime as dt, tempfile
 
+PREFLIGHT_TIMEOUT_SECONDS = 90
 
 def startup_check(preflight_path, repo_root, pr_number):
-    proc = subprocess.run([sys.executable, str(preflight_path), "--repo-root", repo_root, "--pr", str(pr_number)], text=True, capture_output=True, timeout=30)
+    try:
+        proc = subprocess.run([sys.executable, str(preflight_path), "--repo-root", repo_root, "--pr", str(pr_number)], text=True, capture_output=True, timeout=PREFLIGHT_TIMEOUT_SECONDS)
+    except subprocess.SubprocessError as exc:
+        print(json.dumps({"schema": "devin-host-startup/v1", "status": "host-unavailable", "preflight": {"status": "preflight_timeout", "diagnostics": [{"code": "preflight_timeout", "detail": type(exc).__name__}]}}, ensure_ascii=False))
+        return 2
     try:
         data = json.loads(proc.stdout)
     except json.JSONDecodeError:
@@ -43,7 +48,7 @@ def authorize(payload, root, auth_path, preflight_path):
     if isinstance(round_number, bool) or not isinstance(round_number, int) or not 1 <= round_number <= 3:
         return payload
     try:
-        pf = subprocess.run([sys.executable, str(preflight_path), "--repo-root", payload["repository_root"], "--pr", str(payload["pr_number"])], text=True, capture_output=True, timeout=30)
+        pf = subprocess.run([sys.executable, str(preflight_path), "--repo-root", payload["repository_root"], "--pr", str(payload["pr_number"])], text=True, capture_output=True, timeout=PREFLIGHT_TIMEOUT_SECONDS)
         data = json.loads(pf.stdout)
         head = data.get("pr", {}).get("head_sha")
         if pf.returncode != 0 or data.get("status") != "ok" or not isinstance(head, str):

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import datetime as dt
 import json
 import os
@@ -144,6 +145,20 @@ def session_lookup_roots(root: str, registered_root: str, enrolled_parent: str |
     return lookup_roots
 
 
+def listed_session(root: str, session_id: str) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """Query one workspace without allowing a slow directory to block all discovery."""
+    code, output, error = run(["devin", "list", "--format", "json"], cwd=root, timeout=4)
+    if code:
+        return None, error
+    try:
+        sessions = json.loads(output)
+    except json.JSONDecodeError:
+        return None, "invalid_json"
+    if not isinstance(sessions, list) or any(not isinstance(item, dict) for item in sessions):
+        return None, "invalid_shape"
+    return sessions, None
+
+
 def session_state(root: str, origin: str | None, registry: pathlib.Path, expected_head: str | None = None) -> tuple[dict[str, Any], str | None]:
     empty = {"id": None, "registry_state": "missing", "list_state": "unknown", "root": None}
     try:
@@ -183,15 +198,18 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
     # workspace-scoped scan is in progress. One bounded second pass avoids
     # converting that transient race into a permanent session_missing result.
     for attempt in range(2):
-        for lookup_root in lookup_roots:
-            sessions, error = command_json(["devin", "list", "--format", "json"], cwd=lookup_root)
-            if error or not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
-                continue
-            had_valid_list = True
-            found = next((x for x in sessions if x.get("id") == sid), None)
-            if found:
-                result["discovery_attempts"] = attempt + 1
-                break
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(lookup_roots))) as pool:
+            futures = {pool.submit(listed_session, lookup_root, sid): lookup_root for lookup_root in lookup_roots}
+            for future in concurrent.futures.as_completed(futures):
+                sessions, error = future.result()
+                if error or sessions is None:
+                    continue
+                had_valid_list = True
+                candidate = next((x for x in sessions if x.get("id") == sid), None)
+                if candidate:
+                    found = candidate
+                    result["discovery_attempts"] = attempt + 1
+                    break
         if found:
             break
     result.setdefault("discovery_attempts", 2)

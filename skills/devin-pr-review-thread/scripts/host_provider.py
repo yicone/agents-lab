@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from repository_binding import BindingError, normalize_origin
 
 SCHEMA = "devin-host-review/v1"
+PREFLIGHT_TIMEOUT_SECONDS = 90
 ALLOWED_REQUEST = {"schema", "repository_root", "pr_number", "round", "authorization", "timeout_seconds"}
 
 def response(status, req=None, *, evidence_ref=None, failure_code=None, retryable=False, findings_count=0, comments=None):
@@ -280,7 +281,7 @@ def main():
             atomic_write(ledger_path, ledger)
             preflight = pathlib.Path(__file__).with_name("preflight.py")
             try:
-                proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=30)
+                proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=PREFLIGHT_TIMEOUT_SECONDS)
                 try: pf = json.loads(proc.stdout)
                 except json.JSONDecodeError: pf = {"status": "provider-unavailable"}
             except (OSError, subprocess.SubprocessError) as exc:
