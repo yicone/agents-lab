@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import response, validate_request
+from host_provider import is_unresolvable_review_comment, response, validate_request
+
+
+class FakeResult:
+    def __init__(self, returncode, stderr="", stdout=""):
+        self.returncode = returncode
+        self.stderr = stderr
+        self.stdout = stdout
 
 
 def test_failure_response_has_stable_failure_code_field():
     result = response("await-user", {"repository_root": "/tmp/repo", "pr_number": 232, "round": 2}, failure_code="permission_or_process_failure", evidence_ref="evidence-token")
     assert result["failure_code"] == "permission_or_process_failure"
     assert result["evidence_ref"] == "evidence-token"
+
+def test_unresolvable_github_line_is_safe_to_drop():
+    result = FakeResult(1, stderr='Validation Failed (HTTP 422) could not be resolved')
+    assert is_unresolvable_review_comment(result)
+    assert not is_unresolvable_review_comment(FakeResult(1, stderr='authentication failed'))
 
 
 def test_control_record_is_not_accepted_as_provider_request():

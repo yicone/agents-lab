@@ -136,6 +136,20 @@ def changed_patch(root, origin, pr):
     if p.returncode != 0 or not p.stdout.strip(): return None
     return p.stdout
 
+def is_unresolvable_review_comment(result):
+    """Return true when GitHub rejects a line because it is not in the PR diff.
+
+    Devin reviews the verified patch, but GitHub can return a slightly different
+    projection of a large/multi-commit PR.  Such a finding must be recorded and
+    skipped instead of turning already-published findings into a failed review.
+    """
+    text = (result.stderr or "") + "\n" + (result.stdout or "")
+    return result.returncode != 0 and (
+        "could not be resolved" in text.lower()
+        or '"status":422' in text.replace(" ", "").lower()
+        or "http 422" in text.lower()
+    )
+
 def run_review(root, origin, req, pf, evidence_payload):
     sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
     lines = changed_lines(root, origin, pr)
@@ -191,6 +205,7 @@ def run_review(root, origin, req, pf, evidence_payload):
     review = parsed
     if not review.get("findings"): return "no-findings", [], evidence_payload
     comments = []
+    dropped_publish = []
     existing = set()
     try:
         listed = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments"], text=True, capture_output=True, timeout=30)
@@ -212,10 +227,18 @@ def run_review(root, origin, req, pf, evidence_payload):
             c = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "-f", f"body={body}", "-f", f"commit_id={head}", "-f", f"path={f['path']}", "-F", f"line={f['line']}", "-f", "side=RIGHT"], text=True, capture_output=True, timeout=30)
         except (OSError, subprocess.SubprocessError):
             return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
-        if c.returncode != 0: return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
+        if c.returncode != 0:
+            if is_unresolvable_review_comment(c):
+                dropped_publish.append({"id": f.get("id"), "reason": "github_line_unresolvable"})
+                continue
+            return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
         try:
             obj = json.loads(c.stdout); comments.append({"id": str(obj.get("id")), "url": obj.get("html_url")})
         except json.JSONDecodeError: return "await-user", comments, evidence_payload | {"error": "github_publish_invalid"}
+    if dropped_publish:
+        evidence_payload["dropped_publish_findings"] = dropped_publish
+    if not comments and dropped_publish:
+        return "await-user", comments, evidence_payload | {"error": "github_publish_unresolvable"}
     return "review-published", comments, evidence_payload
 
 def main():
