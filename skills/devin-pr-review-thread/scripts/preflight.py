@@ -20,6 +20,7 @@ DISCOVERY_STRATEGY = "db-hinted-sequential-worktrees-v2"
 MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
 MODEL_COMMAND_TIMEOUT_SECONDS = 60
+SESSION_LIST_COMMAND_TIMEOUT_SECONDS = 30
 EXPIRY = dt.date(2026, 10, 26)
 
 
@@ -165,7 +166,11 @@ def session_database_root(session_id: str) -> str | None:
 
 def listed_session(root: str, session_id: str) -> tuple[list[dict[str, Any]] | None, str | None]:
     """Query one workspace without allowing a slow directory to block all discovery."""
-    code, output, error = run(["devin", "list", "--format", "json"], cwd=root, timeout=4)
+    code, output, error = run(
+        ["devin", "list", "--format", "json"],
+        cwd=root,
+        timeout=SESSION_LIST_COMMAND_TIMEOUT_SECONDS,
+    )
     if code:
         return None, error
     try:

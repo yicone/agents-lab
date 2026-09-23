@@ -37,7 +37,7 @@ launchctl print "gui/$UID/com.tr.agentslab.devin-pr-review-thread"
 
 The service must point at the canonical skill path, use the host proxy environment, and remain resident while it polls `/private/tmp/devin-host-review`. It does not embed a PR number; every request is preflighted independently. After replacing skill scripts, reinstall/kickstart the LaunchAgent and verify the emitted evidence contains `discovery_strategy: db-hinted-sequential-worktrees-v2`. Stop any older manually launched worker only after the new LaunchAgent is loaded and healthy.
 
-The Devin model catalog is a slow host operation. `preflight.py` gives `devin models list --format json` a 60-second command budget inside the overall 90-second preflight ceiling; a shorter caller-side timeout must not reinterpret the result as `model_output_invalid`.
+The Devin model catalog is a slow host operation. `preflight.py` gives `devin models list --format json` a 60-second command budget and `devin list --format json` a 30-second command budget inside the overall 90-second preflight ceiling; a shorter caller-side timeout must not reinterpret either result as invalid session/model metadata.
 
 Large PR patches use the GitHub REST diff media type first, with `gh pr diff` as a fallback. Each path may make at most three attempts for a transport-shaped failure (TLS, timeout, proxy, connection, DNS, or EOF); authentication, identity, and HTTP errors are not retried. An exhausted transport failure is preserved in evidence as `github_transport_unavailable`; a successful patch fetch is parsed once and reused for both changed-line validation and the Devin prompt. The prompt is passed through Devin's mode-0600 `--prompt-file`, not argv, so a large patch cannot hit the host's argument-size limit.
 

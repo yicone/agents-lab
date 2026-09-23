@@ -7,6 +7,7 @@ from unittest.mock import patch
 from preflight import (
     DISCOVERY_STRATEGY,
     MODEL_COMMAND_TIMEOUT_SECONDS,
+    SESSION_LIST_COMMAND_TIMEOUT_SECONDS,
     classify_github_error,
     listed_session,
     session_database_root,
@@ -25,6 +26,9 @@ class GithubErrorClassificationTests(unittest.TestCase):
 
     def test_model_catalog_has_a_longer_timeout_than_default_commands(self):
         self.assertGreaterEqual(MODEL_COMMAND_TIMEOUT_SECONDS, 60)
+
+    def test_session_list_has_a_host_sized_timeout(self):
+        self.assertGreaterEqual(SESSION_LIST_COMMAND_TIMEOUT_SECONDS, 30)
 
 
 class SessionDiscoveryTests(unittest.TestCase):
@@ -54,7 +58,9 @@ class SessionDiscoveryTests(unittest.TestCase):
         self.assertEqual(sessions, [{"id": "succinct-avenue"}])
         self.assertIsNone(error)
         mocked.assert_called_once_with(
-            ["devin", "list", "--format", "json"], cwd="/tmp/worktree", timeout=4
+            ["devin", "list", "--format", "json"],
+            cwd="/tmp/worktree",
+            timeout=SESSION_LIST_COMMAND_TIMEOUT_SECONDS,
         )
 
     def test_session_state_follows_workspace_drift_without_head_filter(self):

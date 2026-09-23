@@ -65,6 +65,7 @@
 - 当前实现改为 `db-hinted-sequential-worktrees-v2`：先只读查询 `sessions.db` 的 `working_directory`，再顺序扫描边界内 worktree；不按 PR head 过滤，并在证据中记录 `registered_root`、`observed_root`、`lookup_roots` 和 discovery strategy。
 - host 侧使用系统代理对 PR #230、head `050e080e846a71cc1e1ba3192c38febbc9f7462d` 做了真实启动预检，结果为 `status=ready` / `preflight.status=ok`，固定 session `succinct-avenue` 被发现，模型 `SWE-2 High` 可用。沙盒内直接跑同一预检仍可能因无法连接本机代理而得到 `github_transport_unavailable`；这属于执行边界差异，不是 host 预检失败。
 - 长期 worker 必须从 canonical skill path 重启；若 evidence 中没有 `discovery_strategy: db-hinted-sequential-worktrees-v2`，应判定为旧 worker 副本，而不是让调用方自行修复或重试。
+- 2026-09-24 对 `agent-storage-manager` PR #91 的实测再次暴露短超时：host preflight 的 `devin list` 4 秒预算在约 23 秒返回的正常 CLI 上误报 `session_output_invalid`。当前修复将每次显式 `cwd` 的 session list 命令预算提高到 30 秒，并加入回归测试；它不改变顺序 discovery、固定 session 或 fail-closed 边界。
 
 ## 八、登录 service 后的 queue timeout 与模型目录慢查询
 
