@@ -58,7 +58,15 @@
 - 这样调用方可以留在任意仓库 worktree，session discovery 与 PR target worktree 解耦，且每次 review 都会把 session 回锚到稳定的 canonical root。
 - 后续实测又发现并发 workspace-scoped `devin list` 会返回空投影，且 session 可能在扫描期间被另一个 cwd 的 Devin 调用迁移；preflight 现在使用只读 session database workspace hint，随后顺序扫描所有边界内 worktree，并保留扫描根目录/策略证据，避免并发 CLI 或 head 过滤制造 `session_missing`。
 
-## 七、避免 Devin 在 auto permission 下触发交互工具调用
+## 七、复现并修复“修改后仍然 session_missing”
+
+- 在 PR #230 的复测中，旧的常驻 worker 仍返回 `session_missing`，但同一 session 实际存在于 `feature-worktree-business-database-readiness` worktree；这证明“registry 存在”不等于“当前 cwd 的 `devin list` 可见”。
+- 一次并行化扫描实验进一步证明 Devin CLI 的 workspace projection 不是并发安全的：并发执行多个 `devin list` 会得到空投影，产生新的假阴性。因此并行扫描被撤回，不再作为优化方案。
+- 当前实现改为 `db-hinted-sequential-worktrees-v2`：先只读查询 `sessions.db` 的 `working_directory`，再顺序扫描边界内 worktree；不按 PR head 过滤，并在证据中记录 `registered_root`、`observed_root`、`lookup_roots` 和 discovery strategy。
+- host 侧使用系统代理对 PR #230、head `050e080e846a71cc1e1ba3192c38febbc9f7462d` 做了真实启动预检，结果为 `status=ready` / `preflight.status=ok`，固定 session `succinct-avenue` 被发现，模型 `SWE-2 High` 可用。沙盒内直接跑同一预检仍可能因无法连接本机代理而得到 `github_transport_unavailable`；这属于执行边界差异，不是 host 预检失败。
+- 长期 worker 必须从 canonical skill path 重启；若 evidence 中没有 `discovery_strategy: db-hinted-sequential-worktrees-v2`，应判定为旧 worker 副本，而不是让调用方自行修复或重试。
+
+## 八、避免 Devin 在 auto permission 下触发交互工具调用
 
 - 初次 host review 中，Devin 在 `--permission-mode auto` 下尝试读取本地文件，被 CLI 拒绝并产生非 JSON 输出。
 - 设计上没有切换到 `dangerous`，也没有放宽权限或换模型。
@@ -66,7 +74,7 @@
 - Devin prompt 明确禁止工具调用、命令执行、文件编辑、commit、push 和 GitHub 操作。
 - 该改变保留了固定模型和固定 session，同时降低 ACP/工具确认对 review 结果的影响。
 
-## 八、稳定错误字段与双 JSON 协议
+## 九、稳定错误字段与双 JSON 协议
 
 - 进一步实测发现 provider 内部有 evidence，但稳定响应没有顶层 `failure_code`，调用方只能看到模糊的 `await-user`。
 - 现在 `devin-host-review/v1` response 始终包含 `failure_code`；预检、head mismatch、权限/进程失败和 request rejection 都有明确分类。
@@ -77,11 +85,11 @@
   - `host_provider.py` 是 worker 内部组件，调用方不得直接调用。
 - 误把控制记录传给 provider 时，返回 `control_record_not_provider_request`，而不是让调用方猜测 `invalid-request` 的原因。
 
-## 九、当前实现验证结果
+## 十、当前实现验证结果
 
-- provider、preflight、registry、repository binding 相关测试：`12/12 passed`。
+- provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
-- 已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`。
+- 历史上已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`；本次 session_missing 修复只重新验证 host preflight，没有再次提交 GitHub review。
 - 当前本地 canonical skill 通过软链接暴露到：
   `/Users/tr/.agents/skills/devin-pr-review-thread`
 - 最新基础设施提交包括：
@@ -89,28 +97,61 @@
   - `148b1b9`：稳定返回 `failure_code`
   - `45b1252`：从主 workspace 发现固定 session
   - `b4fcbc4`：分离 round record 与 provider request 协议
+  - `de40135`：固定 provider 的 canonical 执行根目录
+  - `e67053c`：增加 host 预检超时边界和结构化超时结果
+  - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
+  - `6163e1e`：同步 discovery 策略回归测试
 
-## 十、项目级待办（不包含 PR #232 的 GitHub 处理）
+## 十一、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
 
-以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。
+以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。优先级按“阻断 review 的运行时风险 → 可验证性 → 运维自动化 → 文档与发布”排序。
 
-### 待确认
+### P0：恢复路径与版本一致性（先做）
 
-- 是否将 host worker 固化为登录后自动启动的 host service，还是继续由 host maintainer 手动保持常驻。
-- 是否接受“新 worktree 的 Devin CLI trust 仍可能需要 exact-path 登记”，或另行设计显式授权的 host-side trust manager。
-- 是否将当前本地 12 个 skill/provider 提交推送到远端，或先以独立 PR 发布。
-- 是否需要将 `devin-pr-review-thread` metadata version 从 `0.2.0` 升级，并建立变更/发布记录。
+1. **固定 worker 生命周期与版本门禁**
+   - **动作：** 在 host 侧选择登录后自动启动 service，或明确保留手动常驻；启动命令必须指向 `/Users/tr/Workspace/agents-lab/skills/devin-pr-review-thread/scripts/host_worker.py`，并保留系统代理环境。
+   - **验收：** `--startup-check` 返回 `status=ready`；evidence 包含 `discovery_strategy: db-hinted-sequential-worktrees-v2`；worker 在请求等待期间保持运行。旧 worker 不得继续消费新请求。
+   - **待确认：** 自动 service 还是手动常驻。
+2. **固定 host transport 入口**
+   - **动作：** 将 `https_proxy`、`http_proxy`、`all_proxy` 固化在 host service 的启动环境；sandbox 只写最小 queue request，不直接执行 `gh`、`devin` 或 preflight。
+   - **验收：** host 预检能够取得 PR head、模型和 session；沙盒侧即使无网络，也只消费 host 返回的稳定 response，不把本地 `github_transport_unavailable` 当成 PR 问题。
+3. **保留当前 fail-closed 边界**
+   - **动作：** 不让调用方修复 session、授权、trust、lock 或替换模型；只允许 host maintainer 重启/修复 worker。
+   - **验收：** 失败结果始终包含 `failure_code` 与 `evidence_ref`（请求在证据生成前被拒绝时除外），不发布未经验证的 thread。
 
-### 待执行
+### P1：自动化回归与调用方体验
 
-- 为 queue request 增加一个面向调用方的安全提交辅助入口，避免 agent 自己处理 request filename、原子写入和 response polling。
-- 为“主 workspace → 已登记 worktree 集合 → session discovery”增加自动化测试，而不只依赖本机实测。
-- 增加 session working directory 漂移回归测试：同一 session 在主 workspace 与不同 PR worktree 间往返后，下一轮仍能发现并从 canonical root 执行。
-- 更新 `docs/superpowers/specs/` 中仍描述旧协议或 exact session root 的设计文档，使其与当前 provider/worker 行为一致。
-- 建立 evidence、stale response 和未使用 authorization 的保留期限与清理工具；清理前必须保留审计摘要。
-- 将主 workspace exact allowlist 与 worktree-parent wildcard 的 host enrollment 组合固化为可重复的 host setup 流程。
-- 在其他 agent harness 上验证“只提交最小 queue request、绝不直接调用 provider”的跨 runtime 兼容性。
-- 将 host worker 的脚本版本/发现策略纳入启动 evidence，并在 skill 更新后要求 host maintainer 重启长期运行的 worker，避免旧副本继续消费请求。
+1. **补齐 discovery 回归测试**
+   - 覆盖主 workspace、多个 nested worktree、`sessions.db` hint、顺序扫描、session cwd 漂移和“不按 head 过滤”。
+   - 使用 fake `devin list`/fake database，不依赖真实 Devin 或 GitHub。
+   - **验收：** 测试能稳定重现旧版并发/当前 cwd 假阴性，并验证 `db-hinted-sequential-worktrees-v2` 的结果。
+2. **增加安全 queue client**
+   - 提供一个面向调用方的辅助入口，负责 request 文件命名、0600 权限、原子写入、响应等待和超时；调用方仍只提交最小 request。
+   - **验收：** 跨 runtime 只需提供 `repository_root`、`pr_number`、可选 `round`/`timeout_seconds`，不得接触 authorization 或 provider stdin。
+3. **做一次跨 harness 黑盒验证**
+   - 在至少两个 sandbox runtime 中只调用 queue client，验证 response schema、`await-user`、`no-findings`、`review-published` 和 evidence 引用。
+   - **验收：** 调用方无需阅读或执行 `host_provider.py`、`preflight.py`、`gh`、`devin`。
+
+### P2：授权、证据与维护自动化
+
+1. **固化 host enrollment 流程**
+   - 将主 workspace exact allowlist 与 worktree-parent wildcard 组合封装为可重复的一次性 host setup。
+   - **待确认：** 是否接受新 worktree 仍需要 Devin CLI exact-path trust，还是建立显式 host-side trust manager。
+2. **证据与临时文件清理**
+   - 为 evidence、stale response、未使用 authorization 建立保留期限和 dry-run 清理工具；清理前写入审计摘要。
+   - **验收：** 清理不会删除当前 round 的证据或未消费授权。
+3. **协议文档同步**
+   - 更新 `docs/superpowers/specs/` 中仍描述旧协议或 exact session root 的文档，并检查架构图 v1/v2 的 host/provider 边界是否一致。
+   - **验收：** 文档中的 queue、worker、provider、GitHub 写入职责与当前代码一致。
+
+### P3：发布与长期治理
+
+1. **决定发布方式**
+   - **待确认：** 当前本地领先 `origin/main` 的 skill/provider 提交，是直接推送、创建独立 PR，还是继续本地验证。
+2. **版本与变更记录**
+   - **待确认：** 是否将 skill metadata 从 `0.2.0` 升级，并为 discovery、host worker lifecycle 和 protocol changes 建立 changelog。
+3. **完成一次受控端到端演练**
+   - 在 host worker、queue client、固定 session 和 GitHub thread 发布均可用后，选择一个由使用方明确授权的 PR 做 bounded review；本计划不自动触发，也不替使用方处理其 PR loop。
 
 ## 记录边界
 
