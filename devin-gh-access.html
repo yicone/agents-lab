@@ -5163,10 +5163,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Connection paths (before components for correct z-order) -->
         <path data-edge-from="agent" data-edge-to="queue" data-edge-label="JSON request" data-edge-key="0" data-edge-id="agent-queue" data-composition-points="210,313;270,313" d="M 210 313 L 270 313" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="queue" data-edge-to="worker" data-edge-label="dequeue" data-edge-key="1" data-edge-id="queue-worker" data-composition-points="440,313;500,313" d="M 440 313 L 500 313" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="worker" data-edge-to="github" data-edge-label="gh：读取 PR/head SHA" data-edge-key="2" data-edge-id="worker-github-read" data-composition-points="680,313;760,313;760,143;840,143" d="M 680 313 L 752 313 Q 760 313 760 305 L 760 151 Q 760 143 768 143 L 840 143" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="worker" data-edge-to="github" data-edge-label="gh：预检读取 PR/head SHA" data-edge-key="2" data-edge-id="worker-github-read" data-composition-points="680,313;760,313;760,143;840,143" d="M 680 313 L 752 313 Q 760 313 760 305 L 760 151 Q 760 143 768 143 L 840 143" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="worker" data-edge-to="provider" data-edge-label="授权 + review request" data-edge-key="3" data-edge-id="worker-provider" data-composition-points="590,351;590,500" d="M 590 351 L 590 500" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="provider" data-edge-to="devin" data-edge-label="启动固定 session" data-edge-key="4" data-edge-id="provider-devin" data-composition-points="680,538;750,538;750,508;820,508" d="M 680 538 L 742 538 Q 750 538 750 530 L 750 516 Q 750 508 758 508 L 820 508" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="provider" data-edge-to="github" data-edge-label="gh：发布 review thread" data-edge-key="5" data-edge-id="provider-github-write" data-composition-points="590,576;590,620;1060,620;1060,143;1030,143" d="M 590 576 L 590 612 Q 590 620 598 620 L 1052 620 Q 1060 620 1060 612 L 1060 151 Q 1060 143 1052 143 L 1030 143" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="provider" data-edge-to="github" data-edge-label="gh：复核 head/diff；发布 review thread" data-edge-key="5" data-edge-id="provider-github-write" data-composition-points="590,576;590,620;1060,620;1060,143;1030,143" d="M 590 576 L 590 612 Q 590 620 598 620 L 1052 620 Q 1060 620 1060 612 L 1060 151 Q 1060 143 1052 143 L 1030 143" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
         <g id="node-agent" data-node-id="agent" data-node-label="Sandbox agent" tabindex="0" role="button" aria-label="聚焦Sandbox agent，提交最小 review 请求, Sandbox：不直接访问 GitHub / Devin" aria-pressed="false" data-node-kind="external" data-node-sublabel="提交最小 review 请求" data-node-context="Sandbox：不直接访问 GitHub / Devin">
@@ -5195,15 +5195,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="355" y="327" class="t-muted" font-size="9" text-anchor="middle">本机受保护队列</text>
         </g>
 
-        <g id="node-worker" data-node-id="worker" data-node-label="Host-side worker" tabindex="0" role="button" aria-label="聚焦Host-side worker，宿主机网络与凭据, Host：实际执行外部访问" aria-pressed="false" data-node-kind="backend" data-node-sublabel="宿主机网络与凭据" data-node-context="Host：实际执行外部访问">
-          <title>Host-side worker · 宿主机网络与凭据 · Host：实际执行外部访问</title>
+        <g id="node-worker" data-node-id="worker" data-node-label="host_worker.py" tabindex="0" role="button" aria-label="聚焦host_worker.py，队列、授权、宿主机预检, Host：实际执行外部访问" aria-pressed="false" data-node-kind="backend" data-node-sublabel="队列、授权、宿主机预检" data-node-context="Host：实际执行外部访问">
+          <title>host_worker.py · 队列、授权、宿主机预检 · Host：实际执行外部访问</title>
           <rect x="500" y="275" width="180" height="76" rx="6" class="c-mask"/>
           <rect x="500" y="275" width="180" height="76" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(506 281) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="590" y="311" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Host-side worker</text>
-        <text data-detail="context" x="590" y="327" class="t-muted" font-size="9" text-anchor="middle">宿主机网络与凭据</text>
+          <text data-node-label="" data-detail-anchor="" x="590" y="311" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">host_worker.py</text>
+        <text data-detail="context" x="590" y="327" class="t-muted" font-size="9" text-anchor="middle">队列、授权、宿主机预检</text>
         </g>
 
         <g id="node-github" data-node-id="github" data-node-label="GitHub" tabindex="0" role="button" aria-label="聚焦GitHub，PR、head SHA、review threads, 架构组件" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="PR、head SHA、review threads" data-node-context="架构组件">
@@ -5228,16 +5228,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="915" y="522" class="t-muted" font-size="9" text-anchor="middle">固定 session + SWE-2 High</text>
         </g>
 
-        <g id="node-provider" data-node-id="provider" data-node-label="Provider broker" tabindex="0" role="button" aria-label="聚焦Provider broker，校验、去重、发布, Host：实际执行外部访问" aria-pressed="false" data-node-kind="security" data-node-sublabel="校验、去重、发布" data-node-context="Host：实际执行外部访问">
-          <title>Provider broker · 校验、去重、发布 · Host：实际执行外部访问</title>
+        <g id="node-provider" data-node-id="provider" data-node-label="host_provider.py" tabindex="0" role="button" aria-label="聚焦host_provider.py，复核、Devin、去重、发布, Host：实际执行外部访问" aria-pressed="false" data-node-kind="security" data-node-sublabel="复核、Devin、去重、发布" data-node-context="Host：实际执行外部访问">
+          <title>host_provider.py · 复核、Devin、去重、发布 · Host：实际执行外部访问</title>
           <rect x="500" y="500" width="180" height="76" rx="6" class="c-mask"/>
           <rect x="500" y="500" width="180" height="76" rx="6" class="c-security" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(506 506) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="590" y="536" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Provider broker</text>
-        <text data-detail="context" x="590" y="552" class="t-muted" font-size="9" text-anchor="middle">校验、去重、发布</text>
+          <text data-node-label="" data-detail-anchor="" x="590" y="536" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">host_provider.py</text>
+        <text data-detail="context" x="590" y="552" class="t-muted" font-size="9" text-anchor="middle">复核、Devin、去重、发布</text>
         </g>
 
         <!-- Connection labels -->
@@ -5249,9 +5249,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="448.2" y="293" width="43.6" height="14" rx="3" class="c-mask"/>
           <text x="470" y="303" class="t-muted" font-size="8" text-anchor="middle">dequeue</text>
         </g>
-        <g data-detail="context" data-edge-from="worker" data-edge-to="github" data-edge-label="gh：读取 PR/head SHA" data-edge-key="2" data-edge-id="worker-github-read">
-          <rect x="707" y="180" width="106" height="14" rx="3" class="c-mask"/>
-          <text x="760" y="190" class="t-muted" font-size="8" text-anchor="middle">gh：读取 PR/head SHA</text>
+        <g data-detail="context" data-edge-from="worker" data-edge-to="github" data-edge-label="gh：预检读取 PR/head SHA" data-edge-key="2" data-edge-id="worker-github-read">
+          <rect x="697.4" y="180" width="125.19999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="760" y="190" class="t-muted" font-size="8" text-anchor="middle">gh：预检读取 PR/head SHA</text>
         </g>
         <g data-detail="context" data-edge-from="worker" data-edge-to="provider" data-edge-label="授权 + review request" data-edge-key="3" data-edge-id="worker-provider">
           <rect x="534.6" y="355" width="110.8" height="14" rx="3" class="c-mask"/>
@@ -5261,9 +5261,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="706.6" y="475" width="86.8" height="14" rx="3" class="c-mask"/>
           <text x="750" y="485" class="t-muted" font-size="8" text-anchor="middle">启动固定 session</text>
         </g>
-        <g data-detail="context" data-edge-from="provider" data-edge-to="github" data-edge-label="gh：发布 review thread" data-edge-key="5" data-edge-id="provider-github-write">
-          <rect x="767.2" y="624" width="115.6" height="14" rx="3" class="c-mask"/>
-          <text x="825" y="634" class="t-messagebus" font-size="8" text-anchor="middle">gh：发布 review thread</text>
+        <g data-detail="context" data-edge-from="provider" data-edge-to="github" data-edge-label="gh：复核 head/diff；发布 review thread" data-edge-key="5" data-edge-id="provider-github-write">
+          <rect x="728.8" y="624" width="192.4" height="14" rx="3" class="c-mask"/>
+          <text x="825" y="634" class="t-messagebus" font-size="8" text-anchor="middle">gh：复核 head/diff；发布 review thread</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
@@ -5280,25 +5280,33 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
           <text x="40" y="644" class="t-primary" font-size="12" font-weight="650">图例</text>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="后端" data-legend-x="40" data-legend-baseline="664" data-legend-width="63">
-            <rect x="40" y="655" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
-            <text x="62" y="664" class="t-muted" font-size="10" font-weight="500">后端</text>
+          <g data-legend-semantic-kind="frontend" data-legend-x="40" data-legend-baseline="664" data-legend-width="42">
+            <rect x="40" y="655" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="664" class="t-muted" font-size="10" font-weight="500">前端</text>
           </g>
-          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="云服务" data-legend-x="125" data-legend-baseline="664" data-legend-width="73">
-            <rect x="125" y="655" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
-            <text x="147" y="664" class="t-muted" font-size="10" font-weight="500">云服务</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="后端 / host runtime" data-legend-x="104" data-legend-baseline="664" data-legend-width="138">
+            <rect x="104" y="655" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="126" y="664" class="t-muted" font-size="10" font-weight="500">后端 / host runtime</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="安全" data-legend-x="220" data-legend-baseline="664" data-legend-width="63">
-            <rect x="220" y="655" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
-            <text x="242" y="664" class="t-muted" font-size="10" font-weight="500">安全</text>
+          <g data-legend-semantic-kind="database" data-legend-x="264" data-legend-baseline="664" data-legend-width="52">
+            <rect x="264" y="655" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="286" y="664" class="t-muted" font-size="10" font-weight="500">数据库</text>
           </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="消息总线" data-legend-x="305" data-legend-baseline="664" data-legend-width="83">
-            <rect x="305" y="655" width="16" height="10" rx="2.5" class="c-messagebus" stroke-width="1"/>
-            <text x="327" y="664" class="t-muted" font-size="10" font-weight="500">消息总线</text>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="云服务 / GitHub" data-legend-x="338" data-legend-baseline="664" data-legend-width="118">
+            <rect x="338" y="655" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="360" y="664" class="t-muted" font-size="10" font-weight="500">云服务 / GitHub</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="外部系统" data-legend-x="410" data-legend-baseline="664" data-legend-width="83">
-            <rect x="410" y="655" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
-            <text x="432" y="664" class="t-muted" font-size="10" font-weight="500">外部系统</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="安全 / broker 与 enrollment" data-legend-x="478" data-legend-baseline="664" data-legend-width="177">
+            <rect x="478" y="655" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="500" y="664" class="t-muted" font-size="10" font-weight="500">安全 / broker 与 enrollment</text>
+          </g>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="消息总线 / review queue" data-legend-x="677" data-legend-baseline="664" data-legend-width="158">
+            <rect x="677" y="655" width="16" height="10" rx="2.5" class="c-messagebus" stroke-width="1"/>
+            <text x="699" y="664" class="t-muted" font-size="10" font-weight="500">消息总线 / review queue</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="外部系统 / sandbox 与 worktree" data-legend-x="857" data-legend-baseline="664" data-legend-width="192">
+            <rect x="857" y="655" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="879" y="664" class="t-muted" font-size="10" font-weight="500">外部系统 / sandbox 与 worktree</text>
           </g>
         </g>
       </svg>

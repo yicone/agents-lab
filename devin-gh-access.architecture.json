@@ -5,15 +5,25 @@
     "title": "Devin PR review 的 GitHub 访问边界",
     "locale": "zh-CN",
     "quality_profile": "showcase",
+    "legend": {
+      "mode": "all",
+      "entries": {
+        "backend": { "label": "后端 / host runtime", "visible": true },
+        "cloud": { "label": "云服务 / GitHub", "visible": true },
+        "security": { "label": "安全 / broker 与 enrollment", "visible": true },
+        "messagebus": { "label": "消息总线 / review queue", "visible": true },
+        "external": { "label": "外部系统 / sandbox 与 worktree", "visible": true }
+      }
+    },
     "viewBox": [1120, 680]
   },
   "components": [
     { "id": "agent", "type": "external", "label": "Sandbox agent", "sublabel": "提交最小 review 请求", "pos": [40, 275], "size": [170, 76] },
     { "id": "queue", "type": "messagebus", "label": "Host review queue", "sublabel": "本机受保护队列", "pos": [270, 275], "size": [170, 76] },
-    { "id": "worker", "type": "backend", "label": "Host-side worker", "sublabel": "宿主机网络与凭据", "pos": [500, 275], "size": [180, 76] },
+    { "id": "worker", "type": "backend", "label": "host_worker.py", "sublabel": "队列、授权、宿主机预检", "pos": [500, 275], "size": [180, 76] },
     { "id": "github", "type": "cloud", "label": "GitHub", "sublabel": "PR、head SHA、review threads", "pos": [840, 105], "size": [190, 76] },
     { "id": "devin", "type": "backend", "label": "Devin CLI", "sublabel": "固定 session + SWE-2 High", "pos": [820, 470], "size": [190, 76] },
-    { "id": "provider", "type": "security", "label": "Provider broker", "sublabel": "校验、去重、发布", "pos": [500, 500], "size": [180, 76] }
+    { "id": "provider", "type": "security", "label": "host_provider.py", "sublabel": "复核、Devin、去重、发布", "pos": [500, 500], "size": [180, 76] }
   ],
   "boundaries": [
     { "kind": "security-group", "label": "Sandbox：不直接访问 GitHub / Devin", "wraps": ["agent"] },
@@ -22,10 +32,10 @@
   "connections": [
     { "id": "agent-queue", "from": "agent", "to": "queue", "label": "JSON request", "variant": "emphasis", "labelDy": 62 },
     { "id": "queue-worker", "from": "queue", "to": "worker", "label": "dequeue" },
-    { "id": "worker-github-read", "from": "worker", "to": "github", "label": "gh：读取 PR/head SHA", "fromSide": "right", "toSide": "left", "route": "orthogonal-h", "labelDy": -28 },
+    { "id": "worker-github-read", "from": "worker", "to": "github", "label": "gh：预检读取 PR/head SHA", "fromSide": "right", "toSide": "left", "route": "orthogonal-h", "labelDy": -28 },
     { "id": "worker-provider", "from": "worker", "to": "provider", "label": "授权 + review request", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
     { "id": "provider-devin", "from": "provider", "to": "devin", "label": "启动固定 session", "fromSide": "right", "toSide": "left", "route": "orthogonal-h", "labelDy": -28 },
-    { "id": "provider-github-write", "from": "provider", "to": "github", "label": "gh：发布 review thread", "variant": "dashed", "fromSide": "bottom", "toSide": "right", "via": [[590, 620], [1060, 620], [1060, 143]], "labelSegment": 1, "labelDy": 24 }
+    { "id": "provider-github-write", "from": "provider", "to": "github", "label": "gh：复核 head/diff；发布 review thread", "variant": "dashed", "fromSide": "bottom", "toSide": "right", "via": [[590, 620], [1060, 620], [1060, 143]], "labelSegment": 1, "labelDy": 24 }
   ],
   "cards": [
     { "dot": "cyan", "title": "关键澄清", "items": ["PR 确实在 GitHub 上，因此 review 链路必须访问 GitHub", "隔离的是调用方 sandbox，不是整个 review 系统"] },

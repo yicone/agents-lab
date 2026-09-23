@@ -5158,15 +5158,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <!-- Boundaries (behind everything) -->
         <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="0" data-composition-frame-label="Sandbox：只提交 request，不访问 GH/Devin" x="10" y="270" width="240" height="126" rx="8" class="c-security-group" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Host：持有 GH、Devin、registry 与 trust 能力" x="250" y="270" width="730" height="486" rx="8" class="c-security-group" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Host：持有 GH、Devin、registry 与 trust 能力" x="250" y="270" width="730" height="396" rx="8" class="c-security-group" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
         <path data-edge-from="agent" data-edge-to="queue" data-edge-label="JSON request" data-edge-key="0" data-edge-id="agent-queue" data-composition-points="220,338;280,338" d="M 220 338 L 280 338" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="queue" data-edge-to="worker" data-edge-label="dequeue" data-edge-key="1" data-edge-id="queue-worker" data-composition-points="460,338;520,338" d="M 460 338 L 520 338" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="worker" data-edge-to="provider" data-edge-label="host authorization" data-edge-key="2" data-edge-id="worker-provider" data-composition-points="710,338;760,338" d="M 710 338 L 760 338" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="provider" data-edge-to="github" data-edge-label="gh：读取 PR/head SHA；发布 review thread" data-edge-key="3" data-edge-id="provider-github-read" data-composition-points="950,338;1000,338;1000,183;1010,183" d="M 950 338 L 992 338 Q 1000 338 1000 330 L 1000 188 Q 1000 183 1005 183 L 1010 183" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="4" data-edge-id="session-worktree" data-composition-points="1105,506;1105,583;855,583;855,660" d="M 1105 506 L 1105 575 Q 1105 583 1097 583 L 863 583 Q 855 583 855 591 L 855 660" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="enroll" data-edge-to="session" data-edge-label="registry：origin → session" data-edge-key="5" data-edge-id="enroll-session" data-composition-points="710,698;734,698;734,468;1010,468" d="M 710 698 L 726 698 Q 734 698 734 690 L 734 476 Q 734 468 742 468 L 1010 468" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="worker" data-edge-to="github" data-edge-label="gh：预检读取 PR/head SHA" data-edge-key="3" data-edge-id="worker-github-read" data-composition-points="710,338;720,338;720,120;950,120;950,183;1010,183" d="M 710 338 L 715 338 Q 720 338 720 333 L 720 128 Q 720 120 728 120 L 942 120 Q 950 120 950 128 L 950 175 Q 950 183 958 183 L 1010 183" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="provider" data-edge-to="github" data-edge-label="gh：复核 head/diff；发布 review thread" data-edge-key="4" data-edge-id="provider-github-write" data-composition-points="855,300;855,260;1105,260;1105,221;1105,221" d="M 855 300 L 855 268 Q 855 260 863 260 L 1097 260 Q 1105 260 1105 252 L 1105 221 L 1105 221" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="5" data-edge-id="session-worktree" data-composition-points="1105,506;1105,538;855,538;855,570" d="M 1105 506 L 1105 530 Q 1105 538 1097 538 L 863 538 Q 855 538 855 546 L 855 570" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="enroll" data-edge-to="session" data-edge-label="registry：origin → session" data-edge-key="6" data-edge-id="enroll-session" data-composition-points="710,608;734,608;734,468;1010,468" d="M 710 608 L 726 608 Q 734 608 734 600 L 734 476 Q 734 468 742 468 L 1010 468" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
 
         <!-- Components -->
         <g id="node-agent" data-node-id="agent" data-node-label="Sandbox agent" tabindex="0" role="button" aria-label="聚焦Sandbox agent，提交最小 review request, Sandbox：只提交 request，不访问 GH/Devin" aria-pressed="false" data-node-kind="external" data-node-sublabel="提交最小 review request" data-node-context="Sandbox：只提交 request，不访问 GH/Devin">
@@ -5195,19 +5196,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="370" y="352" class="t-muted" font-size="9" text-anchor="middle">受保护 JSON queue</text>
         </g>
 
-        <g id="node-worker" data-node-id="worker" data-node-label="host_worker.py" tabindex="0" role="button" aria-label="聚焦host_worker.py，宿主机常驻 supervisor, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="backend" data-node-sublabel="宿主机常驻 supervisor" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
-          <title>host_worker.py · 宿主机常驻 supervisor · Host：持有 GH、Devin、registry 与 trust 能力</title>
+        <g id="node-worker" data-node-id="worker" data-node-label="host_worker.py" tabindex="0" role="button" aria-label="聚焦host_worker.py，队列、授权、宿主机预检, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="backend" data-node-sublabel="队列、授权、宿主机预检" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
+          <title>host_worker.py · 队列、授权、宿主机预检 · Host：持有 GH、Devin、registry 与 trust 能力</title>
           <rect x="520" y="300" width="190" height="76" rx="6" class="c-mask"/>
           <rect x="520" y="300" width="190" height="76" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(526 306) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="615" y="336" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">host_worker.py</text>
-        <text data-detail="context" x="615" y="352" class="t-muted" font-size="9" text-anchor="middle">宿主机常驻 supervisor</text>
+        <text data-detail="context" x="615" y="352" class="t-muted" font-size="9" text-anchor="middle">队列、授权、宿主机预检</text>
         </g>
 
-        <g id="node-provider" data-node-id="provider" data-node-label="host_provider.py" tabindex="0" role="button" aria-label="聚焦host_provider.py，preflight、校验、发布, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="security" data-node-sublabel="preflight、校验、发布" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
-          <title>host_provider.py · preflight、校验、发布 · Host：持有 GH、Devin、registry 与 trust 能力</title>
+        <g id="node-provider" data-node-id="provider" data-node-label="host_provider.py" tabindex="0" role="button" aria-label="聚焦host_provider.py，复核、Devin、去重、发布, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="security" data-node-sublabel="复核、Devin、去重、发布" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
+          <title>host_provider.py · 复核、Devin、去重、发布 · Host：持有 GH、Devin、registry 与 trust 能力</title>
           <rect x="760" y="300" width="190" height="76" rx="6" class="c-mask"/>
           <rect x="760" y="300" width="190" height="76" rx="6" class="c-security" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(766 306) scale(0.6875)">
@@ -5215,7 +5216,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="855" y="336" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">host_provider.py</text>
-        <text data-detail="context" x="855" y="352" class="t-muted" font-size="9" text-anchor="middle">preflight、校验、发布</text>
+        <text data-detail="context" x="855" y="352" class="t-muted" font-size="9" text-anchor="middle">复核、Devin、去重、发布</text>
         </g>
 
         <g id="node-github" data-node-id="github" data-node-label="GitHub" tabindex="0" role="button" aria-label="聚焦GitHub，PR/head SHA/review threads, 架构组件" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="PR/head SHA/review threads" data-node-context="架构组件">
@@ -5242,26 +5243,26 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-worktrees" data-node-id="worktrees" data-node-label="Nested worktrees" tabindex="0" role="button" aria-label="聚焦Nested worktrees，具体 review target, 架构组件" aria-pressed="false" data-node-kind="external" data-node-sublabel="具体 review target" data-node-context="架构组件">
           <title>Nested worktrees · 具体 review target · 架构组件</title>
-          <rect x="760" y="660" width="190" height="76" rx="6" class="c-mask"/>
-          <rect x="760" y="660" width="190" height="76" rx="6" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(766 666) scale(0.6875)">
+          <rect x="760" y="570" width="190" height="76" rx="6" class="c-mask"/>
+          <rect x="760" y="570" width="190" height="76" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(766 576) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="855" y="696" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Nested worktrees</text>
-        <text data-detail="context" x="855" y="712" class="t-muted" font-size="9" text-anchor="middle">具体 review target</text>
+          <text data-node-label="" data-detail-anchor="" x="855" y="606" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Nested worktrees</text>
+        <text data-detail="context" x="855" y="622" class="t-muted" font-size="9" text-anchor="middle">具体 review target</text>
         </g>
 
         <g id="node-enroll" data-node-id="enroll" data-node-label="Host enrollment" tabindex="0" role="button" aria-label="聚焦Host enrollment，host_enroll + session_enroll（一次）, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="security" data-node-sublabel="host_enroll + session_enroll（一次）" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
           <title>Host enrollment · host_enroll + session_enroll（一次） · Host：持有 GH、Devin、registry 与 trust 能力</title>
-          <rect x="520" y="660" width="190" height="76" rx="6" class="c-mask"/>
-          <rect x="520" y="660" width="190" height="76" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(526 666) scale(0.6875)">
+          <rect x="520" y="570" width="190" height="76" rx="6" class="c-mask"/>
+          <rect x="520" y="570" width="190" height="76" rx="6" class="c-security" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(526 576) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="615" y="696" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Host enrollment</text>
-        <text data-detail="context" x="615" y="712" class="t-muted" font-size="8.4" text-anchor="middle">host_enroll + session_enroll（一次）</text>
+          <text data-node-label="" data-detail-anchor="" x="615" y="606" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Host enrollment</text>
+        <text data-detail="context" x="615" y="622" class="t-muted" font-size="8.4" text-anchor="middle">host_enroll + session_enroll（一次）</text>
         </g>
 
         <!-- Connection labels -->
@@ -5277,17 +5278,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="686.8" y="380" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
           <text x="735" y="390" class="t-muted" font-size="8" text-anchor="middle">host authorization</text>
         </g>
-        <g data-detail="context" data-edge-from="provider" data-edge-to="github" data-edge-label="gh：读取 PR/head SHA；发布 review thread" data-edge-key="3" data-edge-id="provider-github-read">
-          <rect x="899" y="250" width="202" height="14" rx="3" class="c-mask"/>
-          <text x="1000" y="260" class="t-muted" font-size="8" text-anchor="middle">gh：读取 PR/head SHA；发布 review thread</text>
+        <g data-detail="context" data-edge-from="worker" data-edge-to="github" data-edge-label="gh：预检读取 PR/head SHA" data-edge-key="3" data-edge-id="worker-github-read">
+          <rect x="772.4" y="95" width="125.19999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="835" y="105" class="t-muted" font-size="8" text-anchor="middle">gh：预检读取 PR/head SHA</text>
         </g>
-        <g data-detail="context" data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="4" data-edge-id="session-worktree">
-          <rect x="931.8" y="563" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="980" y="573" class="t-messagebus" font-size="8" text-anchor="middle">review target path</text>
+        <g data-detail="context" data-edge-from="provider" data-edge-to="github" data-edge-label="gh：复核 head/diff；发布 review thread" data-edge-key="4" data-edge-id="provider-github-write">
+          <rect x="863.8" y="230" width="192.4" height="14" rx="3" class="c-mask"/>
+          <text x="960" y="240" class="t-messagebus" font-size="8" text-anchor="middle">gh：复核 head/diff；发布 review thread</text>
         </g>
-        <g data-detail="context" data-edge-from="enroll" data-edge-to="session" data-edge-label="registry：origin → session" data-edge-key="5" data-edge-id="enroll-session">
-          <rect x="732.6" y="530" width="134.8" height="14" rx="3" class="c-mask"/>
-          <text x="800" y="540" class="t-muted" font-size="8" text-anchor="middle">registry：origin → session</text>
+        <g data-detail="context" data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="5" data-edge-id="session-worktree">
+          <rect x="931.8" y="518" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="980" y="528" class="t-messagebus" font-size="8" text-anchor="middle">review target path</text>
+        </g>
+        <g data-detail="context" data-edge-from="enroll" data-edge-to="session" data-edge-label="registry：origin → session" data-edge-key="6" data-edge-id="enroll-session">
+          <rect x="732.6" y="480" width="134.8" height="14" rx="3" class="c-mask"/>
+          <text x="800" y="490" class="t-muted" font-size="8" text-anchor="middle">registry：origin → session</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
@@ -5302,7 +5307,37 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
 
         <!-- Legend -->
-
+        <g data-legend="" data-legend-bridge="">
+          <text x="40" y="724" class="t-primary" font-size="12" font-weight="650">图例</text>
+          <g data-legend-semantic-kind="frontend" data-legend-x="40" data-legend-baseline="744" data-legend-width="42">
+            <rect x="40" y="735" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="744" class="t-muted" font-size="10" font-weight="500">前端</text>
+          </g>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="后端 / host runtime" data-legend-x="104" data-legend-baseline="744" data-legend-width="138">
+            <rect x="104" y="735" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="126" y="744" class="t-muted" font-size="10" font-weight="500">后端 / host runtime</text>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-x="264" data-legend-baseline="744" data-legend-width="52">
+            <rect x="264" y="735" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="286" y="744" class="t-muted" font-size="10" font-weight="500">数据库</text>
+          </g>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="云服务 / GitHub" data-legend-x="338" data-legend-baseline="744" data-legend-width="118">
+            <rect x="338" y="735" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="360" y="744" class="t-muted" font-size="10" font-weight="500">云服务 / GitHub</text>
+          </g>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="安全 / broker 与 enrollment" data-legend-x="478" data-legend-baseline="744" data-legend-width="177">
+            <rect x="478" y="735" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="500" y="744" class="t-muted" font-size="10" font-weight="500">安全 / broker 与 enrollment</text>
+          </g>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="消息总线 / review queue" data-legend-x="677" data-legend-baseline="744" data-legend-width="158">
+            <rect x="677" y="735" width="16" height="10" rx="2.5" class="c-messagebus" stroke-width="1"/>
+            <text x="699" y="744" class="t-muted" font-size="10" font-weight="500">消息总线 / review queue</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="外部系统 / sandbox 与 worktree" data-legend-x="857" data-legend-baseline="744" data-legend-width="192">
+            <rect x="857" y="735" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="879" y="744" class="t-muted" font-size="10" font-weight="500">外部系统 / sandbox 与 worktree</text>
+          </g>
+        </g>
       </svg>
       <p class="intent-trace-status no-print" id="intent-trace-status" role="status" aria-live="polite" aria-atomic="true"></p>
       <div class="share-chapter-cue no-print" id="share-chapter-cue" hidden role="status" aria-live="polite">

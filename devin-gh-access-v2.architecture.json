@@ -5,17 +5,27 @@
     "title": "Devin PR review v2：仓库级 session 与 worktree 边界",
     "locale": "zh-CN",
     "quality_profile": "showcase",
+    "legend": {
+      "mode": "all",
+      "entries": {
+        "backend": { "label": "后端 / host runtime", "visible": true },
+        "cloud": { "label": "云服务 / GitHub", "visible": true },
+        "security": { "label": "安全 / broker 与 enrollment", "visible": true },
+        "messagebus": { "label": "消息总线 / review queue", "visible": true },
+        "external": { "label": "外部系统 / sandbox 与 worktree", "visible": true }
+      }
+    },
     "viewBox": [1240, 760]
   },
   "components": [
     { "id": "agent", "type": "external", "label": "Sandbox agent", "sublabel": "提交最小 review request", "pos": [40, 300], "size": [180, 76] },
     { "id": "queue", "type": "messagebus", "label": "Host review queue", "sublabel": "受保护 JSON queue", "pos": [280, 300], "size": [180, 76] },
-    { "id": "worker", "type": "backend", "label": "host_worker.py", "sublabel": "宿主机常驻 supervisor", "pos": [520, 300], "size": [190, 76] },
-    { "id": "provider", "type": "security", "label": "host_provider.py", "sublabel": "preflight、校验、发布", "pos": [760, 300], "size": [190, 76] },
+    { "id": "worker", "type": "backend", "label": "host_worker.py", "sublabel": "队列、授权、宿主机预检", "pos": [520, 300], "size": [190, 76] },
+    { "id": "provider", "type": "security", "label": "host_provider.py", "sublabel": "复核、Devin、去重、发布", "pos": [760, 300], "size": [190, 76] },
     { "id": "github", "type": "cloud", "label": "GitHub", "sublabel": "PR/head SHA/review threads", "pos": [1010, 145], "size": [190, 76] },
     { "id": "session", "type": "backend", "label": "固定 Devin session", "sublabel": "主 workspace：/Workspace/yr", "pos": [1010, 430], "size": [190, 76] },
-    { "id": "worktrees", "type": "external", "label": "Nested worktrees", "sublabel": "具体 review target", "pos": [760, 660], "size": [190, 76] },
-    { "id": "enroll", "type": "security", "label": "Host enrollment", "sublabel": "host_enroll + session_enroll（一次）", "pos": [520, 660], "size": [190, 76] }
+    { "id": "worktrees", "type": "external", "label": "Nested worktrees", "sublabel": "具体 review target", "pos": [760, 570], "size": [190, 76] },
+    { "id": "enroll", "type": "security", "label": "Host enrollment", "sublabel": "host_enroll + session_enroll（一次）", "pos": [520, 570], "size": [190, 76] }
   ],
   "boundaries": [
     { "kind": "security-group", "label": "Sandbox：只提交 request，不访问 GH/Devin", "wraps": ["agent"] },
@@ -25,9 +35,10 @@
     { "id": "agent-queue", "from": "agent", "to": "queue", "label": "JSON request", "variant": "emphasis", "labelDy": 62 },
     { "id": "queue-worker", "from": "queue", "to": "worker", "label": "dequeue" },
     { "id": "worker-provider", "from": "worker", "to": "provider", "label": "host authorization", "labelAt": [735, 390] },
-    { "id": "provider-github-read", "from": "provider", "to": "github", "label": "gh：读取 PR/head SHA；发布 review thread", "via": [[1000, 338], [1000, 183]], "labelAt": [1000, 260] },
+    { "id": "worker-github-read", "from": "worker", "to": "github", "label": "gh：预检读取 PR/head SHA", "fromSide": "right", "toSide": "left", "via": [[720, 338], [720, 120], [950, 120], [950, 183]], "labelAt": [835, 105] },
+    { "id": "provider-github-write", "from": "provider", "to": "github", "label": "gh：复核 head/diff；发布 review thread", "variant": "dashed", "fromSide": "top", "toSide": "bottom", "via": [[855, 260], [1105, 260], [1105, 221]], "labelAt": [960, 240] },
     { "id": "session-worktree", "from": "session", "to": "worktrees", "label": "review target path", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
-    { "id": "enroll-session", "from": "enroll", "to": "session", "label": "registry：origin → session", "labelAt": [800, 540] }
+    { "id": "enroll-session", "from": "enroll", "to": "session", "label": "registry：origin → session", "labelAt": [800, 490] }
   ],
   "cards": [
     { "dot": "cyan", "title": "一次性 host setup", "items": ["host_enroll.py：登记 GitHub origin allowlist", "session_enroll.py：登记一个固定 Devin session"] },
