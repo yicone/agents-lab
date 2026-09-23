@@ -8,6 +8,17 @@ def test_failure_response_has_stable_failure_code_field():
     assert result["failure_code"] == "permission_or_process_failure"
     assert result["evidence_ref"] == "evidence-token"
 
+
+def test_control_record_is_not_accepted_as_provider_request():
+    process = subprocess.run(
+        [sys.executable, str(pathlib.Path(__file__).with_name("host_provider.py"))],
+        input=json.dumps({"schema": "pr-review-round/v1", "round": 2}),
+        text=True,
+        capture_output=True,
+    )
+    result = json.loads(process.stdout)
+    assert result["failure_code"] == "control_record_not_provider_request"
+
 def test_rejects_self_asserted_authorization():
     with tempfile.TemporaryDirectory() as d:
         req={"schema":"devin-host-review/v1","repository_root":d,"pr_number":1,"round":1,"authorization":{"action":"run","authorization_id":"x","head_sha":"a"},"timeout_seconds":900}
@@ -36,4 +47,4 @@ def test_cross_origin_allowlist_is_invalid_request():
 
 
 if __name__ == "__main__":
-    test_failure_response_has_stable_failure_code_field(); test_rejects_self_asserted_authorization(); test_accepts_host_bound_authorization(); test_missing_allowlist_is_operator_state(); test_cross_origin_allowlist_is_invalid_request(); print("ok")
+    test_failure_response_has_stable_failure_code_field(); test_control_record_is_not_accepted_as_provider_request(); test_rejects_self_asserted_authorization(); test_accepts_host_bound_authorization(); test_missing_allowlist_is_operator_state(); test_cross_origin_allowlist_is_invalid_request(); print("ok")

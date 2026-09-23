@@ -223,6 +223,9 @@ def main():
     args = parser.parse_args(); raw = sys.stdin.read()
     try: req = json.loads(raw)
     except json.JSONDecodeError: print(json.dumps(response("invalid-request"))); return 2
+    if isinstance(req, dict) and req.get("schema") == "pr-review-round/v1":
+        print(json.dumps(response("invalid-request", req, failure_code="control_record_not_provider_request")))
+        return 2
     allow_data = load_json(pathlib.Path(args.allowlist).expanduser()) or {}
     allowlist = {str(pathlib.Path(k).resolve()): v for k, v in allow_data.items()} if isinstance(allow_data, dict) else {}
     auth = load_json(pathlib.Path(args.authorizations).expanduser()) or {}
