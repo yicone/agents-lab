@@ -81,6 +81,11 @@ def wait_response(response_path: pathlib.Path, request: dict[str, Any], wait_sec
     return timeout_response(request)
 
 
+def exit_code_for_result(result: dict[str, Any]) -> int:
+    """Application statuses are data; do not make harnesses lose stdout."""
+    return 0 if isinstance(result, dict) and result.get("schema") == SCHEMA else 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Submit one minimal Devin host review request")
     parser.add_argument("--repo-root", required=True)
@@ -99,7 +104,7 @@ def main() -> int:
     _, response_path = submit_request(pathlib.Path(args.queue), request)
     result = wait_response(response_path, request, args.wait_seconds, args.poll_seconds)
     print(json.dumps(result, ensure_ascii=False))
-    return 0 if result.get("status") in {"no-findings", "review-published"} else 2
+    return exit_code_for_result(result)
 
 
 if __name__ == "__main__":

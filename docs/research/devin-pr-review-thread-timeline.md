@@ -73,7 +73,14 @@
 - 修复为模型目录查询使用独立的 60 秒预算，并增加回归测试；修复后对 PR #233 的 host preflight 已返回：`status=ok`、`model.available=true`、`label=SWE-2 High`、`session.list_state=present`。
 - 该修复解决的是基础设施误判；此前 round 的 `await-user` 记录仍然有效，是否重新发起 review 必须由 review-round 控制线程产生新的授权决定。
 
-## 九、避免 Devin 在 auto permission 下触发交互工具调用
+## 九、修复 queue client 丢失规范化 JSON
+
+- PR #233 后续复测显示 host response 实际包含 `status`、`failure_code`、`evidence_ref`，但调用方仍报告“queue client 没有返回规范化 JSON”。
+- 根因是 queue client 把合法的 `await-user` application status 映射成退出码 2；部分 harness 在非零退出时丢弃 stdout，于是调用方看不到 JSON 字段。
+- 现在只要拿到 `devin-host-review/v1` JSON（包括 `await-user`），queue client 都以退出码 0 输出；只有参数错误或无法得到规范化对象才返回非零。
+- 已用 host LaunchAgent 实测：无效仓库请求输出完整 JSON，包含 `status=await-user`、`failure_code=repo_identity_failed` 和 `evidence_ref`，退出码为 0。
+
+## 十、避免 Devin 在 auto permission 下触发交互工具调用
 
 - 初次 host review 中，Devin 在 `--permission-mode auto` 下尝试读取本地文件，被 CLI 拒绝并产生非 JSON 输出。
 - 设计上没有切换到 `dangerous`，也没有放宽权限或换模型。
@@ -81,7 +88,7 @@
 - Devin prompt 明确禁止工具调用、命令执行、文件编辑、commit、push 和 GitHub 操作。
 - 该改变保留了固定模型和固定 session，同时降低 ACP/工具确认对 review 结果的影响。
 
-## 十、稳定错误字段与双 JSON 协议
+## 十一、稳定错误字段与双 JSON 协议
 
 - 进一步实测发现 provider 内部有 evidence，但稳定响应没有顶层 `failure_code`，调用方只能看到模糊的 `await-user`。
 - 现在 `devin-host-review/v1` response 始终包含 `failure_code`；预检、head mismatch、权限/进程失败和 request rejection 都有明确分类。
@@ -92,7 +99,7 @@
   - `host_provider.py` 是 worker 内部组件，调用方不得直接调用。
 - 误把控制记录传给 provider 时，返回 `control_record_not_provider_request`，而不是让调用方猜测 `invalid-request` 的原因。
 
-## 十一、当前实现验证结果
+## 十二、当前实现验证结果
 
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
@@ -109,7 +116,7 @@
   - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
   - `6163e1e`：同步 discovery 策略回归测试
 
-## 十二、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
+## 十三、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
 
 以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。优先级按“阻断 review 的运行时风险 → 可验证性 → 运维自动化 → 文档与发布”排序。
 
@@ -144,7 +151,7 @@ P0/P1 实施证据：
 - LaunchAgent：`gui/501/com.tr.agentslab.devin-pr-review-thread`，`state = running`，代理环境已注入，当前 PID 由 launchd 管理。
 - queue smoke：两个隔离调用分别返回 `repo_identity_failed`，并生成 evidence refs `b0493334fe6a0bf9dd94c420`、`2f9f32fd37563c3490a29c07`。
 - host transport smoke：有效 Git 工作区 + 不存在 PR 返回 `pr_not_found_or_forbidden`，证明请求已到达 host `gh` 预检而不是在沙盒内失败。
-- 测试：preflight 7 项、queue client 2 项、LaunchAgent render 1 项、host provider、repository binding 7 项、registry migration 3 项均通过。
+- 测试：preflight 7 项、queue client 3 项、LaunchAgent render 1 项、host provider、repository binding 7 项、registry migration 3 项均通过。
 
 ### P2：授权、证据与维护自动化
 

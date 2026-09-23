@@ -4,7 +4,7 @@ import pathlib
 import stat
 import tempfile
 
-from queue_client import build_request, submit_request, wait_response
+from queue_client import build_request, exit_code_for_result, submit_request, wait_response
 
 
 def test_minimal_request_and_secure_atomic_write():
@@ -30,7 +30,14 @@ def test_response_polling_and_timeout_are_stable():
         assert timed_out["evidence_ref"] is None
 
 
+def test_application_await_user_is_still_a_successful_cli_transport():
+    assert exit_code_for_result({"schema": "devin-host-review/v1", "status": "await-user"}) == 0
+    assert exit_code_for_result({"schema": "devin-host-review/v1", "status": "review-published"}) == 0
+    assert exit_code_for_result({"status": "malformed"}) == 2
+
+
 if __name__ == "__main__":
     test_minimal_request_and_secure_atomic_write()
     test_response_polling_and_timeout_are_stable()
+    test_application_await_user_is_still_a_successful_cli_transport()
     print("ok")
