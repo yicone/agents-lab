@@ -24,7 +24,7 @@ class SessionDiscoveryTests(unittest.TestCase):
             with patch("preflight.run", return_value=(0, porcelain, "")):
                 roots = session_lookup_roots(main, main, str(pathlib.Path(d).resolve()))
             self.assertIn(str(pathlib.Path(worktree).resolve()), roots)
-            self.assertEqual(DISCOVERY_STRATEGY, "all-enrolled-worktrees-no-head-filter-v1")
+            self.assertEqual(DISCOVERY_STRATEGY, "db-hinted-sequential-worktrees-v2")
 
 
 if __name__ == "__main__":
