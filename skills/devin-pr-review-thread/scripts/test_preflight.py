@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from preflight import classify_github_error, session_lookup_roots
+from preflight import DISCOVERY_STRATEGY, classify_github_error, session_lookup_roots
 
 
 class GithubErrorClassificationTests(unittest.TestCase):
@@ -24,6 +24,7 @@ class SessionDiscoveryTests(unittest.TestCase):
             with patch("preflight.run", return_value=(0, porcelain, "")):
                 roots = session_lookup_roots(main, main, str(pathlib.Path(d).resolve()))
             self.assertIn(str(pathlib.Path(worktree).resolve()), roots)
+            self.assertEqual(DISCOVERY_STRATEGY, "all-enrolled-worktrees-no-head-filter-v1")
 
 
 if __name__ == "__main__":

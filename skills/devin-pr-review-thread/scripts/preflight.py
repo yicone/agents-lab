@@ -15,6 +15,7 @@ from typing import Any
 from repository_binding import BindingError, load_origin_entry, normalize_origin, validate_worktree_boundary
 
 SCHEMA = "devin-pr-review/preflight-v1"
+DISCOVERY_STRATEGY = "all-enrolled-worktrees-no-head-filter-v1"
 MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
 EXPIRY = dt.date(2026, 10, 26)
@@ -159,7 +160,8 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
         return empty, "session_registry_missing" if "missing" in str(exc) else "session_output_invalid"
     sid = entry.get("session_id")
     result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None,
-              "registered_root": None, "observed_root": None, "enrolled_parent": None}
+              "registered_root": None, "observed_root": None, "enrolled_parent": None,
+              "lookup_roots": [], "discovery_strategy": DISCOVERY_STRATEGY}
     registered_root = entry.get("session_root")
     if not isinstance(registered_root, str) or not registered_root:
         return result, "session_root_mismatch"
@@ -172,18 +174,27 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
 
     result["registered_root"] = registered_root
     lookup_roots = session_lookup_roots(root, registered_root, enrolled_parent)
+    result["lookup_roots"] = lookup_roots
     # Devin lists sessions for the current workspace. Review requests may
     # target an enrolled nested worktree, so query from the requested root.
     found = None
     had_valid_list = False
-    for lookup_root in lookup_roots:
-        sessions, error = command_json(["devin", "list", "--format", "json"], cwd=lookup_root)
-        if error or not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
-            continue
-        had_valid_list = True
-        found = next((x for x in sessions if x.get("id") == sid), None)
+    # A concurrent `devin -r <session>` can move the session while this
+    # workspace-scoped scan is in progress. One bounded second pass avoids
+    # converting that transient race into a permanent session_missing result.
+    for attempt in range(2):
+        for lookup_root in lookup_roots:
+            sessions, error = command_json(["devin", "list", "--format", "json"], cwd=lookup_root)
+            if error or not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
+                continue
+            had_valid_list = True
+            found = next((x for x in sessions if x.get("id") == sid), None)
+            if found:
+                result["discovery_attempts"] = attempt + 1
+                break
         if found:
             break
+    result.setdefault("discovery_attempts", 2)
     if not had_valid_list:
         return result, "session_output_invalid"
     if not found:

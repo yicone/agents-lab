@@ -56,6 +56,7 @@
   3. 验证发现的实际 session root 仍在注册 root/worktree boundary 内；
   4. provider 始终从 registry 的 canonical main workspace 恢复 Devin，避免下一次 review 再次把 session 迁移到调用方 worktree。
 - 这样调用方可以留在任意仓库 worktree，session discovery 与 PR target worktree 解耦，且每次 review 都会把 session 回锚到稳定的 canonical root。
+- 后续实测又发现 session 可能在 workspace-scoped 扫描期间被另一个 cwd 的 Devin 调用迁移；preflight 现在保留扫描根目录/策略证据，并执行一次有界的第二遍扫描，避免瞬时竞争被误报为 `session_missing`。
 
 ## 七、避免 Devin 在 auto permission 下触发交互工具调用
 
@@ -109,6 +110,7 @@
 - 建立 evidence、stale response 和未使用 authorization 的保留期限与清理工具；清理前必须保留审计摘要。
 - 将主 workspace exact allowlist 与 worktree-parent wildcard 的 host enrollment 组合固化为可重复的 host setup 流程。
 - 在其他 agent harness 上验证“只提交最小 queue request、绝不直接调用 provider”的跨 runtime 兼容性。
+- 将 host worker 的脚本版本/发现策略纳入启动 evidence，并在 skill 更新后要求 host maintainer 重启长期运行的 worker，避免旧副本继续消费请求。
 
 ## 记录边界
 
