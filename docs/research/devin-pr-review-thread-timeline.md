@@ -66,7 +66,14 @@
 - host 侧使用系统代理对 PR #230、head `050e080e846a71cc1e1ba3192c38febbc9f7462d` 做了真实启动预检，结果为 `status=ready` / `preflight.status=ok`，固定 session `succinct-avenue` 被发现，模型 `SWE-2 High` 可用。沙盒内直接跑同一预检仍可能因无法连接本机代理而得到 `github_transport_unavailable`；这属于执行边界差异，不是 host 预检失败。
 - 长期 worker 必须从 canonical skill path 重启；若 evidence 中没有 `discovery_strategy: db-hinted-sequential-worktrees-v2`，应判定为旧 worker 副本，而不是让调用方自行修复或重试。
 
-## 八、避免 Devin 在 auto permission 下触发交互工具调用
+## 八、登录 service 后的 queue timeout 与模型目录慢查询
+
+- 自动 LaunchAgent 已正常运行并持有代理环境，但 PR #233 的第一次请求仍被调用方记录为 `queue_response_timeout`。
+- queue 中最终产生的 host response/evidence 显示，真实错误是 `model_output_invalid`；进一步复现发现 `devin models list --format json` 在 host 上需要约 30 秒，而 `preflight.py` 仍使用 12 秒默认命令预算，导致可用的 `SWE-2 High` 被误判为模型输出无效。
+- 修复为模型目录查询使用独立的 60 秒预算，并增加回归测试；修复后对 PR #233 的 host preflight 已返回：`status=ok`、`model.available=true`、`label=SWE-2 High`、`session.list_state=present`。
+- 该修复解决的是基础设施误判；此前 round 的 `await-user` 记录仍然有效，是否重新发起 review 必须由 review-round 控制线程产生新的授权决定。
+
+## 九、避免 Devin 在 auto permission 下触发交互工具调用
 
 - 初次 host review 中，Devin 在 `--permission-mode auto` 下尝试读取本地文件，被 CLI 拒绝并产生非 JSON 输出。
 - 设计上没有切换到 `dangerous`，也没有放宽权限或换模型。
@@ -74,7 +81,7 @@
 - Devin prompt 明确禁止工具调用、命令执行、文件编辑、commit、push 和 GitHub 操作。
 - 该改变保留了固定模型和固定 session，同时降低 ACP/工具确认对 review 结果的影响。
 
-## 九、稳定错误字段与双 JSON 协议
+## 十、稳定错误字段与双 JSON 协议
 
 - 进一步实测发现 provider 内部有 evidence，但稳定响应没有顶层 `failure_code`，调用方只能看到模糊的 `await-user`。
 - 现在 `devin-host-review/v1` response 始终包含 `failure_code`；预检、head mismatch、权限/进程失败和 request rejection 都有明确分类。
@@ -85,7 +92,7 @@
   - `host_provider.py` 是 worker 内部组件，调用方不得直接调用。
 - 误把控制记录传给 provider 时，返回 `control_record_not_provider_request`，而不是让调用方猜测 `invalid-request` 的原因。
 
-## 十、当前实现验证结果
+## 十一、当前实现验证结果
 
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
@@ -102,7 +109,7 @@
   - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
   - `6163e1e`：同步 discovery 策略回归测试
 
-## 十一、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
+## 十二、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
 
 以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。优先级按“阻断 review 的运行时风险 → 可验证性 → 运维自动化 → 文档与发布”排序。
 
@@ -137,7 +144,7 @@ P0/P1 实施证据：
 - LaunchAgent：`gui/501/com.tr.agentslab.devin-pr-review-thread`，`state = running`，代理环境已注入，当前 PID 由 launchd 管理。
 - queue smoke：两个隔离调用分别返回 `repo_identity_failed`，并生成 evidence refs `b0493334fe6a0bf9dd94c420`、`2f9f32fd37563c3490a29c07`。
 - host transport smoke：有效 Git 工作区 + 不存在 PR 返回 `pr_not_found_or_forbidden`，证明请求已到达 host `gh` 预检而不是在沙盒内失败。
-- 测试：preflight 6 项、queue client 2 项、LaunchAgent render 1 项、host provider、repository binding 7 项、registry migration 3 项均通过。
+- 测试：preflight 7 项、queue client 2 项、LaunchAgent render 1 项、host provider、repository binding 7 项、registry migration 3 项均通过。
 
 ### P2：授权、证据与维护自动化
 

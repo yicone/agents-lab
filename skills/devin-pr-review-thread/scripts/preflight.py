@@ -19,6 +19,7 @@ SCHEMA = "devin-pr-review/preflight-v1"
 DISCOVERY_STRATEGY = "db-hinted-sequential-worktrees-v2"
 MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
+MODEL_COMMAND_TIMEOUT_SECONDS = 60
 EXPIRY = dt.date(2026, 10, 26)
 
 
@@ -30,8 +31,8 @@ def run(argv: list[str], timeout: float = 12, cwd: str | None = None) -> tuple[i
     return p.returncode, p.stdout, p.stderr
 
 
-def command_json(argv: list[str], cwd: str | None = None) -> tuple[Any | None, str | None]:
-    code, out, err = run(argv, cwd=cwd)
+def command_json(argv: list[str], cwd: str | None = None, timeout: float = 12) -> tuple[Any | None, str | None]:
+    code, out, err = run(argv, cwd=cwd, timeout=timeout)
     if code != 0:
         return None, f"{argv[0]} exit={code}: {err.strip()[-500:]}"
     try:
@@ -84,7 +85,10 @@ def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, A
 
 
 def model_state() -> tuple[dict[str, Any], str | None]:
-    data, error = command_json(["devin", "models", "list", "--format", "json"])
+    data, error = command_json(
+        ["devin", "models", "list", "--format", "json"],
+        timeout=MODEL_COMMAND_TIMEOUT_SECONDS,
+    )
     result = {"label": None, "model_uid": None, "expires_on": EXPIRY.isoformat(), "available": False}
     if error:
         return result, "model_output_invalid"

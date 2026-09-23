@@ -36,3 +36,5 @@ launchctl print "gui/$UID/com.tr.agentslab.devin-pr-review-thread"
 ```
 
 The service must point at the canonical skill path, use the host proxy environment, and remain resident while it polls `/private/tmp/devin-host-review`. It does not embed a PR number; every request is preflighted independently. After replacing skill scripts, reinstall/kickstart the LaunchAgent and verify the emitted evidence contains `discovery_strategy: db-hinted-sequential-worktrees-v2`. Stop any older manually launched worker only after the new LaunchAgent is loaded and healthy.
+
+The Devin model catalog is a slow host operation. `preflight.py` gives `devin models list --format json` a 60-second command budget inside the overall 90-second preflight ceiling; a shorter caller-side timeout must not reinterpret the result as `model_output_invalid`.

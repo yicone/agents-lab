@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from preflight import (
     DISCOVERY_STRATEGY,
+    MODEL_COMMAND_TIMEOUT_SECONDS,
     classify_github_error,
     listed_session,
     session_database_root,
@@ -21,6 +22,9 @@ class GithubErrorClassificationTests(unittest.TestCase):
 
     def test_non_transport_cli_failure_is_identity_failure(self):
         self.assertEqual(classify_github_error(1, "GraphQL: Could not resolve to a PullRequest"), "pr_not_found_or_forbidden")
+
+    def test_model_catalog_has_a_longer_timeout_than_default_commands(self):
+        self.assertGreaterEqual(MODEL_COMMAND_TIMEOUT_SECONDS, 60)
 
 
 class SessionDiscoveryTests(unittest.TestCase):
