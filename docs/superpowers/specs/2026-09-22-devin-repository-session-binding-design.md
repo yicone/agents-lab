@@ -59,11 +59,11 @@ by multiple origins are hard failures; the tool must not choose one.
    origin. A worktree is eligible only when it is a Git worktree of that
    origin and is either the registered session root or an enrolled worktree
    descendant; unrelated paths are rejected.
-6. The provider invokes the fixed session with the validated requested root as
-   its review target/cwd and includes that absolute target in the prompt. The
-   session's registered root remains the trust anchor; the target cannot be
-   outside the enrolled repository/worktree boundary. GitHub remains the
-   external source and publication target.
+6. The provider resumes the fixed session from the registered canonical main
+   workspace and includes the requested worktree root only as the verified
+   review target in the prompt. The session's registered root remains the trust
+   anchor; the target cannot be outside the enrolled repository/worktree
+   boundary. GitHub remains the external source and publication target.
 
 Nested worktrees are supported because their individual roots are not used as
 registry keys. They are still independently checked for origin and allowlist

@@ -29,7 +29,7 @@ The sandbox-facing command is a narrow request/response interface. The request i
 }
 ```
 
-The host worker accepts a minimal review request and issues a host-owned `pr-review-round/v1` `phase=run` authorization after preflight. The provider itself accepts only that authorization with a stable opaque single-use `authorization_id`, canonical repository binding, PR/head/round binding, and finite-budget eligibility. Consumers never create or repair the authorization ledger. The provider rejects self-asserted or missing authorization, path traversal, non-absolute roots, stale head SHA, invalid round numbers, unknown keys that could carry commands, and timeouts outside a bounded range. The canonical root must also be in a host-side allowlist bound to the expected GitHub owner/name.
+The host worker accepts a minimal review request and issues a host-owned authorization after preflight. The provider itself accepts only that authorization with a stable opaque `authorization_id`, canonical repository binding, PR/head/round binding, and finite-budget eligibility; replay is guarded by the provider ledger. Consumers never create or repair the authorization ledger. The provider rejects self-asserted or missing authorization, path traversal, non-absolute roots, stale head SHA, invalid round numbers, unknown keys that could carry commands, and timeouts outside a bounded range. The canonical root must also be in a host-side allowlist bound to the expected GitHub owner/name.
 
 ### Response
 
@@ -44,6 +44,7 @@ The host worker accepts a minimal review request and issues a host-owned `pr-rev
   "findings_count": 0,
   "comments": [],
   "evidence_ref": "opaque-evidence-id-or-null",
+  "failure_code": "stable-code-or-null",
   "retryable": false
 }
 ```
@@ -59,11 +60,11 @@ All keys are always present; unavailable values are JSON `null`. The response co
 5. Validate and idempotently publish findings through the existing provider.
 6. Return the stable response and record evidence outside the repository.
 
-The provider uses an OS-level cross-process lock keyed by canonical repository root and a durable atomic ledger with `reserved`, `running`, `publishing`, and `complete` states. A second request for the same root returns `provider-unavailable`; the sandbox must never act on `retryable`. A repeated request with the same stable `authorization_id` is idempotent and must not run Devin twice. Crash recovery reconciles the ledger with existing GitHub markers and never reruns an authorization whose publication is uncertain.
+The login worker holds a queue-level singleton lock and atomically claims each request. The provider additionally uses a cross-process lock keyed by canonical repository root and an atomic ledger with `running` and `complete` states. A second request for the same root returns `provider-unavailable`; the sandbox must never act on `retryable`. A repeated request with the same completed `authorization_id` returns the stored response and does not run Devin twice. GitHub markers prevent duplicate finding publication for the same session, head, and finding id.
 
 ## Capability and Credential Boundary
 
-Only the host provider may access `devin`, `gh`, the fixed-session registry, trust metadata, session locks, and protected evidence. The sandbox caller receives no tokens, environment dump, subprocess output, raw stderr, or arbitrary command result. stdout and stderr are sanitized protocol channels; full diagnostics belong only in protected evidence. The provider invokes fixed allowlisted commands and passes structured arguments, never a shell-evaluated string.
+Only the host provider may access `devin`, `gh`, the fixed-session registry, trust metadata, session locks, and protected evidence. The sandbox caller receives no tokens, environment dump, subprocess output, raw stderr, or arbitrary command result. stdout and stderr are sanitized protocol channels; full diagnostics belong only in protected evidence. The provider invokes fixed allowlisted commands and passes structured arguments, never a shell-evaluated string; large prompts are passed through a mode-0600 `--prompt-file`, not argv.
 
 ## Failure Mapping
 

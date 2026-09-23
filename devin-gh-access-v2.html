@@ -5169,6 +5169,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <path data-edge-from="provider" data-edge-to="session" data-edge-label="devin -r：调用固定 session" data-edge-key="5" data-edge-id="provider-session" data-composition-points="855,376;855,405;995,405;995,468;1010,468" d="M 855 376 L 855 397 Q 855 405 863 405 L 987 405 Q 995 405 995 413 L 995 460.5 Q 995 468 1002.5 468 L 1010 468" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="6" data-edge-id="session-worktree" data-composition-points="1105,506;1105,538;855,538;855,570" d="M 1105 506 L 1105 530 Q 1105 538 1097 538 L 863 538 Q 855 538 855 546 L 855 570" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="enroll" data-edge-to="session" data-edge-label="一次性登记：origin → session" data-edge-key="7" data-edge-id="enroll-session" data-composition-points="710,608;734,608;734,468;1010,468" d="M 710 608 L 726 608 Q 734 608 734 600 L 734 476 Q 734 468 742 468 L 1010 468" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="enroll" data-edge-to="worker" data-edge-label="allowlist + trust" data-edge-key="8" data-edge-id="enroll-worker" data-composition-points="615,570;615,376;615,376" d="M 615 570 L 615 376 L 615 376" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="enroll" data-edge-to="provider" data-edge-label="registry + canonical root" data-edge-key="9" data-edge-id="enroll-provider" data-composition-points="615,646;615,700;740,700;740,338;760,338" d="M 615 646 L 615 692 Q 615 700 623 700 L 732 700 Q 740 700 740 692 L 740 346 Q 740 338 748 338 L 760 338" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
         <g id="node-agent" data-node-id="agent" data-node-label="Sandbox agent" tabindex="0" role="button" aria-label="聚焦Sandbox agent，提交最小 review request, Sandbox：只提交 request，不访问 GH/Devin" aria-pressed="false" data-node-kind="external" data-node-sublabel="提交最小 review request" data-node-context="Sandbox：只提交 request，不访问 GH/Devin">
@@ -5254,8 +5256,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="855" y="622" class="t-muted" font-size="9" text-anchor="middle">具体 review target</text>
         </g>
 
-        <g id="node-enroll" data-node-id="enroll" data-node-label="Host enrollment" tabindex="0" role="button" aria-label="聚焦Host enrollment，host_enroll + session_enroll（一次）, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="security" data-node-sublabel="host_enroll + session_enroll（一次）" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
-          <title>Host enrollment · host_enroll + session_enroll（一次） · Host：持有 GH、Devin、registry 与 trust 能力</title>
+        <g id="node-enroll" data-node-id="enroll" data-node-label="Host enrollment" tabindex="0" role="button" aria-label="聚焦Host enrollment，allowlist + registry（一次）, Host：持有 GH、Devin、registry 与 trust 能力" aria-pressed="false" data-node-kind="security" data-node-sublabel="allowlist + registry（一次）" data-node-context="Host：持有 GH、Devin、registry 与 trust 能力">
+          <title>Host enrollment · allowlist + registry（一次） · Host：持有 GH、Devin、registry 与 trust 能力</title>
           <rect x="520" y="570" width="190" height="76" rx="6" class="c-mask"/>
           <rect x="520" y="570" width="190" height="76" rx="6" class="c-security" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(526 576) scale(0.6875)">
@@ -5263,7 +5265,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="615" y="606" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Host enrollment</text>
-        <text data-detail="context" x="615" y="622" class="t-muted" font-size="8.4" text-anchor="middle">host_enroll + session_enroll（一次）</text>
+        <text data-detail="context" x="615" y="622" class="t-muted" font-size="9" text-anchor="middle">allowlist + registry（一次）</text>
         </g>
 
         <!-- Connection labels -->
@@ -5276,8 +5278,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text x="490" y="328" class="t-muted" font-size="8" text-anchor="middle">dequeue</text>
         </g>
         <g data-detail="context" data-edge-from="worker" data-edge-to="provider" data-edge-label="host authorization" data-edge-key="2" data-edge-id="worker-provider">
-          <rect x="686.8" y="380" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="735" y="390" class="t-muted" font-size="8" text-anchor="middle">host authorization</text>
+          <rect x="566.8" y="260" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="615" y="270" class="t-muted" font-size="8" text-anchor="middle">host authorization</text>
         </g>
         <g data-detail="context" data-edge-from="worker" data-edge-to="github" data-edge-label="gh：预检读取 PR/head SHA" data-edge-key="3" data-edge-id="worker-github-read">
           <rect x="772.4" y="95" width="125.19999999999999" height="14" rx="3" class="c-mask"/>
@@ -5296,8 +5298,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text x="980" y="528" class="t-messagebus" font-size="8" text-anchor="middle">review target path</text>
         </g>
         <g data-detail="context" data-edge-from="enroll" data-edge-to="session" data-edge-label="一次性登记：origin → session" data-edge-key="7" data-edge-id="enroll-session">
-          <rect x="727.8" y="480" width="144.4" height="14" rx="3" class="c-mask"/>
-          <text x="800" y="490" class="t-messagebus" font-size="8" text-anchor="middle">一次性登记：origin → session</text>
+          <rect x="827.8" y="480" width="144.4" height="14" rx="3" class="c-mask"/>
+          <text x="900" y="490" class="t-messagebus" font-size="8" text-anchor="middle">一次性登记：origin → session</text>
+        </g>
+        <g data-detail="context" data-edge-from="enroll" data-edge-to="worker" data-edge-label="allowlist + trust" data-edge-key="8" data-edge-id="enroll-worker">
+          <rect x="484.2" y="460" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="530" y="470" class="t-messagebus" font-size="8" text-anchor="middle">allowlist + trust</text>
+        </g>
+        <g data-detail="context" data-edge-from="enroll" data-edge-to="provider" data-edge-label="registry + canonical root" data-edge-key="9" data-edge-id="enroll-provider">
+          <rect x="475" y="670" width="130" height="14" rx="3" class="c-mask"/>
+          <text x="540" y="680" class="t-messagebus" font-size="8" text-anchor="middle">registry + canonical root</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->

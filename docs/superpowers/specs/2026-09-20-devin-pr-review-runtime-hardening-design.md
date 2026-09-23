@@ -29,9 +29,9 @@ Mandatory fields are `schema`, `status`, `checked_at`, `repository` (`canonical_
 
 All keys above are always present. `schema`, `status`, `checked_at`, model identity/expiry, and each `state` field are strings. `repository.canonical_root`, `repository.origin`, `pr.head_sha`, `session.id`, `session.root`, `lock.path`, and `lock.holder_identity` are strings or JSON `null`; `pr.number` and `lock.pid` are integers or `null`; `model.available` is boolean or `null`; `runtime.desktop_or_acp_processes`, `capabilities`, and `diagnostics` are arrays of objects/strings. Missing evidence is `null`, never an empty string or an omitted key. State enums explain why evidence is null.
 
-Every subprocess has a finite timeout. `devin models list --format json` and `devin list --format json` must be a single valid JSON document; timeout, non-zero status, malformed JSON, or mixed prose is classified as `model_output_invalid` or `session_output_invalid`. `devin --help` is inspected only for required flag presence. `gh auth status` and `gh pr view --json ...` failures are `github_auth_failed` and `pr_identity_failed` respectively.
+Every subprocess has a finite timeout. `devin models list --format json` and `devin list --format json` must be a single valid JSON document; timeout, non-zero status, malformed JSON, or mixed prose is classified as `model_output_invalid` or `session_output_invalid`. `devin --help` is inspected only for required flag presence. GitHub failures are separated into `github_auth_failed`, `github_transport_unavailable`, `pr_not_found_or_forbidden`, and `github_response_invalid` so a transport outage is not reported as a bad PR.
 
-The canonical root is `realpath(git rev-parse --show-toplevel)`; registry, trust, session root, and invocation cwd comparisons use that same normalized value. A linked worktree therefore remains a distinct root and cannot silently reuse the main-workspace session.
+The requested root is `realpath(git rev-parse --show-toplevel)` and remains an independently verified review target. The repository session registry is keyed by normalized GitHub origin; the registered canonical main workspace is the Devin execution/trust anchor, while enrolled linked worktrees are eligible targets only inside the host allowlist boundary. A linked worktree therefore cannot silently escape the repository binding or move the fixed session's execution root.
 
 Trust is read from the installed CLI's documented trust metadata when available. Missing metadata, unsupported format, or an unrecognized CLI version is `workspace_trust_unknown`, not `workspace_untrusted`. The helper never writes the trust store.
 
@@ -50,7 +50,7 @@ Lock inspection reads only the fixed session's lock. `kill -0` is insufficient t
 | `session_root_mismatch`, `session_output_invalid` | Diagnose registry/session metadata | No | `await-user` |
 | `session_locked_live`, `session_lock_ambiguous` | Ask the holder/operator to release or diagnose it | No | `await-user` |
 | `session_lock_stale` | A caller may remove only this exact unchanged lock after a fresh identity/PID check | Not a retry | rerun preflight |
-| `github_auth_failed`, `pr_identity_failed` | Repair authentication or resolve PR identity | No | `await-user` |
+| `github_auth_failed`, `github_transport_unavailable`, `pr_not_found_or_forbidden`, `github_response_invalid` | Repair authentication/transport or resolve PR identity | No | `await-user` |
 | `permission_denied` | Preserve denial evidence; inspect policy outside the run | No | `await-user` |
 | `invalid_review_output` | Preserve protected raw output | No | `await-user` |
 | `acp_startup_failed` | Diagnose holder/process/lock state, run fresh preflight, then retry the identical invocation once only if status is `ok` | Once | second failure: `await-user` |
@@ -71,7 +71,7 @@ The helper is observational. It reads the exact canonical root, local Devin meta
 
 Devin Desktop need not be open for CLI review and the skill must not open it. If startup fails and Desktop or another Devin/ACP client appears to hold the fixed session, the harness asks the operator to release it. Desktop being open alone is not enough to kill a process or delete a lock.
 
-`permission_denied` never authorizes `accept-edits`, `dangerous`, a replacement model, or a second session. Supplying a host-verified diff as a future fallback remains out of scope until a separate protocol defines provenance, head binding, format, size, and validation.
+`permission_denied` never authorizes `accept-edits`, `dangerous`, a replacement model, or a second session. The host provider supplies a verified GitHub REST/CLI diff as read-only prompt input; its provenance is bound to the preflight PR head, added RIGHT lines are validated before publication, and large prompts use `--prompt-file`. This transport remains host-internal and is never exposed to sandbox callers.
 
 ## Validation
 
