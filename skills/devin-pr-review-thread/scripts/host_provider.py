@@ -150,8 +150,20 @@ def is_unresolvable_review_comment(result):
         or "http 422" in text.lower()
     )
 
+
+def review_execution_root(request_root, session):
+    """Choose the stable host cwd used to resume the repository session."""
+    registered_root = session.get("registered_root") if isinstance(session, dict) else None
+    if isinstance(registered_root, str) and pathlib.Path(registered_root).is_dir():
+        return registered_root
+    return request_root
+
 def run_review(root, origin, req, pf, evidence_payload):
     sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
+    # Devin mutates a session's working_directory to the cwd used for the
+    # resume. Keep repository-level sessions anchored to their registered main
+    # workspace; the review input is the verified GitHub patch, not local files.
+    execution_root = review_execution_root(root, pf.get("session", {}))
     lines = changed_lines(root, origin, pr)
     if not lines: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
     patch = changed_patch(root, origin, pr)
@@ -167,7 +179,7 @@ def run_review(root, origin, req, pf, evidence_payload):
     if config: devin_args += ["--config", config]
     devin_args += ["-r", sid, "--model", "swe-2-high", "--permission-mode", "auto", "--respect-workspace-trust", "true", "-p", "--", prompt]
     try:
-        p = subprocess.run(devin_args, cwd=root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
+        p = subprocess.run(devin_args, cwd=execution_root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
     except (OSError, subprocess.SubprocessError) as exc:
         return "await-user", [], evidence_payload | {"error": "deving_process_failure", "detail": type(exc).__name__}
     evidence_payload |= {"returncode": p.returncode, "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}

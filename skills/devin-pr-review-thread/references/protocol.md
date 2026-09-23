@@ -24,7 +24,7 @@ The prompt sent to Devin must require one JSON document and no Markdown wrapper:
 }
 ```
 
-The harness must fill the session id and root in the prompt and verify them again after parsing. `line` must be a changed line in the PR diff, `path` must be relative and normalized, and `body` must not contain secrets or executable shell text. Findings should be independent and actionable; omit style-only comments unless they affect correctness, security, reliability, or maintainability.
+The provider fills the fixed session id and review request root in the prompt and verifies them again after parsing. The request root identifies the repository/PR; the provider resumes Devin from the registered canonical session root so a session cannot drift between worktrees. `line` must be a changed line in the PR diff, `path` must be relative and normalized, and `body` must not contain secrets or executable shell text. Findings should be independent and actionable; omit style-only comments unless they affect correctness, security, reliability, or maintainability.
 
 The GitHub comment body should start with a stable marker. Include the reviewed head SHA so a fixed per-repository session can reuse finding ids across review rounds without suppressing a new finding on a later head:
 

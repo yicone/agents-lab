@@ -1,6 +1,9 @@
+import pathlib
+import tempfile
 import unittest
+from unittest.mock import patch
 
-from preflight import classify_github_error
+from preflight import classify_github_error, session_lookup_roots
 
 
 class GithubErrorClassificationTests(unittest.TestCase):
@@ -10,6 +13,17 @@ class GithubErrorClassificationTests(unittest.TestCase):
 
     def test_non_transport_cli_failure_is_identity_failure(self):
         self.assertEqual(classify_github_error(1, "GraphQL: Could not resolve to a PullRequest"), "pr_not_found_or_forbidden")
+
+
+class SessionDiscoveryTests(unittest.TestCase):
+    def test_worktree_with_different_head_is_still_a_session_candidate(self):
+        with tempfile.TemporaryDirectory() as d:
+            main = str(pathlib.Path(d) / "main")
+            worktree = str(pathlib.Path(d) / "worktree")
+            porcelain = f"worktree {main}\n\nworktree {worktree}\n\n"
+            with patch("preflight.run", return_value=(0, porcelain, "")):
+                roots = session_lookup_roots(main, main, str(pathlib.Path(d).resolve()))
+            self.assertIn(str(pathlib.Path(worktree).resolve()), roots)
 
 
 if __name__ == "__main__":

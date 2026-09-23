@@ -48,13 +48,14 @@
 
 ## 六、处理 Devin session 的 workspace-scoped 可见性
 
-- 实测发现 `devin list --format json` 按当前 workspace 查询，同一个 session 可能只在实际拥有它的 nested worktree 中出现。
+- 实测发现 `devin list --format json` 按当前 workspace 查询，同一个 session 可能只在实际拥有它的 nested worktree 中出现；而且复用同一 session 从不同 cwd 启动时，Devin 会改变其 `working_directory`，因此 session 可能在主 workspace 与不同 worktree 之间往返漂移。
 - 初始实现从 registry 的主 workspace 查询，导致合法 session 被误报为 `session_missing`。
 - 当前实现改为：
   1. 先从 review request 的 root 查询；
-  2. 若主 workspace 看不到 session，则依据 PR head 在已登记 worktree parent 下发现匹配 worktree；
-  3. 验证发现的实际 session root 仍在注册 root/worktree boundary 内。
-- 这样调用方可以留在主 workspace，session discovery 不再要求 agent 手动切换目录或分析 Devin 内部状态。
+  2. 若主 workspace 看不到 session，则在已登记 worktree parent 下发现所有候选 worktree，不按当前 PR head 排除候选；
+  3. 验证发现的实际 session root 仍在注册 root/worktree boundary 内；
+  4. provider 始终从 registry 的 canonical main workspace 恢复 Devin，避免下一次 review 再次把 session 迁移到调用方 worktree。
+- 这样调用方可以留在任意仓库 worktree，session discovery 与 PR target worktree 解耦，且每次 review 都会把 session 回锚到稳定的 canonical root。
 
 ## 七、避免 Devin 在 auto permission 下触发交互工具调用
 
@@ -102,7 +103,8 @@
 ### 待执行
 
 - 为 queue request 增加一个面向调用方的安全提交辅助入口，避免 agent 自己处理 request filename、原子写入和 response polling。
-- 为“主 workspace → PR head 匹配 worktree → session discovery”增加自动化测试，而不只依赖本机实测。
+- 为“主 workspace → 已登记 worktree 集合 → session discovery”增加自动化测试，而不只依赖本机实测。
+- 增加 session working directory 漂移回归测试：同一 session 在主 workspace 与不同 PR worktree 间往返后，下一轮仍能发现并从 canonical root 执行。
 - 更新 `docs/superpowers/specs/` 中仍描述旧协议或 exact session root 的设计文档，使其与当前 provider/worker 行为一致。
 - 建立 evidence、stale response 和未使用 authorization 的保留期限与清理工具；清理前必须保留审计摘要。
 - 将主 workspace exact allowlist 与 worktree-parent wildcard 的 host enrollment 组合固化为可重复的 host setup 流程。

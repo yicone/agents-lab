@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import is_unresolvable_review_comment, response, validate_request
+from host_provider import is_unresolvable_review_comment, response, review_execution_root, validate_request
 
 
 class FakeResult:
@@ -19,6 +19,11 @@ def test_unresolvable_github_line_is_safe_to_drop():
     result = FakeResult(1, stderr='Validation Failed (HTTP 422) could not be resolved')
     assert is_unresolvable_review_comment(result)
     assert not is_unresolvable_review_comment(FakeResult(1, stderr='authentication failed'))
+
+def test_review_execution_uses_registered_root_not_request_worktree():
+    with tempfile.TemporaryDirectory() as canonical, tempfile.TemporaryDirectory() as request_root:
+        assert review_execution_root(request_root, {"registered_root": canonical}) == canonical
+        assert review_execution_root(request_root, {"registered_root": "/missing"}) == request_root
 
 
 def test_control_record_is_not_accepted_as_provider_request():

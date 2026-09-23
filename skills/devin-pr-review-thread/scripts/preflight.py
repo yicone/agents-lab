@@ -115,6 +115,34 @@ def trust_state(root: str, trust_file: pathlib.Path, additional_paths: set[str] 
     return result
 
 
+def session_lookup_roots(root: str, registered_root: str, enrolled_parent: str | None) -> list[str]:
+    """Return bounded roots in which a repository-level session may be visible.
+
+    Devin's working_directory follows the last cwd used to resume a session;
+    it is not tied to the PR head.  Never filter candidates by HEAD here.
+    """
+    lookup_roots = [root]
+    if registered_root not in lookup_roots:
+        lookup_roots.append(registered_root)
+    if not enrolled_parent:
+        return lookup_roots
+    code, output, _ = run(["git", "-C", registered_root, "worktree", "list", "--porcelain"])
+    if code != 0:
+        return lookup_roots
+    parent = pathlib.Path(enrolled_parent)
+    for line in output.splitlines():
+        if not line.startswith("worktree "):
+            continue
+        candidate = str(pathlib.Path(line[9:].strip()).resolve())
+        try:
+            inside_parent = pathlib.Path(candidate).is_relative_to(parent)
+        except ValueError:
+            inside_parent = False
+        if inside_parent and candidate not in lookup_roots:
+            lookup_roots.append(candidate)
+    return lookup_roots
+
+
 def session_state(root: str, origin: str | None, registry: pathlib.Path, expected_head: str | None = None) -> tuple[dict[str, Any], str | None]:
     empty = {"id": None, "registry_state": "missing", "list_state": "unknown", "root": None}
     try:
@@ -130,7 +158,8 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
     except BindingError as exc:
         return empty, "session_registry_missing" if "missing" in str(exc) else "session_output_invalid"
     sid = entry.get("session_id")
-    result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None, "enrolled_parent": None}
+    result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None,
+              "registered_root": None, "observed_root": None, "enrolled_parent": None}
     registered_root = entry.get("session_root")
     if not isinstance(registered_root, str) or not registered_root:
         return result, "session_root_mismatch"
@@ -141,34 +170,8 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
     if isinstance(enrolled_parent, str):
         enrolled_parent = str(pathlib.Path(enrolled_parent).resolve())
 
-    # The fixed session is registered against the repository's main workspace,
-    # while Devin may expose it from either that workspace or a particular
-    # worktree. Always include the registered root as a read-only fallback;
-    # otherwise a valid main-workspace session is misclassified as missing
-    # merely because `devin list` is scoped to the requested worktree.
-    lookup_roots = [root]
-    if registered_root not in lookup_roots:
-        lookup_roots.append(registered_root)
-    if enrolled_parent:
-        # A Devin session may be visible only from the worktree that owns its
-        # workspace. Discover registered worktrees from the canonical root so
-        # callers can remain in the main workspace.
-        code, output, _ = run(["git", "-C", registered_root, "worktree", "list", "--porcelain"])
-        if code == 0:
-            for line in output.splitlines():
-                if not line.startswith("worktree "):
-                    continue
-                candidate = str(pathlib.Path(line[9:].strip()).resolve())
-                try:
-                    inside_parent = pathlib.Path(candidate).is_relative_to(pathlib.Path(enrolled_parent))
-                except ValueError:
-                    inside_parent = False
-                if inside_parent and candidate not in lookup_roots:
-                    if expected_head:
-                        head_code, head_output, _ = run(["git", "-C", candidate, "rev-parse", "HEAD"])
-                        if head_code != 0 or head_output.strip() != expected_head:
-                            continue
-                    lookup_roots.append(candidate)
+    result["registered_root"] = registered_root
+    lookup_roots = session_lookup_roots(root, registered_root, enrolled_parent)
     # Devin lists sessions for the current workspace. Review requests may
     # target an enrolled nested worktree, so query from the requested root.
     found = None
@@ -191,6 +194,7 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
     if not isinstance(result["root"], str) or not result["root"]:
         return result, "session_root_mismatch"
     actual_root = str(pathlib.Path(result["root"]).resolve())
+    result["observed_root"] = actual_root
     if not validate_worktree_boundary(root, registered_root, enrolled_parent):
         return result, "session_root_mismatch"
     if actual_root != root and not validate_worktree_boundary(actual_root, registered_root, enrolled_parent):
