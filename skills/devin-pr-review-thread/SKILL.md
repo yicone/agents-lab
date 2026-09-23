@@ -35,6 +35,7 @@ It is not a review-loop controller. A harness may run this adapter only after th
 ## Provider-owned state
 
 The provider, not the consuming agent, owns the registry and one-session invariant. The v2 registry is non-secret metadata keyed by normalized `owner/repository`; legacy root-keyed entries must be migrated by host-only enrollment before review. When multiple legacy roots exist, run `python3 scripts/migrate_session_registry.py` once on the host; it creates a mode-0600 backup and atomically rewrites all entries. Consuming agents must not read, write, rotate, or repair it. Host maintainers enroll the GitHub allowlist with `python3 scripts/host_enroll.py --repo-root <root>`, then enroll the fixed Devin session with `python3 scripts/session_enroll.py --repo-root <root> --session-id <id>`. If the registered main workspace is separate from a worktree parent, enroll both the exact main root and the parent wildcard. For worktree parents, pass `--worktree-parent <parent>` to session enrollment. This is host setup, not a consuming-agent step.
+Preflight may verify the fixed session from the registered main workspace when Devin does not list that session from the requested worktree. That is still one session and one repository binding; it is not permission to enroll or create another session.
 
 ## Failure policy
 

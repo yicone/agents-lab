@@ -141,7 +141,14 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
     if isinstance(enrolled_parent, str):
         enrolled_parent = str(pathlib.Path(enrolled_parent).resolve())
 
+    # The fixed session is registered against the repository's main workspace,
+    # while Devin may expose it from either that workspace or a particular
+    # worktree. Always include the registered root as a read-only fallback;
+    # otherwise a valid main-workspace session is misclassified as missing
+    # merely because `devin list` is scoped to the requested worktree.
     lookup_roots = [root]
+    if registered_root not in lookup_roots:
+        lookup_roots.append(registered_root)
     if enrolled_parent:
         # A Devin session may be visible only from the worktree that owns its
         # workspace. Discover registered worktrees from the canonical root so
