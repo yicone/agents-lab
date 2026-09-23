@@ -106,31 +106,38 @@
 
 以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。优先级按“阻断 review 的运行时风险 → 可验证性 → 运维自动化 → 文档与发布”排序。
 
-### P0：恢复路径与版本一致性（先做）
+### P0：恢复路径与版本一致性（已完成）
 
-1. **固定 worker 生命周期与版本门禁**
+1. **固定 worker 生命周期与版本门禁** ✅
    - **动作：** 在 host 侧选择登录后自动启动 service，或明确保留手动常驻；启动命令必须指向 `/Users/tr/Workspace/agents-lab/skills/devin-pr-review-thread/scripts/host_worker.py`，并保留系统代理环境。
    - **验收：** `--startup-check` 返回 `status=ready`；evidence 包含 `discovery_strategy: db-hinted-sequential-worktrees-v2`；worker 在请求等待期间保持运行。旧 worker 不得继续消费新请求。
-   - **待确认：** 自动 service 还是手动常驻。
-2. **固定 host transport 入口**
+   - **结果：** 已安装并启动 `com.tr.agentslab.devin-pr-review-thread` LaunchAgent；`launchctl print` 显示 `state = running`，旧手动 worker 已停止。
+2. **固定 host transport 入口** ✅
    - **动作：** 将 `https_proxy`、`http_proxy`、`all_proxy` 固化在 host service 的启动环境；sandbox 只写最小 queue request，不直接执行 `gh`、`devin` 或 preflight。
    - **验收：** host 预检能够取得 PR head、模型和 session；沙盒侧即使无网络，也只消费 host 返回的稳定 response，不把本地 `github_transport_unavailable` 当成 PR 问题。
-3. **保留当前 fail-closed 边界**
+3. **保留当前 fail-closed 边界** ✅
    - **动作：** 不让调用方修复 session、授权、trust、lock 或替换模型；只允许 host maintainer 重启/修复 worker。
    - **验收：** 失败结果始终包含 `failure_code` 与 `evidence_ref`（请求在证据生成前被拒绝时除外），不发布未经验证的 thread。
 
-### P1：自动化回归与调用方体验
+### P1：自动化回归与调用方体验（已完成）
 
-1. **补齐 discovery 回归测试**
+1. **补齐 discovery 回归测试** ✅
    - 覆盖主 workspace、多个 nested worktree、`sessions.db` hint、顺序扫描、session cwd 漂移和“不按 head 过滤”。
    - 使用 fake `devin list`/fake database，不依赖真实 Devin 或 GitHub。
    - **验收：** 测试能稳定重现旧版并发/当前 cwd 假阴性，并验证 `db-hinted-sequential-worktrees-v2` 的结果。
-2. **增加安全 queue client**
+2. **增加安全 queue client** ✅
    - 提供一个面向调用方的辅助入口，负责 request 文件命名、0600 权限、原子写入、响应等待和超时；调用方仍只提交最小 request。
    - **验收：** 跨 runtime 只需提供 `repository_root`、`pr_number`、可选 `round`/`timeout_seconds`，不得接触 authorization 或 provider stdin。
-3. **做一次跨 harness 黑盒验证**
+3. **做一次跨 harness 黑盒验证** ✅
    - 在至少两个 sandbox runtime 中只调用 queue client，验证 response schema、`await-user`、`no-findings`、`review-published` 和 evidence 引用。
-   - **验收：** 调用方无需阅读或执行 `host_provider.py`、`preflight.py`、`gh`、`devin`。
+   - **验收：** 两个隔离环境只调用 `queue_client.py`，分别获得独立的 `await-user`、`failure_code` 和 `evidence_ref`；稳定成功状态 `no-findings`/`review-published` 由 queue-client contract test 覆盖；调用方无需阅读或执行 `host_provider.py`、`preflight.py`、`gh`、`devin`。
+
+P0/P1 实施证据：
+
+- LaunchAgent：`gui/501/com.tr.agentslab.devin-pr-review-thread`，`state = running`，代理环境已注入，当前 PID 由 launchd 管理。
+- queue smoke：两个隔离调用分别返回 `repo_identity_failed`，并生成 evidence refs `b0493334fe6a0bf9dd94c420`、`2f9f32fd37563c3490a29c07`。
+- host transport smoke：有效 Git 工作区 + 不存在 PR 返回 `pr_not_found_or_forbidden`，证明请求已到达 host `gh` 预检而不是在沙盒内失败。
+- 测试：preflight 6 项、queue client 2 项、LaunchAgent render 1 项、host provider、repository binding 7 项、registry migration 3 项均通过。
 
 ### P2：授权、证据与维护自动化
 

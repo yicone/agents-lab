@@ -25,3 +25,14 @@ An `ACP_READY` response from a minimal no-tool probe proves only transport/sessi
 Only a transport startup failure may receive one retry, using the identical fixed session, model, root, PR head, and permission mode, after a fresh preflight. Model service errors, permission denial, trust uncertainty, malformed output, missing/mismatched sessions, and live or ambiguous locks are non-retryable. A retry is not a new review round.
 
 Devin Desktop is not a prerequisite and must not be opened by the provider. If diagnostics indicate a live client owns the fixed session, stop and request operator action. A stale lock may be handled only by the provider's identity-checked recovery routine; never by the consuming agent.
+
+## Host service lifecycle
+
+On macOS the host maintainer installs the worker once as a login-persistent LaunchAgent:
+
+```bash
+python3 scripts/install_launchd_service.py
+launchctl print "gui/$UID/com.tr.agentslab.devin-pr-review-thread"
+```
+
+The service must point at the canonical skill path, use the host proxy environment, and remain resident while it polls `/private/tmp/devin-host-review`. It does not embed a PR number; every request is preflighted independently. After replacing skill scripts, reinstall/kickstart the LaunchAgent and verify the emitted evidence contains `discovery_strategy: db-hinted-sequential-worktrees-v2`. Stop any older manually launched worker only after the new LaunchAgent is loaded and healthy.
