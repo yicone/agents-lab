@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import validate_request
+from host_provider import response, validate_request
+
+
+def test_failure_response_has_stable_failure_code_field():
+    result = response("await-user", {"repository_root": "/tmp/repo", "pr_number": 232, "round": 2}, failure_code="permission_or_process_failure", evidence_ref="evidence-token")
+    assert result["failure_code"] == "permission_or_process_failure"
+    assert result["evidence_ref"] == "evidence-token"
 
 def test_rejects_self_asserted_authorization():
     with tempfile.TemporaryDirectory() as d:
@@ -30,4 +36,4 @@ def test_cross_origin_allowlist_is_invalid_request():
 
 
 if __name__ == "__main__":
-    test_rejects_self_asserted_authorization(); test_accepts_host_bound_authorization(); test_missing_allowlist_is_operator_state(); test_cross_origin_allowlist_is_invalid_request(); print("ok")
+    test_failure_response_has_stable_failure_code_field(); test_rejects_self_asserted_authorization(); test_accepts_host_bound_authorization(); test_missing_allowlist_is_operator_state(); test_cross_origin_allowlist_is_invalid_request(); print("ok")

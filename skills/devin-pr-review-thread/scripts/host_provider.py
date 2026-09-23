@@ -8,13 +8,14 @@ from repository_binding import BindingError, normalize_origin
 SCHEMA = "devin-host-review/v1"
 ALLOWED_REQUEST = {"schema", "repository_root", "pr_number", "round", "authorization", "timeout_seconds"}
 
-def response(status, req=None, *, evidence_ref=None, retryable=False, findings_count=0, comments=None):
+def response(status, req=None, *, evidence_ref=None, failure_code=None, retryable=False, findings_count=0, comments=None):
     req = req or {}
     auth = req.get("authorization") or {}
     return {"schema": SCHEMA, "status": status, "repository_root": req.get("repository_root"),
             "pr_number": req.get("pr_number"), "head_sha": auth.get("head_sha"),
             "round": req.get("round"), "findings_count": findings_count,
-            "comments": comments or [], "evidence_ref": evidence_ref, "retryable": retryable}
+            "comments": comments or [], "evidence_ref": evidence_ref,
+            "failure_code": failure_code, "retryable": retryable}
 
 def load_json(path):
     try: return json.loads(path.read_text())
@@ -226,7 +227,9 @@ def main():
     allowlist = {str(pathlib.Path(k).resolve()): v for k, v in allow_data.items()} if isinstance(allow_data, dict) else {}
     auth = load_json(pathlib.Path(args.authorizations).expanduser()) or {}
     error = validate_request(req, allowlist, auth if isinstance(auth, dict) else {})
-    if error: print(json.dumps(response(error, req))); return 2
+    if error:
+        print(json.dumps(response(error, req, failure_code=error)))
+        return 2
     aid = req["authorization"]["authorization_id"]
     ledger_path = pathlib.Path(args.ledger).expanduser(); ledger = load_json(ledger_path) or {}
     prior = ledger.get(aid) if isinstance(ledger, dict) else None
@@ -247,18 +250,22 @@ def main():
             if proc is None or proc.returncode != 0 or pf.get("status") != "ok":
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:] if proc else ""})
+                out["failure_code"] = pf.get("status") or "provider_unavailable"
             elif req["authorization"]["head_sha"] != pf.get("pr", {}).get("head_sha"):
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "error": "head_mismatch"})
+                out["failure_code"] = "head_mismatch"
             else:
                 origin = allowlist_origin(str(pathlib.Path(req["repository_root"]).resolve()), allowlist)
                 status, comments, evidence_payload = run_review(req["repository_root"], origin, req, pf, {"request": req, "preflight": pf})
                 out = response(status, req, retryable=False, findings_count=len(comments), comments=comments)
+                if status == "await-user":
+                    out["failure_code"] = evidence_payload.get("error") or "provider_unavailable"
                 evidence = write_evidence(evidence_payload)
             out["evidence_ref"] = evidence
             ledger[aid] = {"status": "complete", "response": out}; atomic_write(ledger_path, ledger)
     except RuntimeError:
-        out = response("provider-unavailable", req, retryable=False)
+        out = response("provider-unavailable", req, failure_code="provider_unavailable", retryable=False)
     print(json.dumps(out, ensure_ascii=False)); return 0
 
 if __name__ == "__main__": raise SystemExit(main())

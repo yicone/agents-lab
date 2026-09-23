@@ -93,7 +93,7 @@ def main():
                 payload = json.loads(request.read_text())
                 payload = authorize(payload, queue, pathlib.Path(args.authorizations).expanduser(), pathlib.Path(__file__).with_name("preflight.py"))
                 if payload.get("_authorization_error"):
-                    data = {"schema": "devin-host-review/v1", "status": payload["_authorization_error"], "failure_code": payload.get("_failure_code"), "repository_root": payload.get("repository_root"), "pr_number": payload.get("pr_number"), "head_sha": None, "round": payload.get("round"), "findings_count": 0, "comments": [], "evidence_ref": payload.get("_evidence_ref"), "retryable": False, "preflight": payload.get("_preflight")}
+                    data = {"schema": "devin-host-review/v1", "status": payload["_authorization_error"], "failure_code": payload.get("_failure_code") or "provider_unavailable", "repository_root": payload.get("repository_root"), "pr_number": payload.get("pr_number"), "head_sha": None, "round": payload.get("round"), "findings_count": 0, "comments": [], "evidence_ref": payload.get("_evidence_ref"), "retryable": False, "preflight": payload.get("_preflight")}
                     tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
                     request.unlink(missing_ok=True); continue
                 payload = json.dumps(payload)
@@ -107,7 +107,7 @@ def main():
                 active[request] = (proc, response, out, err, out_path, err_path)
                 request.unlink(missing_ok=True)
             except Exception:
-                data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
+                data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "failure_code": "provider_unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
                 tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
                 request.unlink(missing_ok=True)
                 if proc is not None and proc.poll() is None: proc.kill()
@@ -121,7 +121,7 @@ def main():
                 out.close(); err.close()
                 data = json.loads(pathlib.Path(out_path).read_text(encoding="utf-8"))
             except (OSError, UnicodeError, json.JSONDecodeError):
-                data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
+                data = {"schema": "devin-host-review/v1", "status": "provider-unavailable", "failure_code": "provider_unavailable", "repository_root": None, "pr_number": None, "head_sha": None, "round": None, "findings_count": 0, "comments": [], "evidence_ref": None, "retryable": False}
             try:
                 tmp = response.with_name("." + response.name + ".tmp"); tmp.write_text(json.dumps(data)); os.chmod(tmp, 0o600); os.replace(tmp, response)
                 pathlib.Path(out_path).unlink(missing_ok=True); pathlib.Path(err_path).unlink(missing_ok=True)
