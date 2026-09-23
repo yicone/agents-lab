@@ -5166,8 +5166,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <path data-edge-from="worker" data-edge-to="provider" data-edge-label="host authorization" data-edge-key="2" data-edge-id="worker-provider" data-composition-points="710,338;760,338" d="M 710 338 L 760 338" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="worker" data-edge-to="github" data-edge-label="gh：预检读取 PR/head SHA" data-edge-key="3" data-edge-id="worker-github-read" data-composition-points="710,338;720,338;720,120;950,120;950,183;1010,183" d="M 710 338 L 715 338 Q 720 338 720 333 L 720 128 Q 720 120 728 120 L 942 120 Q 950 120 950 128 L 950 175 Q 950 183 958 183 L 1010 183" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="provider" data-edge-to="github" data-edge-label="gh：复核 head/diff；发布 review thread" data-edge-key="4" data-edge-id="provider-github-write" data-composition-points="855,300;855,260;1105,260;1105,221;1105,221" d="M 855 300 L 855 268 Q 855 260 863 260 L 1097 260 Q 1105 260 1105 252 L 1105 221 L 1105 221" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="5" data-edge-id="session-worktree" data-composition-points="1105,506;1105,538;855,538;855,570" d="M 1105 506 L 1105 530 Q 1105 538 1097 538 L 863 538 Q 855 538 855 546 L 855 570" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="enroll" data-edge-to="session" data-edge-label="registry：origin → session" data-edge-key="6" data-edge-id="enroll-session" data-composition-points="710,608;734,608;734,468;1010,468" d="M 710 608 L 726 608 Q 734 608 734 600 L 734 476 Q 734 468 742 468 L 1010 468" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="provider" data-edge-to="session" data-edge-label="devin -r：调用固定 session" data-edge-key="5" data-edge-id="provider-session" data-composition-points="855,376;855,405;995,405;995,468;1010,468" d="M 855 376 L 855 397 Q 855 405 863 405 L 987 405 Q 995 405 995 413 L 995 460.5 Q 995 468 1002.5 468 L 1010 468" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="6" data-edge-id="session-worktree" data-composition-points="1105,506;1105,538;855,538;855,570" d="M 1105 506 L 1105 530 Q 1105 538 1097 538 L 863 538 Q 855 538 855 546 L 855 570" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="enroll" data-edge-to="session" data-edge-label="一次性登记：origin → session" data-edge-key="7" data-edge-id="enroll-session" data-composition-points="710,608;734,608;734,468;1010,468" d="M 710 608 L 726 608 Q 734 608 734 600 L 734 476 Q 734 468 742 468 L 1010 468" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
         <g id="node-agent" data-node-id="agent" data-node-label="Sandbox agent" tabindex="0" role="button" aria-label="聚焦Sandbox agent，提交最小 review request, Sandbox：只提交 request，不访问 GH/Devin" aria-pressed="false" data-node-kind="external" data-node-sublabel="提交最小 review request" data-node-context="Sandbox：只提交 request，不访问 GH/Devin">
@@ -5286,13 +5287,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="863.8" y="230" width="192.4" height="14" rx="3" class="c-mask"/>
           <text x="960" y="240" class="t-messagebus" font-size="8" text-anchor="middle">gh：复核 head/diff；发布 review thread</text>
         </g>
-        <g data-detail="context" data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="5" data-edge-id="session-worktree">
+        <g data-detail="context" data-edge-from="provider" data-edge-to="session" data-edge-label="devin -r：调用固定 session" data-edge-key="5" data-edge-id="provider-session">
+          <rect x="832.6" y="415" width="134.8" height="14" rx="3" class="c-mask"/>
+          <text x="900" y="425" class="t-backend" font-size="8" text-anchor="middle">devin -r：调用固定 session</text>
+        </g>
+        <g data-detail="context" data-edge-from="session" data-edge-to="worktrees" data-edge-label="review target path" data-edge-key="6" data-edge-id="session-worktree">
           <rect x="931.8" y="518" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
           <text x="980" y="528" class="t-messagebus" font-size="8" text-anchor="middle">review target path</text>
         </g>
-        <g data-detail="context" data-edge-from="enroll" data-edge-to="session" data-edge-label="registry：origin → session" data-edge-key="6" data-edge-id="enroll-session">
-          <rect x="732.6" y="480" width="134.8" height="14" rx="3" class="c-mask"/>
-          <text x="800" y="490" class="t-muted" font-size="8" text-anchor="middle">registry：origin → session</text>
+        <g data-detail="context" data-edge-from="enroll" data-edge-to="session" data-edge-label="一次性登记：origin → session" data-edge-key="7" data-edge-id="enroll-session">
+          <rect x="727.8" y="480" width="144.4" height="14" rx="3" class="c-mask"/>
+          <text x="800" y="490" class="t-messagebus" font-size="8" text-anchor="middle">一次性登记：origin → session</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
