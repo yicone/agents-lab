@@ -111,6 +111,7 @@
 ## 十三、当前实现验证结果
 
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
+- 本轮新增的 host setup、清理策略、架构规范也已加入可重复验证：host setup 组合测试、cleanup 保留/过期授权测试，以及 v1/v2 Archify 结构与浏览器视觉检查。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
 - 历史上已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`；本次 session_missing 修复只重新验证 host preflight，没有再次提交 GitHub review。
 - 当前本地 canonical skill 通过软链接暴露到：
@@ -160,28 +161,32 @@ P0/P1 实施证据：
 - LaunchAgent：`gui/501/com.tr.agentslab.devin-pr-review-thread`，`state = running`，代理环境已注入，当前 PID 由 launchd 管理。
 - queue smoke：两个隔离调用分别返回 `repo_identity_failed`，并生成 evidence refs `b0493334fe6a0bf9dd94c420`、`2f9f32fd37563c3490a29c07`。
 - host transport smoke：有效 Git 工作区 + 不存在 PR 返回 `pr_not_found_or_forbidden`，证明请求已到达 host `gh` 预检而不是在沙盒内失败。
-- 测试：preflight 7 项、queue client 3 项、LaunchAgent render 1 项、host provider、repository binding 7 项、registry migration 3 项均通过。
+- 测试：preflight 7 项、queue client 3 项、LaunchAgent render 1 项、host provider、host worker 3 项、repository binding 7 项、registry migration 3 项、cleanup 1 项、host setup 1 项均通过；v1/v2 架构图均通过 Archify 9 项检查和 1440/2048 视觉检查。
 
-### P2：授权、证据与维护自动化
+### P2：授权、证据与维护自动化（已完成）
 
 1. **固化 host enrollment 流程**
    - 将主 workspace exact allowlist 与 worktree-parent wildcard 组合封装为可重复的一次性 host setup。
-   - **待确认：** 是否接受新 worktree 仍需要 Devin CLI exact-path trust，还是建立显式 host-side trust manager。
+   - **结果：** 新增 `scripts/host_setup.py`，一次性串联主 workspace exact enrollment、worktree-parent wildcard enrollment 和固定 session registry；不会隐式创建 Devin session。新增组合测试覆盖三步调用顺序。新 worktree 由 parent wildcard 覆盖，Devin CLI 自身的 exact-path trust 仍由 host 维护，不转嫁给 sandbox 调用方。
+   - **验收：** 未来新增 worktree 不需要重复 repository enrollment；若 Devin CLI 要求新的 exact-path trust，属于 host setup/维护动作，而不是 review request 的隐式副作用。
 2. **证据与临时文件清理**
    - 为 evidence、stale response、未使用 authorization 建立保留期限和 dry-run 清理工具；清理前写入审计摘要。
-   - **验收：** 清理不会删除当前 round 的证据或未消费授权。
+   - **结果：** 新增 `scripts/cleanup.py`，默认 30 天 dry-run；按 ledger/queue response 保护被引用 evidence，保护未过期 evidence、仍有 request 的 response，以及未过期或未使用 authorization；`--apply` 才执行删除，并把计划、保护项和删除结果写入 mode-0600 audit JSON。新增测试覆盖引用、近期文件和 `--expire-unused-authorizations` 行为。
+   - **验收：** 清理不会删除当前 round 的证据或未消费授权；过期未使用授权只有显式 `--expire-unused-authorizations --apply` 才会成为删除候选。
 3. **协议文档同步**
    - 更新 `docs/superpowers/specs/` 中仍描述旧协议或 exact session root 的文档，并检查架构图 v1/v2 的 host/provider 边界是否一致。
-   - **验收：** 文档中的 queue、worker、provider、GitHub 写入职责与当前代码一致。
+   - **结果：** 已同步 host-issued authorization、canonical execution root、`--prompt-file` 大 patch 输入、稳定 `failure_code` 和当前 queue/provider ledger 语义；v2 架构图补出 Host enrollment → worker/provider/session 的控制边界，并保留 v1 的历史 worker/provider/GitHub 职责图与图例。
+   - **验收：** `devin-gh-access.architecture.json` 与 `devin-gh-access-v2.architecture.json` 均通过 Archify 9 项结构检查、composition 无 warning，并通过 1440/2048 视口的自动浏览器视觉检查；生成 HTML 与 JSON 的 specification/artifact hash 已由 Archify delivery 输出。
 
-### P3：发布与长期治理
+### P3：发布与长期治理（基础设施已完成；真实 E2E 需外部授权）
 
 1. **决定发布方式**
-   - **待确认：** 当前本地领先 `origin/main` 的 skill/provider 提交，是直接推送、创建独立 PR，还是继续本地验证。
+   - **结果：** 本轮采用直接推送到 `origin/main`；提交按实现、文档/架构、版本与时间线分组，保留可审计提交边界。
 2. **版本与变更记录**
-   - **待确认：** 是否将 skill metadata 从 `0.2.0` 升级，并为 discovery、host worker lifecycle 和 protocol changes 建立 changelog。
+   - **结果：** skill metadata 已从 `0.2.0` 升级到 `0.3.0`，并新增 `skills/devin-pr-review-thread/CHANGELOG.md`，记录 host setup、cleanup、queue/provider hardening 和协议同步。
 3. **完成一次受控端到端演练**
-   - 在 host worker、queue client、固定 session 和 GitHub thread 发布均可用后，选择一个由使用方明确授权的 PR 做 bounded review；本计划不自动触发，也不替使用方处理其 PR loop。
+   - **外部前提：** host worker、queue client、固定 session 和 GitHub thread 发布路径均已具备；但真实演练必须由使用方提供明确的 PR、head SHA 和 review-round 授权。本轮不擅自触发 GitHub review，也不把历史 PR #232/#233/#230 的失败记录冒充新的 E2E 成功证据。
+   - **下一动作：** 使用方授权具体 PR 后，由其控制线程发起一个 bounded round；本 skill 只消费结果并发布经过校验的 thread。
 
 ## 记录边界
 
