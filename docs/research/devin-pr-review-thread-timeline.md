@@ -56,7 +56,7 @@
   3. 验证发现的实际 session root 仍在注册 root/worktree boundary 内；
   4. provider 始终从 registry 的 canonical main workspace 恢复 Devin，避免下一次 review 再次把 session 迁移到调用方 worktree。
 - 这样调用方可以留在任意仓库 worktree，session discovery 与 PR target worktree 解耦，且每次 review 都会把 session 回锚到稳定的 canonical root。
-- 后续实测又发现 session 可能在 workspace-scoped 扫描期间被另一个 cwd 的 Devin 调用迁移；preflight 现在保留扫描根目录/策略证据，并执行一次有界的第二遍扫描，避免瞬时竞争被误报为 `session_missing`。
+- 后续实测又发现并发 workspace-scoped `devin list` 会返回空投影，且 session 可能在扫描期间被另一个 cwd 的 Devin 调用迁移；preflight 现在使用只读 session database workspace hint，随后顺序扫描所有边界内 worktree，并保留扫描根目录/策略证据，避免并发 CLI 或 head 过滤制造 `session_missing`。
 
 ## 七、避免 Devin 在 auto permission 下触发交互工具调用
 

@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import datetime as dt
+import sqlite3
 import json
 import os
 import pathlib
@@ -16,7 +16,7 @@ from typing import Any
 from repository_binding import BindingError, load_origin_entry, normalize_origin, validate_worktree_boundary
 
 SCHEMA = "devin-pr-review/preflight-v1"
-DISCOVERY_STRATEGY = "all-enrolled-worktrees-no-head-filter-v1"
+DISCOVERY_STRATEGY = "db-hinted-sequential-worktrees-v2"
 MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
 EXPIRY = dt.date(2026, 10, 26)
@@ -145,6 +145,20 @@ def session_lookup_roots(root: str, registered_root: str, enrolled_parent: str |
     return lookup_roots
 
 
+def session_database_root(session_id: str) -> str | None:
+    """Read Devin's current workspace hint without mutating its state."""
+    database = pathlib.Path("~/.local/share/devin/cli/sessions.db").expanduser()
+    try:
+        uri = f"file:{database}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=0.2) as connection:
+            row = connection.execute(
+                "select working_directory from sessions where id = ?", (session_id,)
+            ).fetchone()
+        return str(pathlib.Path(row[0]).resolve()) if row and row[0] else None
+    except (OSError, sqlite3.Error):
+        return None
+
+
 def listed_session(root: str, session_id: str) -> tuple[list[dict[str, Any]] | None, str | None]:
     """Query one workspace without allowing a slow directory to block all discovery."""
     code, output, error = run(["devin", "list", "--format", "json"], cwd=root, timeout=4)
@@ -189,30 +203,33 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
 
     result["registered_root"] = registered_root
     lookup_roots = session_lookup_roots(root, registered_root, enrolled_parent)
+    hinted_root = session_database_root(sid)
+    if hinted_root and hinted_root not in lookup_roots:
+        try:
+            inside_boundary = pathlib.Path(hinted_root).is_relative_to(pathlib.Path(registered_root))
+            if enrolled_parent:
+                inside_boundary = inside_boundary or pathlib.Path(hinted_root).is_relative_to(pathlib.Path(enrolled_parent))
+            if inside_boundary:
+                lookup_roots.insert(1, hinted_root)
+        except ValueError:
+            pass
     result["lookup_roots"] = lookup_roots
     # Devin lists sessions for the current workspace. Review requests may
     # target an enrolled nested worktree, so query from the requested root.
     found = None
     had_valid_list = False
-    # A concurrent `devin -r <session>` can move the session while this
-    # workspace-scoped scan is in progress. One bounded second pass avoids
-    # converting that transient race into a permanent session_missing result.
-    for attempt in range(2):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(lookup_roots))) as pool:
-            futures = {pool.submit(listed_session, lookup_root, sid): lookup_root for lookup_root in lookup_roots}
-            for future in concurrent.futures.as_completed(futures):
-                sessions, error = future.result()
-                if error or sessions is None:
-                    continue
-                had_valid_list = True
-                candidate = next((x for x in sessions if x.get("id") == sid), None)
-                if candidate:
-                    found = candidate
-                    result["discovery_attempts"] = attempt + 1
-                    break
+    # Devin's list command is workspace-scoped and is not safe to run in
+    # parallel. The DB hint makes the common drifted-session case cheap; the
+    # remaining bounded roots are queried sequentially.
+    for lookup_root in lookup_roots:
+        sessions, error = listed_session(lookup_root, sid)
+        if error or sessions is None:
+            continue
+        had_valid_list = True
+        found = next((x for x in sessions if x.get("id") == sid), None)
         if found:
             break
-    result.setdefault("discovery_attempts", 2)
+    result["discovery_attempts"] = 1
     if not had_valid_list:
         return result, "session_output_invalid"
     if not found:
