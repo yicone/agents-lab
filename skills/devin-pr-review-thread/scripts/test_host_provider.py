@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
+from host_provider import is_transport_error, is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
 
 
 class FakeResult:
@@ -28,6 +28,11 @@ def test_review_execution_uses_registered_root_not_request_worktree():
 def test_rest_patch_parser_tracks_added_right_lines():
     patch = "diff --git a/file.py b/file.py\n+++ b/file.py\n@@ -1,2 +1,3 @@\n old\n+new\n+newer\n"
     assert parse_changed_lines(patch) == {"file.py": [2, 3]}
+
+def test_patch_transport_classifier_is_narrow():
+    assert is_transport_error("unexpected EOF")
+    assert is_transport_error("TLS handshake timeout")
+    assert not is_transport_error("HTTP 404 Not Found")
 
 
 def test_control_record_is_not_accepted_as_provider_request():

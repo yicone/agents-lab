@@ -39,4 +39,4 @@ The service must point at the canonical skill path, use the host proxy environme
 
 The Devin model catalog is a slow host operation. `preflight.py` gives `devin models list --format json` a 60-second command budget inside the overall 90-second preflight ceiling; a shorter caller-side timeout must not reinterpret the result as `model_output_invalid`.
 
-Large PR patches use the GitHub REST diff media type first, with `gh pr diff` as a fallback. A transport failure is preserved in evidence as `github_transport_unavailable`; a successful patch fetch is parsed once and reused for both changed-line validation and the Devin prompt.
+Large PR patches use the GitHub REST diff media type first, with `gh pr diff` as a fallback. Each path may make at most three attempts for a transport-shaped failure (TLS, timeout, proxy, connection, DNS, or EOF); authentication, identity, and HTTP errors are not retried. An exhausted transport failure is preserved in evidence as `github_transport_unavailable`; a successful patch fetch is parsed once and reused for both changed-line validation and the Devin prompt.

@@ -85,6 +85,7 @@
 - PR #233 的一次 `gh pr diff` 复现返回 `TLS handshake timeout`，导致 provider 把完整 review 请求压成 `diff unavailable`。
 - host provider 现在优先请求 GitHub REST diff media type，并在必要时回退到 `gh pr diff`；成功取得的 patch 只解析一次，同时用于 changed-line 校验和 Devin prompt。
 - host 侧对 PR #233 已验证：REST patch 获取成功，约 1.1 MB、2 个文件；因此该 PR 不再受原有 GraphQL 大补丁路径的单次超时影响。
+- 后续真实 round 又复现 `unexpected EOF`；连续 host 探测显示 REST 请求大多成功、偶发断流。provider 现在仅对传输形态错误做每条路径最多三次重试，认证/身份/HTTP 错误不重试，耗尽后仍返回带 evidence 的 `github_transport_unavailable`。
 
 ## 十一、避免 Devin 在 auto permission 下触发交互工具调用
 

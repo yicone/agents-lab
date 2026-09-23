@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Host-side JSON broker; never expose Devin/gh internals to sandbox callers."""
 from __future__ import annotations
-import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess, re
+import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess, re, time
 from contextlib import contextmanager
 from repository_binding import BindingError, normalize_origin
 
 SCHEMA = "devin-host-review/v1"
 PREFLIGHT_TIMEOUT_SECONDS = 90
 PATCH_TIMEOUT_SECONDS = 90
+PATCH_ATTEMPTS = 3
+PATCH_RETRY_DELAY_SECONDS = 1
 ALLOWED_REQUEST = {"schema", "repository_root", "pr_number", "round", "authorization", "timeout_seconds"}
 
 def response(status, req=None, *, evidence_ref=None, failure_code=None, retryable=False, findings_count=0, comments=None):
@@ -112,26 +114,35 @@ def root_lock(root):
         try: path.unlink()
         except FileNotFoundError: pass
 
+def is_transport_error(detail):
+    markers = ("timeout", "timed out", "tls", "ssl", "connection", "proxy", "network", "eof", "dns")
+    return any(marker in detail.lower() for marker in markers)
+
+
 def github_patch(root, origin, pr):
-    """Fetch a verified PR patch, preferring REST for large diffs."""
+    """Fetch a verified PR patch, retrying only bounded transport failures."""
     commands = [
         ["gh", "api", f"repos/{origin}/pulls/{pr}", "--header", "Accept: application/vnd.github.v3.diff"],
         ["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"],
     ]
     errors = []
     for command in commands:
-        try:
-            p = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=PATCH_TIMEOUT_SECONDS)
-        except (OSError, subprocess.SubprocessError) as exc:
-            errors.append(type(exc).__name__)
-            continue
-        if p.returncode == 0 and p.stdout.strip():
-            return p.stdout, None
-        detail = (p.stderr or "").strip()[-500:]
-        errors.append(detail or f"exit={p.returncode}")
+        command_name = "rest" if command[1] == "api" else "gh-diff"
+        for attempt in range(1, PATCH_ATTEMPTS + 1):
+            try:
+                p = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=PATCH_TIMEOUT_SECONDS)
+            except (OSError, subprocess.SubprocessError) as exc:
+                detail = f"{type(exc).__name__}: {exc}"
+            else:
+                if p.returncode == 0 and p.stdout.strip():
+                    return p.stdout, None
+                detail = (p.stderr or "").strip()[-500:] or f"exit={p.returncode}"
+            errors.append(f"{command_name}[{attempt}/{PATCH_ATTEMPTS}]: {detail}")
+            if not is_transport_error(detail) or attempt == PATCH_ATTEMPTS:
+                break
+            time.sleep(PATCH_RETRY_DELAY_SECONDS * attempt)
     joined = " | ".join(errors)
-    transport_markers = ("timeout", "timed out", "tls", "ssl", "connection", "proxy", "network", "eof")
-    return None, ("github_transport_unavailable: " + joined if any(marker in joined.lower() for marker in transport_markers) else "diff_unavailable: " + joined)
+    return None, ("github_transport_unavailable: " + joined if is_transport_error(joined) else "diff_unavailable: " + joined)
 
 
 def parse_changed_lines(patch):
