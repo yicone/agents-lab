@@ -114,7 +114,7 @@
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 本轮新增的 host setup、清理策略、架构规范也已加入可重复验证：host setup 组合测试、cleanup 保留/过期授权测试，以及 v1/v2 Archify 结构与浏览器视觉检查。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
-- 历史上已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`；本次 session_missing 修复只重新验证 host preflight，没有再次提交 GitHub review。
+- 历史上已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`；2026-09-24 又在 `agent-storage-manager` PR #91 上完成真实 `review-published`，证明 session discovery 修复不只停留在 preflight。
 - 当前本地 canonical skill 通过软链接暴露到：
   `/Users/tr/.agents/skills/devin-pr-review-thread`
 - 最新基础设施提交包括：
@@ -127,68 +127,14 @@
   - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
   - `6163e1e`：同步 discovery 策略回归测试
 
-## 十四、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
+## 十四、项目级收尾与当前边界
 
-以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。优先级按“阻断 review 的运行时风险 → 可验证性 → 运维自动化 → 文档与发布”排序。
-
-### P0：恢复路径与版本一致性（已完成）
-
-1. **固定 worker 生命周期与版本门禁** ✅
-   - **动作：** 在 host 侧选择登录后自动启动 service，或明确保留手动常驻；启动命令必须指向 `/Users/tr/Workspace/agents-lab/skills/devin-pr-review-thread/scripts/host_worker.py`，并保留系统代理环境。
-   - **验收：** `--startup-check` 返回 `status=ready`；evidence 包含 `discovery_strategy: db-hinted-sequential-worktrees-v2`；worker 在请求等待期间保持运行。旧 worker 不得继续消费新请求。
-   - **结果：** 已安装并启动 `com.tr.agentslab.devin-pr-review-thread` LaunchAgent；`launchctl print` 显示 `state = running`，旧手动 worker 已停止。
-2. **固定 host transport 入口** ✅
-   - **动作：** 将 `https_proxy`、`http_proxy`、`all_proxy` 固化在 host service 的启动环境；sandbox 只写最小 queue request，不直接执行 `gh`、`devin` 或 preflight。
-   - **验收：** host 预检能够取得 PR head、模型和 session；沙盒侧即使无网络，也只消费 host 返回的稳定 response，不把本地 `github_transport_unavailable` 当成 PR 问题。
-3. **保留当前 fail-closed 边界** ✅
-   - **动作：** 不让调用方修复 session、授权、trust、lock 或替换模型；只允许 host maintainer 重启/修复 worker。
-   - **验收：** 失败结果始终包含 `failure_code` 与 `evidence_ref`（请求在证据生成前被拒绝时除外），不发布未经验证的 thread。
-
-### P1：自动化回归与调用方体验（已完成）
-
-1. **补齐 discovery 回归测试** ✅
-   - 覆盖主 workspace、多个 nested worktree、`sessions.db` hint、顺序扫描、session cwd 漂移和“不按 head 过滤”。
-   - 使用 fake `devin list`/fake database，不依赖真实 Devin 或 GitHub。
-   - **验收：** 测试能稳定重现旧版并发/当前 cwd 假阴性，并验证 `db-hinted-sequential-worktrees-v2` 的结果。
-2. **增加安全 queue client** ✅
-   - 提供一个面向调用方的辅助入口，负责 request 文件命名、0600 权限、原子写入、响应等待和超时；调用方仍只提交最小 request。
-   - **验收：** 跨 runtime 只需提供 `repository_root`、`pr_number`、可选 `round`/`timeout_seconds`，不得接触 authorization 或 provider stdin。
-3. **做一次跨 harness 黑盒验证** ✅
-   - 在至少两个 sandbox runtime 中只调用 queue client，验证 response schema、`await-user`、`no-findings`、`review-published` 和 evidence 引用。
-   - **验收：** 两个隔离环境只调用 `queue_client.py`，分别获得独立的 `await-user`、`failure_code` 和 `evidence_ref`；稳定成功状态 `no-findings`/`review-published` 由 queue-client contract test 覆盖；调用方无需阅读或执行 `host_provider.py`、`preflight.py`、`gh`、`devin`。
-
-P0/P1 实施证据：
-
-- LaunchAgent：`gui/501/com.tr.agentslab.devin-pr-review-thread`，`state = running`，代理环境已注入，当前 PID 由 launchd 管理。
-- queue smoke：两个隔离调用分别返回 `repo_identity_failed`，并生成 evidence refs `b0493334fe6a0bf9dd94c420`、`2f9f32fd37563c3490a29c07`。
-- host transport smoke：有效 Git 工作区 + 不存在 PR 返回 `pr_not_found_or_forbidden`，证明请求已到达 host `gh` 预检而不是在沙盒内失败。
-- 测试：preflight 7 项、queue client 3 项、LaunchAgent render 1 项、host provider、host worker 3 项、repository binding 7 项、registry migration 3 项、cleanup 1 项、host setup 1 项均通过；v1/v2 架构图均通过 Archify 9 项检查和 1440/2048 视觉检查。
-
-### P2：授权、证据与维护自动化（已完成）
-
-1. **固化 host enrollment 流程**
-   - 将主 workspace exact allowlist 与 worktree-parent wildcard 组合封装为可重复的一次性 host setup。
-   - **结果：** 新增 `scripts/host_setup.py`，一次性串联主 workspace exact enrollment、worktree-parent wildcard enrollment 和固定 session registry；不会隐式创建 Devin session。新增组合测试覆盖三步调用顺序。新 worktree 由 parent wildcard 覆盖，Devin CLI 自身的 exact-path trust 仍由 host 维护，不转嫁给 sandbox 调用方。
-   - **验收：** 未来新增 worktree 不需要重复 repository enrollment；若 Devin CLI 要求新的 exact-path trust，属于 host setup/维护动作，而不是 review request 的隐式副作用。
-2. **证据与临时文件清理**
-   - 为 evidence、stale response、未使用 authorization 建立保留期限和 dry-run 清理工具；清理前写入审计摘要。
-   - **结果：** 新增 `scripts/cleanup.py`，默认 30 天 dry-run；按 ledger/queue response 保护被引用 evidence，保护未过期 evidence、仍有 request 的 response，以及未过期或未使用 authorization；`--apply` 才执行删除，并把计划、保护项和删除结果写入 mode-0600 audit JSON。新增测试覆盖引用、近期文件和 `--expire-unused-authorizations` 行为。
-   - **验收：** 清理不会删除当前 round 的证据或未消费授权；过期未使用授权只有显式 `--expire-unused-authorizations --apply` 才会成为删除候选。
-3. **协议文档同步**
-   - 更新 `docs/superpowers/specs/` 中仍描述旧协议或 exact session root 的文档，并检查架构图 v1/v2 的 host/provider 边界是否一致。
-   - **结果：** 已同步 host-issued authorization、canonical execution root、`--prompt-file` 大 patch 输入、稳定 `failure_code` 和当前 queue/provider ledger 语义；v2 架构图补出 Host enrollment → worker/provider/session 的控制边界，并保留 v1 的历史 worker/provider/GitHub 职责图与图例。
-   - **验收：** `devin-gh-access.architecture.json` 与 `devin-gh-access-v2.architecture.json` 均通过 Archify 9 项结构检查、composition 无 warning，并通过 1440/2048 视口的自动浏览器视觉检查；生成 HTML 与 JSON 的 specification/artifact hash 已由 Archify delivery 输出。
-
-### P3：发布与长期治理（基础设施已完成；真实 E2E 需外部授权）
-
-1. **决定发布方式**
-   - **结果：** 本轮采用直接推送到 `origin/main`；提交按实现、文档/架构、版本与时间线分组，保留可审计提交边界。
-2. **版本与变更记录**
-   - **结果：** skill metadata 已从 `0.2.0` 升级到 `0.3.0`，并新增 `skills/devin-pr-review-thread/CHANGELOG.md`，记录 host setup、cleanup、queue/provider hardening 和协议同步。
-3. **完成一次受控端到端演练**
-   - **外部前提：** host worker、queue client、固定 session 和 GitHub thread 发布路径均已具备；但真实演练必须由使用方提供明确的 PR、head SHA 和 review-round 授权。本轮不擅自触发 GitHub review，也不把历史 PR #232/#233/#230 的失败记录冒充新的 E2E 成功证据。
-   - **下一动作：** 使用方授权具体 PR 后，由其控制线程发起一个 bounded round；本 skill 只消费结果并发布经过校验的 thread。
+- **2026-09-20 至 2026-09-23：运行时与调用方边界收敛。** LaunchAgent、固定 host transport、fail-closed response、顺序 discovery、safe queue client、host setup、cleanup 和双 JSON 协议陆续完成；对应的 fake-runtime、queue、registry、worker、repository-binding、cleanup 和架构图检查均通过。新 worktree 由 parent wildcard 覆盖，调用方不需要重复 repository enrollment；Devin CLI 的 exact-path trust 仍属于 host 维护动作。
+- **2026-09-23：架构与发布记录同步。** v1/v2 Archify 图统一了 worker/provider/GitHub 的职责边界，并在 v2 中补出 Host enrollment → worker/provider/session 的控制路径；skill metadata 升级到 `0.3.0`，变更记录和实施提交保持可审计分组。
+- **2026-09-24：agent-storage-manager PR #91 的真实闭环。** 首次失败不是模型不可用，而是约 23 秒返回的 `devin list` 被 4 秒预算误判为 `session_output_invalid`。将 host session-list 命令预算提高到 30 秒并重启 canonical LaunchAgent 后，preflight 返回 `status=ok`，固定 session `grandiose-file` 与 `SWE-2 High` 均匹配；第二轮 Devin review 发布 3 条 findings，证据为 `393ec91987e3e459cf69b75f`。
+- **2026-09-24：review-fix 收尾。** PR #91 的修复提交 `8f9535178908e61ad5f9e3b60481b06c36adfc86` 处理了 3 条 findings，CI 通过。随后分别在原 review comment 下说明修复内容及“不创建后续 Issue”的理由，并将 3 个旧 head thread 标记为 resolved；因此这些 thread 不再是未闭环事项，也没有遗留需要转 Issue 的评论。
+- **当前边界。** 后续真实 review 仍必须由使用方控制线程记录新的 bounded round 授权；provider 只消费最小 queue request、发布已验证 findings，并返回 evidence。任何新的“不予处理”评论都必须在原 thread 回复分类理由；若形成独立、非阻断的后续工作，再由 PR 控制线程决定是否创建 GitHub Issue，不能由 provider 自动生成。
 
 ## 记录边界
 
-本文不替代 `SKILL.md`、review-round contract 或 host runtime recovery 文档；它只记录方向演进、已验证结果和 agents-lab 基础设施待办。任何具体 PR 的 finding 分类、修复、thread 回复、resolve 和 merge，应留在对应 PR 的控制线程中。
+本文不替代 `SKILL.md`、review-round contract 或 host runtime recovery 文档；它只记录方向演进、已验证结果和 agents-lab 基础设施状态。具体 PR 的 finding 分类、修复、thread 回复、resolve 和 merge 仍应留在对应 PR 的控制线程中；本节只记录已完成的代表性闭环与可复用边界。
