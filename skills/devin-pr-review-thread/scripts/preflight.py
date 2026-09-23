@@ -115,7 +115,7 @@ def trust_state(root: str, trust_file: pathlib.Path, additional_paths: set[str] 
     return result
 
 
-def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tuple[dict[str, Any], str | None]:
+def session_state(root: str, origin: str | None, registry: pathlib.Path, expected_head: str | None = None) -> tuple[dict[str, Any], str | None]:
     empty = {"id": None, "registry_state": "missing", "list_state": "unknown", "root": None}
     try:
         data = json.loads(registry.read_text())
@@ -135,14 +135,47 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
     if not isinstance(registered_root, str) or not registered_root:
         return result, "session_root_mismatch"
     registered_root = str(pathlib.Path(registered_root).resolve())
+    enrolled_parent = entry.get("enrolled_parent")
+    if enrolled_parent is not None and not isinstance(enrolled_parent, str):
+        return result, "session_root_mismatch"
+    if isinstance(enrolled_parent, str):
+        enrolled_parent = str(pathlib.Path(enrolled_parent).resolve())
+
+    lookup_roots = [root]
+    if enrolled_parent:
+        # A Devin session may be visible only from the worktree that owns its
+        # workspace. Discover registered worktrees from the canonical root so
+        # callers can remain in the main workspace.
+        code, output, _ = run(["git", "-C", registered_root, "worktree", "list", "--porcelain"])
+        if code == 0:
+            for line in output.splitlines():
+                if not line.startswith("worktree "):
+                    continue
+                candidate = str(pathlib.Path(line[9:].strip()).resolve())
+                try:
+                    inside_parent = pathlib.Path(candidate).is_relative_to(pathlib.Path(enrolled_parent))
+                except ValueError:
+                    inside_parent = False
+                if inside_parent and candidate not in lookup_roots:
+                    if expected_head:
+                        head_code, head_output, _ = run(["git", "-C", candidate, "rev-parse", "HEAD"])
+                        if head_code != 0 or head_output.strip() != expected_head:
+                            continue
+                    lookup_roots.append(candidate)
     # Devin lists sessions for the current workspace. Review requests may
     # target an enrolled nested worktree, so query from the requested root.
-    sessions, error = command_json(["devin", "list", "--format", "json"], cwd=root)
-    if error:
+    found = None
+    had_valid_list = False
+    for lookup_root in lookup_roots:
+        sessions, error = command_json(["devin", "list", "--format", "json"], cwd=lookup_root)
+        if error or not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
+            continue
+        had_valid_list = True
+        found = next((x for x in sessions if x.get("id") == sid), None)
+        if found:
+            break
+    if not had_valid_list:
         return result, "session_output_invalid"
-    if not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
-        return result, "session_output_invalid"
-    found = next((x for x in sessions if x.get("id") == sid), None)
     if not found:
         result["list_state"] = "missing"
         return result, "session_missing"
@@ -151,9 +184,6 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
     if not isinstance(result["root"], str) or not result["root"]:
         return result, "session_root_mismatch"
     actual_root = str(pathlib.Path(result["root"]).resolve())
-    enrolled_parent = entry.get("enrolled_parent")
-    if enrolled_parent is not None and not isinstance(enrolled_parent, str):
-        return result, "session_root_mismatch"
     if not validate_worktree_boundary(root, registered_root, enrolled_parent):
         return result, "session_root_mismatch"
     if actual_root != root and not validate_worktree_boundary(actual_root, registered_root, enrolled_parent):
@@ -213,7 +243,7 @@ def main() -> int:
             out["diagnostics"].append({"code": pr_error, "detail": pr_detail})
         out["model"], model_error = model_state()
         if model_error and out["status"] == "ok": out["status"] = model_error
-        out["session"], session_error = session_state(root, out["repository"]["origin"], pathlib.Path(args.registry))
+        out["session"], session_error = session_state(root, out["repository"]["origin"], pathlib.Path(args.registry), out["pr"].get("head_sha"))
         extra_trust = set()
         if isinstance(out["session"].get("enrolled_parent"), str):
             extra_trust.add(out["session"]["enrolled_parent"])
