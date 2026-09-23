@@ -132,7 +132,6 @@
 - **2026-09-20 至 2026-09-23：运行时与调用方边界收敛。** LaunchAgent、固定 host transport、fail-closed response、顺序 discovery、safe queue client、host setup、cleanup 和双 JSON 协议陆续完成；对应的 fake-runtime、queue、registry、worker、repository-binding、cleanup 和架构图检查均通过。新 worktree 由 parent wildcard 覆盖，调用方不需要重复 repository enrollment；Devin CLI 的 exact-path trust 仍属于 host 维护动作。
 - **2026-09-23：架构与发布记录同步。** v1/v2 Archify 图统一了 worker/provider/GitHub 的职责边界，并在 v2 中补出 Host enrollment → worker/provider/session 的控制路径；skill metadata 升级到 `0.3.0`，变更记录和实施提交保持可审计分组。
 - **2026-09-24：从 preflight 修复扩展到真实 review。** 跨项目实测证明，较慢但正常返回的 `devin list` 不应被短预算误判为 provider 故障；将 session-list 预算提高到 30 秒并重启 canonical LaunchAgent 后，固定 session、精确模型和 GitHub transport 均可通过 host preflight，queue client 能完成一次真实 `review-published`。该验证只记录能力边界，不把具体仓库、PR、head、session 或 evidence 标识写入本时间线。
-- **2026-09-24：review-fix 闭环规则得到一次完整验证。** 对已修复的 findings，在原 review thread 回复处理结果并 resolve；对确实不采纳的评论，必须回复分类理由，只有形成独立且非阻断的后续工作时，才由控制线程决定创建 GitHub Issue。provider 不自动修复、resolve、创建 Issue 或启动下一轮 review。
 - **当前状态。** P0/P1/P2 的 host 生命周期、transport、授权、证据清理、协议和回归验证已经完成；后续真实 review 仍必须由使用方控制线程记录新的 bounded round 授权，provider 只消费最小 queue request 并返回经过校验的结果。
 
 ## 记录边界
