@@ -65,7 +65,7 @@
 - 当前实现改为 `db-hinted-sequential-worktrees-v2`：先只读查询 `sessions.db` 的 `working_directory`，再顺序扫描边界内 worktree；不按 PR head 过滤，并在证据中记录 `registered_root`、`observed_root`、`lookup_roots` 和 discovery strategy。
 - host 侧使用系统代理对 PR #230、head `050e080e846a71cc1e1ba3192c38febbc9f7462d` 做了真实启动预检，结果为 `status=ready` / `preflight.status=ok`，固定 session `succinct-avenue` 被发现，模型 `SWE-2 High` 可用。沙盒内直接跑同一预检仍可能因无法连接本机代理而得到 `github_transport_unavailable`；这属于执行边界差异，不是 host 预检失败。
 - 长期 worker 必须从 canonical skill path 重启；若 evidence 中没有 `discovery_strategy: db-hinted-sequential-worktrees-v2`，应判定为旧 worker 副本，而不是让调用方自行修复或重试。
-- 2026-09-24 对 `agent-storage-manager` PR #91 的实测再次暴露短超时：host preflight 的 `devin list` 4 秒预算在约 23 秒返回的正常 CLI 上误报 `session_output_invalid`。当前修复将每次显式 `cwd` 的 session list 命令预算提高到 30 秒，并加入回归测试；它不改变顺序 discovery、固定 session 或 fail-closed 边界。
+- 2026-09-24 的跨项目实测再次暴露短超时：host preflight 的 `devin list` 4 秒预算在较慢但正常返回的 CLI 上误报 `session_output_invalid`。当前修复将每次显式 `cwd` 的 session list 命令预算提高到 30 秒，并加入回归测试；它不改变顺序 discovery、固定 session 或 fail-closed 边界。
 
 ## 八、登录 service 后的 queue timeout 与模型目录慢查询
 
@@ -114,7 +114,7 @@
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 本轮新增的 host setup、清理策略、架构规范也已加入可重复验证：host setup 组合测试、cleanup 保留/过期授权测试，以及 v1/v2 Archify 结构与浏览器视觉检查。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
-- 历史上已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`；2026-09-24 又在 `agent-storage-manager` PR #91 上完成真实 `review-published`，证明 session discovery 修复不只停留在 preflight。
+- 历史上已验证 host worker 能从主 workspace 完成一次真实的结构化 Devin review，并返回 `no-findings`；2026-09-24 的跨 harness 实测又完成了真实 `review-published`，证明 session discovery 修复不只停留在 preflight。
 - 当前本地 canonical skill 通过软链接暴露到：
   `/Users/tr/.agents/skills/devin-pr-review-thread`
 - 最新基础设施提交包括：
@@ -127,13 +127,13 @@
   - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
   - `6163e1e`：同步 discovery 策略回归测试
 
-## 十四、项目级收尾与当前边界
+## 十四、从基础设施完成到跨 harness 验证
 
 - **2026-09-20 至 2026-09-23：运行时与调用方边界收敛。** LaunchAgent、固定 host transport、fail-closed response、顺序 discovery、safe queue client、host setup、cleanup 和双 JSON 协议陆续完成；对应的 fake-runtime、queue、registry、worker、repository-binding、cleanup 和架构图检查均通过。新 worktree 由 parent wildcard 覆盖，调用方不需要重复 repository enrollment；Devin CLI 的 exact-path trust 仍属于 host 维护动作。
 - **2026-09-23：架构与发布记录同步。** v1/v2 Archify 图统一了 worker/provider/GitHub 的职责边界，并在 v2 中补出 Host enrollment → worker/provider/session 的控制路径；skill metadata 升级到 `0.3.0`，变更记录和实施提交保持可审计分组。
-- **2026-09-24：agent-storage-manager PR #91 的真实闭环。** 首次失败不是模型不可用，而是约 23 秒返回的 `devin list` 被 4 秒预算误判为 `session_output_invalid`。将 host session-list 命令预算提高到 30 秒并重启 canonical LaunchAgent 后，preflight 返回 `status=ok`，固定 session `grandiose-file` 与 `SWE-2 High` 均匹配；第二轮 Devin review 发布 3 条 findings，证据为 `393ec91987e3e459cf69b75f`。
-- **2026-09-24：review-fix 收尾。** PR #91 的修复提交 `8f9535178908e61ad5f9e3b60481b06c36adfc86` 处理了 3 条 findings，CI 通过。随后分别在原 review comment 下说明修复内容及“不创建后续 Issue”的理由，并将 3 个旧 head thread 标记为 resolved；因此这些 thread 不再是未闭环事项，也没有遗留需要转 Issue 的评论。
-- **当前边界。** 后续真实 review 仍必须由使用方控制线程记录新的 bounded round 授权；provider 只消费最小 queue request、发布已验证 findings，并返回 evidence。任何新的“不予处理”评论都必须在原 thread 回复分类理由；若形成独立、非阻断的后续工作，再由 PR 控制线程决定是否创建 GitHub Issue，不能由 provider 自动生成。
+- **2026-09-24：从 preflight 修复扩展到真实 review。** 跨项目实测证明，较慢但正常返回的 `devin list` 不应被短预算误判为 provider 故障；将 session-list 预算提高到 30 秒并重启 canonical LaunchAgent 后，固定 session、精确模型和 GitHub transport 均可通过 host preflight，queue client 能完成一次真实 `review-published`。该验证只记录能力边界，不把具体仓库、PR、head、session 或 evidence 标识写入本时间线。
+- **2026-09-24：review-fix 闭环规则得到一次完整验证。** 对已修复的 findings，在原 review thread 回复处理结果并 resolve；对确实不采纳的评论，必须回复分类理由，只有形成独立且非阻断的后续工作时，才由控制线程决定创建 GitHub Issue。provider 不自动修复、resolve、创建 Issue 或启动下一轮 review。
+- **当前状态。** P0/P1/P2 的 host 生命周期、transport、授权、证据清理、协议和回归验证已经完成；后续真实 review 仍必须由使用方控制线程记录新的 bounded round 授权，provider 只消费最小 queue request 并返回经过校验的结果。
 
 ## 记录边界
 
