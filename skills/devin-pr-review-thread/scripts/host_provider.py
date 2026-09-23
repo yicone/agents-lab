@@ -7,6 +7,7 @@ from repository_binding import BindingError, normalize_origin
 
 SCHEMA = "devin-host-review/v1"
 PREFLIGHT_TIMEOUT_SECONDS = 90
+PATCH_TIMEOUT_SECONDS = 90
 ALLOWED_REQUEST = {"schema", "repository_root", "pr_number", "round", "authorization", "timeout_seconds"}
 
 def response(status, req=None, *, evidence_ref=None, failure_code=None, retryable=False, findings_count=0, comments=None):
@@ -111,14 +112,31 @@ def root_lock(root):
         try: path.unlink()
         except FileNotFoundError: pass
 
-def changed_lines(root, origin, pr):
-    try:
-        p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if p.returncode: return None
+def github_patch(root, origin, pr):
+    """Fetch a verified PR patch, preferring REST for large diffs."""
+    commands = [
+        ["gh", "api", f"repos/{origin}/pulls/{pr}", "--header", "Accept: application/vnd.github.v3.diff"],
+        ["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"],
+    ]
+    errors = []
+    for command in commands:
+        try:
+            p = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=PATCH_TIMEOUT_SECONDS)
+        except (OSError, subprocess.SubprocessError) as exc:
+            errors.append(type(exc).__name__)
+            continue
+        if p.returncode == 0 and p.stdout.strip():
+            return p.stdout, None
+        detail = (p.stderr or "").strip()[-500:]
+        errors.append(detail or f"exit={p.returncode}")
+    joined = " | ".join(errors)
+    transport_markers = ("timeout", "timed out", "tls", "ssl", "connection", "proxy", "network", "eof")
+    return None, ("github_transport_unavailable: " + joined if any(marker in joined.lower() for marker in transport_markers) else "diff_unavailable: " + joined)
+
+
+def parse_changed_lines(patch):
     result, path, line = {}, None, 0
-    for raw in p.stdout.splitlines():
+    for raw in patch.splitlines():
         if raw.startswith("+++ b/"): path = raw[6:]; result.setdefault(path, [])
         elif raw.startswith("@@") and path:
             m = re.search(r"\+(\d+)(?:,(\d+))?", raw)
@@ -129,13 +147,15 @@ def changed_lines(root, origin, pr):
             line += 1
     return result
 
+
+def changed_lines(root, origin, pr):
+    patch, _ = github_patch(root, origin, pr)
+    return parse_changed_lines(patch) if patch else None
+
+
 def changed_patch(root, origin, pr):
-    try:
-        p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=45)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if p.returncode != 0 or not p.stdout.strip(): return None
-    return p.stdout
+    patch, _ = github_patch(root, origin, pr)
+    return patch
 
 def is_unresolvable_review_comment(result):
     """Return true when GitHub rejects a line because it is not in the PR diff.
@@ -165,10 +185,12 @@ def run_review(root, origin, req, pf, evidence_payload):
     # resume. Keep repository-level sessions anchored to their registered main
     # workspace; the review input is the verified GitHub patch, not local files.
     execution_root = review_execution_root(root, pf.get("session", {}))
-    lines = changed_lines(root, origin, pr)
-    if not lines: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
-    patch = changed_patch(root, origin, pr)
-    if not patch: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
+    patch, patch_error = github_patch(root, origin, pr)
+    if not patch:
+        return "await-user", [], evidence_payload | {"error": patch_error or "diff_unavailable"}
+    lines = parse_changed_lines(patch)
+    if not lines:
+        return "await-user", [], evidence_payload | {"error": "diff_empty"}
     prompt = ("Return exactly one JSON document matching devin-pr-review/v1, no Markdown. "
               f"Review PR {pr} at head {head} in repository {root}. "
               f"Your session_id is {sid}; repository_root is {root}. "

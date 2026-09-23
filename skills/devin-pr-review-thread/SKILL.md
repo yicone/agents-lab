@@ -47,4 +47,6 @@ Preflight reports `github_transport_unavailable` for proxy, TLS, DNS, timeout, o
 
 The provider creates review threads only; it does not create a review verdict. Technical recovery rules belong to [runtime-recovery.md](references/runtime-recovery.md) and are not part of the consuming agent contract.
 
+For large PRs the host provider fetches the verified patch through GitHub's REST diff media type before falling back to `gh pr diff`; transport failures are surfaced as `github_transport_unavailable` evidence, not as an unexplained `diff unavailable` result.
+
 Read [references/review-round-contract.md](references/review-round-contract.md) before starting or continuing a review loop. Provider maintainers may consult [references/runtime-recovery.md](references/runtime-recovery.md) and [references/protocol.md](references/protocol.md); consuming agents should not be asked to operate those internals. Run `scripts/validate_review.py --help` before publishing and `scripts/validate_review_round.py --help` before recording the round.

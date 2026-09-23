@@ -80,7 +80,13 @@
 - 现在只要拿到 `devin-host-review/v1` JSON（包括 `await-user`），queue client 都以退出码 0 输出；只有参数错误或无法得到规范化对象才返回非零。
 - 已用 host LaunchAgent 实测：无效仓库请求输出完整 JSON，包含 `status=await-user`、`failure_code=repo_identity_failed` 和 `evidence_ref`，退出码为 0。
 
-## 十、避免 Devin 在 auto permission 下触发交互工具调用
+## 十、修复大 PR patch 获取的 transport 脆弱性
+
+- PR #233 的一次 `gh pr diff` 复现返回 `TLS handshake timeout`，导致 provider 把完整 review 请求压成 `diff unavailable`。
+- host provider 现在优先请求 GitHub REST diff media type，并在必要时回退到 `gh pr diff`；成功取得的 patch 只解析一次，同时用于 changed-line 校验和 Devin prompt。
+- host 侧对 PR #233 已验证：REST patch 获取成功，约 1.1 MB、2 个文件；因此该 PR 不再受原有 GraphQL 大补丁路径的单次超时影响。
+
+## 十一、避免 Devin 在 auto permission 下触发交互工具调用
 
 - 初次 host review 中，Devin 在 `--permission-mode auto` 下尝试读取本地文件，被 CLI 拒绝并产生非 JSON 输出。
 - 设计上没有切换到 `dangerous`，也没有放宽权限或换模型。
@@ -88,7 +94,7 @@
 - Devin prompt 明确禁止工具调用、命令执行、文件编辑、commit、push 和 GitHub 操作。
 - 该改变保留了固定模型和固定 session，同时降低 ACP/工具确认对 review 结果的影响。
 
-## 十一、稳定错误字段与双 JSON 协议
+## 十二、稳定错误字段与双 JSON 协议
 
 - 进一步实测发现 provider 内部有 evidence，但稳定响应没有顶层 `failure_code`，调用方只能看到模糊的 `await-user`。
 - 现在 `devin-host-review/v1` response 始终包含 `failure_code`；预检、head mismatch、权限/进程失败和 request rejection 都有明确分类。
@@ -99,7 +105,7 @@
   - `host_provider.py` 是 worker 内部组件，调用方不得直接调用。
 - 误把控制记录传给 provider 时，返回 `control_record_not_provider_request`，而不是让调用方猜测 `invalid-request` 的原因。
 
-## 十二、当前实现验证结果
+## 十三、当前实现验证结果
 
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 已验证主 workspace 请求可以发现 nested worktree 中的固定 session。
@@ -116,7 +122,7 @@
   - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
   - `6163e1e`：同步 discovery 策略回归测试
 
-## 十三、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
+## 十四、项目级待办与执行计划（不包含 PR #232 的 GitHub 处理）
 
 以下事项属于 skill/provider 基础设施；PR #232 的 GH 状态、thread resolve、merge 和使用方 review-loop 不在本清单内。优先级按“阻断 review 的运行时风险 → 可验证性 → 运维自动化 → 文档与发布”排序。
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import is_unresolvable_review_comment, response, review_execution_root, validate_request
+from host_provider import is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
 
 
 class FakeResult:
@@ -24,6 +24,10 @@ def test_review_execution_uses_registered_root_not_request_worktree():
     with tempfile.TemporaryDirectory() as canonical, tempfile.TemporaryDirectory() as request_root:
         assert review_execution_root(request_root, {"registered_root": canonical}) == canonical
         assert review_execution_root(request_root, {"registered_root": "/missing"}) == request_root
+
+def test_rest_patch_parser_tracks_added_right_lines():
+    patch = "diff --git a/file.py b/file.py\n+++ b/file.py\n@@ -1,2 +1,3 @@\n old\n+new\n+newer\n"
+    assert parse_changed_lines(patch) == {"file.py": [2, 3]}
 
 
 def test_control_record_is_not_accepted_as_provider_request():
