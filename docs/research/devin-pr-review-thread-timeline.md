@@ -86,6 +86,8 @@
 - host provider 现在优先请求 GitHub REST diff media type，并在必要时回退到 `gh pr diff`；成功取得的 patch 只解析一次，同时用于 changed-line 校验和 Devin prompt。
 - host 侧对 PR #233 已验证：REST patch 获取成功，约 1.1 MB、2 个文件；因此该 PR 不再受原有 GraphQL 大补丁路径的单次超时影响。
 - 后续真实 round 又复现 `unexpected EOF`；连续 host 探测显示 REST 请求大多成功、偶发断流。provider 现在仅对传输形态错误做每条路径最多三次重试，认证/身份/HTTP 错误不重试，耗尽后仍返回带 evidence 的 `github_transport_unavailable`。
+- 紧接着又发现约 1.15 MB patch 被作为单个 Devin argv 传入，触发 `OSError`；同时一次遗留的诊断 worker 与 LaunchAgent 并行消费 queue，产生两份授权并覆盖 response。provider 现改用 `--prompt-file`，worker 增加单消费者锁、原子 request claim，以及带 request identity/evidence 的异常响应；诊断 worker 不能与登录服务并行运行。
+- 操作边界补充：`--startup-check` 不带 `--check-only` 会继续服务 queue；诊断必须显式使用 `--check-only`。即使误启动，新的 queue lock 也会让第二个 worker 立即以 `worker_already_running` 退出。
 
 ## 十一、避免 Devin 在 auto permission 下触发交互工具调用
 

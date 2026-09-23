@@ -190,6 +190,15 @@ def review_execution_root(request_root, session):
         return registered_root
     return request_root
 
+
+def build_devin_args(session_id, config, prompt_path):
+    args = ["devin"]
+    if config:
+        args += ["--config", config]
+    args += ["-r", session_id, "--model", "swe-2-high", "--permission-mode", "auto",
+             "--respect-workspace-trust", "true", "--prompt-file", str(prompt_path), "-p"]
+    return args
+
 def run_review(root, origin, req, pf, evidence_payload):
     sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
     # Devin mutates a session's working_directory to the cwd used for the
@@ -208,14 +217,25 @@ def run_review(root, origin, req, pf, evidence_payload):
               "The complete verified PR patch is supplied below. Do not invoke tools, run commands, open files, call GitHub, edit, commit, or push. "
               "Use only this patch and report actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.\n\n"
               "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
-    devin_args = ["devin"]
     config = os.environ.get("DEVIN_REVIEW_CONFIG")
-    if config: devin_args += ["--config", config]
-    devin_args += ["-r", sid, "--model", "swe-2-high", "--permission-mode", "auto", "--respect-workspace-trust", "true", "-p", "--", prompt]
+    prompt_fd, prompt_path = tempfile.mkstemp(prefix="devin-review-prompt-", suffix=".txt")
+    try:
+        os.fchmod(prompt_fd, 0o600)
+        with os.fdopen(prompt_fd, "w", encoding="utf-8") as stream:
+            stream.write(prompt)
+        devin_args = build_devin_args(sid, config, prompt_path)
+    except OSError:
+        try: os.close(prompt_fd)
+        except OSError: pass
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
+        return "await-user", [], evidence_payload | {"error": "prompt_file_failure"}
     try:
         p = subprocess.run(devin_args, cwd=execution_root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
     except (OSError, subprocess.SubprocessError) as exc:
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
         return "await-user", [], evidence_payload | {"error": "deving_process_failure", "detail": type(exc).__name__}
+    finally:
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
     evidence_payload |= {"returncode": p.returncode, "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}
     if p.returncode != 0 or "requires confirmation" in p.stderr.lower(): return "await-user", [], evidence_payload | {"error": "permission_or_process_failure"}
     start = p.stdout.find("{")

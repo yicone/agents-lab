@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import is_transport_error, is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
+from host_provider import build_devin_args, is_transport_error, is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
 
 
 class FakeResult:
@@ -33,6 +33,13 @@ def test_patch_transport_classifier_is_narrow():
     assert is_transport_error("unexpected EOF")
     assert is_transport_error("TLS handshake timeout")
     assert not is_transport_error("HTTP 404 Not Found")
+
+def test_large_prompt_uses_prompt_file_not_argv():
+    args = build_devin_args("succinct-avenue", None, "/tmp/prompt.txt")
+    assert "--prompt-file" in args
+    assert "/tmp/prompt.txt" in args
+    assert "-p" in args
+    assert not any("VERIFIED PR PATCH" in arg for arg in args)
 
 
 def test_control_record_is_not_accepted_as_provider_request():
