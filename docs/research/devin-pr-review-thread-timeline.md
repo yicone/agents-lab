@@ -60,32 +60,32 @@
 
 ## 七、复现并修复“修改后仍然 session_missing”
 
-- 在 PR #230 的复测中，旧的常驻 worker 仍返回 `session_missing`，但同一 session 实际存在于 `feature-worktree-business-database-readiness` worktree；这证明“registry 存在”不等于“当前 cwd 的 `devin list` 可见”。
+- 在一次真实 PR 复测中，旧的常驻 worker 仍返回 `session_missing`，但同一 session 实际存在于另一个已登记 worktree；这证明“registry 存在”不等于“当前 cwd 的 `devin list` 可见”。
 - 一次并行化扫描实验进一步证明 Devin CLI 的 workspace projection 不是并发安全的：并发执行多个 `devin list` 会得到空投影，产生新的假阴性。因此并行扫描被撤回，不再作为优化方案。
 - 当前实现改为 `db-hinted-sequential-worktrees-v2`：先只读查询 `sessions.db` 的 `working_directory`，再顺序扫描边界内 worktree；不按 PR head 过滤，并在证据中记录 `registered_root`、`observed_root`、`lookup_roots` 和 discovery strategy。
-- host 侧使用系统代理对 PR #230、head `050e080e846a71cc1e1ba3192c38febbc9f7462d` 做了真实启动预检，结果为 `status=ready` / `preflight.status=ok`，固定 session `succinct-avenue` 被发现，模型 `SWE-2 High` 可用。沙盒内直接跑同一预检仍可能因无法连接本机代理而得到 `github_transport_unavailable`；这属于执行边界差异，不是 host 预检失败。
+- host 侧使用系统代理对真实 PR 做了启动预检，结果为 `status=ready` / `preflight.status=ok`，固定 session 被发现，模型 `SWE-2 High` 可用。沙盒内直接跑同一预检仍可能因无法连接本机代理而得到 `github_transport_unavailable`；这属于执行边界差异，不是 host 预检失败。
 - 长期 worker 必须从 canonical skill path 重启；若 evidence 中没有 `discovery_strategy: db-hinted-sequential-worktrees-v2`，应判定为旧 worker 副本，而不是让调用方自行修复或重试。
 - 2026-09-24 的跨项目实测再次暴露短超时：host preflight 的 `devin list` 4 秒预算在较慢但正常返回的 CLI 上误报 `session_output_invalid`。当前修复将每次显式 `cwd` 的 session list 命令预算提高到 30 秒，并加入回归测试；它不改变顺序 discovery、固定 session 或 fail-closed 边界。
 
 ## 八、登录 service 后的 queue timeout 与模型目录慢查询
 
-- 自动 LaunchAgent 已正常运行并持有代理环境，但 PR #233 的第一次请求仍被调用方记录为 `queue_response_timeout`。
+- 自动 LaunchAgent 已正常运行并持有代理环境，但一次真实请求仍被调用方记录为 `queue_response_timeout`。
 - queue 中最终产生的 host response/evidence 显示，真实错误是 `model_output_invalid`；进一步复现发现 `devin models list --format json` 在 host 上需要约 30 秒，而 `preflight.py` 仍使用 12 秒默认命令预算，导致可用的 `SWE-2 High` 被误判为模型输出无效。
-- 修复为模型目录查询使用独立的 60 秒预算，并增加回归测试；修复后对 PR #233 的 host preflight 已返回：`status=ok`、`model.available=true`、`label=SWE-2 High`、`session.list_state=present`。
+- 修复为模型目录查询使用独立的 60 秒预算，并增加回归测试；修复后的 host preflight 已返回：`status=ok`、`model.available=true`、`label=SWE-2 High`、`session.list_state=present`。
 - 该修复解决的是基础设施误判；此前 round 的 `await-user` 记录仍然有效，是否重新发起 review 必须由 review-round 控制线程产生新的授权决定。
 
 ## 九、修复 queue client 丢失规范化 JSON
 
-- PR #233 后续复测显示 host response 实际包含 `status`、`failure_code`、`evidence_ref`，但调用方仍报告“queue client 没有返回规范化 JSON”。
+- 后续复测显示 host response 实际包含 `status`、`failure_code`、`evidence_ref`，但调用方仍报告“queue client 没有返回规范化 JSON”。
 - 根因是 queue client 把合法的 `await-user` application status 映射成退出码 2；部分 harness 在非零退出时丢弃 stdout，于是调用方看不到 JSON 字段。
 - 现在只要拿到 `devin-host-review/v1` JSON（包括 `await-user`），queue client 都以退出码 0 输出；只有参数错误或无法得到规范化对象才返回非零。
 - 已用 host LaunchAgent 实测：无效仓库请求输出完整 JSON，包含 `status=await-user`、`failure_code=repo_identity_failed` 和 `evidence_ref`，退出码为 0。
 
 ## 十、修复大 PR patch 获取的 transport 脆弱性
 
-- PR #233 的一次 `gh pr diff` 复现返回 `TLS handshake timeout`，导致 provider 把完整 review 请求压成 `diff unavailable`。
+- 一次 `gh pr diff` 复现返回 `TLS handshake timeout`，导致 provider 把完整 review 请求压成 `diff unavailable`。
 - host provider 现在优先请求 GitHub REST diff media type，并在必要时回退到 `gh pr diff`；成功取得的 patch 只解析一次，同时用于 changed-line 校验和 Devin prompt。
-- host 侧对 PR #233 已验证：REST patch 获取成功，约 1.1 MB、2 个文件；因此该 PR 不再受原有 GraphQL 大补丁路径的单次超时影响。
+- host 侧已验证：REST patch 获取成功，约 1.1 MB、2 个文件；因此大补丁不再受原有 GraphQL 路径的单次超时影响。
 - 后续真实 round 又复现 `unexpected EOF`；连续 host 探测显示 REST 请求大多成功、偶发断流。provider 现在仅对传输形态错误做每条路径最多三次重试，认证/身份/HTTP 错误不重试，耗尽后仍返回带 evidence 的 `github_transport_unavailable`。
 - 紧接着又发现约 1.15 MB patch 被作为单个 Devin argv 传入，触发 `OSError`；同时一次遗留的诊断 worker 与 LaunchAgent 并行消费 queue，产生两份授权并覆盖 response。provider 现改用 `--prompt-file`，worker 增加单消费者锁、原子 request claim，以及带 request identity/evidence 的异常响应；诊断 worker 不能与登录服务并行运行。
 - 操作边界补充：`--startup-check` 不带 `--check-only` 会继续服务 queue；诊断必须显式使用 `--check-only`。即使误启动，新的 queue lock 也会让第二个 worker 立即以 `worker_already_running` 退出。
