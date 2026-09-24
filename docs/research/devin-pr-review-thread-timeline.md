@@ -109,7 +109,7 @@
   - `host_provider.py` 是 worker 内部组件，调用方不得直接调用。
 - 误把控制记录传给 provider 时，返回 `control_record_not_provider_request`，而不是让调用方猜测 `invalid-request` 的原因。
 
-## 十三、当前实现验证结果
+## 十三、当前实现验证与跨 harness 完成状态
 
 - provider、preflight、registry、repository binding 四组测试脚本均通过；另有 Python 编译检查和 `git diff --check` 通过。
 - 本轮新增的 host setup、清理策略、架构规范也已加入可重复验证：host setup 组合测试、cleanup 保留/过期授权测试，以及 v1/v2 Archify 结构与浏览器视觉检查。
@@ -126,8 +126,6 @@
   - `e67053c`：增加 host 预检超时边界和结构化超时结果
   - `3e35a24`：撤回并发 discovery，改用 DB hint + 顺序扫描
   - `6163e1e`：同步 discovery 策略回归测试
-
-## 十四、从基础设施完成到跨 harness 验证
 
 - **2026-09-20 至 2026-09-23：运行时与调用方边界收敛。** LaunchAgent、固定 host transport、fail-closed response、顺序 discovery、safe queue client、host setup、cleanup 和双 JSON 协议陆续完成；对应的 fake-runtime、queue、registry、worker、repository-binding、cleanup 和架构图检查均通过。新 worktree 由 parent wildcard 覆盖，调用方不需要重复 repository enrollment；Devin CLI 的 exact-path trust 仍属于 host 维护动作。
 - **2026-09-23：架构与发布记录同步。** v1/v2 Archify 图统一了 worker/provider/GitHub 的职责边界，并在 v2 中补出 Host enrollment → worker/provider/session 的控制路径；skill metadata 升级到 `0.3.0`，变更记录和实施提交保持可审计分组。
