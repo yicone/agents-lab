@@ -51,6 +51,8 @@ def test_review_prompt_repeats_complete_top_level_contract():
     assert "do not omit" in prompt
     assert "blocker, high, medium, or low" in prompt
     assert "never use should-fix" in prompt
+    assert "repository-relative POSIX path" in prompt
+    assert "never emit an absolute filesystem path" in prompt
 
 
 def test_control_record_is_not_accepted_as_provider_request():

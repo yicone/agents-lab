@@ -221,7 +221,9 @@ def build_review_prompt(pr, head, root, sid, patch):
             "actionable correctness, security, reliability, or maintainability findings on added RIGHT lines. "
             "Every finding severity MUST be exactly one of blocker, high, medium, or low; never use "
             "should-fix, must-fix, nit, info, or any other label. Use confidence as a number from 0 to 1, "
-            "side exactly RIGHT, and omit style-only or non-actionable observations.\n\n"
+            "side exactly RIGHT, and omit style-only or non-actionable observations. For every finding, "
+            "path MUST be a repository-relative POSIX path from the supplied patch (no leading slash and no '..' segments); "
+            "never emit an absolute filesystem path.\n\n"
             "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
 
 
