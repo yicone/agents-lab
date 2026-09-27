@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import build_devin_args, is_transport_error, is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
+from host_provider import build_devin_args, build_review_prompt, is_transport_error, is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
 
 
 class FakeResult:
@@ -40,6 +40,15 @@ def test_large_prompt_uses_prompt_file_not_argv():
     assert "/tmp/prompt.txt" in args
     assert "-p" in args
     assert not any("VERIFIED PR PATCH" in arg for arg in args)
+
+
+def test_review_prompt_repeats_complete_top_level_contract():
+    prompt = build_review_prompt(1, "a" * 40, "/repo", "free-birch", "diff --git a/a b/a")
+    assert '"schema": "devin-pr-review/v1"' in prompt
+    assert '"session_id": "free-birch"' in prompt
+    assert '"repository_root": "/repo"' in prompt
+    assert '"head_sha": "' + "a" * 40 + '"' in prompt
+    assert "do not omit" in prompt
 
 
 def test_control_record_is_not_accepted_as_provider_request():

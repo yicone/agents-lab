@@ -199,6 +199,29 @@ def build_devin_args(session_id, config, prompt_path):
              "--respect-workspace-trust", "true", "--prompt-file", str(prompt_path), "-p"]
     return args
 
+
+def build_review_prompt(pr, head, root, sid, patch):
+    contract = json.dumps({
+        "schema": "devin-pr-review/v1",
+        "session_id": sid,
+        "repository_root": root,
+        "pr_number": pr,
+        "head_sha": head,
+        "findings": [],
+    }, ensure_ascii=False, indent=2)
+    return ("Return exactly one JSON document and no Markdown, prose, code fence, or wrapper text. "
+            "The output must include every top-level field in the contract below; do not omit "
+            "the exact schema value even when findings is empty. Replace only the example values "
+            "and findings array contents.\n\n"
+            f"JSON contract:\n{contract}\n\n"
+            f"Review PR {pr} at head {head} in repository {root}. "
+            f"Your session_id is {sid}; repository_root is {root}. "
+            "The complete verified PR patch is supplied below. Do not invoke tools, run commands, "
+            "open files, call GitHub, edit, commit, or push. Use only this patch and report "
+            "actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.\n\n"
+            "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
+
+
 def run_review(root, origin, req, pf, evidence_payload):
     sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
     # Devin mutates a session's working_directory to the cwd used for the
@@ -211,12 +234,7 @@ def run_review(root, origin, req, pf, evidence_payload):
     lines = parse_changed_lines(patch)
     if not lines:
         return "await-user", [], evidence_payload | {"error": "diff_empty"}
-    prompt = ("Return exactly one JSON document matching devin-pr-review/v1, no Markdown. "
-              f"Review PR {pr} at head {head} in repository {root}. "
-              f"Your session_id is {sid}; repository_root is {root}. "
-              "The complete verified PR patch is supplied below. Do not invoke tools, run commands, open files, call GitHub, edit, commit, or push. "
-              "Use only this patch and report actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.\n\n"
-              "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
+    prompt = build_review_prompt(pr, head, root, sid, patch)
     config = os.environ.get("DEVIN_REVIEW_CONFIG")
     prompt_fd, prompt_path = tempfile.mkstemp(prefix="devin-review-prompt-", suffix=".txt")
     try:
