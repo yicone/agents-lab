@@ -218,7 +218,10 @@ def build_review_prompt(pr, head, root, sid, patch):
             f"Your session_id is {sid}; repository_root is {root}. "
             "The complete verified PR patch is supplied below. Do not invoke tools, run commands, "
             "open files, call GitHub, edit, commit, or push. Use only this patch and report "
-            "actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.\n\n"
+            "actionable correctness, security, reliability, or maintainability findings on added RIGHT lines. "
+            "Every finding severity MUST be exactly one of blocker, high, medium, or low; never use "
+            "should-fix, must-fix, nit, info, or any other label. Use confidence as a number from 0 to 1, "
+            "side exactly RIGHT, and omit style-only or non-actionable observations.\n\n"
             "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
 
 
