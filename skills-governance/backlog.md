@@ -11,10 +11,10 @@ This backlog tracks governance work for all Skills visible on the local machine.
 
 ## P0: Safety Before Routine Upgrades
 
-- [ ] Add a snapshot command that captures the exact pre-upgrade Skill tree, source metadata, and active adapter paths.
-- [ ] Add a before/after diff command or wrapper for runtime, plugin, and Skills CLI upgrades.
-- [ ] Define a review gate that blocks replacement when the diff contains unexpected instructions, scripts, network behavior, secret access, or trigger changes.
-- [ ] Preserve a reversible rollback path for each supported source class.
+- [x] Add a snapshot command that captures the exact pre-upgrade Skill tree, source metadata, and active adapter paths.
+- [x] Add a before/after diff command or wrapper for runtime, plugin, and Skills CLI upgrades.
+- [x] Define a conservative local review gate for changed instructions, scripts, network behavior, secret access, and trigger changes; use SkilLock for structured capability gating when adopted.
+- [x] Preserve a reversible rollback path for captured trees; provider-level package rollback remains source-manager-specific.
 
 ## P1: Non-local Customization
 

@@ -16,6 +16,8 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `skills/`: governance-specific agent entrypoints
 - `docs/`: durable governance rules, operating guides, and state-note conventions
 - `config/`: source classes and machine-readable governance metadata definitions
+- `scripts/`: snapshot, diff, gate, and rollback commands
+- `tests/`: focused tests for the safety commands
 - `backlog.md`: tracked work that is planned, in progress, or complete
 
 Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. The nested `skills/` here is intentionally limited to the governance workflow itself.
@@ -39,3 +41,5 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 - `skills-promote-global`: evaluate whether a locally owned Skill is suitable for global scope
 
 The current package is a governance control plane, not a replacement for runtime package managers or Skills CLI. It records and reviews changes before they become active where the underlying tool allows that.
+
+See [docs/upgrade-review.md](docs/upgrade-review.md) for the P0 command workflow and community implementation comparison.
