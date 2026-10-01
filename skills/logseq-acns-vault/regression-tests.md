@@ -86,9 +86,9 @@ Why this fails:
 ### With skill
 - Chosen page(s):
   - `[[OS-RES/Logseq CLI MCP plugin 协作方式]]`
-  - `[[Inbox]]`
+  - Apple Reminders (or Multica if process-state) — not long Inbox park
 - Decision: split
-- Namespace: `OS-RES/` for the durable topic; `Inbox` for the reminder
+- Namespace: `OS-RES/` for the durable topic; Reminders/Multica for the transient reminder
 - Minimal properties:
 
 ```markdown
@@ -102,7 +102,7 @@ related:: [[OS-AREA/信息管理]]
 
 Improvement:
 - Correctly treats the durable topic as maintained reference material.
-- Keeps the transient reminder out of the durable page.
+- Keeps the transient reminder out of the durable page (Reminders/Multica, not Inbox park).
 - Applies the minimal property block.
 
 ## Case 3
@@ -149,7 +149,7 @@ Observed pattern without the skill:
 
 Observed pattern with the skill:
 - consistent split of research vs governance/process
-- consistent use of `OS-*` namespaces or `Inbox`
+- consistent use of `OS-*` namespaces or Reminders/Multica for transient work (Inbox only short-TTL)
 - better reuse of existing owner pages
 - better minimal property discipline for new durable pages
 

@@ -15,11 +15,11 @@ This skill defines **how Logseq should be used inside the user's current ACNS / 
 It is not a generic Logseq skill and not a tool-execution manual.
 
 Use it to decide:
-- what belongs in Logseq
-- what should stay out of Logseq
+- what belongs in Logseq (stable conclusions)
+- what should stay out of Logseq (process → Multica; hard-deadline light actions → Apple Reminders)
 - how pages should be named
 - what structured properties are expected
-- when content belongs in `Inbox`, `Journals`, `AREA`, `PROJ`, `RES`, `LOG`, or should instead live in `Notion`
+- when content belongs in short-TTL `Inbox`, `Journals`, `AREA`, `PROJ`, `RES`, `LOG`, Multica, Reminders, or Notion
 
 Core principle:
 - optimize for machine-readable context, durable structure, and low maintenance cost
@@ -27,17 +27,23 @@ Core principle:
 
 ## Current System Role
 
-In the current three-core system:
+Agent-era layering v0.1 (post 2026-10-02 Inbox cleanup):
 
-- `Logseq` = context brain
-- `Notion` = project control tower and project task pool
-- `GitHub` = code-delivery surface
-- `Journals` = daily execution and review layer
-- `Inbox` = default global capture entry
-- `当前真实活任务` = short-lived reality-calibration layer
+| Layer | Role |
+|---|---|
+| `Logseq` vault | **Stable conclusions only** — context, decisions, logs, knowledge, areas |
+| `Multica` | Actionable / process / half-baked / tool-trial work home (e.g. ACM-105..110 demotions) |
+| `Apple Reminders` | Hard-deadline light actions (after threshold) |
+| `Notion` | Project control tower and structured project task pool |
+| `GitHub` | Code-delivery surface |
+| `Journals` | Daily execution and review layer |
+| `Inbox` | **Short-TTL unclear capture only** (shell: queries + empty 新捕获; not a task pool) |
+| `当前真实活任务` | Short-lived reality-calibration (superseded inventory → Multica + archive) |
 
 This means:
-- Logseq is the durable home for context, decisions, logs, knowledge, areas, and capture triage
+- Logseq is the durable home for **conclusions**, not a task park
+- Actionable process work → Multica; hard-deadline light actions → Apple Reminders
+- Inbox near-empty is healthy; archive at `[[I-LOG/Inbox清理归档-2026-10-02]]`
 - Logseq is **not** the default home for every project task
 - Logseq is **not** the only execution surface
 
@@ -45,7 +51,7 @@ This means:
 
 Use this skill when:
 - creating or renaming pages in the main vault
-- deciding whether content belongs in `AREA`, `PROJ`, `RES`, `LOG`, `Inbox`, or `Journals`
+- deciding whether content belongs in `AREA`, `PROJ`, `RES`, `LOG`, short-TTL `Inbox`, `Journals`, Multica, or Reminders
 - deciding whether a page should use a bare name or a namespace
 - adding structured properties such as `title::`, `type::`, `status::`, `related::`
 - deciding whether content should stay in Logseq or be written back to `Notion`
@@ -67,7 +73,7 @@ Use `logseq-acns-vault` to decide:
 - whether content belongs in the vault at all
 - which page owns it
 - which namespace and page type fit
-- whether the destination should be `Inbox`, `Journals`, `AREA`, `PROJ`, `RES`, or `LOG`
+- whether the destination should be short-TTL `Inbox`, `Journals`, Multica, Reminders, `AREA`, `PROJ`, `RES`, or `LOG`
 
 If destination ownership is already known and the content is a one-liner, use **Fast Path** below — skip remaining vault decisions and hand off to `logseq-acns-write` (`fast-append` / `inbox`).
 
@@ -105,7 +111,9 @@ Use:
 - `X-RES/` for maintained reference material, operating rules, or outputs
 - `X-LOG/` for decisions, evaluations, explorations, change records, and time-bound reasoning
 
-If the content is a temporary thought, capture, question, or unclassified task, prefer `[[Inbox]]`.
+If the content is an unclear short-TTL capture, prefer `[[Inbox]]` briefly — then Multica / promote / discard.
+If it is process / half-baked / tool-trial work, prefer **Multica** (do not park long in Inbox).
+If it is a hard-deadline light action, prefer **Apple Reminders**.
 
 If the content is "today-only" execution or review context, prefer `Journals`, not a durable page.
 
@@ -132,21 +140,28 @@ Rule:
 - project delivery action -> usually belongs in `Notion`
 - project governance, task triage, reasoning, or context -> usually belongs in `Logseq`
 
-### 4. Inbox vs Journal vs Durable Page
+### 4. Inbox vs Journal vs Durable Page vs Multica / Reminders
 
-Use `[[Inbox]]` when:
-- the item is newly captured
-- ownership is unclear
-- it is too early to decide whether it belongs in Logseq, Notion, GitHub, or reminder tools
+Use `[[Inbox]]` when (short TTL only):
+- the item is newly captured and ownership is unclear
+- you need a brief window before Multica / promote / discard
+- do **not** use Inbox as a task park or long incubating shelf
+
+Use **Multica** when:
+- process-state / half-baked / tool-trial / demote-worthy actionable work
+
+Use **Apple Reminders** when:
+- hard-deadline light actions that need reliable close-out
 
 Use `Journals` when:
 - the item is about today
 - it is part of today's execution slice
 - it is part of today's review or AI summary
 
-Use a durable page when:
-- the content has repeat-reference value
+Use a durable Logseq page when:
+- the content is a **stable conclusion** with repeat-reference value
 - it belongs to a stable domain, project, resource, or decision trail
+- longform: `pages/视频转长文%2F…` / `pages/X-digests%2F…` (not removed `00-Inbox/notes/`)
 
 ### 5. Current Real Tasks Layer
 
@@ -270,7 +285,7 @@ Do not invent a third write path. Do not force-merge into a single playbook. Sem
 Use this when friction would hurt more than ceremony helps.
 
 **Eligible when all are true:**
-- destination page (or layer) is already known: existing Logseq page title, today's `Journals`, or clear `[[Inbox]]` parking
+- destination page (or layer) is already known: existing Logseq page title, today's `Journals`, Multica, Reminders, or clear short-TTL `[[Inbox]]` capture
 - content is one short bullet / one sentence (single block; no multi-section body)
 - not creating a new long-term `AREA` / `PROJ` structure
 - not a confirmed project delivery action that belongs in Notion
@@ -297,9 +312,11 @@ If ownership is unclear, content needs structure, or a new durable page might be
    - project delivery task
    - architectural or governance decision
 2. Decide the system layer:
-   - `Inbox`
+   - short-TTL `Inbox` (capture only)
+   - Multica (process / actionable)
+   - Apple Reminders (hard deadline)
    - `Journals`
-   - durable Logseq page
+   - durable Logseq conclusion page
    - `Notion`
 3. If durable Logseq content is needed:
    - choose existing page first
@@ -349,7 +366,7 @@ Bad:
 - adding temporary TODOs or execution detail into an AREA hub
 
 Fix:
-- move temporary work to `Inbox`, `Journals`, a project task in `Notion`, or a LOG page if the main value is reasoning
+- move process / temporary actionable work to **Multica**, hard-deadline light actions to **Apple Reminders**, today's slice to `Journals`, project delivery to `Notion`, short-TTL unclear capture to `Inbox`, or a LOG page if the main value is reasoning — **do not dump temporary work into Inbox as a long-term park**
 
 ### Writing multi-section markdown into one block
 
@@ -375,7 +392,9 @@ Pressure:
 Correct response:
 - test page ownership first
 - if the content is mainly daily execution, put it in `Journals`
-- if it is mainly task capture, put it in `Inbox`
+- if it is short-TTL unclear capture, put it in `Inbox` briefly
+- if it is process / half-baked work, put it in Multica
+- if it is a hard-deadline light action, put it in Apple Reminders
 - if it is a confirmed project task, consider `Notion`
 
 ### Scenario 2: "This feels like a task, so Logseq should own it"
@@ -400,7 +419,7 @@ Pressure:
 
 Correct response:
 - AREA pages are stable hubs, not task dumps
-- route temporary tasks to `[[Inbox]]`, `Journals`, or `Notion`
+- route temporary actionable work to Multica / Apple Reminders / `Journals` / `Notion`; use `[[Inbox]]` only for short-TTL unclear capture
 
 ## Final Reminder
 

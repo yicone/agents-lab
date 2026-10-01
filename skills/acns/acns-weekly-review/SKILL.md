@@ -33,15 +33,20 @@ User input:
    - specified date: use that week's Monday to Sunday
 2. Collect sources
    - `journals/YYYY_MM_DD.md`
-   - `pages/OS-RES%2F当前真实活任务 v1.md`
+   - **Multica** active + demoted (e.g. ACM-105..110) — primary actionable inventory
+   - Apple Reminders hard-deadline items when available
+   - `pages/OS-RES%2F当前真实活任务 v1.md` (calibration; may be superseded — see banner)
    - relevant `pages/*-PROJ%2F*.md` and `pages/*-LOG%2F*.md`
-   - `pages/Inbox.md` for still-active capture residue
+   - `pages/Inbox.md` — expect **near-empty**; residual raw/incubating = debt only
+   - archive context: `[[I-LOG/Inbox清理归档-2026-10-02]]`
    - when available, current `Notion` project/task state for active projects
 3. Analyze across layers
    - daily execution signals from `Journals`
-   - reality calibration from `当前真实活任务`
+   - actionable movement from Multica + Reminders + Notion
+   - reality calibration from `当前真实活任务` (if still maintained)
    - project movement from `Notion` and project pages
-   - system drift: tasks that are alive in conversation but missing from durable systems
+   - system drift: tasks alive in conversation but missing from Multica/Reminders/Notion
+   - Inbox should stay near-empty; volume there is debt, not progress
 4. Generate the review
    - write to current Journal or a dedicated weekly review page
 
@@ -65,7 +70,8 @@ Optional:
 
 ## Important Rules
 
-- do not treat `Inbox` volume as weekly progress
+- do not treat `Inbox` volume as weekly progress — near-empty is healthy
+- collect Multica active/demoted as the process-task reality check
 - do not confuse project context notes with real task movement
 - use `Notion` task state when it is the actual project task pool
 - use `Journals` to understand what the user really touched this week

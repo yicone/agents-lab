@@ -71,12 +71,20 @@ A write plan with:
 - Do not emit a block that contains multiple headings.
 - Do not emit a block that contains multiple unordered-list scopes.
 
+## Inbox intent (capture only)
+
+`intent_type: inbox` writes a **short-TTL capture** into `pages/Inbox.md` 「新捕获」— **not** a task-pool park.
+- Process / half-baked / tool-trial → Multica (do not use inbox intent)
+- Hard-deadline light actions → Apple Reminders
+- Stable conclusions → namespaced pages via `note-update` / `fast-append`
+- Routing after capture: `acns-route-inbox`
+
 ## First Supported Intent Types
 
 - `log`
-- `inbox`
+- `inbox` — short-TTL capture shell only (see above); not a task pool
 - `note-update`
-- `fast-append` — known existing page (or Inbox/Journal title), one block only; `page_should_create=false`; minimal/no new page properties
+- `fast-append` — known existing page (or short-TTL Inbox/Journal title), one block only; `page_should_create=false`; minimal/no new page properties
 
 ### `fast-append` rules
 
