@@ -26,6 +26,7 @@ The rules here should stay tool-agnostic by default so they remain usable across
 - Skills governance case prompt: [../skills-governance/docs/case-prompt.md](../skills-governance/docs/case-prompt.md)
 - Multi-repo AGENTS.md governance research: [research/agents-md-multi-repo-governance.md](research/agents-md-multi-repo-governance.md)
 - Devin PR review thread evolution: [research/devin-pr-review-thread-timeline.md](research/devin-pr-review-thread-timeline.md)
+- Devin Desktop session ↔ workspace archive: [research/devin-session-workspace/README.md](research/devin-session-workspace/README.md)
 - Logseq vault skill inventory stub: [../skills-governance/docs/logseq-vault-skill-inventory.md](../skills-governance/docs/logseq-vault-skill-inventory.md)
 - Memory writing format: [conventions/memory-writing.md](conventions/memory-writing.md)
 - API gateway cache probes: [api-gateway-cache-probe/README.md](api-gateway-cache-probe/README.md)
