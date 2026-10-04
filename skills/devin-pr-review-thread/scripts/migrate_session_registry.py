@@ -41,6 +41,7 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
                 raise RuntimeError(f"legacy entry {key} has invalid repository: {exc}") from exc
             entry = dict(raw)
             entry.setdefault("session_root", key)
+            entry.setdefault("session_layout", "exact-root")
             entry["repository"] = origin
         else:
             try:
@@ -48,6 +49,7 @@ def migrate(data: dict[str, Any]) -> dict[str, Any]:
             except BindingError as exc:
                 raise RuntimeError(f"invalid v2 registry key {key}: {exc}") from exc
             entry = dict(raw)
+            entry.setdefault("session_layout", "exact-root")
             entry["repository"] = normalize_origin(str(entry.get("repository", origin)))
         sid = entry.get("session_id")
         if not isinstance(sid, str) or not sid:

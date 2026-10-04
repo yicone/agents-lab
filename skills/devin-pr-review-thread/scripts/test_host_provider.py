@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
-from host_provider import build_devin_args, build_review_prompt, is_transport_error, is_unresolvable_review_comment, parse_changed_lines, response, review_execution_root, validate_request
+from unittest.mock import patch
+from host_provider import build_devin_args, build_review_prompt, is_transport_error, is_unresolvable_review_comment, parse_changed_lines, post_review_session_guard, response, review_execution_root, validate_request
 
 
 class FakeResult:
@@ -24,6 +25,13 @@ def test_review_execution_uses_registered_root_not_request_worktree():
     with tempfile.TemporaryDirectory() as canonical, tempfile.TemporaryDirectory() as request_root:
         assert review_execution_root(request_root, {"registered_root": canonical}) == canonical
         assert review_execution_root(request_root, {"registered_root": "/missing"}) == request_root
+
+def test_post_review_guard_rejects_session_drift():
+    with tempfile.TemporaryDirectory() as root:
+        with patch("host_provider.subprocess.run", return_value=FakeResult(0, stdout='[{"id":"s","working_directory":"/other"}]')):
+            error, evidence = post_review_session_guard(root, "s")
+        assert error == "session_working_directory_drift"
+        assert evidence["expected_root"] == str(pathlib.Path(root).resolve())
 
 def test_rest_patch_parser_tracks_added_right_lines():
     patch = "diff --git a/file.py b/file.py\n+++ b/file.py\n@@ -1,2 +1,3 @@\n old\n+new\n+newer\n"

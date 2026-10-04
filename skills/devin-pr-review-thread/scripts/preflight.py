@@ -13,7 +13,15 @@ import subprocess
 import sys
 from typing import Any
 
-from repository_binding import BindingError, load_origin_entry, normalize_origin, validate_worktree_boundary
+from repository_binding import (
+    BindingError,
+    SESSION_LAYOUT_EXACT_ROOT,
+    SESSION_LAYOUTS,
+    load_origin_entry,
+    normalize_origin,
+    resolve_session_binding,
+    validate_session_layout,
+)
 
 SCHEMA = "devin-pr-review/preflight-v1"
 DISCOVERY_STRATEGY = "db-hinted-sequential-worktrees-v2"
@@ -58,6 +66,13 @@ def origin_name(root: str) -> str | None:
         return normalize_origin(out.strip())
     except BindingError:
         return None
+
+
+def git_common_dir(root: str) -> str | None:
+    code, out, _ = run(["git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if code or not out.strip():
+        return None
+    return str(pathlib.Path(out.strip()).resolve())
 
 
 def classify_github_error(code: int, stderr: str) -> str:
@@ -199,11 +214,29 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
     sid = entry.get("session_id")
     result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None,
               "registered_root": None, "observed_root": None, "enrolled_parent": None,
+              "repository_root": None,
+              "repository_common_dir": None,
+              "session_layout": SESSION_LAYOUT_EXACT_ROOT,
               "lookup_roots": [], "discovery_strategy": DISCOVERY_STRATEGY}
     registered_root = entry.get("session_root")
     if not isinstance(registered_root, str) or not registered_root:
         return result, "session_root_mismatch"
     registered_root = str(pathlib.Path(registered_root).resolve())
+    try:
+        binding = resolve_session_binding(entry)
+    except BindingError:
+        return result, "session_root_mismatch"
+    repository_root = binding["repository_root"]
+    result["repository_root"] = repository_root
+    registered_common = binding.get("repository_common_dir") or git_common_dir(repository_root)
+    requested_common = git_common_dir(root)
+    if not registered_common or not requested_common or requested_common != registered_common:
+        return result, "repository_boundary_mismatch"
+    result["repository_common_dir"] = registered_common
+    session_layout = entry.get("session_layout", SESSION_LAYOUT_EXACT_ROOT)
+    if session_layout not in SESSION_LAYOUTS:
+        return result, "session_root_mismatch"
+    result["session_layout"] = session_layout
     enrolled_parent = entry.get("enrolled_parent")
     if enrolled_parent is not None and not isinstance(enrolled_parent, str):
         return result, "session_root_mismatch"
@@ -211,8 +244,14 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
         enrolled_parent = str(pathlib.Path(enrolled_parent).resolve())
 
     result["registered_root"] = registered_root
-    lookup_roots = session_lookup_roots(root, registered_root, enrolled_parent)
+    # Read the host-side workspace hint before enumerating worktrees.  In the
+    # parent layout the hint is an authoritative drift signal; do not spend
+    # time running `git worktree list` (or `devin list`) when it already proves
+    # that the fixed session moved away from its enrolled execution root.
     hinted_root = session_database_root(sid)
+    if session_layout == "parent-of-repository" and hinted_root and hinted_root != registered_root:
+        return result, "session_working_directory_drift"
+    lookup_roots = session_lookup_roots(root, registered_root, enrolled_parent)
     if hinted_root and hinted_root not in lookup_roots:
         try:
             inside_boundary = pathlib.Path(hinted_root).is_relative_to(pathlib.Path(registered_root))
@@ -250,9 +289,11 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path, expecte
         return result, "session_root_mismatch"
     actual_root = str(pathlib.Path(result["root"]).resolve())
     result["observed_root"] = actual_root
-    if not validate_worktree_boundary(root, registered_root, enrolled_parent):
+    if session_layout == "parent-of-repository" and actual_root != registered_root:
+        return result, "session_working_directory_drift"
+    if not validate_session_layout(root, registered_root, enrolled_parent, session_layout, repository_root=repository_root):
         return result, "session_root_mismatch"
-    if actual_root != root and not validate_worktree_boundary(actual_root, registered_root, enrolled_parent):
+    if actual_root != registered_root and not validate_session_layout(actual_root, registered_root, enrolled_parent, session_layout, repository_root=repository_root):
         return result, "session_root_mismatch"
     result["enrolled_parent"] = enrolled_parent
     return result, None
@@ -294,7 +335,8 @@ def main() -> int:
         "repository": {"canonical_root": root, "origin": None},
         "pr": {"number": args.pr, "head_sha": None},
         "model": {"label": None, "model_uid": None, "expires_on": EXPIRY.isoformat(), "available": None},
-        "workspace_trust": {"state": "unknown", "source": args.trusted_workspaces},
+        "workspace_trust": {"state": "unknown", "source": args.trusted_workspaces,
+                             "repository_root": "unknown", "session_root": "unknown"},
         "session": {"id": None, "registry_state": "unknown", "list_state": "unknown", "root": None},
         "lock": {"state": "none", "path": None, "pid": None, "holder_identity": None},
         "runtime": {"desktop_or_acp_processes": []}, "capabilities": [], "diagnostics": [],
@@ -313,7 +355,15 @@ def main() -> int:
         extra_trust = set()
         if isinstance(out["session"].get("enrolled_parent"), str):
             extra_trust.add(out["session"]["enrolled_parent"])
-        out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces), extra_trust)
+        target_trust = trust_state(root, pathlib.Path(args.trusted_workspaces), extra_trust)
+        session_root = out["session"].get("registered_root")
+        session_trust = trust_state(session_root, pathlib.Path(args.trusted_workspaces), extra_trust) if isinstance(session_root, str) else {"state": "unknown"}
+        out["workspace_trust"] = {
+            "state": "trusted" if target_trust.get("state") == "trusted" and session_trust.get("state") == "trusted" else "untrusted",
+            "source": args.trusted_workspaces,
+            "repository_root": target_trust.get("state"),
+            "session_root": session_trust.get("state"),
+        }
         if session_error and out["status"] == "ok": out["status"] = session_error
         out["lock"] = lock_state(out["session"].get("id"), pathlib.Path(args.session_lock_dir))
         if out["workspace_trust"]["state"] != "trusted" and out["status"] == "ok": out["status"] = "workspace_untrusted"

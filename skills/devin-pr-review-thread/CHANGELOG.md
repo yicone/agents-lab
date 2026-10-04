@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — 2026-10-04
+
+- Added explicit `parent-of-repository` session layout with separate repository
+  and Devin execution roots, resolved Git common-directory binding, and
+  host-only `--check-only` enrollment.
+- Preflight now checks target and execution trust separately, rejects common-dir
+  and fixed-session workspace drift before discovery, and records protected
+  layout evidence.
+- Added post-review session drift protection and queue-client wait-contract
+  regressions.
+
 ## 0.3.0 — 2026-09-24
 
 - Added host-only `host_setup.py` to enroll the exact main workspace, a future-worktree parent wildcard, and one fixed Devin session as an idempotent setup.

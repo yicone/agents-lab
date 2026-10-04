@@ -17,6 +17,11 @@ class BindingError(ValueError):
     """A repository binding is invalid or ambiguous."""
 
 
+SESSION_LAYOUT_EXACT_ROOT = "exact-root"
+SESSION_LAYOUT_PARENT_OF_REPOSITORY = "parent-of-repository"
+SESSION_LAYOUTS = {SESSION_LAYOUT_EXACT_ROOT, SESSION_LAYOUT_PARENT_OF_REPOSITORY}
+
+
 def normalize_origin(remote: str) -> str:
     """Return canonical ``owner/repository`` for a GitHub SSH/HTTPS remote."""
     value = remote.strip()
@@ -107,3 +112,62 @@ def validate_worktree_boundary(requested_root: str | pathlib.Path,
     except ValueError:
         return False
     return requested.is_dir()
+
+
+def validate_session_layout(requested_root: str | pathlib.Path,
+                            session_root: str | pathlib.Path,
+                            enrolled_parent: str | pathlib.Path | None,
+                            layout: str = SESSION_LAYOUT_EXACT_ROOT,
+                            *, repository_root: str | pathlib.Path | None = None) -> bool:
+    """Validate the repository target against the session workspace layout.
+
+    ``exact-root`` preserves the original binding.  ``parent-of-repository``
+    permits a registered session workspace to be the immediate parent of the
+    main repository, plus worktrees below the explicitly enrolled parent.
+    The parent layout is opt-in so a broad filesystem parent is never inferred
+    from a path alone.
+    """
+    if layout not in SESSION_LAYOUTS:
+        return False
+    record = {"session_root": str(session_root), "session_layout": layout}
+    if repository_root is not None:
+        record["repository_root"] = str(repository_root)
+    if enrolled_parent is not None:
+        record["enrolled_parent"] = str(enrolled_parent)
+    try:
+        binding = resolve_session_binding(record)
+    except BindingError:
+        return False
+    return validate_worktree_boundary(requested_root, binding["repository_root"], binding["enrolled_parent"])
+
+
+def resolve_session_binding(entry: dict[str, Any]) -> dict[str, Any]:
+    """Resolve explicit roots without broadening an old v2 binding."""
+    layout = entry.get("session_layout", SESSION_LAYOUT_EXACT_ROOT)
+    if not isinstance(layout, str) or layout not in SESSION_LAYOUTS:
+        raise BindingError("session_layout_invalid")
+
+    def absolute_path(value: Any) -> pathlib.Path:
+        if not isinstance(value, str) or not value or not pathlib.Path(value).is_absolute():
+            raise BindingError("session_root_mismatch")
+        return pathlib.Path(value).resolve()
+
+    session = absolute_path(entry.get("session_root"))
+    if layout == SESSION_LAYOUT_PARENT_OF_REPOSITORY and "repository_root" not in entry:
+        raise BindingError("session_repository_root_missing")
+    repository = absolute_path(entry.get("repository_root", str(session)))
+    enrolled = absolute_path(entry["enrolled_parent"]) if entry.get("enrolled_parent") is not None else None
+    if layout == SESSION_LAYOUT_EXACT_ROOT:
+        if repository != session:
+            raise BindingError("session_root_mismatch")
+    elif repository.parent != session or repository == session:
+        raise BindingError("session_root_outside_registered_boundary")
+    if layout == SESSION_LAYOUT_PARENT_OF_REPOSITORY and enrolled is not None:
+        if enrolled == session or not enrolled.is_relative_to(session):
+            raise BindingError("session_root_outside_registered_boundary")
+    common_dir = entry.get("repository_common_dir")
+    if common_dir is not None and (not isinstance(common_dir, str) or not common_dir or not pathlib.Path(common_dir).is_absolute()):
+        raise BindingError("repository_common_dir_invalid")
+    return {"repository_root": str(repository), "session_root": str(session),
+            "session_layout": layout, "enrolled_parent": str(enrolled) if enrolled else None,
+            "repository_common_dir": str(pathlib.Path(common_dir).resolve()) if common_dir else None}

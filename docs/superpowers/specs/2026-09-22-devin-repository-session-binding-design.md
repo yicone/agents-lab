@@ -16,6 +16,14 @@ Every review request still carries its concrete worktree root. The provider
 resolves that root's Git origin, requires an exact match with the registered
 repository binding, and uses the fixed session for that repository.
 
+The registry now records an explicit `session_layout`. `exact-root` preserves
+the original behavior. `parent-of-repository` is an opt-in layout for a Devin
+session whose working directory is the immediate parent of the main repository;
+future worktrees are allowed only below the separately enrolled worktree
+parent. The provider still uses the registered session workspace as its Devin
+cwd while GitHub identity and patch validation use the concrete repository
+root.
+
 ## Registry and migration
 
 Keep the registry host-owned and non-secret, but make its key an exact GitHub
@@ -27,6 +35,9 @@ origin rather than a filesystem wildcard:
     "repository": "yicone/yr-monorepo",
     "session_id": "succinct-avenue",
     "session_root": "/Users/tr/Workspace/yr",
+    "repository_root": "/Users/tr/Workspace/yr",
+    "repository_common_dir": "/Users/tr/Workspace/yr/.git",
+    "session_layout": "exact-root",
     "model": "SWE-2 High",
     "created_at": "2026-09-20T00:00:00Z",
     "last_verified_at": "2026-09-20T00:00:00Z"
@@ -35,11 +46,17 @@ origin rather than a filesystem wildcard:
 ```
 
 The provider must verify that the session exists, has the exact configured
-model, and is rooted at `session_root`. Registry version 2 is keyed by exact
+model, is rooted at `session_root` according to `session_layout`, and shares the
+recorded Git common directory with the requested repository. Registry version 2 is keyed by exact
 normalized origin; the old root-keyed format is read-only legacy input and
 must be migrated by the host-only enrollment tool before review. The provider
 must not silently create a second session or accept a root mismatch as a new
 binding.
+
+For `parent-of-repository`, `session_root` must be the immediate parent of the
+registered main repository and the enrolled worktree parent must be a child of
+that session root. A layout value is never inferred from directory ancestry;
+omitting it keeps `exact-root` semantics.
 
 Origin normalization accepts SSH and GitHub HTTPS forms, removes one trailing
 `.git`, rejects URL credentials, ports, enterprise hosts, fragments, query
@@ -54,7 +71,8 @@ by multiple origins are hard failures; the tool must not choose one.
 1. Host preflight canonicalizes the requested worktree root.
 2. It resolves `remote.origin.url` and normalizes it to `owner/repository`.
 3. It loads the exact origin entry from the session registry.
-4. It verifies the Devin session against the registered `session_root`.
+4. It verifies the Devin session against the registered `session_root` and
+   explicit `session_layout`.
 5. It checks the requested root against the host allowlist and its actual
    origin. A worktree is eligible only when it is a Git worktree of that
    origin and is either the registered session root or an enrolled worktree
@@ -84,6 +102,8 @@ membership. A worktree from another repository is rejected.
 - Missing origin entry: `session_registry_missing` → `await-user`.
 - Missing or mismatched Devin session: `session_missing` or
   `session_root_mismatch` → `await-user`.
+- An unknown or contradictory `session_layout` is `session_root_mismatch`;
+  enrollment must be rerun explicitly rather than inferred from the path.
 - Different worktree origin or target outside the enrolled boundary:
   `invalid-request` (the request is not eligible for this repository session).
 - Missing allowlist or inconsistent host enrollment: `await-user` with
@@ -101,6 +121,9 @@ Add tests for:
 - sibling and nested worktrees from a different origin being rejected;
 - a worktree outside the registered session-root parent being rejected;
 - exact session-root verification;
+- explicit `exact-root` and `parent-of-repository` layout validation;
+- parent-layout rejection of sibling repositories and worktree parents outside
+  the registered session root;
 - SSH/HTTPS origin normalization and ambiguous remote rejection;
 - duplicate origin/session references failing closed;
 - registry entries with missing, duplicate, or mismatched sessions;

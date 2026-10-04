@@ -8,6 +8,8 @@ import pathlib
 import subprocess
 import sys
 
+from repository_binding import SESSION_LAYOUTS
+
 
 ROOT = pathlib.Path(__file__).resolve().parent
 
@@ -34,6 +36,12 @@ def main() -> int:
     parser.add_argument("--worktree-parent", help="parent containing sibling/nested worktrees")
     parser.add_argument("--session-id", required=True, help="existing Devin session; never created implicitly")
     parser.add_argument("--session-root", help="registered Devin workspace; defaults to --repo-root")
+    parser.add_argument(
+        "--session-layout",
+        choices=sorted(SESSION_LAYOUTS),
+        default="exact-root",
+        help="relationship between the Devin workspace and repository root",
+    )
     parser.add_argument("--allowlist", default="~/.config/devin/provider-allowlist.json")
     parser.add_argument("--registry", default="~/.config/devin/pr-review-sessions.json")
     args = parser.parse_args()
@@ -51,8 +59,10 @@ def main() -> int:
         parent = str(pathlib.Path(args.worktree_parent).expanduser().resolve())
         steps.append(run_step("host_enroll.py", ["--worktree-parent", parent, "--allowlist", allowlist]))
         steps.append(run_step("session_enroll.py", [
+            "--repo-root", repo_root,
             "--worktree-parent", parent,
             "--session-root", session_root,
+            "--session-layout", args.session_layout,
             "--session-id", args.session_id,
             "--registry", registry,
         ]))
@@ -60,6 +70,7 @@ def main() -> int:
         steps.append(run_step("session_enroll.py", [
             "--repo-root", repo_root,
             "--session-root", session_root,
+            "--session-layout", args.session_layout,
             "--session-id", args.session_id,
             "--registry", registry,
         ]))
@@ -69,6 +80,7 @@ def main() -> int:
         "status": "enrolled",
         "repository_root": repo_root,
         "session_root": session_root,
+        "session_layout": args.session_layout,
         "worktree_parent": str(pathlib.Path(args.worktree_parent).expanduser().resolve()) if args.worktree_parent else None,
         "session_id": args.session_id,
         "steps": steps,

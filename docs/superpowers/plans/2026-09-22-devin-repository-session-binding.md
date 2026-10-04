@@ -4,7 +4,7 @@
 
 **Goal:** Reuse one fixed Devin session for a GitHub repository across its main workspace and nested worktrees while preserving origin and trust boundaries.
 
-**Architecture:** Add shared origin normalization and repository-level registry resolution. Preflight verifies the fixed session against the registered main workspace, while provider execution targets the validated worktree. Add a host-only session enrollment command and regression tests; keep `host_enroll.py` limited to GitHub allowlist enrollment.
+**Architecture:** Add shared origin normalization and repository-level registry resolution. Preflight verifies the fixed session against the registered main workspace and an explicit session layout (`exact-root` or `parent-of-repository`), while provider execution keeps the session workspace as Devin's cwd and uses the validated repository root for GitHub identity and patch checks. Add a host-only session enrollment command and regression tests; keep `host_enroll.py` limited to GitHub allowlist enrollment.
 
 **Tech Stack:** Python 3.11, JSON registries, Devin CLI, existing provider contract tests.
 
@@ -31,6 +31,8 @@
 - [ ] Change registry lookup from exact root to normalized origin v2.
 - [ ] Detect legacy root-keyed or mixed registries as read-only input; refuse review until host-only enrollment migrates them atomically to v2.
 - [ ] Keep session root verification against the registered main workspace.
+- [ ] Record and validate `session_layout`; default missing legacy v2 fields to `exact-root`.
+- [ ] Support `parent-of-repository` only when the main repository is the session root's immediate child and the enrolled worktree parent is beneath it.
 - [ ] Reject worktrees with different origin or outside the enrolled boundary.
 - [ ] Preserve stable `session_*` and `workspace_untrusted` statuses.
 - [ ] Run preflight-related tests and compile checks.
@@ -56,6 +58,7 @@
 - Modify: `skills/devin-pr-review-thread/SKILL.md`
 
 - [ ] Pass the validated worktree target to Devin while retaining the registered main workspace as session trust anchor.
+- [ ] Keep provider execution cwd at the registered session root for both layouts; never infer a parent layout from the request path.
 - [ ] Invoke Devin with `cwd=<validated worktree root>` and include the same absolute target in the review prompt; reject targets outside the registered root/worktree boundary.
 - [ ] Ensure authorization/preflight failures return stable `await-user` or `provider-unavailable`, not misleading `invalid-request` caused by missing host authorization.
 - [ ] State that worker is a host-side long-running process and does not create sessions.

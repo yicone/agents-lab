@@ -191,6 +191,31 @@ def review_execution_root(request_root, session):
     return request_root
 
 
+def post_review_session_guard(execution_root, session_id):
+    """Confirm Devin did not move the fixed session during the review."""
+    try:
+        process = subprocess.run(
+            ["devin", "list", "--format", "json"],
+            cwd=execution_root,
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "session_working_directory_drift", {"error": type(exc).__name__}
+    if process.returncode != 0:
+        return "session_working_directory_drift", {"error": process.stderr[-1000:]}
+    try:
+        sessions = json.loads(process.stdout)
+    except json.JSONDecodeError:
+        return "session_working_directory_drift", {"error": "session_list_invalid_json"}
+    match = next((item for item in sessions if isinstance(item, dict) and item.get("id") == session_id), None) if isinstance(sessions, list) else None
+    observed = match.get("working_directory") if isinstance(match, dict) else None
+    if not isinstance(observed, str) or pathlib.Path(observed).resolve() != pathlib.Path(execution_root).resolve():
+        return "session_working_directory_drift", {"observed_root": observed, "expected_root": str(pathlib.Path(execution_root).resolve())}
+    return None, {"observed_root": str(pathlib.Path(observed).resolve())}
+
+
 def build_devin_args(session_id, config, prompt_path):
     args = ["devin"]
     if config:
@@ -252,6 +277,11 @@ def run_review(root, origin, req, pf, evidence_payload):
         except OSError: pass
         pathlib.Path(prompt_path).unlink(missing_ok=True)
         return "await-user", [], evidence_payload | {"error": "prompt_file_failure"}
+    guard_error, guard_evidence = post_review_session_guard(execution_root, sid)
+    evidence_payload["pre_review_session"] = guard_evidence
+    if guard_error:
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
+        return "await-user", [], evidence_payload | {"error": guard_error}
     try:
         p = subprocess.run(devin_args, cwd=execution_root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
     except (OSError, subprocess.SubprocessError) as exc:
@@ -261,6 +291,10 @@ def run_review(root, origin, req, pf, evidence_payload):
         pathlib.Path(prompt_path).unlink(missing_ok=True)
     evidence_payload |= {"returncode": p.returncode, "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}
     if p.returncode != 0 or "requires confirmation" in p.stderr.lower(): return "await-user", [], evidence_payload | {"error": "permission_or_process_failure"}
+    guard_error, guard_evidence = post_review_session_guard(execution_root, sid)
+    evidence_payload["post_review_session"] = guard_evidence
+    if guard_error:
+        return "await-user", [], evidence_payload | {"error": guard_error}
     start = p.stdout.find("{")
     cleaned = p.stdout[start:] if start >= 0 else p.stdout
     try:

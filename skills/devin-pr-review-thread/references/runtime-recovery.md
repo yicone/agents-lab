@@ -9,7 +9,7 @@ This file is for the skill implementation and operator diagnostics. A consuming 
 | Status | Caller action |
 | --- | --- |
 | `ok` | Continue with the authorized review run. |
-| `workspace_untrusted`, `model_unavailable`, `model_expired`, `permission_denied`, `session_*`, `*_invalid`, `acp_startup_failed` | Stop and return `await-user` with the protected evidence path. |
+| `workspace_untrusted`, `model_unavailable`, `model_expired`, `permission_denied`, `session_*`, `repository_boundary_mismatch`, `*_invalid`, `acp_startup_failed` | Stop and return `await-user` with the protected evidence path. |
 | `review-published` | Continue to round-control handoff. |
 
 The caller must not inspect or repair locks, trust stores, process lists, model catalogs, Desktop state, or permission settings. Those belong to the provider runtime.
@@ -38,6 +38,20 @@ launchctl print "gui/$UID/com.tr.agentslab.devin-pr-review-thread"
 The service must point at the canonical skill path, use the host proxy environment, and remain resident while it polls `/private/tmp/devin-host-review`. It does not embed a PR number; every request is preflighted independently. After replacing skill scripts, reinstall/kickstart the LaunchAgent and verify the emitted evidence contains `discovery_strategy: db-hinted-sequential-worktrees-v2`. Stop any older manually launched worker only after the new LaunchAgent is loaded and healthy.
 
 The Devin model catalog is a slow host operation. `preflight.py` gives `devin models list --format json` a 60-second command budget and `devin list --format json` a 30-second command budget inside the overall 90-second preflight ceiling; a shorter caller-side timeout must not reinterpret either result as invalid session/model metadata.
+
+Session layout is host-owned metadata. `exact-root` is the default; use
+`--session-layout parent-of-repository` only when the fixed Devin session is
+actually rooted at the repository's immediate parent and the worktree parent is
+inside that root. A sibling repository or an inferred filesystem parent is a
+layout mismatch and must stop preflight.
+
+The registry records the resolved Git common directory for the main repository.
+Preflight compares it with the requested root before reading the Devin session
+database or enumerating worktrees. A mismatch is
+`repository_boundary_mismatch`; a database hint or `devin list` result that
+places the fixed session outside its enrolled execution root is
+`session_working_directory_drift`. These are host-maintainer states, not
+consumer retry signals.
 
 Large PR patches use the GitHub REST diff media type first, with `gh pr diff` as a fallback. Each path may make at most three attempts for a transport-shaped failure (TLS, timeout, proxy, connection, DNS, or EOF); authentication, identity, and HTTP errors are not retried. An exhausted transport failure is preserved in evidence as `github_transport_unavailable`; a successful patch fetch is parsed once and reused for both changed-line validation and the Devin prompt. The prompt is passed through Devin's mode-0600 `--prompt-file`, not argv, so a large patch cannot hit the host's argument-size limit.
 

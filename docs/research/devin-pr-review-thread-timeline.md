@@ -130,6 +130,7 @@
 - **2026-09-20 至 2026-09-23：运行时与调用方边界收敛。** LaunchAgent、固定 host transport、fail-closed response、顺序 discovery、safe queue client、host setup、cleanup 和双 JSON 协议陆续完成；对应的 fake-runtime、queue、registry、worker、repository-binding、cleanup 和架构图检查均通过。新 worktree 由 parent wildcard 覆盖，调用方不需要重复 repository enrollment；Devin CLI 的 exact-path trust 仍属于 host 维护动作。
 - **2026-09-23：架构与发布记录同步。** v1/v2 Archify 图统一了 worker/provider/GitHub 的职责边界，并在 v2 中补出 Host enrollment → worker/provider/session 的控制路径；skill metadata 升级到 `0.3.0`，变更记录和实施提交保持可审计分组。
 - **2026-09-24：从 preflight 修复扩展到真实 review。** 跨项目实测证明，较慢但正常返回的 `devin list` 不应被短预算误判为 provider 故障；将 session-list 预算提高到 30 秒并重启 canonical LaunchAgent 后，固定 session、精确模型和 GitHub transport 均可通过 host preflight，queue client 能完成一次真实 `review-published`。该验证只记录能力边界，不把具体仓库、PR、head、session 或 evidence 标识写入本时间线。
+- **2026-10-04：支持父目录 session 并收紧执行边界。** 针对 Devin session 位于仓库父目录的布局，registry 新增显式 `repository_root`、`session_root`、`session_layout` 和 Git common-directory 绑定；`parent-of-repository` 仅在 host enrollment 明确声明时启用，不从目录结构推断，也不接受同源独立 clone。preflight 现在分别验证 review target 与 session execution root 的 trust，并在 discovery 前拒绝 common-dir 不一致或固定 session workspace 漂移；provider 在 Devin 退出后再次检查漂移，避免错误结果发布到 GitHub。queue client 的等待契约同时要求调用方等待同一进程的规范化终态，不以中间无输出推断失败。
 - **当前状态。** P0/P1/P2 的 host 生命周期、transport、授权、证据清理、协议和回归验证已经完成；后续真实 review 仍必须由使用方控制线程记录新的 bounded round 授权，provider 只消费最小 queue request 并返回经过校验的结果。
 
 ## 记录边界

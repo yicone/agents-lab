@@ -81,6 +81,7 @@ class SessionDiscoveryTests(unittest.TestCase):
             }))
             worktree_list = f"worktree {main}\n\nworktree {worktree}\n\n"
             with patch("preflight.session_database_root", return_value=None), patch(
+                "preflight.git_common_dir", return_value="/common"), patch(
                 "preflight.run",
                 side_effect=[
                     (0, worktree_list, ""),
@@ -92,6 +93,74 @@ class SessionDiscoveryTests(unittest.TestCase):
             self.assertIsNone(error)
             self.assertEqual(state["observed_root"], str(worktree.resolve()))
             self.assertEqual(state["registered_root"], str(main.resolve()))
+
+    def test_parent_layout_is_reported_and_validated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = pathlib.Path(directory)
+            session = base / "project"
+            repo = session / "repo"
+            worktrees = session / ".worktrees"
+            worktree = worktrees / "feature"
+            for path in (session, repo, worktrees, worktree):
+                path.mkdir()
+            registry = base / "registry.json"
+            registry.write_text(json.dumps({
+                "owner/repo": {
+                    "repository": "owner/repo",
+                    "repository_root": str(repo),
+                    "repository_common_dir": "/common",
+                    "session_id": "rounded-brochure",
+                    "session_root": str(session),
+                    "session_layout": "parent-of-repository",
+                    "enrolled_parent": str(worktrees),
+                }
+            }))
+            worktree_list = f"worktree {repo}\n\nworktree {worktree}\n\n"
+            with patch("preflight.session_database_root", return_value=None), patch(
+                "preflight.git_common_dir", return_value="/common"), patch(
+                "preflight.run",
+                side_effect=[
+                    (0, worktree_list, ""),
+                    (0, "[]", ""),
+                    (0, '[{"id":"rounded-brochure","working_directory":"%s"}]' % session, ""),
+                ],
+            ):
+                state, error = session_state(str(repo), "owner/repo", registry)
+            self.assertIsNone(error)
+            self.assertEqual(state["session_layout"], "parent-of-repository")
+            self.assertEqual(state["registered_root"], str(session.resolve()))
+
+    def test_parent_layout_database_hint_drift_is_distinct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = pathlib.Path(directory)
+            session = base / "project"; repo = session / "repo"; worktrees = session / ".worktrees"
+            session.mkdir(); repo.mkdir(); worktrees.mkdir()
+            registry = base / "registry.json"
+            registry.write_text(json.dumps({"owner/repo": {
+                "repository": "owner/repo", "repository_root": str(repo),
+                "repository_common_dir": "/common", "session_id": "s",
+                "session_root": str(session), "session_layout": "parent-of-repository",
+                "enrolled_parent": str(worktrees)}}))
+            with patch("preflight.session_database_root", return_value=str(worktrees / "moved")), patch(
+                "preflight.git_common_dir", return_value="/common"), patch("preflight.run"):
+                state, error = session_state(str(repo), "owner/repo", registry)
+            self.assertEqual(error, "session_working_directory_drift")
+
+    def test_repository_common_dir_mismatch_stops_before_discovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = pathlib.Path(directory)
+            repo = base / "repo"; repo.mkdir()
+            registry = base / "registry.json"
+            registry.write_text(json.dumps({"owner/repo": {
+                "repository": "owner/repo", "repository_root": str(repo),
+                "repository_common_dir": str(base / "registered-common"),
+                "session_id": "s", "session_root": str(repo),
+                "session_layout": "exact-root"}}))
+            with patch("preflight.git_common_dir", return_value=str(base / "different-common")), patch(
+                "preflight.session_database_root", return_value=None), patch("preflight.run") as command:
+                state, error = session_state(str(repo), "owner/repo", registry)
+            self.assertEqual(error, "repository_boundary_mismatch")
+            command.assert_not_called()
 
 
 if __name__ == "__main__":

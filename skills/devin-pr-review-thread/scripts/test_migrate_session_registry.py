@@ -11,6 +11,7 @@ class MigrationTests(unittest.TestCase):
         })
         self.assertEqual(set(result), {"yicone/yr-monorepo", "yicone/agents-lab"})
         self.assertEqual(result["yicone/yr-monorepo"]["session_root"], "/workspace/yr")
+        self.assertEqual(result["yicone/yr-monorepo"]["session_layout"], "exact-root")
 
     def test_preserves_v2_and_converts_legacy(self):
         result = migrate({

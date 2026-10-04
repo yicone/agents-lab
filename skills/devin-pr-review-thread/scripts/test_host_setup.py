@@ -34,6 +34,7 @@ def test_setup_composes_exact_root_parent_and_session_registration():
         assert calls[1][1][0:2] == ["--worktree-parent", str(parent.resolve())]
         assert "--worktree-parent" in calls[2][1]
         assert "--session-id" in calls[2][1]
+        assert "--session-layout" in calls[2][1]
 
 
 if __name__ == "__main__":

@@ -7,7 +7,13 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from repository_binding import BindingError, load_origin_entry, normalize_origin, validate_worktree_boundary
+from repository_binding import (
+    BindingError,
+    load_origin_entry,
+    normalize_origin,
+    validate_session_layout,
+    validate_worktree_boundary,
+)
 
 
 class RepositoryBindingTests(unittest.TestCase):
@@ -62,6 +68,43 @@ class RepositoryBindingTests(unittest.TestCase):
             enrolled_parent = base / "worktrees"
             session.mkdir(); enrolled_parent.mkdir()
             self.assertTrue(validate_worktree_boundary(session, session, enrolled_parent))
+
+    def test_parent_of_repository_layout_accepts_main_repository_and_enrolled_worktree(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            session = base / "project"
+            repo = session / "repo"
+            worktrees = session / ".worktrees"
+            worktree = worktrees / "feature"
+            for path in (session, repo, worktrees, worktree):
+                path.mkdir()
+            self.assertTrue(validate_session_layout(repo, session, worktrees, "parent-of-repository", repository_root=repo))
+            self.assertTrue(validate_session_layout(worktree, session, worktrees, "parent-of-repository", repository_root=repo))
+
+    def test_parent_of_repository_layout_rejects_sibling_and_session_root(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            session = base / "project"
+            repo = session / "repo"
+            sibling = session / "other"
+            worktrees = session / ".worktrees"
+            for path in (session, repo, sibling, worktrees):
+                path.mkdir()
+            self.assertFalse(validate_session_layout(session, session, worktrees, "parent-of-repository", repository_root=repo))
+            self.assertFalse(validate_session_layout(sibling, session, worktrees, "parent-of-repository", repository_root=repo))
+
+    def test_parent_layout_cannot_infer_repository_root(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            repo = root / "repo"
+            repo.mkdir()
+            self.assertFalse(validate_session_layout(repo, root, None, "parent-of-repository"))
+
+    def test_unknown_session_layout_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            (root / "repo").mkdir()
+            self.assertFalse(validate_session_layout(root / "repo", root, None, "guess"))
 
 
 if __name__ == "__main__":
