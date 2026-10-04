@@ -2,7 +2,15 @@
 import pathlib
 import tempfile
 
-from host_worker import acquire_worker_lock, claim_request, release_worker_lock, stable_failure
+from host_worker import acquire_worker_lock, claim_request, release_worker_lock, stable_failure, valid_round_number
+
+
+def test_worker_accepts_controlled_rounds_beyond_three():
+    assert valid_round_number(1)
+    assert valid_round_number(4)
+    assert valid_round_number(100)
+    assert not valid_round_number(0)
+    assert not valid_round_number(True)
 
 
 def test_request_claim_is_atomic_and_hidden_from_queue_glob():
@@ -46,6 +54,7 @@ def test_worker_fallback_preserves_request_identity():
 
 
 if __name__ == "__main__":
+    test_worker_accepts_controlled_rounds_beyond_three()
     test_request_claim_is_atomic_and_hidden_from_queue_glob()
     test_worker_lock_rejects_second_consumer()
     test_worker_fallback_preserves_request_identity()

@@ -6,6 +6,11 @@ import argparse, hashlib, json, os, pathlib, subprocess, sys, time, secrets, dat
 PREFLIGHT_TIMEOUT_SECONDS = 90
 
 
+def valid_round_number(value):
+    """Accept every positive integer; bounded-loop policy belongs to control records."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
 def stable_failure(payload, failure_code, evidence_ref=None):
     auth = payload.get("authorization") if isinstance(payload, dict) else {}
     auth = auth if isinstance(auth, dict) else {}
@@ -102,7 +107,7 @@ def authorize(payload, root, auth_path, preflight_path):
     if not isinstance(payload.get("repository_root"), str) or not isinstance(payload.get("pr_number"), int):
         return payload
     round_number = payload.get("round", 1)
-    if isinstance(round_number, bool) or not isinstance(round_number, int) or not 1 <= round_number <= 3:
+    if not valid_round_number(round_number):
         return payload
     try:
         pf = subprocess.run([sys.executable, str(preflight_path), "--repo-root", payload["repository_root"], "--pr", str(payload["pr_number"])], text=True, capture_output=True, timeout=PREFLIGHT_TIMEOUT_SECONDS)
