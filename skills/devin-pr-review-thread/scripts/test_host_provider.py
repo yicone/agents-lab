@@ -59,6 +59,9 @@ def test_review_prompt_repeats_complete_top_level_contract():
     assert "do not omit" in prompt
     assert "blocker, high, medium, or low" in prompt
     assert "never use should-fix" in prompt
+    assert "unique safe identifier" in prompt
+    assert "no two findings share an id" in prompt
+    assert "empty findings array" in prompt
     assert "repository-relative POSIX path" in prompt
     assert "never emit an absolute filesystem path" in prompt
 

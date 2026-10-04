@@ -247,6 +247,9 @@ def build_review_prompt(pr, head, root, sid, patch):
             "Every finding severity MUST be exactly one of blocker, high, medium, or low; never use "
             "should-fix, must-fix, nit, info, or any other label. Use confidence as a number from 0 to 1, "
             "side exactly RIGHT, and omit style-only or non-actionable observations. For every finding, "
+            "id MUST be a unique safe identifier across the entire findings array (use F-001, F-002, ... "
+            "in order); before returning, verify that no two findings share an id. If there are no valid "
+            "findings, return an empty findings array rather than placeholder or duplicate ids. "
             "path MUST be a repository-relative POSIX path from the supplied patch (no leading slash and no '..' segments); "
             "never emit an absolute filesystem path.\n\n"
             "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
