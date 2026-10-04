@@ -250,6 +250,9 @@ def build_review_prompt(pr, head, root, sid, patch):
             "id MUST be a unique safe identifier across the entire findings array (use F-001, F-002, ... "
             "in order); before returning, verify that no two findings share an id. If there are no valid "
             "findings, return an empty findings array rather than placeholder or duplicate ids. "
+            "Every finding title and body MUST be non-empty text: title is a concise defect label and body "
+            "is an actionable explanation with a concrete fix suggestion; never emit blank strings, nulls, "
+            "or whitespace-only values for either field. "
             "path MUST be a repository-relative POSIX path from the supplied patch (no leading slash and no '..' segments); "
             "never emit an absolute filesystem path.\n\n"
             "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")

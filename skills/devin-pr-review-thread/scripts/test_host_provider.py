@@ -62,6 +62,8 @@ def test_review_prompt_repeats_complete_top_level_contract():
     assert "unique safe identifier" in prompt
     assert "no two findings share an id" in prompt
     assert "empty findings array" in prompt
+    assert "title and body MUST be non-empty text" in prompt
+    assert "never emit blank strings" in prompt
     assert "repository-relative POSIX path" in prompt
     assert "never emit an absolute filesystem path" in prompt
 
