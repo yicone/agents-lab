@@ -29,6 +29,8 @@ MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
 MODEL_COMMAND_TIMEOUT_SECONDS = 60
 SESSION_LIST_COMMAND_TIMEOUT_SECONDS = 30
+GITHUB_IDENTITY_TIMEOUT_SECONDS = 20
+GITHUB_IDENTITY_ATTEMPTS = 2
 EXPIRY = dt.date(2026, 10, 26)
 
 
@@ -77,6 +79,10 @@ def git_common_dir(root: str) -> str | None:
 
 def classify_github_error(code: int, stderr: str) -> str:
     text = stderr.lower()
+    if "filenotfounderror" in text:
+        return "github_cli_unavailable"
+    if any(marker in text for marker in ("http 401", "http 403", "http 404", "bad credentials", "authentication", "forbidden", "could not resolve to a pullrequest")):
+        return "pr_not_found_or_forbidden"
     transport_markers = ("eof", "timeout", "timed out", "connection", "tls", "ssl", "proxy", "network", "no such host", "temporary failure")
     if code == 127 or any(marker in text for marker in transport_markers):
         return "github_transport_unavailable"
@@ -87,9 +93,15 @@ def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, A
     result = {"number": number, "head_sha": None}
     if not origin:
         return result, "origin_identity_failed", None
-    code, out, err = run(["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"])
+    for attempt in range(GITHUB_IDENTITY_ATTEMPTS):
+        code, out, err = run(
+            ["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"],
+            cwd=root, timeout=GITHUB_IDENTITY_TIMEOUT_SECONDS,
+        )
+        if code == 0 or classify_github_error(code, err) != "github_transport_unavailable":
+            break
     if code != 0:
-        return result, classify_github_error(code, err), err.strip()[-500:]
+        return result, classify_github_error(code, err), f"attempts={attempt + 1}; {err.strip()[-500:]}"
     try:
         data = json.loads(out)
     except json.JSONDecodeError:

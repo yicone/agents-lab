@@ -28,6 +28,8 @@ Devin Desktop is not a prerequisite and must not be opened by the provider. If d
 
 ## Host service lifecycle
 
+GitHub PR identity lookup uses an explicit repository cwd and a 20-second timeout per attempt, with at most two attempts for transport failures only (40 seconds maximum command time). Authentication, permission, PR-not-found, missing CLI, and malformed successful responses are not retried. This host-internal read retry does not start another review round or change the existing overall 90-second preflight ceiling; exhausted transport evidence includes the attempt count.
+
 On macOS the host maintainer installs the worker once as a login-persistent LaunchAgent:
 
 ```bash

@@ -9,6 +9,8 @@ from preflight import (
     MODEL_COMMAND_TIMEOUT_SECONDS,
     SESSION_LIST_COMMAND_TIMEOUT_SECONDS,
     classify_github_error,
+    pr_identity,
+    GITHUB_IDENTITY_TIMEOUT_SECONDS,
     listed_session,
     session_database_root,
     session_lookup_roots,
@@ -17,6 +19,28 @@ from preflight import (
 
 
 class GithubErrorClassificationTests(unittest.TestCase):
+    def test_identity_recovers_from_transport_timeout(self):
+        with patch("preflight.run", side_effect=[(127, "", "TimeoutExpired"), (0, '{"headRefOid":"abc"}', "")]) as command:
+            result, error, _ = pr_identity("/repo", 263, "owner/repo")
+        self.assertIsNone(error)
+        self.assertEqual(result["head_sha"], "abc")
+        self.assertEqual(command.call_count, 2)
+        self.assertEqual(command.call_args.kwargs, {"cwd": "/repo", "timeout": GITHUB_IDENTITY_TIMEOUT_SECONDS})
+
+    def test_identity_transport_retry_is_bounded(self):
+        with patch("preflight.run", return_value=(127, "", "TimeoutExpired")) as command:
+            _, error, detail = pr_identity("/repo", 263, "owner/repo")
+        self.assertEqual(error, "github_transport_unavailable")
+        self.assertEqual(command.call_count, 2)
+        self.assertIn("attempts=2", detail)
+
+    def test_identity_does_not_retry_auth_or_invalid_json(self):
+        for value in [(1, "", "HTTP 403 forbidden via proxy"), (127, "", "FileNotFoundError"), (0, "not-json", "")]:
+            with patch("preflight.run", return_value=value) as command:
+                _, error, _ = pr_identity("/repo", 263, "owner/repo")
+            self.assertIsNotNone(error)
+            self.assertEqual(command.call_count, 1)
+
     def test_transport_errors_are_distinct(self):
         self.assertEqual(classify_github_error(1, 'Post "https://api.github.com/graphql": EOF'), "github_transport_unavailable")
         self.assertEqual(classify_github_error(1, "proxy connection refused"), "github_transport_unavailable")
