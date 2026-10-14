@@ -1,17 +1,23 @@
-"""Read models built from the SQLite cache. Pure reads; no CLI calls."""
+"""Read models for API contract v0 (multica-board/docs/api-contract.md). Pure cache reads."""
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from .collector import WORKSPACE
 from .store import Store
 
-CLOSED_STATUSES = {"done", "cancelled", "canceled", "closed", "duplicate"}
-ACTIVE_TASK = ("queued", "dispatched", "running", "waiting_local_directory")
-ISSUE_VIEWS = ("attention", "in_review", "blocked", "run_failed", "stale", "open", "all")
+CLOSED_CATEGORIES = {"done", "cancelled", "canceled"}
+QUEUED_TASK = ("queued", "dispatched", "waiting_local_directory")
+LAST_FAILED_WINDOW = timedelta(days=7)
+RECENT_WINDOW_H = 24
+RUNS_PER_ISSUE = 20
+
+
+class NotFound(Exception):
+    pass
 
 
 def _now() -> datetime:
@@ -31,394 +37,265 @@ def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _key(ws: str, rid: str) -> str:
+    return f"{ws}:{rid}"
+
+
+def _closed(row: dict[str, Any]) -> bool:
+    cat = (row.get("status_category") or row.get("status") or "").lower()
+    return cat in CLOSED_CATEGORIES
+
+
 class Views:
-    def __init__(self, store: Store, server: str, *, app_url: str, stale_days: int, refresh_s: int, run_days: int):
+    def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int):
         self.store = store
         self.server = server
         self.app_url = app_url.rstrip("/")
-        self.stale_days = stale_days
-        self.refresh_s = refresh_s
-        self.run_days = run_days
+        self.collect_interval_s = collect_interval_s
 
-    # --- lookups ------------------------------------------------------------
+    # --- shared -------------------------------------------------------------
 
-    def _workspaces(self) -> dict[str, dict[str, Any]]:
-        rows = self.store.query("SELECT id, name, slug FROM workspaces WHERE server=? ORDER BY name", (self.server,))
-        return {r["id"]: r for r in rows}
+    def generated_at(self) -> str | None:
+        last = self.store.get_meta("last_collect") or {}
+        return last.get("finished_at")
 
-    def _names(self, table: str, key: str, label: str) -> dict[tuple[str, str], str]:
+    def _slugs(self) -> dict[str, str | None]:
+        rows = self.store.query("SELECT id, slug FROM workspaces WHERE server=?", (self.server,))
+        return {r["id"]: r["slug"] for r in rows}
+
+    def _url(self, slug: str | None, kind: str, rid: str | None) -> str | None:
+        if not slug or not rid:
+            return None
+        return f"{self.app_url}/{quote(slug, safe='')}/{kind}/{quote(rid, safe='')}"
+
+    def _names(self, table: str, key: str, label: str) -> dict[tuple[str, str], Any]:
         rows = self.store.query(f"SELECT workspace_id, {key} AS k, {label} AS v FROM {table} WHERE server=?", (self.server,))
         return {(r["workspace_id"], r["k"]): r["v"] for r in rows}
 
-    def _ws_ref(self, ws: dict[str, Any] | None, ws_id: str) -> dict[str, Any]:
-        ws = ws or {}
-        return {"id": ws_id, "name": ws.get("name"), "slug": ws.get("slug")}
+    @staticmethod
+    def _run(t: dict[str, Any], agent_names: dict[tuple[str, str], Any]) -> dict[str, Any]:
+        return {
+            "task_id": t["id"],
+            "status": t["status"],
+            "agent_name": agent_names.get((t["workspace_id"], t["agent_id"])),
+            "runtime_id": t["runtime_id"],
+            "started_at": t["started_at"],
+            "completed_at": t["completed_at"],
+            "error_kind": t["error_kind"],
+            "error_summary": t["error_summary"],
+        }
 
-    def _issue_url(self, slug: str | None, issue_id: str) -> str | None:
-        return f"{self.app_url}/{quote(slug, safe='')}/issues/{quote(issue_id, safe='')}" if slug else None
-
-    def _agent_url(self, slug: str | None, agent_id: str) -> str | None:
-        return f"{self.app_url}/{quote(slug, safe='')}/agents/{quote(agent_id, safe='')}" if slug else None
-
-    # --- meta / workspaces --------------------------------------------------
+    # --- /api/meta ----------------------------------------------------------
 
     def meta(self) -> dict[str, Any]:
-        from . import API_VERSION, __version__
+        from . import API_VERSION
 
-        return {
-            "api_version": API_VERSION,
-            "backend_version": __version__,
-            "read_only": True,
-            "server": self.server,
-            "generated_at": _iso(_now()),
-            "refresh_interval_s": self.refresh_s,
-            "stale_issue_days": self.stale_days,
-            "run_window_days": self.run_days,
-            "last_collect": self.store.get_meta("last_collect"),
-            "issue_views": list(ISSUE_VIEWS),
+        stale_after = timedelta(seconds=max(self.collect_interval_s, 60) * 3)
+        sync = {
+            r["workspace_id"]: r
+            for r in self.store.query("SELECT * FROM sync_status WHERE server=? AND resource=?", (self.server, WORKSPACE))
         }
+        counts: dict[str, dict[str, int]] = {}
+        for table, name, extra in (
+            ("issues", "open_issues", "AND lower(coalesce(status_category, status, '')) NOT IN ('done','cancelled','canceled')"),
+            ("agents", "agents", "AND archived_at IS NULL"),
+            ("runtimes", "runtimes", ""),
+        ):
+            for r in self.store.query(
+                f"SELECT workspace_id, COUNT(*) AS n FROM {table} WHERE server=? {extra} GROUP BY workspace_id",
+                (self.server,),
+            ):
+                counts.setdefault(r["workspace_id"], {})[name] = r["n"]
 
-    def workspaces(self) -> list[dict[str, Any]]:
-        ws = self._workspaces()
-        sync = self.store.query("SELECT * FROM sync_status WHERE server=?", (self.server,))
-        by_ws: dict[str, dict[str, Any]] = {}
-        for s in sync:
-            by_ws.setdefault(s["workspace_id"], {})[s["resource"]] = s
-        counts = {
-            (r["workspace_id"]): r
-            for r in self.store.query(
-                "SELECT workspace_id, COUNT(*) AS issues, "
-                "SUM(status='in_review') AS in_review, SUM(status='blocked') AS blocked "
-                "FROM issues WHERE server=? GROUP BY workspace_id",
-                (self.server,),
-            )
-        }
-        agent_counts = {
-            r["workspace_id"]: r["n"]
-            for r in self.store.query(
-                "SELECT workspace_id, COUNT(*) AS n FROM agents WHERE server=? AND archived_at IS NULL GROUP BY workspace_id",
-                (self.server,),
-            )
-        }
-        stale_after = timedelta(seconds=max(self.refresh_s * 3, 300))
-        out = []
-        for ws_id, w in ws.items():
-            resources = by_ws.get(ws_id, {})
-            successes = [_parse(r["last_success_at"]) for r in resources.values() if r["last_success_at"]]
-            errors = {k: r["last_error"] for k, r in resources.items() if r["last_error"]}
-            oldest_success = min(successes) if successes else None
-            c = counts.get(ws_id, {})
-            out.append(
+        workspaces = []
+        for w in self.store.query("SELECT id, slug, name FROM workspaces WHERE server=? ORDER BY name", (self.server,)):
+            s = sync.get(w["id"]) or {}
+            last_success = s.get("last_success_at")
+            error = {"kind": s.get("last_error_kind") or "unknown", "message": s["last_error"]} if s.get("last_error") else None
+            if not last_success:
+                state = "never"
+            elif error:
+                state = "error"
+            elif _now() - (_parse(last_success) or _now()) > stale_after:
+                state = "stale"
+            else:
+                state = "ok"
+            show_counts = last_success is not None and not (error and error["kind"] == "auth")
+            c = counts.get(w["id"], {})
+            workspaces.append(
                 {
-                    **self._ws_ref(w, ws_id),
-                    "url": f"{self.app_url}/{quote(w['slug'], safe='')}/issues" if w.get("slug") else None,
-                    "sync": {
-                        "last_success_at": _iso(oldest_success) if oldest_success else None,
-                        "stale": oldest_success is None or bool(errors) or (_now() - oldest_success) > stale_after,
-                        "errors": errors,
-                        "incomplete": sorted(k for k, r in resources.items() if r["complete"] == 0),
-                        "resources": {
-                            k: {
-                                "last_success_at": r["last_success_at"],
-                                "last_attempt_at": r["last_attempt_at"],
-                                "count": r["item_count"],
-                                "error": r["last_error"],
-                            }
-                            for k, r in sorted(resources.items())
-                        },
-                    },
-                    "counts": {
-                        "issues": c.get("issues") or 0,
-                        "in_review": c.get("in_review") or 0,
-                        "blocked": c.get("blocked") or 0,
-                        "agents": agent_counts.get(ws_id, 0),
-                    },
+                    "id": w["id"],
+                    "slug": w["slug"],
+                    "name": w["name"],
+                    "collect_state": state,
+                    "last_success_at": last_success,
+                    "last_attempt_at": s.get("last_attempt_at"),
+                    "error": error,
+                    "counts": (
+                        {"open_issues": c.get("open_issues", 0), "agents": c.get("agents", 0), "runtimes": c.get("runtimes", 0)}
+                        if show_counts
+                        else None
+                    ),
                 }
             )
-        return out
+        return {
+            "api_version": API_VERSION,
+            "generated_at": self.generated_at(),
+            "collect_interval_s": self.collect_interval_s,
+            "multica_web_base": self.app_url,
+            "workspaces": workspaces,
+        }
 
-    # --- issues -------------------------------------------------------------
+    # --- /api/issues --------------------------------------------------------
 
-    def _latest_runs(self) -> dict[tuple[str, str], dict[str, Any]]:
-        rows = self.store.query(
-            "SELECT t.* FROM tasks t JOIN ("
-            "  SELECT workspace_id, issue_id, MAX(created_at) AS mx FROM tasks "
-            "  WHERE server=? AND issue_id IS NOT NULL GROUP BY workspace_id, issue_id"
-            ") m ON t.workspace_id=m.workspace_id AND t.issue_id=m.issue_id AND t.created_at=m.mx "
-            "WHERE t.server=?",
-            (self.server, self.server),
-        )
-        out: dict[tuple[str, str], dict[str, Any]] = {}
-        for r in rows:
-            key = (r["workspace_id"], r["issue_id"])
-            if key not in out or (r["id"] > out[key]["id"]):
-                out[key] = r
-        return out
-
-    def _failed_issue_ids(self) -> set[tuple[str, str]]:
-        cutoff = _iso(_now() - timedelta(days=self.run_days))
-        rows = self.store.query(
-            "SELECT DISTINCT workspace_id, issue_id FROM tasks WHERE server=? AND status='failed' "
-            "AND issue_id IS NOT NULL AND created_at >= ?",
-            (self.server, cutoff),
-        )
-        return {(r["workspace_id"], r["issue_id"]) for r in rows}
-
-    def _issue_rows(self) -> list[dict[str, Any]]:
-        ws = self._workspaces()
+    def issues(self) -> dict[str, Any]:
+        slugs = self._slugs()
+        agent_names = self._names("agents", "id", "name")
+        member_names = self._names("members", "user_id", "name")
         projects = self._names("projects", "id", "title")
-        agents = self._names("agents", "id", "name")
-        members = self._names("members", "user_id", "name")
-        latest = self._latest_runs()
-        failed = self._failed_issue_ids()
-        stale_cutoff = _now() - timedelta(days=self.stale_days)
-        rows = self.store.query("SELECT * FROM issues WHERE server=?", (self.server,))
-        out = []
-        for r in rows:
-            wsid = r["workspace_id"]
-            w = ws.get(wsid, {})
-            run = latest.get((wsid, r["id"]))
-            open_ = (r["status"] or "").lower() not in CLOSED_STATUSES and (r["status_category"] or "").lower() not in CLOSED_STATUSES
-            last = _parse(r["last_activity_at"] or r["updated_at"])
-            run_failed = bool(run and run["status"] == "failed")
-            flags = {
-                "open": open_,
-                "in_review": r["status"] == "in_review",
-                "blocked": r["status"] == "blocked",
-                "run_failed": run_failed,
-                "recovered_failure": (not run_failed) and (wsid, r["id"]) in failed,
-                "stale": open_ and last is not None and last < stale_cutoff and r["status"] != "backlog",
-                "run_active": bool(run and run["status"] in ACTIVE_TASK),
-            }
-            assignee_name = None
-            if r["assignee_type"] == "agent":
-                assignee_name = agents.get((wsid, r["assignee_id"]))
-            elif r["assignee_type"] == "member":
-                assignee_name = members.get((wsid, r["assignee_id"]))
-            out.append(
+        identifiers = self._names("issues", "id", "identifier")
+
+        latest: dict[tuple[str, str], dict[str, Any]] = {}
+        last_failed: dict[tuple[str, str], dict[str, Any]] = {}
+        failed_cutoff = _iso(_now() - LAST_FAILED_WINDOW)
+        for t in self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND issue_id IS NOT NULL ORDER BY created_at DESC, id DESC",
+            (self.server,),
+        ):
+            k = (t["workspace_id"], t["issue_id"])
+            latest.setdefault(k, t)
+            if t["status"] == "failed" and (t["completed_at"] or t["created_at"] or "") >= failed_cutoff:
+                last_failed.setdefault(k, t)
+
+        items = []
+        for r in self.store.query("SELECT * FROM issues WHERE server=? ORDER BY last_activity_at DESC", (self.server,)):
+            ws = r["workspace_id"]
+            k = (ws, r["id"])
+            if _closed(r) and k not in last_failed:
+                continue
+            assignee = None
+            if r["assignee_type"] and r["assignee_id"]:
+                name = None
+                if r["assignee_type"] == "agent":
+                    name = agent_names.get((ws, r["assignee_id"]))
+                elif r["assignee_type"] == "member":
+                    name = member_names.get((ws, r["assignee_id"]))
+                assignee = {"type": r["assignee_type"], "id": r["assignee_id"], "name": name}
+            lf = last_failed.get(k)
+            items.append(
                 {
+                    "key": _key(ws, r["id"]),
+                    "workspace_id": ws,
                     "id": r["id"],
                     "identifier": r["identifier"],
                     "title": r["title"],
                     "status": r["status"],
                     "status_category": r["status_category"],
-                    "status_name": r["status_name"],
                     "priority": r["priority"],
-                    "workspace": self._ws_ref(w, wsid),
-                    "project": {"id": r["project_id"], "title": projects.get((wsid, r["project_id"]))} if r["project_id"] else None,
-                    "assignee": {"type": r["assignee_type"], "id": r["assignee_id"], "name": assignee_name} if r["assignee_id"] else None,
-                    "parent_issue_id": r["parent_issue_id"],
-                    "labels": json.loads(r["labels_json"] or "[]"),
+                    "assignee": assignee,
+                    "project": {"id": r["project_id"], "title": projects.get((ws, r["project_id"]))} if r["project_id"] else None,
+                    "parent_identifier": identifiers.get((ws, r["parent_issue_id"])) if r["parent_issue_id"] else None,
                     "due_date": r["due_date"],
                     "created_at": r["created_at"],
-                    "updated_at": r["updated_at"],
                     "last_activity_at": r["last_activity_at"],
-                    "idle_days": round((_now() - last).total_seconds() / 86400, 1) if last else None,
-                    "latest_run": self._run_ref(run, agents) if run else None,
-                    "flags": flags,
-                    "url": self._issue_url(w.get("slug"), r["id"]),
+                    "url": self._url(slugs.get(ws), "issues", r["id"]),
+                    "latest_run": self._run(latest[k], agent_names) if k in latest else None,
+                    "last_failed_run": (
+                        {"task_id": lf["id"], "completed_at": lf["completed_at"], "error_kind": lf["error_kind"]} if lf else None
+                    ),
                 }
             )
-        return out
+        return {"generated_at": self.generated_at(), "items": items}
 
-    def _run_ref(self, t: dict[str, Any], agents: dict[tuple[str, str], str]) -> dict[str, Any]:
+    def issue_runs(self, workspace_id: str, issue_id: str) -> dict[str, Any]:
+        found = self.store.query(
+            "SELECT 1 FROM issues WHERE server=? AND workspace_id=? AND id=?", (self.server, workspace_id, issue_id)
+        )
+        if not found:
+            raise NotFound("issue not in cache")
+        agent_names = self._names("agents", "id", "name")
+        rows = self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND workspace_id=? AND issue_id=? ORDER BY created_at DESC, id DESC LIMIT ?",
+            (self.server, workspace_id, issue_id, RUNS_PER_ISSUE),
+        )
         return {
-            "id": t["id"],
-            "status": t["status"],
-            "agent": {"id": t["agent_id"], "name": agents.get((t["workspace_id"], t["agent_id"]))},
-            "kind": t["kind"],
-            "created_at": t["created_at"],
-            "completed_at": t["completed_at"],
-            "error_class": t["error_class"],
-            "error": t["error"],
+            "generated_at": self.generated_at(),
+            "items": [{"key": _key(workspace_id, t["id"]), **self._run(t, agent_names)} for t in rows],
         }
 
-    @staticmethod
-    def _match(issue: dict[str, Any], view: str) -> bool:
-        f = issue["flags"]
-        if view == "all":
-            return True
-        if view == "open":
-            return f["open"]
-        if view == "attention":
-            return f["open"] and (f["in_review"] or f["blocked"] or f["run_failed"] or f["stale"])
-        return bool(f.get(view))
+    # --- /api/agents --------------------------------------------------------
 
-    def issues(self, *, view: str = "attention", workspace: str | None = None, q: str | None = None,
-               limit: int = 200, offset: int = 0) -> dict[str, Any]:
-        if view not in ISSUE_VIEWS:
-            raise ValueError(f"view must be one of {', '.join(ISSUE_VIEWS)}")
-        rows = [i for i in self._issue_rows() if self._match(i, view)]
-        if workspace:
-            rows = [i for i in rows if workspace in (i["workspace"]["id"], i["workspace"]["slug"])]
-        if q:
-            ql = q.lower()
-            rows = [i for i in rows if ql in (i["title"] or "").lower() or ql in (i["identifier"] or "").lower()]
-        rows.sort(key=lambda i: i["last_activity_at"] or "", reverse=True)
-        return {"total": len(rows), "limit": limit, "offset": offset, "view": view, "issues": rows[offset: offset + limit]}
-
-    def board(self, *, workspace: str | None = None) -> dict[str, Any]:
-        rows = self._issue_rows()
-        if workspace:
-            rows = [i for i in rows if workspace in (i["workspace"]["id"], i["workspace"]["slug"])]
-        rows = [i for i in rows if i["flags"]["open"]]
-        rows.sort(key=lambda i: i["last_activity_at"] or "", reverse=True)
-        columns = {k: [i for i in rows if i["flags"][k]] for k in ("in_review", "blocked", "run_failed", "stale")}
-        return {
-            "generated_at": _iso(_now()),
-            "counts": {k: len(v) for k, v in columns.items()},
-            "columns": columns,
-        }
-
-    # --- agents -------------------------------------------------------------
-
-    def agents(self, *, workspace: str | None = None, include_archived: bool = False) -> list[dict[str, Any]]:
-        ws = self._workspaces()
-        runtimes = {
-            (r["workspace_id"], r["id"]): r
-            for r in self.store.query("SELECT * FROM runtimes WHERE server=?", (self.server,))
-        }
-        cutoff_7d = _iso(_now() - timedelta(days=7))
-        cutoff_24h = _iso(_now() - timedelta(hours=24))
-        stats = {
-            (r["workspace_id"], r["agent_id"]): r
-            for r in self.store.query(
-                "SELECT workspace_id, agent_id, "
-                "SUM(status='running') AS running, "
-                "SUM(status IN ('queued','dispatched','waiting_local_directory')) AS queued, "
-                "SUM(status='failed' AND created_at >= ?) AS failed_7d, "
-                "SUM(status='failed' AND created_at >= ?) AS failed_24h, "
-                "SUM(created_at >= ?) AS runs_7d "
-                "FROM tasks WHERE server=? GROUP BY workspace_id, agent_id",
-                (cutoff_7d, cutoff_24h, cutoff_7d, self.server),
-            )
-        }
-        last_fail = {}
-        for r in self.store.query(
-            "SELECT * FROM tasks WHERE server=? AND status='failed' ORDER BY created_at DESC", (self.server,)
-        ):
-            last_fail.setdefault((r["workspace_id"], r["agent_id"]), r)
-        last_run = {}
-        observed: dict[tuple[str, str], list[str]] = {}
-        for r in self.store.query(
-            "SELECT workspace_id, agent_id, status, created_at, models_json FROM tasks WHERE server=? ORDER BY created_at DESC",
+    def agents(self) -> dict[str, Any]:
+        slugs = self._slugs()
+        identifiers = self._names("issues", "id", "identifier")
+        cutoff = _iso(_now() - timedelta(hours=RECENT_WINDOW_H))
+        load: dict[tuple[str, str], dict[str, int]] = {}
+        recent: dict[tuple[str, str], dict[str, Any]] = {}
+        for t in self.store.query(
+            "SELECT workspace_id, agent_id, issue_id, status, created_at, completed_at, error_kind "
+            "FROM tasks WHERE server=? ORDER BY created_at DESC",
             (self.server,),
         ):
-            key = (r["workspace_id"], r["agent_id"])
-            last_run.setdefault(key, r)
-            ms = observed.setdefault(key, [])
-            for m in json.loads(r["models_json"] or "[]"):
-                if m not in ms and len(ms) < 5:
-                    ms.append(m)
-
-        sql = "SELECT * FROM agents WHERE server=?"
-        params: list[Any] = [self.server]
-        if not include_archived:
-            sql += " AND archived_at IS NULL"
-        out = []
-        for a in self.store.query(sql + " ORDER BY name", params):
-            wsid = a["workspace_id"]
-            w = ws.get(wsid, {})
-            if workspace and workspace not in (wsid, w.get("slug")):
+            k = (t["workspace_id"], t["agent_id"])
+            l = load.setdefault(k, {"running": 0, "queued": 0})
+            if t["status"] == "running":
+                l["running"] += 1
+            elif t["status"] in QUEUED_TASK:
+                l["queued"] += 1
+            when = t["completed_at"] or t["created_at"] or ""
+            if when < cutoff:
                 continue
-            key = (wsid, a["id"])
-            rt = runtimes.get((wsid, a["runtime_id"])) if a["runtime_id"] else None
-            st = stats.get(key, {})
-            lf = last_fail.get(key)
-            lr = last_run.get(key)
-            out.append(
+            rc = recent.setdefault(k, {"completed": 0, "failed": 0, "last_failed_at": None,
+                                       "last_error_kind": None, "last_failed_issue_identifier": None})
+            if t["status"] == "completed":
+                rc["completed"] += 1
+            elif t["status"] == "failed":
+                rc["failed"] += 1
+                if rc["last_failed_at"] is None or when > rc["last_failed_at"]:
+                    rc["last_failed_at"] = when
+                    rc["last_error_kind"] = t["error_kind"]
+                    rc["last_failed_issue_identifier"] = identifiers.get((t["workspace_id"], t["issue_id"])) if t["issue_id"] else None
+
+        items = []
+        for a in self.store.query("SELECT * FROM agents WHERE server=? ORDER BY name", (self.server,)):
+            ws = a["workspace_id"]
+            k = (ws, a["id"])
+            items.append(
                 {
+                    "key": _key(ws, a["id"]),
+                    "workspace_id": ws,
                     "id": a["id"],
                     "name": a["name"],
                     "status": a["status"],
                     "archived": a["archived_at"] is not None,
-                    "workspace": self._ws_ref(w, wsid),
-                    "runtime": (
-                        {
-                            "id": rt["id"],
-                            "name": rt["custom_name"] or rt["name"],
-                            "provider": rt["provider"],
-                            "mode": rt["runtime_mode"],
-                            "status": rt["status"],
-                            "online": rt["status"] == "online",
-                            "last_seen_at": rt["last_seen_at"],
-                            "device_info": rt["device_info"],
-                            "cli_version": rt["cli_version"],
-                        }
-                        if rt
-                        else ({"id": a["runtime_id"], "missing": True} if a["runtime_id"] else None)
-                    ),
-                    "runtime_bound": bool(a["runtime_bound"]),
-                    "model": {
-                        "configured": a["model"] or None,
-                        "inherits_runtime_default": not a["model"],
-                        "observed": observed.get(key, []),
-                    },
-                    "thinking_level": a["thinking_level"] or None,
-                    "service_tier": a["service_tier"] or None,
+                    "runtime_id": a["runtime_id"],
+                    "model": a["model"],
+                    "thinking_level": a["thinking_level"],
+                    "service_tier": a["service_tier"],
                     "max_concurrent_tasks": a["max_concurrent_tasks"],
-                    "load": {"running": st.get("running") or 0, "queued": st.get("queued") or 0},
-                    "runs_7d": st.get("runs_7d") or 0,
-                    "failures": {
-                        "last_24h": st.get("failed_24h") or 0,
-                        "last_7d": st.get("failed_7d") or 0,
-                        "last": (
-                            {
-                                "run_id": lf["id"],
-                                "issue_id": lf["issue_id"],
-                                "at": lf["completed_at"] or lf["created_at"],
-                                "error_class": lf["error_class"],
-                                "error": lf["error"],
-                                "recovered": bool(lr and lr["created_at"] > lf["created_at"] and lr["status"] != "failed"),
-                            }
-                            if lf
-                            else None
-                        ),
-                    },
-                    "last_run_at": lr["created_at"] if lr else None,
-                    "url": self._agent_url(w.get("slug"), a["id"]),
+                    "tasks": load.get(k, {"running": 0, "queued": 0}),
+                    "recent": recent.get(k, {"completed": 0, "failed": 0, "last_failed_at": None,
+                                             "last_error_kind": None, "last_failed_issue_identifier": None}),
+                    "url": self._url(slugs.get(ws), "agents", a["id"]),
                 }
             )
-        return out
+        return {"generated_at": self.generated_at(), "recent_window_h": RECENT_WINDOW_H, "items": items}
 
-    # --- runs ---------------------------------------------------------------
+    # --- /api/runtimes ------------------------------------------------------
 
-    def runs(self, *, workspace: str | None = None, agent: str | None = None, issue: str | None = None,
-             status: str | None = None, limit: int = 100) -> dict[str, Any]:
-        ws = self._workspaces()
-        agents = self._names("agents", "id", "name")
-        sql = "SELECT * FROM tasks WHERE server=?"
-        params: list[Any] = [self.server]
-        if workspace:
-            ids = [k for k, w in ws.items() if workspace in (k, w.get("slug"))]
-            sql += f" AND workspace_id IN ({','.join('?' for _ in ids) or 'NULL'})"
-            params += ids
-        if agent:
-            sql += " AND agent_id=?"
-            params.append(agent)
-        if issue:
-            sql += " AND issue_id=?"
-            params.append(issue)
-        if status:
-            sql += " AND status=?"
-            params.append(status)
-        sql += " ORDER BY created_at DESC LIMIT ?"
-        params.append(limit)
-        out = []
-        for t in self.store.query(sql, params):
-            w = ws.get(t["workspace_id"], {})
-            ref = self._run_ref(t, agents)
-            ref.update(
-                {
-                    "workspace": self._ws_ref(w, t["workspace_id"]),
-                    "issue_id": t["issue_id"],
-                    "runtime_id": t["runtime_id"],
-                    "attempt": t["attempt"],
-                    "max_attempts": t["max_attempts"],
-                    "started_at": t["started_at"],
-                    "models": json.loads(t["models_json"] or "[]"),
-                    "issue_url": self._issue_url(w.get("slug"), t["issue_id"]) if t["issue_id"] else None,
-                }
-            )
-            out.append(ref)
-        return {"runs": out, "limit": limit}
+    def runtimes(self) -> dict[str, Any]:
+        items = [
+            {
+                "key": _key(r["workspace_id"], r["id"]),
+                "workspace_id": r["workspace_id"],
+                "id": r["id"],
+                "name": r["custom_name"] or r["name"],
+                "provider": r["provider"],
+                "runtime_mode": r["runtime_mode"],
+                "status": r["status"],
+                "last_seen_at": r["last_seen_at"],
+                "device_info": r["device_info"],
+            }
+            for r in self.store.query("SELECT * FROM runtimes WHERE server=? ORDER BY provider, name", (self.server,))
+        ]
+        return {"generated_at": self.generated_at(), "items": items}

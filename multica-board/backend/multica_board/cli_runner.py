@@ -27,8 +27,10 @@ READ_ONLY_COMMANDS: frozenset[tuple[str, ...]] = frozenset(
     }
 )
 
-# The board passes --workspace-id explicitly; an inherited default must never leak in.
-_STRIPPED_ENV = ("MULTICA_WORKSPACE_ID",)
+# The child CLI must authenticate only through --profile. Inherited task/agent credentials or
+# overrides would silently scope it to another identity or workspace.
+_STRIPPED_ENV = ("MULTICA_WORKSPACE_ID", "MULTICA_TOKEN", "MULTICA_SERVER_URL")
+_STRIPPED_ENV_PREFIXES = ("MULTICA_TASK_",)
 
 _NEXT_CURSOR = re.compile(r'--before\s+"([^"]+)"')
 
@@ -87,7 +89,11 @@ class CliRunner:
         self._slots = threading.BoundedSemaphore(max(1, self.max_parallel))
 
     def _env(self) -> dict[str, str]:
-        env = {k: v for k, v in os.environ.items() if k not in _STRIPPED_ENV}
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in _STRIPPED_ENV and not k.startswith(_STRIPPED_ENV_PREFIXES)
+        }
         env["GODEBUG"] = "tlsmlkem=0"
         return env
 

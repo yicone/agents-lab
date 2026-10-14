@@ -10,6 +10,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
+SCHEMA_VERSION = 2
+TABLES = ("workspaces", "sync_status", "issues", "projects", "members", "agents", "runtimes", "tasks", "meta")
+DATA_TABLES = ("issues", "projects", "members", "agents", "runtimes", "tasks")
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
   server TEXT NOT NULL, id TEXT NOT NULL,
@@ -18,7 +22,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
 );
 CREATE TABLE IF NOT EXISTS sync_status (
   server TEXT NOT NULL, workspace_id TEXT NOT NULL, resource TEXT NOT NULL,
-  last_attempt_at TEXT, last_success_at TEXT, last_error TEXT,
+  last_attempt_at TEXT, last_success_at TEXT, last_error TEXT, last_error_kind TEXT,
   item_count INTEGER, complete INTEGER,
   PRIMARY KEY (server, workspace_id, resource)
 );
@@ -64,8 +68,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   agent_id TEXT, runtime_id TEXT, issue_id TEXT, kind TEXT, status TEXT,
   attempt INTEGER, max_attempts INTEGER,
   created_at TEXT, dispatched_at TEXT, started_at TEXT, completed_at TEXT,
-  error TEXT, error_class TEXT, models_json TEXT,
-  input_tokens INTEGER, output_tokens INTEGER,
+  error_summary TEXT, error_kind TEXT,
   PRIMARY KEY (server, workspace_id, id)
 );
 CREATE INDEX IF NOT EXISTS tasks_issue ON tasks (server, workspace_id, issue_id, created_at);
@@ -93,6 +96,11 @@ class Store:
         if str(self.path) != ":memory:":
             os.chmod(self.path, 0o600)
             self._conn.execute("PRAGMA journal_mode=WAL")
+        # The cache is disposable: on a schema change, rebuild instead of migrating.
+        if self._conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
+            for t in TABLES:
+                self._conn.execute(f"DROP TABLE IF EXISTS {t}")
+            self._conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         self._conn.executescript(SCHEMA)
 
     def close(self) -> None:
@@ -149,12 +157,14 @@ class Store:
                 self.upsert(conn, "workspaces", {**r, "server": server})
         return gone
 
-    def purge_workspace(self, server: str, workspace_id: str) -> None:
+    def purge_data(self, server: str, workspace_id: str) -> None:
+        """Drop a workspace's cached data but keep its row and sync status (auth failures)."""
         with self.tx() as conn:
-            self._purge(conn, server, workspace_id)
+            for table in DATA_TABLES:
+                conn.execute(f"DELETE FROM {table} WHERE server=? AND workspace_id=?", (server, workspace_id))
 
     def _purge(self, conn: sqlite3.Connection, server: str, ws: str) -> None:
-        for table in ("issues", "projects", "members", "agents", "runtimes", "tasks", "sync_status"):
+        for table in (*DATA_TABLES, "sync_status"):
             conn.execute(f"DELETE FROM {table} WHERE server=? AND workspace_id=?", (server, ws))
         conn.execute("DELETE FROM workspaces WHERE server=? AND id=?", (server, ws))
 
@@ -175,15 +185,17 @@ class Store:
         at: str,
         ok: bool,
         error: str | None = None,
+        error_kind: str | None = None,
         count: int | None = None,
         complete: bool = True,
+        reset_success: bool = False,
     ) -> None:
         with self.tx() as conn:
             prev = conn.execute(
                 "SELECT last_success_at, item_count, complete FROM sync_status WHERE server=? AND workspace_id=? AND resource=?",
                 (server, workspace_id, resource),
             ).fetchone()
-            last_success = at if ok else (prev["last_success_at"] if prev else None)
+            last_success = at if ok else (prev["last_success_at"] if prev and not reset_success else None)
             item_count = count if ok else (prev["item_count"] if prev else None)
             comp = int(complete) if ok else (prev["complete"] if prev else None)
             self.upsert(
@@ -196,6 +208,7 @@ class Store:
                     "last_attempt_at": at,
                     "last_success_at": last_success,
                     "last_error": None if ok else error,
+                    "last_error_kind": None if ok else error_kind,
                     "item_count": item_count,
                     "complete": comp,
                 },

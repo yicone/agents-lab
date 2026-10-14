@@ -19,7 +19,7 @@ from .views import Views
 
 DEFAULT_PROFILE = "desktop-api.multica.ai"
 DEFAULT_DB = Path.home() / ".multica-board" / "board.sqlite"
-DEFAULT_STATIC = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+DEFAULT_STATIC = Path(__file__).resolve().parents[2] / "web"
 
 log = logging.getLogger("multica_board")
 
@@ -83,7 +83,7 @@ def cmd_collect(a: argparse.Namespace) -> int:
 
 def cmd_serve(a: argparse.Namespace) -> int:
     store = Store(a.db)
-    views = Views(store, a.profile, app_url=a.app_url, stale_days=a.stale_days, refresh_s=a.refresh, run_days=a.run_days)
+    views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
     httpd = BoardServer(a.host, a.port, views, static_dir=static)
     stop = threading.Event()
@@ -139,9 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--port", type=int, default=8787)
     s.add_argument("--refresh", type=int, default=60, help="seconds between collect cycles; 0 serves cache only")
     s.add_argument("--full-every", type=int, default=30, help="every Nth cycle is a full run-history pass")
-    s.add_argument("--stale-days", type=int, default=7, help="open issues idle longer than this are stale")
     s.add_argument("--app-url", default="https://multica.ai", help="web app base URL for deep links")
-    s.add_argument("--static-dir", type=Path, default=DEFAULT_STATIC, help="built frontend directory to serve")
+    s.add_argument("--static-dir", type=Path, default=DEFAULT_STATIC, help="frontend directory served at / (default ../web)")
 
     a = p.parse_args(argv)
     logging.basicConfig(

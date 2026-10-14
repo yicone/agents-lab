@@ -17,7 +17,7 @@ log = logging.getLogger("multica_board.collect")
 
 ISSUE_FIELDS = ",".join(
     [
-        "id", "identifier", "number", "title", "status", "status_category", "status_name",
+        "id", "workspace_id", "identifier", "number", "title", "status", "status_category", "status_name",
         "priority", "assignee_type", "assignee_id", "creator_type", "creator_id",
         "parent_issue_id", "project_id", "stage", "start_date", "due_date",
         "created_at", "updated_at", "last_activity_at", "labels", "properties",
@@ -26,6 +26,12 @@ ISSUE_FIELDS = ",".join(
 ISSUE_PAGE = 100
 TASK_PAGE = 200
 TERMINAL_TASK = {"completed", "failed", "cancelled"}
+WORKSPACE = "_workspace"  # sync_status resource holding the per-workspace collect outcome
+SCOPE_MESSAGE = "CLI identity scoped to another workspace"
+
+
+class ScopeError(CliError):
+    """The CLI answered for a different workspace than the one requested."""
 
 
 def utcnow() -> datetime:
@@ -46,6 +52,11 @@ class CollectOptions:
     concurrency: int = 3
 
 
+def _nn(row: dict[str, Any]) -> dict[str, Any]:
+    """CLI empty strings mean "unset"; store them as NULL."""
+    return {k: (None if v == "" else v) for k, v in row.items()}
+
+
 def _labels(raw: Any) -> list[str]:
     out = []
     for lab in raw or []:
@@ -63,7 +74,7 @@ def norm_issue(i: dict[str, Any]) -> dict[str, Any]:
         "parent_issue_id", "project_id", "stage", "start_date", "due_date",
         "created_at", "updated_at", "last_activity_at",
     ]
-    row = {k: i.get(k) for k in keep}
+    row = _nn({k: i.get(k) for k in keep})
     row["labels_json"] = json.dumps(_labels(i.get("labels")), ensure_ascii=False)
     row["properties_json"] = json.dumps(i.get("properties") or {}, ensure_ascii=False)
     return row
@@ -74,17 +85,17 @@ def norm_agent(a: dict[str, Any]) -> dict[str, Any]:
         "id", "name", "status", "runtime_id", "runtime_mode", "model", "thinking_level",
         "service_tier", "max_concurrent_tasks", "visibility", "owner_id", "archived_at", "updated_at",
     ]
-    row = {k: a.get(k) for k in keep}
+    row = _nn({k: a.get(k) for k in keep})
     row["runtime_bound"] = int(bool(a.get("runtime_bound")))
     return row
 
 
 def norm_runtime(r: dict[str, Any]) -> dict[str, Any]:
     keep = ["id", "name", "custom_name", "provider", "runtime_mode", "status", "last_seen_at", "visibility", "owner_id"]
-    row = {k: r.get(k) for k in keep}
+    row = _nn({k: r.get(k) for k in keep})
     meta = r.get("metadata") if isinstance(r.get("metadata"), dict) else {}
-    row["cli_version"] = meta.get("cli_version") or meta.get("version")
-    row["device_info"] = redact(r.get("device_info"), limit=160)
+    row["cli_version"] = meta.get("cli_version") or meta.get("version") or None
+    row["device_info"] = redact(r.get("device_info") or None, limit=160)
     return row
 
 
@@ -93,25 +104,15 @@ def norm_task(t: dict[str, Any]) -> dict[str, Any]:
         "id", "agent_id", "runtime_id", "issue_id", "kind", "status", "attempt", "max_attempts",
         "created_at", "dispatched_at", "started_at", "completed_at",
     ]
-    row = {k: t.get(k) for k in keep}
+    row = _nn({k: t.get(k) for k in keep})
     err = t.get("error")
     if err is not None and not isinstance(err, str):
         err = json.dumps(err, ensure_ascii=False)
-    row["error"] = redact(err)
-    row["error_class"] = classify_error(err) if t.get("status") == "failed" or err else None
-    models: list[str] = []
-    tin = tout = 0
-    for u in t.get("usage") or []:
-        if not isinstance(u, dict):
-            continue
-        m = u.get("model")
-        if m and m not in models:
-            models.append(m)
-        tin += int(u.get("input_tokens") or 0)
-        tout += int(u.get("output_tokens") or 0)
-    row["models_json"] = json.dumps(models, ensure_ascii=False)
-    row["input_tokens"] = tin or None
-    row["output_tokens"] = tout or None
+    err = err or None
+    row["error_summary"] = redact(err)
+    row["error_kind"] = classify_error(err) if (err or t.get("status") == "failed") else None
+    if row["error_kind"] is None and t.get("status") == "failed":
+        row["error_kind"] = "unknown"
     return row
 
 
@@ -129,10 +130,11 @@ class Collector:
         try:
             res = self.runner.run(["workspace", "list"])
         except CliError as exc:
-            self.store.record_sync(self.server, "*", "workspaces", at=started, ok=False, error=str(exc))
-            return {"ok": False, "error": str(exc), "workspaces": []}
+            self.store.record_sync(self.server, "*", "workspaces", at=started, ok=False,
+                                   error=str(exc), error_kind=classify_error(str(exc)))
+            return {"ok": False, "error": str(exc), "workspaces": {}}
         visible = [
-            {"id": w["id"], "name": w.get("name"), "slug": w.get("slug")}
+            _nn({"id": w["id"], "name": w.get("name"), "slug": w.get("slug")})
             for w in (res.data or [])
             if isinstance(w, dict) and w.get("id")
         ]
@@ -148,7 +150,10 @@ class Collector:
                     results[w["id"]] = fut.result()
                 except Exception as exc:  # isolate one workspace's failure from the rest
                     log.exception("workspace %s failed", w["id"])
-                    results[w["id"]] = {"ok": False, "error": redact(str(exc))}
+                    msg = redact(str(exc))
+                    self.store.record_sync(self.server, w["id"], WORKSPACE, at=iso(utcnow()), ok=False,
+                                           error=msg, error_kind="unknown")
+                    results[w["id"]] = {"ok": False, "error": msg}
         self.store.set_meta("last_collect", {"started_at": started, "finished_at": iso(utcnow())})
         return {"ok": all(r.get("ok") for r in results.values()), "workspaces": results, "purged": purged}
 
@@ -165,7 +170,9 @@ class Collector:
     # --- per workspace ------------------------------------------------------
 
     def collect_workspace(self, ws: str) -> dict[str, Any]:
+        at_start = iso(utcnow())
         out: dict[str, Any] = {"ok": True}
+        errors: list[tuple[str, CliError]] = []
         steps = {
             "issues": self._issues,
             "projects": self._projects,
@@ -180,7 +187,7 @@ class Collector:
             try:
                 count, complete, extra = steps[name](ws)
             except CliError as exc:
-                self.store.record_sync(self.server, ws, name, at=at, ok=False, error=str(exc))
+                self.store.record_sync(self.server, ws, name, at=at, ok=False, error=str(exc), error_kind=_kind(exc))
                 return name, exc, None
             self.store.record_sync(self.server, ws, name, at=at, ok=True, count=count, complete=complete)
             return name, count, extra
@@ -188,27 +195,43 @@ class Collector:
         with ThreadPoolExecutor(max_workers=len(steps)) as pool:
             for name, result, extra in pool.map(step, steps):
                 if isinstance(result, CliError):
-                    out["ok"] = False
+                    errors.append((name, result))
                     out[name] = f"error: {result}"
                 else:
                     out[name] = result
                     if name == "agents":
                         agents = extra
 
-        at = iso(utcnow())
-        if agents is None:
-            self.store.record_sync(self.server, ws, "tasks", at=at, ok=False, error="agents unavailable")
-            out["ok"] = False
+        if agents is not None and not any(_kind(e) == "auth" for _, e in errors):
+            at = iso(utcnow())
+            try:
+                count, complete = self._tasks(ws, agents)
+                self.store.record_sync(self.server, ws, "tasks", at=at, ok=True, count=count, complete=complete)
+                out["tasks"] = count
+            except CliError as exc:
+                errors.append(("tasks", exc))
+                out["tasks"] = f"error: {exc}"
+                self.store.record_sync(self.server, ws, "tasks", at=at, ok=False, error=str(exc), error_kind=_kind(exc))
+
+        if not errors:
+            self.store.record_sync(self.server, ws, WORKSPACE, at=at_start, ok=True)
             return out
-        try:
-            count, complete = self._tasks(ws, agents)
-            self.store.record_sync(self.server, ws, "tasks", at=at, ok=True, count=count, complete=complete)
-            out["tasks"] = count
-        except CliError as exc:
-            out["ok"] = False
-            out["tasks"] = f"error: {exc}"
-            self.store.record_sync(self.server, ws, "tasks", at=at, ok=False, error=str(exc))
+
+        out["ok"] = False
+        name, first = next(((n, e) for n, e in errors if _kind(e) == "auth"), errors[0])
+        kind = _kind(first)
+        if kind == "auth":
+            # Revoked access or a mis-scoped identity: never keep (or show) possibly foreign data.
+            self.store.purge_data(self.server, ws)
+        self.store.record_sync(self.server, ws, WORKSPACE, at=at_start, ok=False,
+                               error=f"{name}: {first}"[:200], error_kind=kind)
         return out
+
+    def _check_scope(self, ws: str, rows: list[dict[str, Any]]) -> None:
+        for r in rows:
+            got = r.get("workspace_id")
+            if got and got != ws:
+                raise ScopeError(SCOPE_MESSAGE)
 
     def _issues(self, ws: str):
         seen: dict[str, dict[str, Any]] = {}
@@ -221,6 +244,7 @@ class Collector:
             )
             data = res.data or {}
             page = data.get("issues") or []
+            self._check_scope(ws, page)
             total = data.get("total", total)
             for i in page:
                 if i.get("id"):
@@ -234,15 +258,19 @@ class Collector:
 
     def _projects(self, ws: str):
         res = self.runner.run(["project", "list"], workspace_id=ws)
-        rows = [{"id": p["id"], "title": p.get("title"), "status": p.get("status")} for p in _as_list(res.data, "projects")]
+        items = _as_list(res.data, "projects")
+        self._check_scope(ws, items)
+        rows = [_nn({"id": p["id"], "title": p.get("title"), "status": p.get("status")}) for p in items if p.get("id")]
         self.store.replace_snapshot(self.server, ws, "projects", rows)
         return len(rows), True, None
 
     def _members(self, ws: str):
         res = self.runner.run(["workspace", "member", "list", ws], workspace_id=ws)
+        items = _as_list(res.data, "members")
+        self._check_scope(ws, items)
         rows = [
-            {"user_id": m.get("user_id") or m.get("id"), "name": m.get("name"), "role": m.get("role")}
-            for m in _as_list(res.data, "members")
+            _nn({"user_id": m.get("user_id") or m.get("id"), "name": m.get("name"), "role": m.get("role")})
+            for m in items
         ]
         rows = [r for r in rows if r["user_id"]]
         self.store.replace_snapshot(self.server, ws, "members", rows)
@@ -250,13 +278,17 @@ class Collector:
 
     def _runtimes(self, ws: str):
         res = self.runner.run(["runtime", "list"], workspace_id=ws)
-        rows = [norm_runtime(r) for r in _as_list(res.data, "runtimes") if r.get("id")]
+        items = _as_list(res.data, "runtimes")
+        self._check_scope(ws, items)
+        rows = [norm_runtime(r) for r in items if r.get("id")]
         self.store.replace_snapshot(self.server, ws, "runtimes", rows)
         return len(rows), True, None
 
     def _agents(self, ws: str):
         res = self.runner.run(["agent", "list", "--include-archived"], workspace_id=ws)
-        rows = [norm_agent(a) for a in _as_list(res.data, "agents") if a.get("id")]
+        items = _as_list(res.data, "agents")
+        self._check_scope(ws, items)
+        rows = [norm_agent(a) for a in items if a.get("id")]
         self.store.replace_snapshot(self.server, ws, "agents", rows)
         return len(rows), True, rows
 
@@ -276,7 +308,9 @@ class Collector:
             if cursor:
                 args += ["--before", cursor]
             res = self.runner.run(args, workspace_id=ws)
-            rows = [norm_task(t) for t in _as_list(res.data, "tasks") if t.get("id")]
+            items = _as_list(res.data, "tasks")
+            self._check_scope(ws, items)
+            rows = [norm_task(t) for t in items if t.get("id")]
             self.store.upsert_many(self.server, ws, "tasks", rows)
             total += len(rows)
             pages += 1
@@ -291,6 +325,12 @@ class Collector:
                 return total, True
             if pages >= self.opts.max_task_pages:
                 return total, False
+
+
+def _kind(exc: CliError) -> str:
+    if isinstance(exc, ScopeError):
+        return "auth"
+    return classify_error(str(exc)) or "unknown"
 
 
 def _as_list(data: Any, key: str) -> list[dict[str, Any]]:
