@@ -18,7 +18,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `config/`: source classes and machine-readable governance metadata definitions
 - `scripts/`: snapshot, diff, gate, and rollback commands
 - `tests/`: focused tests for the safety commands
-- `backlog.md`: tracked work that is planned, in progress, or complete
+- `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 
 Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. The nested `skills/` here is intentionally limited to the governance workflow itself.
 
@@ -30,7 +30,7 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 4. Review the before/after diff and security signals.
 5. Check for responsibility overlap and behavior conflicts.
 6. Decide whether to update, customize, fork, quarantine, or keep the current version.
-7. Update the inventory and backlog; do not mistake runtime visibility for canonical ownership.
+7. Update the inventory and the Multica backlog (ACM-122); do not mistake runtime visibility for canonical ownership.
 
 ## Routing
 
