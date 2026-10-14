@@ -130,3 +130,134 @@ class SkillGuardTests(unittest.TestCase):
             self.assertEqual(report.returncode, 0, report.stdout)
             signals = json.loads(report.stdout)["changes"][0]["signals"]
             self.assertNotIn("trigger_changes", signals)
+
+    def _write_skill(self, root: Path, body: str, extra=None):
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "SKILL.md").write_text(body, encoding="utf-8")
+        for relative, content in (extra or {}).items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+
+    def test_stage_then_gate_does_not_load_live_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            live = Path(directory) / "live"
+            candidate = Path(directory) / "candidate"
+            staging = Path(directory) / "staging"
+            snapshot = Path(directory) / "snapshot"
+            original = "---\nname: demo\ndescription: safe\n---\nUse locally.\n"
+            self._write_skill(live, original, {"notes.txt": "baseline\n"})
+            self._write_skill(
+                candidate,
+                "---\nname: demo\ndescription: changed\n---\nUse curl https://example.test.\n",
+                {"notes.txt": "baseline\n"},
+            )
+            made = self.run_guard(
+                "snapshot",
+                "--skill-root",
+                str(live),
+                "--source-class",
+                "skills_cli_managed",
+                "--output",
+                str(snapshot),
+            )
+            self.assertEqual(made.returncode, 0, made.stderr)
+            staged = self.run_guard(
+                "stage",
+                "--skill-root",
+                str(candidate),
+                "--live-root",
+                str(live),
+                "--snapshot",
+                str(snapshot),
+                "--output",
+                str(staging),
+            )
+            self.assertEqual(staged.returncode, 0, staged.stderr)
+            self.assertEqual((live / "SKILL.md").read_text(encoding="utf-8"), original)
+            blocked = self.run_guard(
+                "diff",
+                "--snapshot",
+                str(snapshot),
+                "--staging",
+                str(staging),
+                "--gate",
+                "--format",
+                "json",
+            )
+            self.assertEqual(blocked.returncode, 2, blocked.stdout)
+            self.assertIn("network_behavior", json.loads(blocked.stdout)["signals"])
+            self.assertEqual((live / "SKILL.md").read_text(encoding="utf-8"), original)
+            refused = self.run_guard("activate", "--staging", str(staging))
+            self.assertEqual(refused.returncode, 2, refused.stdout)
+            self.assertEqual((live / "SKILL.md").read_text(encoding="utf-8"), original)
+            forced = self.run_guard("activate", "--staging", str(staging), "--force")
+            self.assertEqual(forced.returncode, 0, forced.stderr)
+            self.assertIn(
+                "Use curl https://example.test.",
+                (live / "SKILL.md").read_text(encoding="utf-8"),
+            )
+
+    def test_activate_after_clean_staging_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            live = Path(directory) / "live"
+            candidate = Path(directory) / "candidate"
+            staging = Path(directory) / "staging"
+            snapshot = Path(directory) / "snapshot"
+            body = "---\nname: demo\n---\nStable.\n"
+            self._write_skill(live, body, {"notes.txt": "before\n"})
+            self._write_skill(candidate, body, {"notes.txt": "after\n"})
+            made = self.run_guard(
+                "snapshot",
+                "--skill-root",
+                str(live),
+                "--source-class",
+                "local_custom",
+                "--output",
+                str(snapshot),
+            )
+            self.assertEqual(made.returncode, 0, made.stderr)
+            staged = self.run_guard(
+                "stage",
+                "--skill-root",
+                str(candidate),
+                "--live-root",
+                str(live),
+                "--snapshot",
+                str(snapshot),
+                "--output",
+                str(staging),
+            )
+            self.assertEqual(staged.returncode, 0, staged.stderr)
+            allowed = self.run_guard(
+                "diff",
+                "--snapshot",
+                str(snapshot),
+                "--staging",
+                str(staging),
+                "--gate",
+            )
+            self.assertEqual(allowed.returncode, 0, allowed.stdout)
+            self.assertIn("Decision: ALLOW", allowed.stdout)
+            self.assertEqual((live / "notes.txt").read_text(encoding="utf-8"), "before\n")
+            activated = self.run_guard("activate", "--staging", str(staging))
+            self.assertEqual(activated.returncode, 0, activated.stderr)
+            self.assertEqual((live / "notes.txt").read_text(encoding="utf-8"), "after\n")
+            self.assertEqual((live / "SKILL.md").read_text(encoding="utf-8"), body)
+
+    def test_stage_refuses_live_path_as_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            live = Path(directory) / "live"
+            live.mkdir()
+            (live / "SKILL.md").write_text("---\nname: demo\n---\n", encoding="utf-8")
+            refused = self.run_guard(
+                "stage",
+                "--skill-root",
+                str(live),
+                "--live-root",
+                str(live),
+                "--output",
+                str(Path(directory) / "staging"),
+            )
+            self.assertEqual(refused.returncode, 1, refused.stdout)
+            self.assertIn("never the runtime directory", refused.stderr)
