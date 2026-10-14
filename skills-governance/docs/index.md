@@ -24,7 +24,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 - If the skill is self-authored and should be maintained locally -> use `skills-intake-local`
 - If the user explicitly wants broader reuse/global availability -> use `skills-promote-global`
 - If the first question is “what is going on in this skill set?” -> use `skills-governance-audit`
-- If a non-local Skill is about to be upgraded -> first capture a baseline and route through `skills-governance-audit` or `skills-cli-reconcile` before applying the change
+- If a non-local Skill is about to be upgraded -> snapshot the live tree, stage the candidate, review the diff/gate, then activate; do not let the runtime load the new version first
 - If the question is whether branch or worktree rules fit a repository, conflict across AGENTS.md/skills/docs, or belong at another scope -> use `worktree-branch-governance-audit`
 
 ## Related Principles
