@@ -1,0 +1,80 @@
+{
+ "api_version": "0",
+ "generated_at": "2026-10-14T09:00:00Z",
+ "collect_interval_s": 60,
+ "multica_web_base": "https://multica.example",
+ "workspaces": [
+  {
+   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "slug": "alpha-lab",
+   "name": "Alpha Lab",
+   "collect_state": "ok",
+   "last_success_at": "2026-10-14T08:59:40Z",
+   "last_attempt_at": "2026-10-14T08:59:42Z",
+   "error": null,
+   "counts": {
+    "open_issues": 5,
+    "agents": 5,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "collect_state": "ok",
+   "last_success_at": "2026-10-14T08:59:40Z",
+   "last_attempt_at": "2026-10-14T08:59:42Z",
+   "error": null,
+   "counts": {
+    "open_issues": 6,
+    "agents": 5,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489",
+   "slug": "gamma-oasis",
+   "name": "Gamma Oasis",
+   "collect_state": "error",
+   "last_success_at": "2026-10-14T08:42:00Z",
+   "last_attempt_at": "2026-10-14T08:59:42Z",
+   "error": {
+    "kind": "timeout",
+    "message": "issue list timed out after 20s"
+   },
+   "counts": {
+    "open_issues": 5,
+    "agents": 3,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "23b97393-67c6-4da4-9aac-a224c943337e",
+   "slug": "delta-english",
+   "name": "Delta 英语",
+   "collect_state": "ok",
+   "last_success_at": "2026-10-14T08:59:40Z",
+   "last_attempt_at": "2026-10-14T08:59:42Z",
+   "error": null,
+   "counts": {
+    "open_issues": 6,
+    "agents": 6,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "34924adf-c1d0-4aa6-b8bd-fc555ab493dd",
+   "slug": "epsilon-brand",
+   "name": "Epsilon Brand",
+   "collect_state": "never",
+   "last_success_at": null,
+   "last_attempt_at": "2026-10-14T08:59:42Z",
+   "error": {
+    "kind": "auth",
+    "message": "403 forbidden"
+   },
+   "counts": null
+  }
+ ]
+}
