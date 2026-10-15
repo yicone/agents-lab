@@ -12,7 +12,8 @@ import threading
 from pathlib import Path
 
 from .cli_runner import CliError, CliRunner
-from .collector import CollectOptions, Collector
+from .collector import COLLECTOR, CollectOptions, Collector, iso, utcnow
+from .redact import redact
 from .server import BoardServer
 from .store import Store
 from .views import Views
@@ -22,6 +23,13 @@ DEFAULT_DB = Path.home() / ".multica-board" / "board.sqlite"
 DEFAULT_STATIC = Path(__file__).resolve().parents[2] / "web"
 
 log = logging.getLogger("multica_board")
+
+
+def _open_store(path: Path) -> Store:
+    # Only the board's own default directory is tightened; a user-chosen parent (e.g. /tmp) is left alone.
+    if path.parent == DEFAULT_DB.parent and path.parent.is_dir():
+        os.chmod(path.parent, 0o700)
+    return Store(path)
 
 
 def _common(p: argparse.ArgumentParser) -> None:
@@ -75,14 +83,14 @@ def cmd_workspaces(a: argparse.Namespace) -> int:
 
 
 def cmd_collect(a: argparse.Namespace) -> int:
-    store = Store(a.db)
+    store = _open_store(a.db)
     result = Collector(_runner(a), store, a.profile, _opts(a, full=a.full)).collect()
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 2
 
 
 def cmd_serve(a: argparse.Namespace) -> int:
-    store = Store(a.db)
+    store = _open_store(a.db)
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
     httpd = BoardServer(a.host, a.port, views, static_dir=static)
@@ -95,8 +103,14 @@ def cmd_serve(a: argparse.Namespace) -> int:
             try:
                 res = Collector(_runner(a), store, a.profile, _opts(a, full=full)).collect()
                 log.info("collect cycle %d (%s) ok=%s", cycle, "full" if full else "incremental", res.get("ok"))
-            except Exception:
+            except Exception as exc:
                 log.exception("collect cycle failed")
+                try:
+                    store.record_sync(a.profile, *COLLECTOR, at=iso(utcnow()), ok=False,
+                                      error=redact(f"collect cycle crashed: {type(exc).__name__}: {exc}"),
+                                      error_kind="unknown")
+                except Exception:
+                    log.exception("could not record collector failure")
             cycle += 1
             stop.wait(a.refresh)
 

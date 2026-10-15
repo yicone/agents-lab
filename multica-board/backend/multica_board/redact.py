@@ -58,7 +58,7 @@ ERROR_KINDS = (
 _RULES: list[tuple[str, re.Pattern[str]]] = [
     ("quota", re.compile(r"(?i)usage limit|quota|insufficient[_ ]?(credit|balance|funds)|billing|credit balance|exceeded your current")),
     ("rate_limit", re.compile(r"(?i)\b429\b|rate[ _-]?limit|too many requests|overloaded")),
-    ("auth", re.compile(r"(?i)\b(401|403)\b|unauthori[sz]ed|unauthenticated|forbidden|authentication|not logged in|invalid (api )?key|permission denied|not a member")),
+    ("auth", re.compile(r"(?i)\b(401|403)\b|unauthori[sz]ed|unauthenticated|forbidden|authentication|not logged in|invalid (api )?key|permission denied|not a member|no server configured|run 'multica (setup|login)'")),
     ("model_unavailable", re.compile(r"(?i)model[^\n]{0,40}(not found|unavailable|not supported|does not exist|unknown)|unknown model|no such model")),
     ("daemon_restart", re.compile(r"(?i)daemon restart(ed)?|daemon (was )?(stopped|shut ?down|exited)")),
     ("timeout", re.compile(r"(?i)timed? ?out|deadline exceeded|timeout")),

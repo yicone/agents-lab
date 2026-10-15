@@ -41,7 +41,8 @@ class CommandNotAllowed(Exception):
 
 class CliError(Exception):
     def __init__(self, message: str, *, transient: bool = False):
-        super().__init__(message)
+        # Messages surface in /api/meta, so every one is redacted at construction.
+        super().__init__(redact(message) or "cli error")
         self.transient = transient
 
 

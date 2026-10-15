@@ -27,6 +27,7 @@ ISSUE_PAGE = 100
 TASK_PAGE = 200
 TERMINAL_TASK = {"completed", "failed", "cancelled"}
 WORKSPACE = "_workspace"  # sync_status resource holding the per-workspace collect outcome
+COLLECTOR = ("*", "workspaces")  # (workspace_id, resource) of the global `workspace list` outcome
 SCOPE_MESSAGE = "CLI identity scoped to another workspace"
 
 
@@ -130,17 +131,26 @@ class Collector:
         try:
             res = self.runner.run(["workspace", "list"])
         except CliError as exc:
-            self.store.record_sync(self.server, "*", "workspaces", at=started, ok=False,
-                                   error=str(exc), error_kind=classify_error(str(exc)))
+            self._collector_failed(started, str(exc), _kind(exc))
             return {"ok": False, "error": str(exc), "workspaces": {}}
+        except Exception as exc:  # e.g. OSError spawning the CLI; must still reach /api/meta
+            log.exception("workspace list failed")
+            msg = redact(f"{type(exc).__name__}: {exc}")
+            self._collector_failed(started, msg, "unknown")
+            return {"ok": False, "error": msg, "workspaces": {}}
         visible = [
             _nn({"id": w["id"], "name": w.get("name"), "slug": w.get("slug")})
             for w in (res.data or [])
             if isinstance(w, dict) and w.get("id")
         ]
-        selected = self._select(visible)
+        selected, missing = self._select(visible)
         purged = self.store.set_workspaces(self.server, selected)
-        self.store.record_sync(self.server, "*", "workspaces", at=started, ok=True, count=len(selected))
+        if missing:
+            self._collector_failed(
+                started, redact(f"allow-listed workspaces not visible to this CLI identity: {', '.join(missing)}"), "auth"
+            )
+        else:
+            self.store.record_sync(self.server, *COLLECTOR, at=started, ok=True, count=len(selected))
 
         results: dict[str, Any] = {}
         with ThreadPoolExecutor(max_workers=max(1, self.opts.concurrency)) as pool:
@@ -157,15 +167,17 @@ class Collector:
         self.store.set_meta("last_collect", {"started_at": started, "finished_at": iso(utcnow())})
         return {"ok": all(r.get("ok") for r in results.values()), "workspaces": results, "purged": purged}
 
-    def _select(self, visible: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _collector_failed(self, at: str, message: str, kind: str) -> None:
+        log.warning("collector: %s", message)
+        self.store.record_sync(self.server, *COLLECTOR, at=at, ok=False, error=message[:200], error_kind=kind)
+
+    def _select(self, visible: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
         if self.opts.all_workspaces and not self.opts.workspaces:
-            return visible
+            return visible, []
         wanted = set(self.opts.workspaces)
         picked = [w for w in visible if w["id"] in wanted or (w.get("slug") and w["slug"] in wanted)]
         missing = wanted - {w["id"] for w in picked} - {w.get("slug") for w in picked}
-        if missing:
-            log.warning("allow-listed workspaces not visible to this identity: %s", ", ".join(sorted(missing)))
-        return picked
+        return picked, sorted(missing)
 
     # --- per workspace ------------------------------------------------------
 

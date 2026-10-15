@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
-from .collector import WORKSPACE
+from .collector import COLLECTOR, WORKSPACE
 from .store import Store
 
 CLOSED_CATEGORIES = {"done", "cancelled", "canceled"}
@@ -143,7 +143,20 @@ class Views:
             "generated_at": self.generated_at(),
             "collect_interval_s": self.collect_interval_s,
             "multica_web_base": self.app_url,
+            "collector": self._collector(),
             "workspaces": workspaces,
+        }
+
+    def _collector(self) -> dict[str, Any]:
+        """Global CLI health (`workspace list`); explains an empty or silently stale board."""
+        rows = self.store.query(
+            "SELECT * FROM sync_status WHERE server=? AND workspace_id=? AND resource=?", (self.server, *COLLECTOR)
+        )
+        s = rows[0] if rows else {}
+        return {
+            "last_attempt_at": s.get("last_attempt_at"),
+            "last_success_at": s.get("last_success_at"),
+            "error": {"kind": s.get("last_error_kind") or "unknown", "message": s["last_error"]} if s.get("last_error") else None,
         }
 
     # --- /api/issues --------------------------------------------------------

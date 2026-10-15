@@ -3,6 +3,7 @@ from __future__ import annotations
 import http.client
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -274,6 +275,79 @@ class CollectorTests(unittest.TestCase):
         Collector(CliRunner(profile=SERVER, _exec=fake), store, SERVER, CollectOptions(workspaces=["beta"])).collect()
         self.assertEqual({r["id"] for r in store.query("SELECT id FROM workspaces")}, {WS_B})
         self.assertFalse(any(WS_A in c for c in fake.calls))
+
+
+class CollectorHealthTests(unittest.TestCase):
+    """/api/meta must explain an empty or silently stale board when the CLI itself is unusable."""
+
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.views = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+
+    def tearDown(self):
+        self.store.close()
+
+    def collect(self, runner, **opt):
+        return Collector(runner, self.store, SERVER, CollectOptions(all_workspaces=not opt, **opt)).collect()
+
+    def test_never_attempted(self):
+        self.assertEqual(self.views.meta()["collector"], {"last_attempt_at": None, "last_success_at": None, "error": None})
+
+    def test_cli_binary_missing(self):
+        res = self.collect(CliRunner(profile=SERVER, binary="/Users/someone/no-such-dir/multica", retries=0))
+        self.assertFalse(res["ok"])
+        meta = self.views.meta()
+        self.assertEqual(meta["workspaces"], [])
+        self.assertIsNone(meta["generated_at"])
+        err = meta["collector"]["error"]
+        self.assertEqual(err["message"], "multica CLI not found: ~/no-such-dir/multica")  # home path redacted
+        self.assertIsNotNone(meta["collector"]["last_attempt_at"])
+        self.assertIsNone(meta["collector"]["last_success_at"])
+
+    def test_not_logged_in_is_auth(self):
+        def unconfigured(argv, **kw):
+            return subprocess.CompletedProcess(argv, 1, "", f"No server configured. Run 'multica setup' first. token={FAKE_TOKEN}")
+
+        self.collect(CliRunner(profile=SERVER, _exec=unconfigured, retries=0))
+        err = self.views.meta()["collector"]["error"]
+        self.assertEqual(err["kind"], "auth")
+        self.assertNotIn(FAKE_TOKEN, err["message"])
+
+    def test_failure_after_success_keeps_last_success(self):
+        fake = FakeMultica(fixture())
+        runner = CliRunner(profile=SERVER, _exec=fake, retries=0)
+        self.collect(runner)
+        ok = self.views.meta()["collector"]
+        self.assertIsNone(ok["error"])
+        self.assertIsNotNone(ok["last_success_at"])
+        fake.workspaces = None  # next `workspace list` raises inside the fake -> non-CliError path
+        self.collect(runner)
+        after = self.views.meta()["collector"]
+        self.assertEqual(after["last_success_at"], ok["last_success_at"])
+        self.assertEqual(after["error"]["kind"], "unknown")
+        self.assertEqual(len(self.views.meta()["workspaces"]), 2)  # cached workspaces still listed
+
+    def test_allow_list_entry_not_visible(self):
+        runner = CliRunner(profile=SERVER, _exec=FakeMultica(fixture()), retries=0)
+        res = self.collect(runner, workspaces=["beta", "gamma"])
+        self.assertIn(WS_B, res["workspaces"])  # visible entries still collected
+        err = self.views.meta()["collector"]["error"]
+        self.assertEqual(err["kind"], "auth")
+        self.assertIn("gamma", err["message"])
+
+    def test_default_dir_tightened_only(self):
+        import multica_board.__main__ as main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            default_dir, other_dir = Path(tmp) / "board", Path(tmp) / "other"
+            for d in (default_dir, other_dir):
+                d.mkdir()
+                os.chmod(d, 0o755)
+            with mock.patch.object(main, "DEFAULT_DB", default_dir / "board.sqlite"):
+                main._open_store(default_dir / "board.sqlite").close()
+                main._open_store(other_dir / "x.sqlite").close()
+            self.assertEqual(default_dir.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(other_dir.stat().st_mode & 0o777, 0o755)
 
 
 def seed(store: Store) -> None:
