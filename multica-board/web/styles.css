@@ -74,7 +74,8 @@ button, select, input { font: inherit; color: inherit; }
   padding: 8px 16px 6px;
 }
 .topbar-row { display: flex; align-items: center; gap: 16px; }
-.brand { font-size: 14px; font-weight: 650; margin: 0; letter-spacing: 0.2px; }
+.brand { font-size: 14px; font-weight: 650; margin: 0; letter-spacing: 0.2px; display: flex; align-items: center; gap: 6px; }
+.brand-mark { width: 16px; height: 16px; flex: none; display: block; }
 .tabs { display: flex; gap: 2px; }
 .tab {
   padding: 4px 10px;
