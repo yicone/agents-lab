@@ -441,7 +441,7 @@ class ViewTests(unittest.TestCase):
         return {i["id"]: i for i in self.v.issues()["items"]}
 
     def test_generated_at_is_collect_finish(self):
-        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes()):
+        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes(), self.v.failure_stats()):
             self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
 
     def test_meta(self):
@@ -505,6 +505,112 @@ class ViewTests(unittest.TestCase):
         with self.assertRaises(NotFound):
             self.v.issue_runs("w1", "nope")
 
+    def test_failure_stats_from_seed(self):
+        body = self.v.failure_stats()
+        self.assertEqual(body["windows"], {"h24": 24, "d7": 168})
+        # r1 daemon_restart (5h), r3 quota (2h), r6 network (30h); r7 timeout is older than 7d.
+        reasons = [
+            {"failure_reason": "daemon_restart", "h24": 1, "d7": 1},
+            {"failure_reason": "quota", "h24": 1, "d7": 1},
+            {"failure_reason": "network", "h24": 0, "d7": 1},
+        ]
+        failed = {"h24": 2, "d7": 3}
+        self.assertEqual(body["by_provider"], [{"provider": "cursor", "failed": failed, "top_reasons": reasons}])
+        self.assertEqual(body["by_runtime"], [{
+            "key": "w1:rt", "workspace_id": "w1", "id": "rt", "name": "Cursor (box)", "provider": "cursor",
+            "failed": failed, "top_reasons": reasons,
+        }])
+        self.assertEqual(body["by_agent"], [{
+            "key": "w1:ag", "workspace_id": "w1", "id": "ag", "name": "Builder", "runtime_id": "rt",
+            "failed": failed, "top_reasons": reasons,
+        }])
+        blob = json.dumps(body)
+        for secret in ("usage limit", "daemon restarted", "conn refused", "error_summary"):
+            self.assertNotIn(secret, blob)
+
+
+class FailureStatsTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.v = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+        s = SERVER
+        with self.store.tx() as c:
+            self.store.upsert(c, "workspaces", {"server": s, "id": "w1", "name": "One", "slug": "one"})
+            self.store.upsert(c, "workspaces", {"server": s, "id": "w2", "name": "Two", "slug": "two"})
+            self.store.upsert(c, "runtimes", {"server": s, "workspace_id": "w1", "id": "rt-old", "name": "Cursor old",
+                                              "provider": "cursor"})
+            self.store.upsert(c, "runtimes", {"server": s, "workspace_id": "w1", "id": "rt-new", "name": "Codex",
+                                              "custom_name": "Codex box", "provider": "codex"})
+            self.store.upsert(c, "runtimes", {"server": s, "workspace_id": "w2", "id": "rt-b", "name": "Cursor b",
+                                              "provider": "cursor"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "w1", "id": "ag", "name": "Builder",
+                                            "runtime_id": "rt-new"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "w2", "id": "ag", "name": "Builder",
+                                            "runtime_id": "rt-b"})
+
+            def run(ws, tid, rid, status, hours, kind):
+                self.store.upsert(c, "tasks", {
+                    "server": s, "workspace_id": ws, "id": tid, "agent_id": "ag", "runtime_id": rid,
+                    "status": status, "created_at": ago(hours), "completed_at": ago(hours), "error_kind": kind,
+                    "error_summary": f"secret {FAKE_TOKEN} {kind}",
+                })
+
+            # cursor / w1: quota x3 in 24h, rate_limit x2 (one inside 24h), timeout and network once each in 7d.
+            # timeout and network tie, so network wins the third top_reasons slot.
+            for i, hours in enumerate((1, 2, 3)):
+                run("w1", f"q{i}", "rt-old", "failed", hours, "quota")
+            run("w1", "rl0", "rt-old", "failed", 4, "rate_limit")
+            run("w1", "rl1", "rt-old", "failed", 30, "rate_limit")
+            run("w1", "to", "rt-old", "failed", 40, "timeout")  # ties network, sorts later, dropped from top_reasons
+            run("w1", "net", "rt-old", "failed", 50, "network")
+            run("w2", "qb", "rt-b", "failed", 5, "quota")  # same provider, other workspace
+            run("w1", "cx", "rt-new", "failed", 6, "process")
+            run("w1", "ghost", "missing", "failed", 26, None)  # unknown runtime, unclassified -> unknown
+            run("w1", "old", "rt-old", "failed", 24 * 8, "auth")  # outside 7d
+            run("w1", "ok", "rt-old", "completed", 1, "quota")
+            run("w1", "cancel", "rt-old", "cancelled", 1, "cancelled")
+        self.store.set_meta("last_collect", {"finished_at": "2026-10-14T09:00:00Z"})
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_groups_windows_and_top3(self):
+        body = self.v.failure_stats()
+        self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
+        providers = {row["provider"]: row for row in body["by_provider"]}
+        # w1 cursor: quota 3, rate_limit 2, timeout 1, network 1 = 7; plus w2 quota 1 = 8. h24: 3+1 + w2 1 = 5.
+        cursor = providers["cursor"]
+        self.assertEqual(cursor["failed"], {"h24": 5, "d7": 8})
+        self.assertEqual([r["failure_reason"] for r in cursor["top_reasons"]], ["quota", "rate_limit", "network"])
+        self.assertEqual(cursor["top_reasons"][0], {"failure_reason": "quota", "h24": 4, "d7": 4})
+        self.assertEqual(sum(r["d7"] for r in cursor["top_reasons"]), 7)  # timeout ties network and sorts later
+        self.assertEqual(providers["codex"]["failed"], {"h24": 1, "d7": 1})
+        self.assertEqual(providers["codex"]["top_reasons"], [{"failure_reason": "process", "h24": 1, "d7": 1}])
+        self.assertEqual(providers[None]["failed"], {"h24": 0, "d7": 1})
+        self.assertEqual(providers[None]["top_reasons"], [{"failure_reason": "unknown", "h24": 0, "d7": 1}])
+        self.assertEqual([row["provider"] for row in body["by_provider"]], ["cursor", "codex", None])
+
+        runtimes = {(row["workspace_id"], row["id"]): row for row in body["by_runtime"]}
+        self.assertEqual(runtimes[("w1", "rt-old")]["failed"], {"h24": 4, "d7": 7})
+        self.assertEqual(runtimes[("w1", "rt-old")]["name"], "Cursor old")
+        self.assertEqual(runtimes[("w2", "rt-b")]["failed"], {"h24": 1, "d7": 1})
+        self.assertEqual(runtimes[("w1", "rt-new")]["name"], "Codex box")
+        ghost = runtimes[("w1", "missing")]
+        self.assertEqual((ghost["name"], ghost["provider"], ghost["failed"]), (None, None, {"h24": 0, "d7": 1}))
+
+        agents = {(row["workspace_id"], row["id"]): row for row in body["by_agent"]}
+        # w1 agent: cursor failures 7 + codex 1 + unknown 1 = 9 in 7d; h24 is cursor 4 + codex 1 = 5.
+        # runtime_id is the current binding, not the runtime each run used.
+        self.assertEqual(agents[("w1", "ag")]["runtime_id"], "rt-new")
+        self.assertEqual(agents[("w1", "ag")]["name"], "Builder")
+        self.assertEqual(agents[("w1", "ag")]["failed"], {"h24": 5, "d7": 9})
+        self.assertEqual(agents[("w2", "ag")]["key"], "w2:ag")
+        self.assertNotEqual(agents[("w1", "ag")]["key"], agents[("w2", "ag")]["key"])
+        blob = json.dumps(body)
+        self.assertNotIn(FAKE_TOKEN, blob)
+        self.assertNotIn("error_summary", blob)
+        self.assertNotIn("secret", blob)
+
 
 class ServerTests(unittest.TestCase):
     @classmethod
@@ -543,7 +649,8 @@ class ServerTests(unittest.TestCase):
                 assert_loopback(host)
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs"):
+        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes",
+                     "/api/issues/w1/member/runs", "/api/stats/failures"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
@@ -553,7 +660,8 @@ class ServerTests(unittest.TestCase):
             json.loads(body)
 
     def test_removed_and_unknown_endpoints(self):
-        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/issues/w1/nope/runs"):
+        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/stats",
+                     "/api/issues/w1/nope/runs"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 404, path)
             self.assertEqual(json.loads(body)["error"]["code"], "not_found")

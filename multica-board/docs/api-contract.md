@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.1）
+# Multica Board 只读 API 契约（v0.2）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`（必改项，后端待实现）。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2（ACM-167）新增 `GET /api/stats/failures`，不改变既有字段。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -216,7 +216,67 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 `name` 优先用 runtime 的自定义名。同一台机器在不同 workspace 注册为不同 runtime 记录（不同 `id`），前端按 `provider` 聚合做跨 workspace 汇总，按 `workspace_id + id` 精确 join。
 
+## `GET /api/stats/failures`
+
+按 provider、runtime、agent 汇总失败的 run，用来判断额度与稳定性。只读，走和其它 `/api/*` 相同的 Host / 跨源校验与安全头。不返回 `error_summary` 或原始错误文本。
+
+```json
+{
+  "generated_at": "2026-10-14T09:00:00Z",
+  "windows": { "h24": 24, "d7": 168 },
+  "by_provider": [
+    {
+      "provider": "cursor",
+      "failed": { "h24": 3, "d7": 6 },
+      "top_reasons": [
+        { "failure_reason": "quota", "h24": 2, "d7": 3 },
+        { "failure_reason": "rate_limit", "h24": 1, "d7": 2 },
+        { "failure_reason": "timeout", "h24": 0, "d7": 1 }
+      ]
+    }
+  ],
+  "by_runtime": [
+    {
+      "key": "ws-uuid:rt-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "rt-uuid",
+      "name": "Cursor (tr-mini-m4)",
+      "provider": "cursor",
+      "failed": { "h24": 3, "d7": 6 },
+      "top_reasons": [
+        { "failure_reason": "quota", "h24": 2, "d7": 3 },
+        { "failure_reason": "rate_limit", "h24": 1, "d7": 2 },
+        { "failure_reason": "timeout", "h24": 0, "d7": 1 }
+      ]
+    }
+  ],
+  "by_agent": [
+    {
+      "key": "ws-uuid:agent-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "agent-uuid",
+      "name": "Builder",
+      "runtime_id": "rt-uuid",
+      "failed": { "h24": 2, "d7": 4 },
+      "top_reasons": [
+        { "failure_reason": "quota", "h24": 2, "d7": 3 },
+        { "failure_reason": "process", "h24": 0, "d7": 1 }
+      ]
+    }
+  ]
+}
+```
+
+- 只统计 `status=failed` 的 run。时间取 `completed_at`，没有则用 `created_at`，和响应时刻比较（与 `/api/agents` 的 `recent` 相同，不是 `generated_at`）。`h24` 是 `d7` 的子集。
+- `failure_reason` 就是入库时归类的 `error_kind`（`quota` → … → `unknown`）。CLI 的 task 没有单独的 failure reason 字段，原始 `error` 文本不进入本接口。没有 `error_kind` 的失败记为 `unknown`。
+- `failed` 是该组窗口内的全部失败次数。`top_reasons` 最多 3 条，按 `d7`、`h24`、`failure_reason` 排序；被截掉的原因仍算在 `failed` 里。
+- `by_provider` 把各 workspace 里同一 `provider` 加总（额度通常按 provider 共享）。runtime 不在缓存、或 `provider` 为空时归入 `"provider": null`。
+- `by_runtime` / `by_agent` 按 `workspace_id + id` 分开，不跨 workspace 合并。runtime 的 `name` 规则同 `/api/runtimes`。agent 的 `runtime_id` 是**当前绑定**，不是每条 run 当时的 runtime；run 记在哪个 runtime 上，由 `by_runtime` 和 `by_provider` 决定。
+- 7 天内没有失败的组不出现。缓存只保留 `--run-days`（默认 14）天的 run，所以 7 天窗口在默认配置下是完整的。
+- 排序：`failed.d7` 降序，其次 `failed.h24`，再按名称；名称为空的排在后面。
+
 ## 变更记录
 
+- v0.2（2026-10-15）：新增 `GET /api/stats/failures`（ACM-167）。`failure_reason` 取值即 `error_kind`。
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。
