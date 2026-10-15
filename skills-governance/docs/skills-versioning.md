@@ -43,6 +43,8 @@ Keep required metadata in `SKILL.md` frontmatter. The live registry is `skills-g
 
 For a `content_hash` baseline, `baseline_ref` is `sha256:` plus the SHA-256 of that skill's `SKILL.md`. `current_version` copies `metadata.version` when present. Local skills otherwise stay versioned by Git, so `current_version` stays null.
 
+Machine installs keep the same fields. `authority.canonical_path` is null when this repository is not the source. `~` or absolute paths record the install and its symlink adapters. Skills CLI / `~/.agents/.skill-lock.json` installs use `skills_cli_managed`; `current_version` uses the lock `skillFolderHash` when that file has no semver. App-bundled and vendor-bundled skills use `runtime_builtin`. A vendor bundle is one summary record, not one record per bundled skill. Do not add a second inventory file for Obsidian or Logseq.
+
 Use `metadata.version` only when a Skill needs an explicit compatibility marker. Do not duplicate inventory state in every `SKILL.md`. After editing the registry, run `skills-governance/scripts/validate_skills_inventory.py --check-paths`.
 
 ## Publishing And Installation

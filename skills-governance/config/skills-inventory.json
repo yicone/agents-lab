@@ -1,7 +1,7 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-15T08:15:37Z",
-  "description": "Machine-readable source of truth for skills in this repository. The Logseq page OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file.",
+  "updated_at": "2026-10-15T09:59:43Z",
+  "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
     "role": "human_view",
@@ -26,6 +26,11 @@
           "path": "<target-project-skill-dir>/acns-inbox",
           "kind": "declared_target",
           "target": null
+        },
+        {
+          "path": "~/.agents/skills/acns-inbox",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/acns/acns-inbox"
         }
       ],
       "status": "active",
@@ -33,11 +38,12 @@
       "baseline_ref": "sha256:6e8d8658386b5020a2b44889209874ccc0f09f2ea23f23fa8491ff775d5bf615",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/acns/acns-inbox"
+        "skills/acns/acns-inbox",
+        "~/.agents/skills/acns-inbox"
       ]
     },
     {
@@ -58,6 +64,11 @@
           "path": "<target-project-skill-dir>/acns-pdf-summary",
           "kind": "declared_target",
           "target": null
+        },
+        {
+          "path": "~/.agents/skills/acns-pdf-summary",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/acns/acns-pdf-summary"
         }
       ],
       "status": "active",
@@ -65,11 +76,12 @@
       "baseline_ref": "sha256:193939d20199294d45d04076a13714fe7b576bd40bf6db924ce2d357eb9e19ce",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/acns/acns-pdf-summary"
+        "skills/acns/acns-pdf-summary",
+        "~/.agents/skills/acns-pdf-summary"
       ]
     },
     {
@@ -90,6 +102,11 @@
           "path": "<target-project-skill-dir>/acns-route-inbox",
           "kind": "declared_target",
           "target": null
+        },
+        {
+          "path": "~/.agents/skills/acns-route-inbox",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/acns/acns-route-inbox"
         }
       ],
       "status": "active",
@@ -97,11 +114,12 @@
       "baseline_ref": "sha256:e7fe9edb37f9523e4526836ce62435a5d9efc9b3aba0558a87f99f0ae130b949",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/acns/acns-route-inbox"
+        "skills/acns/acns-route-inbox",
+        "~/.agents/skills/acns-route-inbox"
       ]
     },
     {
@@ -122,6 +140,11 @@
           "path": "<target-project-skill-dir>/acns-suggest-archive",
           "kind": "declared_target",
           "target": null
+        },
+        {
+          "path": "~/.agents/skills/acns-suggest-archive",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/acns/acns-suggest-archive"
         }
       ],
       "status": "active",
@@ -129,11 +152,12 @@
       "baseline_ref": "sha256:41bd60744699dfd4d3a236415032d5f294da400c8e1c636d931b14cf801f552f",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/acns/acns-suggest-archive"
+        "skills/acns/acns-suggest-archive",
+        "~/.agents/skills/acns-suggest-archive"
       ]
     },
     {
@@ -154,6 +178,11 @@
           "path": "<target-project-skill-dir>/acns-weekly-review",
           "kind": "declared_target",
           "target": null
+        },
+        {
+          "path": "~/.agents/skills/acns-weekly-review",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/acns/acns-weekly-review"
         }
       ],
       "status": "active",
@@ -161,11 +190,38 @@
       "baseline_ref": "sha256:ff3e1a8370d83f403877b0281a2471e0ef34771b38be5c70ad6e932803f089a8",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/acns/acns-weekly-review"
+        "skills/acns/acns-weekly-review",
+        "~/.agents/skills/acns-weekly-review"
+      ]
+    },
+    {
+      "name": "agent-browser",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "github:vercel-labs/agent-browser",
+      "current_version": null,
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/agent-browser"
       ]
     },
     {
@@ -208,6 +264,187 @@
       ]
     },
     {
+      "name": "archify",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/archify",
+          "kind": "symlink",
+          "target": "../../.agents/skills/archify"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "ffb8258f653b66f5afb8340bf8eb61c7309830ff",
+      "current_version": "ffb8258f653b66f5afb8340bf8eb61c7309830ff",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/archify",
+        "~/.hermes/skills/archify"
+      ]
+    },
+    {
+      "name": "archify-review",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/archify-review",
+          "kind": "symlink",
+          "target": "../../.agents/skills/archify-review"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "cd88f8830b8452dde849fdb792b4abd04ebf2cf1",
+      "current_version": "cd88f8830b8452dde849fdb792b4abd04ebf2cf1",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/archify-review",
+        "~/.hermes/skills/archify-review"
+      ]
+    },
+    {
+      "name": "brainstorming",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "2934541ea5541995c4a8eed5b4bda3cba4d24e85",
+      "current_version": "2934541ea5541995c4a8eed5b4bda3cba4d24e85",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/brainstorming"
+      ]
+    },
+    {
+      "name": "codex-builtin-skills",
+      "source_class": "runtime_builtin",
+      "authority": {
+        "ownership": "runtime_provider",
+        "source_authority": "runtime_distribution",
+        "update_authority": "runtime_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "none"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": null,
+      "current_version": null,
+      "scope": "vendor-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/skills"
+      ]
+    },
+    {
+      "name": "computer-use",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.claude/skills/computer-use",
+          "kind": "symlink",
+          "target": "../../.agents/skills/computer-use"
+        },
+        {
+          "path": "~/.hermes/skills/computer-use",
+          "kind": "symlink",
+          "target": "../../.agents/skills/computer-use"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "fab1436f0d73889492279544eadebc9bcc2694b6",
+      "current_version": "fab1436f0d73889492279544eadebc9bcc2694b6",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/computer-use",
+        "~/.claude/skills/computer-use",
+        "~/.hermes/skills/computer-use"
+      ]
+    },
+    {
+      "name": "cursor-builtin-skills",
+      "source_class": "runtime_builtin",
+      "authority": {
+        "ownership": "runtime_provider",
+        "source_authority": "runtime_distribution",
+        "update_authority": "runtime_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "none"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": null,
+      "current_version": null,
+      "scope": "vendor-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.cursor/skills-cursor"
+      ]
+    },
+    {
       "name": "devin-pr-review-thread",
       "source_class": "local_custom",
       "authority": {
@@ -225,6 +462,11 @@
           "path": ".agents/skills/devin-pr-review-thread",
           "kind": "symlink",
           "target": "../../skills/devin-pr-review-thread"
+        },
+        {
+          "path": "~/.agents/skills/devin-pr-review-thread",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/devin-pr-review-thread"
         }
       ],
       "status": "active",
@@ -237,7 +479,285 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/devin-pr-review-thread",
-        ".agents/skills/devin-pr-review-thread"
+        ".agents/skills/devin-pr-review-thread",
+        "~/.agents/skills/devin-pr-review-thread"
+      ]
+    },
+    {
+      "name": "distill-memory",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "dd517a351cdeeda61020ebe76c62da2e47d2aae6",
+      "current_version": "dd517a351cdeeda61020ebe76c62da2e47d2aae6",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/distill-memory"
+      ]
+    },
+    {
+      "name": "doc",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "94abe963d5a513f339f11b040aca11d9cecfbfd0",
+      "current_version": "94abe963d5a513f339f11b040aca11d9cecfbfd0",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/doc"
+      ]
+    },
+    {
+      "name": "ego-browser",
+      "source_class": "runtime_builtin",
+      "authority": {
+        "ownership": "runtime_provider",
+        "source_authority": "runtime_distribution",
+        "update_authority": "runtime_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": "~/.agents/skills/ego-browser",
+          "kind": "symlink",
+          "target": "/Users/tr/.local/share/ego/ego-skills"
+        },
+        {
+          "path": "~/.claude/skills/ego-browser",
+          "kind": "symlink",
+          "target": "/Users/tr/.local/share/ego/ego-skills"
+        },
+        {
+          "path": "~/.gemini/antigravity-cli/skills/ego-browser",
+          "kind": "symlink",
+          "target": "/Users/tr/.local/share/ego/ego-skills"
+        },
+        {
+          "path": "~/.gemini/config/skills/ego-browser",
+          "kind": "symlink",
+          "target": "/Users/tr/.local/share/ego/ego-skills"
+        },
+        {
+          "path": "~/.hermes/skills/ego-browser",
+          "kind": "symlink",
+          "target": "/Users/tr/.local/share/ego/ego-skills"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:9402bf03db895209a755d5e2af9b436dbf98eed0911907110a4ea482c30632de",
+      "current_version": "0.5.1.13",
+      "scope": "app-bundled",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.local/share/ego/ego-skills",
+        "~/.agents/skills/ego-browser",
+        "~/.claude/skills/ego-browser",
+        "~/.hermes/skills/ego-browser",
+        "~/.gemini/config/skills/ego-browser",
+        "~/.gemini/antigravity-cli/skills/ego-browser"
+      ]
+    },
+    {
+      "name": "external-qa-triage",
+      "source_class": "third_party_unmanaged",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "explicit_review",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:4bdacc289b58930fa539677759961b9e4dc394734b55692f2dbc1325e5abcbc8",
+      "current_version": "1.0",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/external-qa-triage"
+      ]
+    },
+    {
+      "name": "firecrawl-developer-index",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.claude/skills/firecrawl-developer-index",
+          "kind": "symlink",
+          "target": "../../.agents/skills/firecrawl-developer-index"
+        },
+        {
+          "path": "~/.hermes/skills/firecrawl-developer-index",
+          "kind": "symlink",
+          "target": "../../.agents/skills/firecrawl-developer-index"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "2e4f6d3f44d85f4b037935b239c923c75621802c",
+      "current_version": "2e4f6d3f44d85f4b037935b239c923c75621802c",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/firecrawl-developer-index",
+        "~/.claude/skills/firecrawl-developer-index",
+        "~/.hermes/skills/firecrawl-developer-index"
+      ]
+    },
+    {
+      "name": "gh-fix-ci",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "3f99938c9464393f27cc4cc00e4ba17387517803",
+      "current_version": "3f99938c9464393f27cc4cc00e4ba17387517803",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/gh-fix-ci"
+      ]
+    },
+    {
+      "name": "google-cloud-recipe-auth",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "557547f1b9cc838c78e6f19e1015ea8bd6b832fc",
+      "current_version": "557547f1b9cc838c78e6f19e1015ea8bd6b832fc",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/google-cloud-recipe-auth"
+      ]
+    },
+    {
+      "name": "google-cloud-recipe-onboarding",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "0f32afd9d99d1da58049935a538b57267b691261",
+      "current_version": "0f32afd9d99d1da58049935a538b57267b691261",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/google-cloud-recipe-onboarding"
+      ]
+    },
+    {
+      "name": "hermes-builtin-skills",
+      "source_class": "runtime_builtin",
+      "authority": {
+        "ownership": "runtime_provider",
+        "source_authority": "runtime_distribution",
+        "update_authority": "runtime_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "none"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": null,
+      "current_version": null,
+      "scope": "vendor-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.hermes/skills"
       ]
     },
     {
@@ -253,17 +773,24 @@
         "kind": "content_hash",
         "subject": "SKILL.md"
       },
-      "adapters": [],
+      "adapters": [
+        {
+          "path": "~/.agents/skills/logseq-acns-vault",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/logseq-acns-vault"
+        }
+      ],
       "status": "active",
       "review_time": null,
       "baseline_ref": "sha256:ade65b60d8ea292b3940a04e2c08fec23326225973d14e2b2bc8645ef76f9671",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/logseq-acns-vault"
+        "skills/logseq-acns-vault",
+        "~/.agents/skills/logseq-acns-vault"
       ]
     },
     {
@@ -279,17 +806,24 @@
         "kind": "content_hash",
         "subject": "SKILL.md"
       },
-      "adapters": [],
+      "adapters": [
+        {
+          "path": "~/.agents/skills/logseq-acns-write",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/logseq-acns-write"
+        }
+      ],
       "status": "active",
       "review_time": null,
       "baseline_ref": "sha256:5ee3703b450a5e30914ebf0e68208ab4f7463e3637d7535fa2cce2a233aa51b1",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/logseq-acns-write"
+        "skills/logseq-acns-write",
+        "~/.agents/skills/logseq-acns-write"
       ]
     },
     {
@@ -305,17 +839,24 @@
         "kind": "content_hash",
         "subject": "SKILL.md"
       },
-      "adapters": [],
+      "adapters": [
+        {
+          "path": "~/.agents/skills/logseq-http-transport",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/logseq-http-transport"
+        }
+      ],
       "status": "active",
       "review_time": null,
       "baseline_ref": "sha256:d1ec210068f36248556449d8976bae85b6be865c92467561e48d3585e826aeee",
       "current_version": null,
       "scope": "repo",
-      "install_shape": "canonical_directory",
+      "install_shape": "symlink_adapters",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "skills/logseq-http-transport"
+        "skills/logseq-http-transport",
+        "~/.agents/skills/logseq-http-transport"
       ]
     },
     {
@@ -352,6 +893,338 @@
       ]
     },
     {
+      "name": "orca-cli",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/orca-cli",
+          "kind": "symlink",
+          "target": "../../.agents/skills/orca-cli"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "ee3a35c76f875ea6ebaf68947af13ba6346b13f2",
+      "current_version": "ee3a35c76f875ea6ebaf68947af13ba6346b13f2",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/orca-cli",
+        "~/.hermes/skills/orca-cli"
+      ]
+    },
+    {
+      "name": "orchestration",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.claude/skills/orchestration",
+          "kind": "symlink",
+          "target": "../../.agents/skills/orchestration"
+        },
+        {
+          "path": "~/.hermes/skills/orchestration",
+          "kind": "symlink",
+          "target": "../../.agents/skills/orchestration"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "ebd864919dd8cab9d7049fc624c9afeebce2767c",
+      "current_version": "ebd864919dd8cab9d7049fc624c9afeebce2767c",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/orchestration",
+        "~/.claude/skills/orchestration",
+        "~/.hermes/skills/orchestration"
+      ]
+    },
+    {
+      "name": "performance-lighthouse-runner",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "954e6fa464b1639d1e5dff0435babb371fc6b1d6",
+      "current_version": "954e6fa464b1639d1e5dff0435babb371fc6b1d6",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/performance-lighthouse-runner"
+      ]
+    },
+    {
+      "name": "playwright",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "74888f3c1d5581aea6415e78d5fbd760a8ab2a41",
+      "current_version": "74888f3c1d5581aea6415e78d5fbd760a8ab2a41",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/playwright"
+      ]
+    },
+    {
+      "name": "pr-review-fix",
+      "source_class": "third_party_unmanaged",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "explicit_review",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:132cff2e1cc3adf0cbc59641424ddbbf90bd9944b43d04a016d5e053d19f5dbd",
+      "current_version": "1.0",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/pr-review-fix"
+      ]
+    },
+    {
+      "name": "read-working-memory",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "3ba4934079d121ee72f3ab7a340217ee848bdef8",
+      "current_version": "3ba4934079d121ee72f3ab7a340217ee848bdef8",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/read-working-memory"
+      ]
+    },
+    {
+      "name": "save-handoff",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "76289df2016204f7d8c7c8df596d42f8814a5655",
+      "current_version": "76289df2016204f7d8c7c8df596d42f8814a5655",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/save-handoff"
+      ]
+    },
+    {
+      "name": "save-thread",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "829139503db133128ecbc9174527c2fded880d3a",
+      "current_version": "829139503db133128ecbc9174527c2fded880d3a",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/save-thread"
+      ]
+    },
+    {
+      "name": "screenshot",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "52b8e26e5313cfeba3da7cb9057bdb94c1cf7ed1",
+      "current_version": "52b8e26e5313cfeba3da7cb9057bdb94c1cf7ed1",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/screenshot"
+      ]
+    },
+    {
+      "name": "search-memory",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "50b5f78b8418710a500ea0d0843422950128f918",
+      "current_version": "50b5f78b8418710a500ea0d0843422950128f918",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/search-memory"
+      ]
+    },
+    {
+      "name": "skill-creator",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "8bfb6b8774d223eea3e788cfdfa1e4209e5e2ae9",
+      "current_version": "8bfb6b8774d223eea3e788cfdfa1e4209e5e2ae9",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/skill-creator"
+      ]
+    },
+    {
+      "name": "skill-installer",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "6c065e2ccde6a5a653a32e507bc0323455367e53",
+      "current_version": "6c065e2ccde6a5a653a32e507bc0323455367e53",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/skill-installer"
+      ]
+    },
+    {
       "name": "skills-cli-reconcile",
       "source_class": "local_custom",
       "authority": {
@@ -369,6 +1242,11 @@
           "path": ".agents/skills/skills-cli-reconcile",
           "kind": "symlink",
           "target": "../../skills-governance/skills/skills-cli-reconcile"
+        },
+        {
+          "path": "~/.agents/skills/skills-cli-reconcile",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills-governance/skills/skills-cli-reconcile"
         }
       ],
       "status": "active",
@@ -381,7 +1259,8 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-cli-reconcile",
-        ".agents/skills/skills-cli-reconcile"
+        ".agents/skills/skills-cli-reconcile",
+        "~/.agents/skills/skills-cli-reconcile"
       ]
     },
     {
@@ -402,6 +1281,11 @@
           "path": ".agents/skills/skills-governance-audit",
           "kind": "symlink",
           "target": "../../skills-governance/skills/skills-governance-audit"
+        },
+        {
+          "path": "~/.agents/skills/skills-governance-audit",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills-governance/skills/skills-governance-audit"
         }
       ],
       "status": "active",
@@ -414,7 +1298,8 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-governance-audit",
-        ".agents/skills/skills-governance-audit"
+        ".agents/skills/skills-governance-audit",
+        "~/.agents/skills/skills-governance-audit"
       ]
     },
     {
@@ -435,6 +1320,11 @@
           "path": ".agents/skills/skills-intake-local",
           "kind": "symlink",
           "target": "../../skills-governance/skills/skills-intake-local"
+        },
+        {
+          "path": "~/.agents/skills/skills-intake-local",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills-governance/skills/skills-intake-local"
         }
       ],
       "status": "active",
@@ -447,7 +1337,8 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-intake-local",
-        ".agents/skills/skills-intake-local"
+        ".agents/skills/skills-intake-local",
+        "~/.agents/skills/skills-intake-local"
       ]
     },
     {
@@ -468,6 +1359,11 @@
           "path": ".agents/skills/skills-lifecycle-manager",
           "kind": "symlink",
           "target": "../../skills-governance/skills/skills-lifecycle-manager"
+        },
+        {
+          "path": "~/.agents/skills/skills-lifecycle-manager",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills-governance/skills/skills-lifecycle-manager"
         }
       ],
       "status": "active",
@@ -480,7 +1376,8 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-lifecycle-manager",
-        ".agents/skills/skills-lifecycle-manager"
+        ".agents/skills/skills-lifecycle-manager",
+        "~/.agents/skills/skills-lifecycle-manager"
       ]
     },
     {
@@ -501,6 +1398,11 @@
           "path": ".agents/skills/skills-promote-global",
           "kind": "symlink",
           "target": "../../skills-governance/skills/skills-promote-global"
+        },
+        {
+          "path": "~/.agents/skills/skills-promote-global",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills-governance/skills/skills-promote-global"
         }
       ],
       "status": "active",
@@ -513,7 +1415,383 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-promote-global",
-        ".agents/skills/skills-promote-global"
+        ".agents/skills/skills-promote-global",
+        "~/.agents/skills/skills-promote-global"
+      ]
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "75e1acaafe8b08e59d4b86fc253ac7873aff6bba",
+      "current_version": "75e1acaafe8b08e59d4b86fc253ac7873aff6bba",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/ui-ux-pro-max"
+      ]
+    },
+    {
+      "name": "understand",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "ba1531e0a35466deb7990f28b00feded4d21ed91",
+      "current_version": "ba1531e0a35466deb7990f28b00feded4d21ed91",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand",
+        "~/.hermes/skills/understand"
+      ]
+    },
+    {
+      "name": "understand-chat",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-chat",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-chat"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "bae3c467b630980e98641995c3b5221033f1af53",
+      "current_version": "bae3c467b630980e98641995c3b5221033f1af53",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-chat",
+        "~/.hermes/skills/understand-chat"
+      ]
+    },
+    {
+      "name": "understand-dashboard",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-dashboard",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-dashboard"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "78c13dba34205a2e6017da63e2928d16c51d51a4",
+      "current_version": "78c13dba34205a2e6017da63e2928d16c51d51a4",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-dashboard",
+        "~/.hermes/skills/understand-dashboard"
+      ]
+    },
+    {
+      "name": "understand-diff",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-diff",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-diff"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "61b952946f0391a63552c1b3df80714cfc354e0d",
+      "current_version": "61b952946f0391a63552c1b3df80714cfc354e0d",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-diff",
+        "~/.hermes/skills/understand-diff"
+      ]
+    },
+    {
+      "name": "understand-domain",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-domain",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-domain"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "f8cdc13343e3cadd9c9f2f0c3cca90d673dcb49b",
+      "current_version": "f8cdc13343e3cadd9c9f2f0c3cca90d673dcb49b",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-domain",
+        "~/.hermes/skills/understand-domain"
+      ]
+    },
+    {
+      "name": "understand-explain",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-explain",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-explain"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "39341fa100bad0bd4b3f3fa6e6805a59359325e3",
+      "current_version": "39341fa100bad0bd4b3f3fa6e6805a59359325e3",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-explain",
+        "~/.hermes/skills/understand-explain"
+      ]
+    },
+    {
+      "name": "understand-figma",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-figma",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-figma"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "72ae2d69cd2867157dbb23a18b200e2711e878da",
+      "current_version": "72ae2d69cd2867157dbb23a18b200e2711e878da",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-figma",
+        "~/.hermes/skills/understand-figma"
+      ]
+    },
+    {
+      "name": "understand-knowledge",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-knowledge",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-knowledge"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "1b837bdc251b653f46d6e4f7e00dc0e347287295",
+      "current_version": "1b837bdc251b653f46d6e4f7e00dc0e347287295",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-knowledge",
+        "~/.hermes/skills/understand-knowledge"
+      ]
+    },
+    {
+      "name": "understand-onboard",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [
+        {
+          "path": "~/.hermes/skills/understand-onboard",
+          "kind": "symlink",
+          "target": "../../.agents/skills/understand-onboard"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "fc03d9eef0516290d73e883b6048eaeeba9cc165",
+      "current_version": "fc03d9eef0516290d73e883b6048eaeeba9cc165",
+      "scope": "machine",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/understand-onboard",
+        "~/.hermes/skills/understand-onboard"
+      ]
+    },
+    {
+      "name": "using-git-worktrees",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "a5b3f5965f321175a7f07dcadff0bb79adb9e9f7",
+      "current_version": "a5b3f5965f321175a7f07dcadff0bb79adb9e9f7",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/using-git-worktrees"
+      ]
+    },
+    {
+      "name": "using-superpowers",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "7569e98e26e69d0cc0b16da7ea4c30f48e94ca02",
+      "current_version": "7569e98e26e69d0cc0b16da7ea4c30f48e94ca02",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/using-superpowers"
       ]
     },
     {
@@ -543,6 +1821,58 @@
       ]
     },
     {
+      "name": "wechatide-skill",
+      "source_class": "third_party_unmanaged",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "explicit_review",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:ca52735c502cee495380eae4ba2679931320d5c326c077c1b11fa90930578805",
+      "current_version": "0.3.11",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/wechatide-skill"
+      ]
+    },
+    {
+      "name": "weread-skills",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "2a9e612eba9f430a55b45b8921e11139033d45dd",
+      "current_version": "2a9e612eba9f430a55b45b8921e11139033d45dd",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/weread-skills"
+      ]
+    },
+    {
       "name": "worktree-branch-governance-audit",
       "source_class": "local_custom",
       "authority": {
@@ -565,6 +1895,11 @@
           "path": ".codex/skills/worktree-branch-governance-audit",
           "kind": "symlink",
           "target": "../../skills/worktree-branch-governance-audit"
+        },
+        {
+          "path": "~/.agents/skills/worktree-branch-governance-audit",
+          "kind": "symlink",
+          "target": "/Users/tr/Workspace/agents-lab/skills/worktree-branch-governance-audit"
         }
       ],
       "status": "active",
@@ -578,7 +1913,86 @@
       "visible_paths": [
         "skills/worktree-branch-governance-audit",
         ".agents/skills/worktree-branch-governance-audit",
-        ".codex/skills/worktree-branch-governance-audit"
+        ".codex/skills/worktree-branch-governance-audit",
+        "~/.agents/skills/worktree-branch-governance-audit"
+      ]
+    },
+    {
+      "name": "writing-child-presentations",
+      "source_class": "third_party_unmanaged",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "explicit_review",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:eeb970da8821315ecb109227af089fc71d82c09da2c8fdb30064ac57fcd56f5e",
+      "current_version": null,
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/writing-child-presentations"
+      ]
+    },
+    {
+      "name": "writing-plans",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "be89d032af0d3621f689e8bd6083e4010971e5fa",
+      "current_version": "be89d032af0d3621f689e8bd6083e4010971e5fa",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/writing-plans"
+      ]
+    },
+    {
+      "name": "writing-skills",
+      "source_class": "skills_cli_managed",
+      "authority": {
+        "ownership": "third_party",
+        "source_authority": "upstream_repository",
+        "update_authority": "skills_cli",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "git_commit",
+        "subject": "skill-lock"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "657cdd6aef472054ffd3f0e7798494d79be9f807",
+      "current_version": "657cdd6aef472054ffd3f0e7798494d79be9f807",
+      "scope": "machine",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.agents/skills/writing-skills"
       ]
     }
   ]

@@ -191,6 +191,33 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         self.assertIn("skills[0].baseline_ref", paths)
         self.assertIn("skills[0].adapters[0].target", paths)
 
+    def test_external_symlink_adapter_is_checked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "real"
+            target.mkdir()
+            (target / "SKILL.md").write_text("---\nname: demo-skill\n---\n", encoding="utf-8")
+            link = root / "linked"
+            link.symlink_to(target, target_is_directory=True)
+            body = (target / "SKILL.md").read_bytes()
+            digest = hashlib.sha256(body).hexdigest()
+            record = skill(
+                source_class="skills_cli_managed",
+                baseline={"kind": "content_hash", "subject": "SKILL.md"},
+                baseline_ref=f"sha256:{digest}",
+                adapters=[{"path": str(link), "kind": "symlink", "target": str(target)}],
+                visible_paths=[str(target)],
+            )
+            record["authority"] = {
+                "ownership": "third_party",
+                "source_authority": "upstream_repository",
+                "update_authority": "skills_cli",
+                "canonical_path": None,
+            }
+            inventory = self.write_inventory(root, document([record]))
+            result = self.run_validator(inventory, "--check-paths", "--repo-root", str(root))
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_repo_inventory_covers_canonical_skills(self):
         self.assertTrue(INVENTORY.is_file(), "skills-inventory.json is missing")
         result = self.run_validator(
@@ -201,12 +228,21 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout)
         payload = json.loads(INVENTORY.read_text(encoding="utf-8"))
-        recorded = {item["authority"]["canonical_path"] for item in payload["skills"]}
+        recorded = {
+            item["authority"]["canonical_path"]
+            for item in payload["skills"]
+            if item["authority"]["canonical_path"]
+        }
         found = set()
         for base in (REPO / "skills", REPO / "skills-governance" / "skills"):
             for skill_md in base.rglob("SKILL.md"):
                 found.add(skill_md.parent.relative_to(REPO).as_posix())
         self.assertEqual(recorded, found)
+        names = [item["name"] for item in payload["skills"]]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertIn("ego-browser", names)
+        for bundle in ("cursor-builtin-skills", "codex-builtin-skills", "hermes-builtin-skills"):
+            self.assertIn(bundle, names)
         for item in payload["skills"]:
             self.assertIn("review_time", item)
             self.assertIn("baseline_ref", item)
