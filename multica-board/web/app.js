@@ -1,7 +1,9 @@
-const MOCK = new URLSearchParams(location.search).has("mock");
+const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
+const MOCK = MOCK_PARAM !== null;
+const MOCK_SCENARIO = MOCK && /^[a-z][a-z-]*$/.test(MOCK_PARAM) ? MOCK_PARAM : "";
 const META_POLL_MS = 15_000;
 const STALE_DAY_OPTIONS = [1, 3, 7, 14];
-const ACTIVE_RUN = new Set(["running", "queued", "dispatched"]);
+const QUEUED_RUN = new Set(["queued", "dispatched", "waiting_local_directory"]);
 const QUOTA_KINDS = new Set(["quota", "rate_limit"]);
 
 const ERROR_KIND_LABEL = {
@@ -13,8 +15,19 @@ const ERROR_KIND_LABEL = {
   model_unavailable: "模型不可用",
   daemon_restart: "daemon 重启",
   cancelled: "已取消",
+  process: "进程失败",
   unknown: "未知错误",
 };
+
+const COLLECTOR_HINT = {
+  auth: "CLI 认证失败。在你自己的终端确认 multica 已登录，且 --profile 指向正确的 profile。",
+  process: "CLI 无法运行。确认 multica 已安装，或用 --multica-bin 指定路径。",
+  network: "网络不通。检查网络或代理后，后端会在下一轮自动重试。",
+  timeout: "CLI 调用超时。检查网络；也可以调大 --timeout。",
+  rate_limit: "被限流，后端会在下一轮自动重试。",
+  quota: "额度不足，后端会在下一轮自动重试。",
+};
+const COLLECTOR_HINT_DEFAULT = "查看运行后端的终端输出（加 -v 更详细）。";
 
 const STATUS_LABEL = {
   backlog: "Backlog",
@@ -23,6 +36,16 @@ const STATUS_LABEL = {
   in_review: "待验收",
   blocked: "受阻",
   done: "完成",
+  cancelled: "取消",
+};
+
+const RUN_STATUS_LABEL = {
+  queued: "排队",
+  dispatched: "已派发",
+  waiting_local_directory: "等待目录",
+  running: "运行中",
+  completed: "完成",
+  failed: "失败",
   cancelled: "取消",
 };
 
@@ -42,12 +65,19 @@ const state = {
   fetchError: null,
   route: parseRoute(),
   staleDays: Number(localStorage.getItem("mb.staleDays")) || 3,
+  drawer: null,
 };
 
 // ---------- data ----------
 
-async function getJSON(name) {
-  const url = MOCK ? `fixtures/${name}.json` : `/api/${name}`;
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function fetchJSON(url, label) {
   const res = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
   if (!res.ok) {
     let detail = `${res.status}`;
@@ -55,9 +85,32 @@ async function getJSON(name) {
       const body = await res.json();
       if (body?.error?.message) detail += ` ${body.error.message}`;
     } catch {}
-    throw new Error(`${name}: ${detail}`);
+    throw new HttpError(res.status, `${label}: ${detail}`);
   }
   return res.json();
+}
+
+let mockScenarios;
+
+async function getJSON(name) {
+  if (!MOCK) return fetchJSON(`/api/${name}`, name);
+  if (MOCK_SCENARIO) {
+    mockScenarios ??= fetchJSON("fixtures/scenarios.json", "scenarios");
+    const overrides = (await mockScenarios)[MOCK_SCENARIO] ?? [];
+    if (overrides.includes(name)) return fetchJSON(`fixtures/${MOCK_SCENARIO}/${name}.json`, name);
+  }
+  return fetchJSON(`fixtures/${name}.json`, name);
+}
+
+async function getRuns(it) {
+  if (!MOCK) {
+    const path = `/api/issues/${encodeURIComponent(it.workspace_id)}/${encodeURIComponent(it.id)}/runs`;
+    return fetchJSON(path, "runs");
+  }
+  const all = await fetchJSON("fixtures/runs.json", "runs");
+  const items = all.by_issue?.[it.key];
+  if (!items) throw new HttpError(404, "runs: 404 issue not in cache");
+  return { generated_at: all.generated_at, items };
 }
 
 async function refresh(force = false) {
@@ -87,7 +140,11 @@ async function refresh(force = false) {
 }
 
 function now() {
-  return MOCK && state.meta ? Date.parse(state.meta.generated_at) : Date.now();
+  if (MOCK && state.meta) {
+    const t = Date.parse(state.meta.collector?.last_attempt_at ?? state.meta.generated_at ?? "");
+    if (!Number.isNaN(t)) return t;
+  }
+  return Date.now();
 }
 
 // ---------- routing ----------
@@ -154,7 +211,7 @@ function h(tag, attrs, ...children) {
 }
 
 function extLink(href, attrs, ...children) {
-  if (!href) return h("div", attrs, ...children);
+  if (!href) return h("span", attrs, ...children);
   return h("a", { ...attrs, href, target: "_blank", rel: "noopener noreferrer" }, ...children);
 }
 
@@ -169,6 +226,14 @@ function ago(iso) {
 
 function absTime(iso) {
   return iso ? new Date(iso).toLocaleString("zh-CN", { hour12: false }) : "";
+}
+
+function duration(fromIso, toIso) {
+  if (!fromIso || !toIso) return "";
+  const s = Math.max(0, (Date.parse(toIso) - Date.parse(fromIso)) / 1000);
+  if (s < 60) return `${Math.round(s)} 秒`;
+  if (s < 3600) return `${Math.round(s / 60)} 分钟`;
+  return `${(s / 3600).toFixed(1)} 小时`;
 }
 
 function hueOf(str) {
@@ -197,7 +262,77 @@ function matchesQuery(q, ...fields) {
 }
 
 function errKind(kind) {
-  return kind ? ERROR_KIND_LABEL[kind] ?? kind : "";
+  if (!kind) return "";
+  return ERROR_KIND_LABEL[kind] ?? ERROR_KIND_LABEL.unknown;
+}
+
+function errKindEl(kind, fallback = "失败") {
+  return h("span", { class: `err-kind${QUOTA_KINDS.has(kind) ? " quota" : ""}`, title: kind || "" }, errKind(kind) || fallback);
+}
+
+function assigneeName(a) {
+  if (!a) return "未分配";
+  if (a.name) return a.name;
+  return a.type === "squad" ? "Squad" : a.type === "member" ? "未知成员" : "未知 agent";
+}
+
+// ---------- health model ----------
+
+function collectInterval() {
+  return state.meta?.collect_interval_s ?? 60;
+}
+
+function allWorkspacesFailing() {
+  const list = state.meta?.workspaces ?? [];
+  return list.length > 0 && list.some((w) => w.collect_state === "error") && list.every((w) => w.collect_state === "error" || w.collect_state === "never");
+}
+
+/** One status for the snapshot pill: level is ok | warn | bad | idle. */
+function health() {
+  const m = state.meta;
+  if (state.fetchError) {
+    return { level: "bad", text: m ? `后端不可达 · 显示 ${ago(m.generated_at)}的数据` : "后端不可达", title: state.fetchError.message };
+  }
+  if (!m) return { level: "idle", text: "加载中…" };
+  const interval = collectInterval();
+  const at = m.generated_at;
+  if (m.collector?.error) {
+    return { level: "bad", text: at ? `采集失败 · 数据停在 ${ago(at)}` : "采集失败 · 尚无数据", title: absTime(at) };
+  }
+  if (!at) return { level: "idle", text: interval > 0 ? "尚未采集 · 首轮进行中" : "尚未采集" };
+  if (allWorkspacesFailing()) return { level: "bad", text: `全部 workspace 采集失败 · ${ago(at)}`, title: absTime(at) };
+  if (interval === 0) return { level: "idle", text: `只读缓存 · 快照 ${ago(at)}`, title: `--refresh 0：不采集，只读缓存\n${absTime(at)}` };
+  const stale = (now() - Date.parse(at)) / 1000 > interval * 3;
+  return { level: stale ? "warn" : "ok", text: `快照 ${ago(at)}${stale ? "（过期）" : ""}`, title: absTime(at) };
+}
+
+/** Global problem worth a banner, or null. Workspace-level errors stay on their chips. */
+function bannerInfo() {
+  const m = state.meta;
+  if (!m || state.fetchError) return null;
+  const c = m.collector;
+  if (c?.error) {
+    return {
+      title: `采集失败：${errKind(c.error.kind)}`,
+      message: c.error.message,
+      hint: COLLECTOR_HINT[c.error.kind] ?? COLLECTOR_HINT_DEFAULT,
+      facts: [
+        `最近尝试 ${ago(c.last_attempt_at)}`,
+        c.last_success_at ? `最近成功 ${ago(c.last_success_at)}` : "从未成功",
+        m.generated_at ? `页面显示的是 ${ago(m.generated_at)}的旧数据` : null,
+      ],
+    };
+  }
+  if (allWorkspacesFailing()) {
+    const first = m.workspaces.find((w) => w.error);
+    return {
+      title: "全部 workspace 本轮采集失败",
+      message: first ? `${first.name}：${first.error.message}` : "",
+      hint: COLLECTOR_HINT[first?.error?.kind] ?? COLLECTOR_HINT_DEFAULT,
+      facts: ["各 workspace 的原因见下方标签（悬停查看详情）"],
+    };
+  }
+  return null;
 }
 
 // ---------- chrome (header) ----------
@@ -208,33 +343,32 @@ function renderChrome() {
     t.setAttribute("aria-current", t.dataset.view === state.route.view ? "page" : "false");
   });
 
+  const hs = health();
   const snap = document.getElementById("snapshot");
-  snap.replaceChildren();
-  snap.className = "snapshot";
-  if (state.fetchError) {
-    snap.classList.add("bad");
-    snap.append(
-      h("span", { class: "dot" }),
-      state.meta ? `后端不可达 · 显示 ${ago(state.meta.generated_at)}的数据` : "后端不可达",
+  snap.className = `snapshot ${hs.level}`;
+  snap.title = hs.title ?? "";
+  snap.replaceChildren(h("span", { class: "dot" }), hs.text);
+  if (MOCK) snap.append(h("span", { class: "mock" }, MOCK_SCENARIO ? `mock:${MOCK_SCENARIO}` : "mock"));
+
+  const b = bannerInfo();
+  const banner = document.getElementById("banner");
+  banner.hidden = !b;
+  if (b) {
+    banner.replaceChildren(
+      ...[
+        h("div", { class: "banner-title" }, b.title),
+        b.message ? h("code", { class: "banner-msg" }, b.message) : null,
+        h("div", { class: "banner-hint" }, b.hint),
+        h("div", { class: "banner-facts" }, b.facts.filter(Boolean).join(" · ")),
+      ].filter(Boolean),
     );
-    snap.title = state.fetchError.message;
-  } else if (state.meta) {
-    const ageS = (now() - Date.parse(state.meta.generated_at)) / 1000;
-    const stale = ageS > (state.meta.collect_interval_s ?? 60) * 3;
-    if (stale) snap.classList.add("warn");
-    snap.append(h("span", { class: "dot" }), `快照 ${ago(state.meta.generated_at)}`, MOCK ? h("span", { class: "mock" }, "mock") : null);
-    snap.title = absTime(state.meta.generated_at);
-  } else {
-    snap.append("加载中…");
   }
 
-  const health = document.getElementById("health");
-  health.replaceChildren(
+  document.getElementById("health").replaceChildren(
     ...(state.meta?.workspaces ?? []).map((ws) => {
       const active = state.route.ws === ws.slug;
-      const label = [ws.name];
       let detail = "";
-      if (ws.collect_state === "never") detail = "未加载";
+      if (ws.collect_state === "never") detail = ws.error ? `未加载 · ${errKind(ws.error.kind)}` : "未加载";
       else if (ws.collect_state === "error") detail = `${errKind(ws.error?.kind) || "失败"} · ${ago(ws.last_success_at)}`;
       else if (ws.collect_state === "stale") detail = `过期 · ${ago(ws.last_success_at)}`;
       const title = [
@@ -255,7 +389,7 @@ function renderChrome() {
           onclick: () => setRoute({ ws: active ? "" : ws.slug }),
         },
         h("span", { class: "dot" }),
-        label,
+        ws.name,
         detail ? h("span", { class: "chip-detail" }, detail) : null,
       );
     }),
@@ -266,7 +400,7 @@ function renderChrome() {
 
 function classifyIssue(it, staleMs) {
   const run = it.latest_run;
-  const activeRun = run && ACTIVE_RUN.has(run.status);
+  const activeRun = run && (run.status === "running" || QUEUED_RUN.has(run.status));
   const tags = [];
   const failed = run?.status === "failed";
   const blocked = it.status === "blocked";
@@ -279,7 +413,7 @@ function classifyIssue(it, staleMs) {
   if (blocked && lane !== "blocked") tags.push(["warn", "受阻"]);
   if (review && lane !== "review") tags.push(["info", "待验收"]);
   if (activeRun) tags.push(["run", run.status === "running" ? "运行中" : "排队中"]);
-  if (!failed && it.last_failed_run) tags.push(["muted", `曾失败·已恢复`]);
+  if (!failed && it.last_failed_run) tags.push(["muted", "曾失败·已恢复"]);
   if (it.due_date && Date.parse(`${it.due_date}T23:59:59Z`) < now() && it.status_category !== "done") tags.push(["bad", "逾期"]);
   if (it.priority === "urgent" || it.priority === "high") tags.push(["prio", it.priority === "urgent" ? "紧急" : "高优"]);
   return { lane, tags };
@@ -290,18 +424,13 @@ function issueCard(it, ws, cls) {
   const degraded = isWsDegraded(ws);
   const failedLine =
     run?.status === "failed"
-      ? h(
-          "div",
-          { class: "card-error", title: run.error_summary || "" },
-          h("span", { class: `err-kind${QUOTA_KINDS.has(run.error_kind) ? " quota" : ""}` }, errKind(run.error_kind) || "失败"),
-          " ",
-          run.error_summary || "",
-        )
+      ? h("div", { class: "card-error", title: run.error_summary || "" }, errKindEl(run.error_kind), " ", run.error_summary || "")
       : null;
+  const context = [it.project?.title, it.parent_identifier ? `↑ ${it.parent_identifier}` : null].filter(Boolean).join(" · ");
 
-  return extLink(
-    it.url,
-    { class: `card${degraded ? " is-stale" : ""}`, title: `${it.identifier} ${it.title}` },
+  return h(
+    "article",
+    { class: `card${degraded ? " is-stale" : ""}` },
     h(
       "div",
       { class: "card-head" },
@@ -309,12 +438,16 @@ function issueCard(it, ws, cls) {
       h("span", { class: "ident" }, it.identifier),
       h("span", { class: "status" }, STATUS_LABEL[it.status] ?? it.status),
     ),
-    h("div", { class: "card-title" }, it.title),
+    extLink(it.url, { class: "card-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title),
+    context ? h("div", { class: "card-context" }, context) : null,
     failedLine,
     h(
       "div",
       { class: "card-foot" },
-      h("span", { class: "who" }, it.assignee?.name ?? "未分配"),
+      h("span", { class: "who" }, assigneeName(it.assignee)),
+      run
+        ? h("button", { type: "button", class: "runs-btn", title: "查看运行历史", onclick: () => openDrawer(it) }, "运行记录")
+        : h("span", { class: "runs-none", title: "后端只缓存最近 14 天的 run" }, "14 天无 run"),
       h(
         "span",
         { class: "when", title: `最后活动 ${absTime(it.last_activity_at)}` },
@@ -342,7 +475,7 @@ function renderIssues() {
   for (const it of state.issues) {
     const ws = wsMap.get(it.workspace_id);
     if (wsSlug && ws?.slug !== wsSlug) continue;
-    if (!matchesQuery(q, it.identifier, it.title, it.assignee?.name, it.latest_run?.agent_name, ws?.name)) continue;
+    if (!matchesQuery(q, it.identifier, it.title, it.assignee?.name, it.latest_run?.agent_name, ws?.name, it.project?.title, it.parent_identifier)) continue;
     const cls = classifyIssue(it, staleMs);
     if (cls.lane) lanes[cls.lane].push({ it, ws, cls });
     else others += 1;
@@ -398,6 +531,85 @@ function renderIssues() {
   return [toolbar, board];
 }
 
+// ---------- runs drawer ----------
+
+async function openDrawer(it) {
+  const token = {};
+  state.drawer = { it, token, loading: true, items: null, error: null, notFound: false };
+  renderDrawer();
+  try {
+    const res = await getRuns(it);
+    if (state.drawer?.token !== token) return;
+    state.drawer = { ...state.drawer, loading: false, items: res.items ?? [] };
+  } catch (err) {
+    if (state.drawer?.token !== token) return;
+    state.drawer = { ...state.drawer, loading: false, notFound: err.status === 404, error: err.status === 404 ? null : String(err.message || err) };
+  }
+  renderDrawer();
+}
+
+function closeDrawer() {
+  if (!state.drawer) return;
+  const opener = state.drawer.opener;
+  state.drawer = null;
+  renderDrawer();
+  opener?.focus();
+}
+
+function runRow(r) {
+  const cls = r.status === "failed" ? "bad" : r.status === "running" ? "run" : QUEUED_RUN.has(r.status) ? "muted" : r.status === "completed" ? "ok" : "muted";
+  return h(
+    "li",
+    { class: "run-row" },
+    h(
+      "div",
+      { class: "run-line" },
+      h("span", { class: `tag ${cls}` }, RUN_STATUS_LABEL[r.status] ?? r.status),
+      h("span", { class: "run-agent" }, r.agent_name ?? "未知 agent"),
+      h("span", { class: "muted", title: `开始 ${absTime(r.started_at)}\n结束 ${absTime(r.completed_at)}` }, ago(r.completed_at ?? r.started_at)),
+      r.started_at && r.completed_at ? h("span", { class: "muted" }, `· ${duration(r.started_at, r.completed_at)}`) : null,
+    ),
+    r.status === "failed" || r.error_kind
+      ? h("div", { class: "run-error" }, errKindEl(r.error_kind), " ", r.error_summary || "")
+      : null,
+  );
+}
+
+function renderDrawer() {
+  const el = document.getElementById("drawer");
+  const d = state.drawer;
+  el.hidden = !d;
+  document.body.classList.toggle("drawer-open", !!d);
+  if (!d) {
+    el.replaceChildren();
+    return;
+  }
+  if (!d.opener) d.opener = document.activeElement;
+  const ws = wsById().get(d.it.workspace_id);
+  let body;
+  if (d.loading) body = h("div", { class: "empty" }, "加载中…");
+  else if (d.error) body = h("div", { class: "empty bad-n" }, `加载失败：${d.error}`);
+  else if (d.notFound || !d.items.length) body = h("div", { class: "empty" }, "14 天内没有 run");
+  else body = h("ol", { class: "runs" }, d.items.map(runRow));
+
+  const close = h("button", { type: "button", class: "drawer-close", "aria-label": "关闭", onclick: closeDrawer }, "×");
+  el.replaceChildren(
+    ...[
+      h(
+        "header",
+        { class: "drawer-head" },
+        h("div", { class: "card-head" }, wsTag(ws), h("span", { class: "ident" }, d.it.identifier)),
+        close,
+      ),
+      h("h2", { class: "drawer-title" }, d.it.title),
+      d.it.url ? extLink(d.it.url, { class: "drawer-link" }, "在 Multica 打开 ↗") : null,
+      h("div", { class: "drawer-sub" }, "运行历史（缓存只保留最近 14 天，最多 20 次）"),
+      body,
+    ].filter(Boolean),
+  );
+  close.focus();
+}
+
 // ---------- agents view ----------
 
 function runtimeIndex() {
@@ -414,11 +626,16 @@ function agentRows() {
   }));
 }
 
+function providerOf({ a, rt }) {
+  return rt?.provider ?? (a.runtime_id ? "未知" : "未绑定");
+}
+
 function providerSummary(rows) {
   const byP = new Map();
-  for (const { a, ws, rt } of rows) {
+  for (const row of rows) {
+    const { a, ws, rt } = row;
     if (a.archived) continue;
-    const p = rt?.provider ?? (a.runtime_id ? "未知" : "未绑定");
+    const p = providerOf(row);
     const s = byP.get(p) ?? { provider: p, agents: 0, ws: new Set(), rts: new Map(), failed: 0, quota: 0, running: 0 };
     s.agents += 1;
     if (ws) s.ws.add(ws.id);
@@ -468,7 +685,7 @@ function agentRow({ a, ws, rt }, showWs) {
     ? h(
         "td",
         { title: absTime(recent.last_failed_at) },
-        h("span", { class: `err-kind${QUOTA_KINDS.has(recent.last_error_kind) ? " quota" : ""}` }, errKind(recent.last_error_kind) || "失败"),
+        errKindEl(recent.last_error_kind),
         " ",
         ago(recent.last_failed_at),
         recent.last_failed_issue_identifier ? h("span", { class: "mono muted" }, ` ${recent.last_failed_issue_identifier}`) : null,
@@ -507,9 +724,10 @@ function renderAgents() {
   const scoped = all.filter(({ ws }) => !r.ws || ws?.slug === r.ws);
   const summary = providerSummary(scoped);
 
-  const rows = scoped.filter(({ a, ws, rt }) => {
+  const rows = scoped.filter((row) => {
+    const { a, ws, rt } = row;
     if (!r.archived && a.archived) return false;
-    if (r.provider && (rt?.provider ?? (a.runtime_id ? "未知" : "未绑定")) !== r.provider) return false;
+    if (r.provider && providerOf(row) !== r.provider) return false;
     if (r.failedOnly && !a.recent?.failed) return false;
     if (r.offlineOnly && a.runtime_id && rt?.status === "online") return false;
     return matchesQuery(r.q, a.name, a.model, a.thinking_level, a.service_tier, rt?.name, rt?.provider, ws?.name);
@@ -573,8 +791,7 @@ function renderAgents() {
 
   const groups = new Map();
   for (const row of rows) {
-    const key =
-      r.group === "provider" ? row.rt?.provider ?? (row.a.runtime_id ? "未知" : "未绑定") : row.ws?.name ?? row.a.workspace_id;
+    const key = r.group === "provider" ? providerOf(row) : row.ws?.name ?? row.a.workspace_id;
     if (!groups.has(key)) groups.set(key, { key, ws: r.group === "workspace" ? row.ws : null, rows: [] });
     groups.get(key).rows.push(row);
   }
@@ -617,12 +834,21 @@ function renderAgents() {
 
 // ---------- render ----------
 
+/** Full-page placeholder when there is nothing to show yet, or null. */
+function emptyState() {
+  const m = state.meta;
+  if (!m) return state.fetchError ? `无法连接后端：${state.fetchError.message}` : "加载中…";
+  if (m.workspaces?.length || m.generated_at) return null;
+  if (m.collector?.error) return "还没有任何数据：采集没有成功过，原因见上方提示。";
+  if (collectInterval() === 0) return "缓存为空：--refresh 0 只读缓存，不会采集。先运行一次 collect，或去掉 --refresh 0。";
+  return "首轮采集进行中，完成后自动显示。";
+}
+
 function renderMain() {
   const main = document.getElementById("main");
-  if (!state.meta) {
-    main.replaceChildren(
-      h("div", { class: "empty big" }, state.fetchError ? `无法连接后端：${state.fetchError.message}` : "加载中…"),
-    );
+  const empty = emptyState();
+  if (empty) {
+    main.replaceChildren(h("div", { class: "empty big" }, empty));
     return;
   }
   main.replaceChildren(...(state.route.view === "agents" ? renderAgents() : renderIssues()));
@@ -646,10 +872,16 @@ search.addEventListener("input", () => {
 
 document.addEventListener("keydown", (e) => {
   const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
-  if (e.key === "Escape" && e.target === search) {
-    search.value = "";
-    setRoute({ q: "" });
-    search.blur();
+  if (e.key === "Escape") {
+    if (state.drawer) {
+      closeDrawer();
+      return;
+    }
+    if (e.target === search) {
+      search.value = "";
+      setRoute({ q: "" });
+      search.blur();
+    }
     return;
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;

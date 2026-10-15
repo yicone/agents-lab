@@ -67,10 +67,35 @@ ERRORS = {
     "daemon_restart": "daemon restarted while task was in flight",
     "timeout": "task exceeded 45m wall clock",
     "model_unavailable": "model not available on this runtime",
-    "unknown": "process exited with code 1",
+    "process": "process exited with code 1",
+    "unknown": "unexpected response from runtime",
 }
+PROJECTS = ["Multica Board", "周报自动化", "课程改版"]
+BASE = "https://multica.example"
 
 meta_ws, issues, agents, runtimes = [], [], [], []
+runs = {}
+
+
+def run_history(latest, agent_name, activity):
+    """Older runs behind `latest`, newest first, the way /runs returns them."""
+    items = [latest]
+    t = activity
+    for _ in range(rng.randint(0, 4)):
+        t += timedelta(hours=rng.randint(2, 30))
+        st = rng.choice(["completed", "completed", "failed", "cancelled"])
+        kind = rng.choice(list(ERRORS)) if st == "failed" else ("cancelled" if st == "cancelled" else None)
+        items.append({
+            "task_id": uid(),
+            "status": st,
+            "agent_name": agent_name,
+            "runtime_id": None,
+            "started_at": ts(t + timedelta(minutes=rng.randint(3, 50))),
+            "completed_at": ts(t),
+            "error_kind": kind,
+            "error_summary": ERRORS.get(kind, "cancelled by user") if kind else None,
+        })
+    return items
 
 for slug, name, prefix, state, err in WORKSPACES:
     ws_id = uid()
@@ -120,9 +145,11 @@ for slug, name, prefix, state, err in WORKSPACES:
                 "last_error_kind": kind,
                 "last_failed_issue_identifier": f"{prefix}-{rng.randint(10, 99)}" if failed else None,
             },
-            "url": f"https://multica.example/{slug}/agents/{a_id}",
+            "url": f"{BASE}/{slug}/agents/{a_id}",
         })
 
+    ws_issue_idents = []
+    project_ids = {p: uid() for p in PROJECTS}
     open_count = 0
     if state != "never":
         for n in range(rng.randint(5, 9)):
@@ -154,25 +181,43 @@ for slug, name, prefix, state, err in WORKSPACES:
                     k = rng.choice(list(ERRORS))
                     last_failed = {"task_id": uid(), "completed_at": ts(activity + timedelta(hours=2)), "error_kind": k}
             open_count += 1
+            roll = rng.random()
+            if roll < 0.75:
+                assignee = {"type": "agent", "id": a_id, "name": a_name}
+            elif roll < 0.85:
+                assignee = {"type": "squad", "id": uid(), "name": None}
+            else:
+                assignee = None
+            project = rng.choice([None, None, *PROJECTS])
+            ident = f"{prefix}-{number}"
             issues.append({
                 "key": f"{ws_id}:{iss_id}",
                 "workspace_id": ws_id,
                 "id": iss_id,
-                "identifier": f"{prefix}-{number}",
+                "identifier": ident,
                 "title": rng.choice(TITLES),
                 "status": status,
                 "status_category": status,
                 "priority": rng.choice(["none", "none", "high", "medium", "urgent"]),
-                "assignee": {"type": "agent", "id": a_id, "name": a_name} if rng.random() < 0.85 else None,
-                "project": None,
-                "parent_identifier": None,
+                "assignee": assignee,
+                "project": {"id": project_ids[project], "title": project} if project else None,
+                "parent_identifier": ws_issue_idents[0] if ws_issue_idents and rng.random() < 0.3 else None,
                 "due_date": (NOW - timedelta(days=1)).strftime("%Y-%m-%d") if rng.random() < 0.1 else None,
                 "created_at": ts(activity + timedelta(days=2)),
                 "last_activity_at": ts(activity),
-                "url": f"https://multica.example/{slug}/issues/{prefix}-{number}",
+                "url": f"{BASE}/{slug}/issues/{iss_id}",
                 "latest_run": latest,
                 "last_failed_run": last_failed,
             })
+            ws_issue_idents.append(ident)
+            if latest:
+                runs[f"{ws_id}:{iss_id}"] = [
+                    {"key": f"{ws_id}:{r['task_id']}", **r} for r in run_history(latest, a_name, activity)
+                ]
+
+    for a in agents:
+        if a["workspace_id"] == ws_id and a["recent"]["failed"]:
+            a["recent"]["last_failed_issue_identifier"] = rng.choice([None, *ws_issue_idents])
 
     n_agents = len(ws_agents)
     meta_ws.append({
@@ -194,17 +239,54 @@ gen = ts(timedelta(0))
 
 
 def dump(name, obj):
-    (OUT / name).write_text(json.dumps(obj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    path = OUT / name
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(obj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
 
-dump("meta.json", {
-    "api_version": "0",
-    "generated_at": gen,
-    "collect_interval_s": 60,
-    "multica_web_base": "https://multica.example",
-    "workspaces": meta_ws,
-})
+def meta(generated_at, collector, workspaces):
+    return {
+        "api_version": "0",
+        "generated_at": generated_at,
+        "collect_interval_s": 60,
+        "multica_web_base": BASE,
+        "collector": collector,
+        "workspaces": workspaces,
+    }
+
+
+dump("meta.json", meta(gen, {"last_attempt_at": ago(seconds=20), "last_success_at": ago(seconds=20), "error": None}, meta_ws))
 dump("issues.json", {"generated_at": gen, "items": issues})
 dump("agents.json", {"generated_at": gen, "recent_window_h": 24, "items": agents})
 dump("runtimes.json", {"generated_at": gen, "items": runtimes})
-print(f"{len(meta_ws)} workspaces, {len(issues)} issues, {len(agents)} agents, {len(runtimes)} runtimes")
+# Not an endpoint: issue key -> /api/issues/{ws}/{id}/runs items, read by the mock loader.
+dump("runs.json", {"generated_at": gen, "by_issue": runs})
+
+# ?mock=cli-down — first launch, `workspace list` never succeeded.
+dump("cli-down/meta.json", meta(None, {
+    "last_attempt_at": ago(seconds=5),
+    "last_success_at": None,
+    "error": {"kind": "process", "message": "multica CLI not found: ~/bin/multica"},
+}, []))
+for name in ("issues", "agents", "runtimes"):
+    dump(f"cli-down/{name}.json", {"generated_at": None, "items": []})
+
+# ?mock=cli-stale — worked before, now `workspace list` fails on auth; cache is 40 minutes old.
+# The backend keeps generated_at and per-workspace sync rows untouched, so workspaces age into `stale`.
+stale_gen = ago(minutes=40)
+stale_ws = [
+    {**w, "collect_state": "never" if w["collect_state"] == "never" else "stale",
+     "last_success_at": None if w["collect_state"] == "never" else stale_gen,
+     "last_attempt_at": stale_gen, "error": w["error"] if w["collect_state"] == "never" else None}
+    for w in meta_ws
+]
+dump("cli-stale/meta.json", meta(stale_gen, {
+    "last_attempt_at": ago(seconds=5),
+    "last_success_at": stale_gen,
+    "error": {"kind": "auth", "message": "401 unauthorized: token expired for profile desktop-api.multica.ai"},
+}, stale_ws))
+
+# Which responses each ?mock=<scenario> overrides; the rest come from the default fixtures.
+dump("scenarios.json", {"cli-down": ["meta", "issues", "agents", "runtimes"], "cli-stale": ["meta"]})
+
+print(f"{len(meta_ws)} workspaces, {len(issues)} issues, {len(agents)} agents, {len(runtimes)} runtimes, {len(runs)} run histories")

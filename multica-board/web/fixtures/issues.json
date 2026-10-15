@@ -2,389 +2,296 @@
  "generated_at": "2026-10-14T09:00:00Z",
  "items": [
   {
-   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:53300ce6-b435-48b3-a3e1-48e8f1b2d3e0",
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:d343ad5e-9f8e-41d9-bc61-cec0b55c9fb4",
    "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "id": "53300ce6-b435-48b3-a3e1-48e8f1b2d3e0",
+   "id": "d343ad5e-9f8e-41d9-bc61-cec0b55c9fb4",
    "identifier": "ALP-100",
-   "title": "接入状态桥接 shadow 模式",
-   "status": "blocked",
-   "status_category": "blocked",
-   "priority": "none",
-   "assignee": {
-    "type": "agent",
-    "id": "7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
-    "name": "Repo Analyst"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": "2026-10-13",
-   "created_at": "2026-09-25T17:00:00Z",
-   "last_activity_at": "2026-09-27T17:00:00Z",
-   "url": "https://multica.example/alpha-lab/issues/ALP-100",
-   "latest_run": null,
-   "last_failed_run": null
-  },
-  {
-   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:7ee96043-a421-46e4-982c-39cc5c8ec871",
-   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "id": "7ee96043-a421-46e4-982c-39cc5c8ec871",
-   "identifier": "ALP-103",
    "title": "每日单词推送失败排查",
    "status": "in_review",
    "status_category": "in_review",
    "priority": "medium",
    "assignee": {
-    "type": "agent",
-    "id": "7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
-    "name": "Repo Analyst"
+    "type": "squad",
+    "id": "7ff543d5-f73e-4a33-b302-de4ddeecee6a",
+    "name": null
    },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-09T01:00:00Z",
-   "last_activity_at": "2026-10-11T01:00:00Z",
-   "url": "https://multica.example/alpha-lab/issues/ALP-103",
-   "latest_run": {
-    "task_id": "3302de4d-deec-4e6a-b22e-5e16c0ad3ac3",
-    "status": "completed",
-    "agent_name": "Repo Analyst",
-    "runtime_id": null,
-    "started_at": "2026-10-11T00:40:00Z",
-    "completed_at": "2026-10-11T01:00:00Z",
-    "error_kind": null,
-    "error_summary": null
+   "project": {
+    "id": "f7165937-81a5-4d39-a7db-68231301466d",
+    "title": "课程改版"
    },
-   "last_failed_run": null
-  },
-  {
-   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:7af9dcd6-11e0-4ccc-b05c-17f995298e6b",
-   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "id": "7af9dcd6-11e0-4ccc-b05c-17f995298e6b",
-   "identifier": "ALP-106",
-   "title": "迁移旧版配置到新 schema",
-   "status": "todo",
-   "status_category": "todo",
-   "priority": "high",
-   "assignee": {
-    "type": "agent",
-    "id": "f0905037-380b-485a-b5ba-fb5b3c593843",
-    "name": "Knowledge Archivist"
-   },
-   "project": null,
    "parent_identifier": null,
    "due_date": null,
    "created_at": "2026-10-12T06:00:00Z",
    "last_activity_at": "2026-10-14T06:00:00Z",
-   "url": "https://multica.example/alpha-lab/issues/ALP-106",
+   "url": "https://multica.example/alpha-lab/issues/d343ad5e-9f8e-41d9-bc61-cec0b55c9fb4",
    "latest_run": {
-    "task_id": "d2ddf0fd-8aa4-4ada-981d-54968d24feba",
-    "status": "completed",
-    "agent_name": "Knowledge Archivist",
-    "runtime_id": null,
-    "started_at": "2026-10-14T05:40:00Z",
-    "completed_at": "2026-10-14T06:00:00Z",
-    "error_kind": null,
-    "error_summary": null
-   },
-   "last_failed_run": {
-    "task_id": "ae72d1ec-2788-4966-b04f-cf5499912414",
-    "completed_at": "2026-10-14T04:00:00Z",
-    "error_kind": "unknown"
-   }
-  },
-  {
-   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:20b6c7bd-0b6e-4b9b-9257-a733b0233a1d",
-   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "id": "20b6c7bd-0b6e-4b9b-9257-a733b0233a1d",
-   "identifier": "ALP-109",
-   "title": "调研：竞品定价页结构",
-   "status": "in_review",
-   "status_category": "in_review",
-   "priority": "high",
-   "assignee": {
-    "type": "agent",
-    "id": "f0905037-380b-485a-b5ba-fb5b3c593843",
-    "name": "Knowledge Archivist"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-09-25T17:00:00Z",
-   "last_activity_at": "2026-09-27T17:00:00Z",
-   "url": "https://multica.example/alpha-lab/issues/ALP-109",
-   "latest_run": null,
-   "last_failed_run": null
-  },
-  {
-   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:7b6ffa88-5b37-48a6-9208-18c19e75bdef",
-   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "id": "7b6ffa88-5b37-48a6-9208-18c19e75bdef",
-   "identifier": "ALP-112",
-   "title": "批量重命名素材文件",
-   "status": "in_progress",
-   "status_category": "in_progress",
-   "priority": "none",
-   "assignee": null,
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-04T01:00:00Z",
-   "last_activity_at": "2026-10-06T01:00:00Z",
-   "url": "https://multica.example/alpha-lab/issues/ALP-112",
-   "latest_run": {
-    "task_id": "b8a6c435-73b6-4abd-bee8-3e62268ab3c5",
-    "status": "failed",
-    "agent_name": "Repo Analyst",
-    "runtime_id": null,
-    "started_at": "2026-10-06T00:40:00Z",
-    "completed_at": "2026-10-06T01:00:00Z",
-    "error_kind": "unknown",
-    "error_summary": "process exited with code 1"
-   },
-   "last_failed_run": {
-    "task_id": "b8a6c435-73b6-4abd-bee8-3e62268ab3c5",
-    "completed_at": "2026-10-06T01:00:00Z",
-    "error_kind": "unknown"
-   }
-  },
-  {
-   "key": "2a1b946d-4be4-4920-8518-fd574e2fada1:35dc1de1-6bb9-44e4-826f-e60555de0c88",
-   "workspace_id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
-   "id": "35dc1de1-6bb9-44e4-826f-e60555de0c88",
-   "identifier": "BET-100",
-   "title": "课程卡片交互改版",
-   "status": "in_review",
-   "status_category": "in_review",
-   "priority": "medium",
-   "assignee": {
-    "type": "agent",
-    "id": "4f5cca1f-2b75-4bb3-a622-5526730b8697",
-    "name": "前端设计师"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-12T01:00:00Z",
-   "last_activity_at": "2026-10-14T01:00:00Z",
-   "url": "https://multica.example/beta-coach/issues/BET-100",
-   "latest_run": {
-    "task_id": "1ba9647a-ed1f-4cd1-b02b-8d3ca72a7816",
+    "task_id": "04ae10b5-8373-4c84-ad70-b39a7ee96043",
     "status": "completed",
     "agent_name": "前端设计师",
     "runtime_id": null,
-    "started_at": "2026-10-14T00:40:00Z",
-    "completed_at": "2026-10-14T01:00:00Z",
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
     "error_kind": null,
     "error_summary": null
    },
    "last_failed_run": null
   },
   {
-   "key": "2a1b946d-4be4-4920-8518-fd574e2fada1:6b63213d-4b4e-44df-8384-aa161357f054",
-   "workspace_id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
-   "id": "6b63213d-4b4e-44df-8384-aa161357f054",
-   "identifier": "BET-103",
-   "title": "修复登录态过期后的重试逻辑",
-   "status": "todo",
-   "status_category": "todo",
-   "priority": "none",
-   "assignee": {
-    "type": "agent",
-    "id": "4f5cca1f-2b75-4bb3-a622-5526730b8697",
-    "name": "前端设计师"
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:ae72d1ec-2788-4966-b04f-cf5499912414",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "ae72d1ec-2788-4966-b04f-cf5499912414",
+   "identifier": "ALP-103",
+   "title": "调研：竞品定价页结构",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "high",
+   "assignee": null,
+   "project": {
+    "id": "f7165937-81a5-4d39-a7db-68231301466d",
+    "title": "课程改版"
    },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": "2026-10-13",
-   "created_at": "2026-10-12T08:00:00Z",
-   "last_activity_at": "2026-10-14T08:00:00Z",
-   "url": "https://multica.example/beta-coach/issues/BET-103",
-   "latest_run": null,
-   "last_failed_run": null
-  },
-  {
-   "key": "2a1b946d-4be4-4920-8518-fd574e2fada1:6ac930c8-d598-4608-9588-1d4b34174b37",
-   "workspace_id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
-   "id": "6ac930c8-d598-4608-9588-1d4b34174b37",
-   "identifier": "BET-106",
-   "title": "迁移旧版配置到新 schema",
-   "status": "todo",
-   "status_category": "todo",
-   "priority": "none",
-   "assignee": {
-    "type": "agent",
-    "id": "f6361cad-7855-48a8-81d1-f9728337e4e0",
-    "name": "研究员"
-   },
-   "project": null,
-   "parent_identifier": null,
+   "parent_identifier": "ALP-100",
    "due_date": null,
-   "created_at": "2026-10-11T03:00:00Z",
-   "last_activity_at": "2026-10-13T03:00:00Z",
-   "url": "https://multica.example/beta-coach/issues/BET-106",
+   "created_at": "2026-09-25T17:00:00Z",
+   "last_activity_at": "2026-09-27T17:00:00Z",
+   "url": "https://multica.example/alpha-lab/issues/ae72d1ec-2788-4966-b04f-cf5499912414",
    "latest_run": {
-    "task_id": "4ef03149-6bbc-4c0b-8928-c511a6f75743",
+    "task_id": "20b6c7bd-0b6e-4b9b-9257-a733b0233a1d",
     "status": "failed",
-    "agent_name": "研究员",
+    "agent_name": "前端设计师",
     "runtime_id": null,
-    "started_at": "2026-10-13T02:40:00Z",
-    "completed_at": "2026-10-13T03:00:00Z",
-    "error_kind": "model_unavailable",
-    "error_summary": "model not available on this runtime"
+    "started_at": "2026-09-27T16:40:00Z",
+    "completed_at": "2026-09-27T17:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
    },
    "last_failed_run": {
-    "task_id": "4ef03149-6bbc-4c0b-8928-c511a6f75743",
-    "completed_at": "2026-10-13T03:00:00Z",
-    "error_kind": "model_unavailable"
+    "task_id": "20b6c7bd-0b6e-4b9b-9257-a733b0233a1d",
+    "completed_at": "2026-09-27T17:00:00Z",
+    "error_kind": "timeout"
    }
   },
   {
-   "key": "2a1b946d-4be4-4920-8518-fd574e2fada1:04f82714-cb63-4af9-8462-ee1674fc7625",
-   "workspace_id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
-   "id": "04f82714-cb63-4af9-8462-ee1674fc7625",
-   "identifier": "BET-109",
-   "title": "迁移旧版配置到新 schema",
-   "status": "in_progress",
-   "status_category": "in_progress",
-   "priority": "medium",
-   "assignee": {
-    "type": "agent",
-    "id": "4f5cca1f-2b75-4bb3-a622-5526730b8697",
-    "name": "前端设计师"
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:2da26773-39b6-40ed-bae5-d2ae371b574f",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "2da26773-39b6-40ed-bae5-d2ae371b574f",
+   "identifier": "ALP-106",
+   "title": "修复登录态过期后的重试逻辑",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": null,
+   "project": {
+    "id": "c0b665f3-5c28-45c2-9330-0ce6b435d8b3",
+    "title": "周报自动化"
    },
-   "project": null,
    "parent_identifier": null,
    "due_date": null,
    "created_at": "2026-10-04T01:00:00Z",
    "last_activity_at": "2026-10-06T01:00:00Z",
-   "url": "https://multica.example/beta-coach/issues/BET-109",
-   "latest_run": null,
-   "last_failed_run": null
-  },
-  {
-   "key": "2a1b946d-4be4-4920-8518-fd574e2fada1:b4494e14-0e7f-4baf-b4bb-e202f599803b",
-   "workspace_id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
-   "id": "b4494e14-0e7f-4baf-b4bb-e202f599803b",
-   "identifier": "BET-112",
-   "title": "导出 issue 快照到 JSON",
-   "status": "in_progress",
-   "status_category": "in_progress",
-   "priority": "medium",
-   "assignee": {
-    "type": "agent",
-    "id": "32728a91-d744-4338-9346-9c400503d5a9",
-    "name": "Knowledge Archivist"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": "2026-10-13",
-   "created_at": "2026-10-12T06:00:00Z",
-   "last_activity_at": "2026-10-14T06:00:00Z",
-   "url": "https://multica.example/beta-coach/issues/BET-112",
+   "url": "https://multica.example/alpha-lab/issues/2da26773-39b6-40ed-bae5-d2ae371b574f",
    "latest_run": {
-    "task_id": "27e0bcef-0932-4b8b-bec7-e50a575c1a5f",
+    "task_id": "f36ecc5f-ea15-4638-beb9-f2f9cfa5a852",
     "status": "failed",
-    "agent_name": "Knowledge Archivist",
+    "agent_name": "Steward",
     "runtime_id": null,
-    "started_at": "2026-10-14T05:40:00Z",
-    "completed_at": "2026-10-14T06:00:00Z",
-    "error_kind": "quota",
-    "error_summary": "provider quota exhausted for current billing period"
+    "started_at": "2026-10-06T00:40:00Z",
+    "completed_at": "2026-10-06T01:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
    },
    "last_failed_run": {
-    "task_id": "27e0bcef-0932-4b8b-bec7-e50a575c1a5f",
-    "completed_at": "2026-10-14T06:00:00Z",
-    "error_kind": "quota"
+    "task_id": "f36ecc5f-ea15-4638-beb9-f2f9cfa5a852",
+    "completed_at": "2026-10-06T01:00:00Z",
+    "error_kind": "timeout"
    }
   },
   {
-   "key": "2a1b946d-4be4-4920-8518-fd574e2fada1:8ff797f6-02ae-4418-bd24-2900e6db92df",
-   "workspace_id": "2a1b946d-4be4-4920-8518-fd574e2fada1",
-   "id": "8ff797f6-02ae-4418-bd24-2900e6db92df",
-   "identifier": "BET-115",
-   "title": "修复登录态过期后的重试逻辑",
-   "status": "blocked",
-   "status_category": "blocked",
-   "priority": "high",
-   "assignee": {
-    "type": "agent",
-    "id": "f6361cad-7855-48a8-81d1-f9728337e4e0",
-    "name": "研究员"
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:669b4f45-e66b-4313-b272-8a91d7441338",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "669b4f45-e66b-4313-b272-8a91d7441338",
+   "identifier": "ALP-109",
+   "title": "课程卡片交互改版",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "medium",
+   "assignee": null,
+   "project": {
+    "id": "63e148e8-f1b2-43e0-8b61-c10ac3b93cfb",
+    "title": "Multica Board"
    },
-   "project": null,
    "parent_identifier": null,
    "due_date": null,
-   "created_at": "2026-10-12T01:00:00Z",
-   "last_activity_at": "2026-10-14T01:00:00Z",
-   "url": "https://multica.example/beta-coach/issues/BET-115",
+   "created_at": "2026-10-12T06:00:00Z",
+   "last_activity_at": "2026-10-14T06:00:00Z",
+   "url": "https://multica.example/alpha-lab/issues/669b4f45-e66b-4313-b272-8a91d7441338",
    "latest_run": {
-    "task_id": "79b22487-e5c7-4b93-80a8-b34fbb2f6f32",
+    "task_id": "730b8697-5122-4f42-b0ae-f0b6111049c9",
     "status": "failed",
-    "agent_name": "研究员",
+    "agent_name": "Steward",
     "runtime_id": null,
-    "started_at": "2026-10-14T00:40:00Z",
-    "completed_at": "2026-10-14T01:00:00Z",
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
     "error_kind": "rate_limit",
     "error_summary": "429 too many requests, retry after 60s"
    },
    "last_failed_run": {
-    "task_id": "79b22487-e5c7-4b93-80a8-b34fbb2f6f32",
-    "completed_at": "2026-10-14T01:00:00Z",
+    "task_id": "730b8697-5122-4f42-b0ae-f0b6111049c9",
+    "completed_at": "2026-10-14T06:00:00Z",
     "error_kind": "rate_limit"
    }
   },
   {
-   "key": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489:e54cbd2e-68b0-4d4b-9c33-372914937152",
-   "workspace_id": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489",
-   "id": "e54cbd2e-68b0-4d4b-9c33-372914937152",
-   "identifier": "GAM-100",
-   "title": "播客脚本第 3 期初稿",
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:edf68e0f-0fe8-4e7d-bc96-290d02c99de5",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "edf68e0f-0fe8-4e7d-bc96-290d02c99de5",
+   "identifier": "ALP-112",
+   "title": "整理 agent 指令中的重复段落",
    "status": "in_progress",
    "status_category": "in_progress",
-   "priority": "medium",
+   "priority": "none",
    "assignee": {
     "type": "agent",
-    "id": "85df9382-9804-43f2-be5c-c9cc873f74a5",
-    "name": "Reviewer"
+    "id": "f0905037-380b-485a-b5ba-fb5b3c593843",
+    "name": "Knowledge Archivist"
    },
    "project": null,
-   "parent_identifier": null,
+   "parent_identifier": "ALP-100",
    "due_date": null,
-   "created_at": "2026-09-25T17:00:00Z",
-   "last_activity_at": "2026-09-27T17:00:00Z",
-   "url": "https://multica.example/gamma-oasis/issues/GAM-100",
+   "created_at": "2026-10-12T06:00:00Z",
+   "last_activity_at": "2026-10-14T06:00:00Z",
+   "url": "https://multica.example/alpha-lab/issues/edf68e0f-0fe8-4e7d-bc96-290d02c99de5",
    "latest_run": {
-    "task_id": "ecd2480f-c51f-44c7-aee2-4baba14b7e97",
+    "task_id": "c40830f9-fdb2-42af-b743-99ced305f9dc",
     "status": "completed",
-    "agent_name": "Reviewer",
+    "agent_name": "Knowledge Archivist",
     "runtime_id": null,
-    "started_at": "2026-09-27T16:40:00Z",
-    "completed_at": "2026-09-27T17:00:00Z",
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
     "error_kind": null,
     "error_summary": null
    },
    "last_failed_run": null
   },
   {
-   "key": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489:da1a2e0c-0d77-46cd-8967-5093191ae788",
-   "workspace_id": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489",
-   "id": "da1a2e0c-0d77-46cd-8967-5093191ae788",
-   "identifier": "GAM-103",
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:9804d3f2-3e5c-49cc-873f-74a5777d9d14",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "9804d3f2-3e5c-49cc-873f-74a5777d9d14",
+   "identifier": "BET-100",
    "title": "播客脚本第 3 期初稿",
-   "status": "in_review",
-   "status_category": "in_review",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": null,
+   "project": {
+    "id": "6e6d7315-4e0a-4aad-9457-6a812fd92fd1",
+    "title": "Multica Board"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-10-09T01:00:00Z",
+   "last_activity_at": "2026-10-11T01:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/9804d3f2-3e5c-49cc-873f-74a5777d9d14",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:8f3c275d-f14e-4150-93e4-bae615a545b5",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "8f3c275d-f14e-4150-93e4-bae615a545b5",
+   "identifier": "BET-103",
+   "title": "接入状态桥接 shadow 模式",
+   "status": "todo",
+   "status_category": "todo",
    "priority": "urgent",
    "assignee": {
     "type": "agent",
-    "id": "b3dba069-8f3c-475d-b14e-9150d3e4bae6",
+    "id": "75b39498-04f8-4714-8b63-baf90462ee16",
+    "name": "Reviewer"
+   },
+   "project": {
+    "id": "8e8ab29c-239f-4686-9815-b88a29ffc9ce",
+    "title": "课程改版"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-25T17:00:00Z",
+   "last_activity_at": "2026-09-27T17:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/8f3c275d-f14e-4150-93e4-bae615a545b5",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:95babbaa-e416-4a7c-9489-632d23a2a1d7",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "95babbaa-e416-4a7c-9489-632d23a2a1d7",
+   "identifier": "BET-106",
+   "title": "评估离线缓存方案",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "0e7f6baf-34bb-4202-b599-803b9f27ae71",
+    "name": "Steward"
+   },
+   "project": {
+    "id": "8e8ab29c-239f-4686-9815-b88a29ffc9ce",
+    "title": "课程改版"
+   },
+   "parent_identifier": "BET-100",
+   "due_date": null,
+   "created_at": "2026-09-25T17:00:00Z",
+   "last_activity_at": "2026-09-27T17:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/95babbaa-e416-4a7c-9489-632d23a2a1d7",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:01f674df-ca3a-44e3-87eb-50d67dd2999b",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "01f674df-ca3a-44e3-87eb-50d67dd2999b",
+   "identifier": "BET-109",
+   "title": "播客脚本第 3 期初稿",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "medium",
+   "assignee": null,
+   "project": {
+    "id": "8e8ab29c-239f-4686-9815-b88a29ffc9ce",
+    "title": "课程改版"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-10-12T01:00:00Z",
+   "last_activity_at": "2026-10-14T01:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/01f674df-ca3a-44e3-87eb-50d67dd2999b",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:da1a2e0c-0d77-46cd-8967-5093191ae788",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "da1a2e0c-0d77-46cd-8967-5093191ae788",
+   "identifier": "BET-112",
+   "title": "批量重命名素材文件",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "79b22487-e5c7-4b93-80a8-b34fbb2f6f32",
     "name": "Knowledge Archivist"
    },
-   "project": null,
-   "parent_identifier": null,
+   "project": {
+    "id": "8e8ab29c-239f-4686-9815-b88a29ffc9ce",
+    "title": "课程改版"
+   },
+   "parent_identifier": "BET-100",
    "due_date": null,
    "created_at": "2026-10-12T06:00:00Z",
    "last_activity_at": "2026-10-14T06:00:00Z",
-   "url": "https://multica.example/gamma-oasis/issues/GAM-103",
+   "url": "https://multica.example/beta-coach/issues/da1a2e0c-0d77-46cd-8967-5093191ae788",
    "latest_run": {
     "task_id": "1bf6e91d-00d0-428c-8b0d-4cc6c566f44d",
     "status": "completed",
@@ -398,150 +305,157 @@
    "last_failed_run": null
   },
   {
-   "key": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489:eda28abe-eacc-48ec-a805-c4391133aa2f",
-   "workspace_id": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489",
-   "id": "eda28abe-eacc-48ec-a805-c4391133aa2f",
-   "identifier": "GAM-106",
-   "title": "补充 runtime 切换的回滚说明",
-   "status": "blocked",
-   "status_category": "blocked",
-   "priority": "none",
-   "assignee": {
-    "type": "agent",
-    "id": "23a2a1d7-0e6e-4d06-8c16-b4cb91b3e567",
-    "name": "研究员"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-04T01:00:00Z",
-   "last_activity_at": "2026-10-06T01:00:00Z",
-   "url": "https://multica.example/gamma-oasis/issues/GAM-106",
-   "latest_run": {
-    "task_id": "30196cb7-00ec-4748-9b3b-55e0884b84d8",
-    "status": "completed",
-    "agent_name": "研究员",
-    "runtime_id": null,
-    "started_at": "2026-10-06T00:40:00Z",
-    "completed_at": "2026-10-06T01:00:00Z",
-    "error_kind": null,
-    "error_summary": null
-   },
-   "last_failed_run": {
-    "task_id": "da5a2067-073e-4204-aedf-28a696904b9d",
-    "completed_at": "2026-10-05T23:00:00Z",
-    "error_kind": "timeout"
-   }
-  },
-  {
-   "key": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489:cf9a7234-f69e-48a1-8c7e-f152452f1055",
-   "workspace_id": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489",
-   "id": "cf9a7234-f69e-48a1-8c7e-f152452f1055",
-   "identifier": "GAM-109",
-   "title": "调研：竞品定价页结构",
-   "status": "in_progress",
-   "status_category": "in_progress",
-   "priority": "medium",
-   "assignee": null,
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-11T03:00:00Z",
-   "last_activity_at": "2026-10-13T03:00:00Z",
-   "url": "https://multica.example/gamma-oasis/issues/GAM-109",
-   "latest_run": null,
-   "last_failed_run": null
-  },
-  {
-   "key": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489:32d39ebe-b9bd-4aac-815a-41375bd91766",
-   "workspace_id": "3037cc66-8cb3-4226-9c1b-00cbdd7b8489",
-   "id": "32d39ebe-b9bd-4aac-815a-41375bd91766",
-   "identifier": "GAM-112",
-   "title": "课程卡片交互改版",
-   "status": "blocked",
-   "status_category": "blocked",
-   "priority": "none",
-   "assignee": {
-    "type": "agent",
-    "id": "85df9382-9804-43f2-be5c-c9cc873f74a5",
-    "name": "Reviewer"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-12T08:00:00Z",
-   "last_activity_at": "2026-10-14T08:00:00Z",
-   "url": "https://multica.example/gamma-oasis/issues/GAM-112",
-   "latest_run": {
-    "task_id": "63267222-683a-44c8-99be-3fca7f0747ed",
-    "status": "completed",
-    "agent_name": "Reviewer",
-    "runtime_id": null,
-    "started_at": "2026-10-14T07:40:00Z",
-    "completed_at": "2026-10-14T08:00:00Z",
-    "error_kind": null,
-    "error_summary": null
-   },
-   "last_failed_run": null
-  },
-  {
-   "key": "23b97393-67c6-4da4-9aac-a224c943337e:c42fe697-7579-4ba1-81d0-b94f26a189cf",
-   "workspace_id": "23b97393-67c6-4da4-9aac-a224c943337e",
-   "id": "c42fe697-7579-4ba1-81d0-b94f26a189cf",
-   "identifier": "DEL-100",
-   "title": "评估离线缓存方案",
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:54c89c0e-86f4-4044-913b-11e4acaea2b7",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "54c89c0e-86f4-4044-913b-11e4acaea2b7",
+   "identifier": "BET-115",
+   "title": "为 API 增加 Host 校验",
    "status": "todo",
    "status_category": "todo",
    "priority": "none",
    "assignee": {
     "type": "agent",
-    "id": "49103d22-d7e8-495e-908e-aa0a168d9829",
-    "name": "研究员"
+    "id": "75b39498-04f8-4714-8b63-baf90462ee16",
+    "name": "Reviewer"
+   },
+   "project": {
+    "id": "ac54613e-4cd6-4b9b-ac4c-b1455a5715b0",
+    "title": "周报自动化"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-10-12T06:00:00Z",
+   "last_activity_at": "2026-10-14T06:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/54c89c0e-86f4-4044-913b-11e4acaea2b7",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:e44a8e26-3a20-45ae-8373-a7cb7c19995c",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "e44a8e26-3a20-45ae-8373-a7cb7c19995c",
+   "identifier": "GAM-100",
+   "title": "导出 issue 快照到 JSON",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "medium",
+   "assignee": {
+    "type": "squad",
+    "id": "8c8892a6-4e80-4a7f-9488-917055bc9937",
+    "name": null
    },
    "project": null,
    "parent_identifier": null,
    "due_date": null,
    "created_at": "2026-10-12T01:00:00Z",
    "last_activity_at": "2026-10-14T01:00:00Z",
-   "url": "https://multica.example/delta-english/issues/DEL-100",
+   "url": "https://multica.example/gamma-oasis/issues/e44a8e26-3a20-45ae-8373-a7cb7c19995c",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:b8e903ad-ca6c-49e7-959b-48afb1846a7d",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "b8e903ad-ca6c-49e7-959b-48afb1846a7d",
+   "identifier": "GAM-103",
+   "title": "整理 agent 指令中的重复段落",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "urgent",
+   "assignee": {
+    "type": "squad",
+    "id": "5955ca91-d3c7-4b3e-9038-b032497d3b5d",
+    "name": null
+   },
+   "project": {
+    "id": "5dc2f907-e26a-4dbf-a9c6-fe55fb773be2",
+    "title": "课程改版"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-10-09T01:00:00Z",
+   "last_activity_at": "2026-10-11T01:00:00Z",
+   "url": "https://multica.example/gamma-oasis/issues/b8e903ad-ca6c-49e7-959b-48afb1846a7d",
    "latest_run": {
-    "task_id": "4d5fa5c9-da37-4b2f-8890-97da6e1d5b56",
+    "task_id": "26a189cf-3d99-4848-b062-6ad6f6a8901f",
     "status": "completed",
-    "agent_name": "研究员",
+    "agent_name": "Steward",
     "runtime_id": null,
-    "started_at": "2026-10-14T00:40:00Z",
-    "completed_at": "2026-10-14T01:00:00Z",
+    "started_at": "2026-10-11T00:40:00Z",
+    "completed_at": "2026-10-11T01:00:00Z",
     "error_kind": null,
     "error_summary": null
    },
    "last_failed_run": null
   },
   {
-   "key": "23b97393-67c6-4da4-9aac-a224c943337e:3e508715-b051-4eb1-9a11-994c783e8ba2",
-   "workspace_id": "23b97393-67c6-4da4-9aac-a224c943337e",
-   "id": "3e508715-b051-4eb1-9a11-994c783e8ba2",
-   "identifier": "DEL-103",
-   "title": "补充 runtime 切换的回滚说明",
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:92f2da78-1534-4495-808d-9252ad4b9e8c",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "92f2da78-1534-4495-808d-9252ad4b9e8c",
+   "identifier": "GAM-106",
+   "title": "课程卡片交互改版",
    "status": "in_progress",
    "status_category": "in_progress",
-   "priority": "high",
+   "priority": "medium",
    "assignee": {
     "type": "agent",
-    "id": "4d0872a1-b696-4c63-8154-b3c0de4d572d",
-    "name": "Repo Analyst"
+    "id": "a946aac3-9fb0-4582-80a4-d7b38b9970f5",
+    "name": "Builder"
    },
-   "project": null,
+   "project": {
+    "id": "88931853-1883-444d-934f-17f750045984",
+    "title": "Multica Board"
+   },
    "parent_identifier": null,
    "due_date": null,
-   "created_at": "2026-10-12T01:00:00Z",
-   "last_activity_at": "2026-10-14T01:00:00Z",
-   "url": "https://multica.example/delta-english/issues/DEL-103",
+   "created_at": "2026-09-25T17:00:00Z",
+   "last_activity_at": "2026-09-27T17:00:00Z",
+   "url": "https://multica.example/gamma-oasis/issues/92f2da78-1534-4495-808d-9252ad4b9e8c",
    "latest_run": {
-    "task_id": "b6d578bc-de3e-460d-b433-6acef915ac3d",
-    "status": "running",
-    "agent_name": "Repo Analyst",
+    "task_id": "60da24be-4898-42f8-9935-e48e3e508715",
+    "status": "completed",
+    "agent_name": "Builder",
     "runtime_id": null,
-    "started_at": "2026-10-14T00:40:00Z",
+    "started_at": "2026-09-27T16:40:00Z",
+    "completed_at": "2026-09-27T17:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   "last_failed_run": {
+    "task_id": "42ac7b66-5006-4f4e-b6d5-78bcde3ef60d",
+    "completed_at": "2026-09-27T15:00:00Z",
+    "error_kind": "rate_limit"
+   }
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:4f17492d-5a9d-4eec-9abc-53485c45862e",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "4f17492d-5a9d-4eec-9abc-53485c45862e",
+   "identifier": "GAM-109",
+   "title": "迁移旧版配置到新 schema",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "a348df13-2295-4c6b-93cd-566f414f2da3",
+    "name": "前端设计师"
+   },
+   "project": {
+    "id": "88931853-1883-444d-934f-17f750045984",
+    "title": "Multica Board"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-10-04T01:00:00Z",
+   "last_activity_at": "2026-10-06T01:00:00Z",
+   "url": "https://multica.example/gamma-oasis/issues/4f17492d-5a9d-4eec-9abc-53485c45862e",
+   "latest_run": {
+    "task_id": "366c6be1-aadc-401e-b246-1eaf50c69faa",
+    "status": "running",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-10-06T00:40:00Z",
     "completed_at": null,
     "error_kind": null,
     "error_summary": null
@@ -549,119 +463,204 @@
    "last_failed_run": null
   },
   {
-   "key": "23b97393-67c6-4da4-9aac-a224c943337e:cc3f2920-8258-4cd2-a8fb-f8f8ffc96446",
-   "workspace_id": "23b97393-67c6-4da4-9aac-a224c943337e",
-   "id": "cc3f2920-8258-4cd2-a8fb-f8f8ffc96446",
-   "identifier": "DEL-106",
-   "title": "统计近 30 天 run 失败类型",
-   "status": "in_progress",
-   "status_category": "in_progress",
-   "priority": "urgent",
-   "assignee": {
-    "type": "agent",
-    "id": "b1e9e587-ff28-41d9-b0ae-77e12bf15669",
-    "name": "前端设计师"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-04T01:00:00Z",
-   "last_activity_at": "2026-10-06T01:00:00Z",
-   "url": "https://multica.example/delta-english/issues/DEL-106",
-   "latest_run": {
-    "task_id": "8fc500fe-b06f-4217-b1ed-ed3c4682d932",
-    "status": "completed",
-    "agent_name": "前端设计师",
-    "runtime_id": null,
-    "started_at": "2026-10-06T00:40:00Z",
-    "completed_at": "2026-10-06T01:00:00Z",
-    "error_kind": null,
-    "error_summary": null
-   },
-   "last_failed_run": null
-  },
-  {
-   "key": "23b97393-67c6-4da4-9aac-a224c943337e:20b2d4ac-4eab-4472-902a-1c2e3492ed04",
-   "workspace_id": "23b97393-67c6-4da4-9aac-a224c943337e",
-   "id": "20b2d4ac-4eab-4472-902a-1c2e3492ed04",
-   "identifier": "DEL-109",
-   "title": "补充 runtime 切换的回滚说明",
-   "status": "blocked",
-   "status_category": "blocked",
-   "priority": "none",
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:f259e22a-c4c3-403a-9b0d-91646451e7e9",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "f259e22a-c4c3-403a-9b0d-91646451e7e9",
+   "identifier": "GAM-112",
+   "title": "整理周报模板并输出示例",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "medium",
    "assignee": null,
-   "project": null,
+   "project": {
+    "id": "caaba25d-5ccf-4038-86c7-8a277bf68890",
+    "title": "周报自动化"
+   },
    "parent_identifier": null,
    "due_date": null,
    "created_at": "2026-10-11T03:00:00Z",
    "last_activity_at": "2026-10-13T03:00:00Z",
-   "url": "https://multica.example/delta-english/issues/DEL-109",
+   "url": "https://multica.example/gamma-oasis/issues/f259e22a-c4c3-403a-9b0d-91646451e7e9",
+   "latest_run": {
+    "task_id": "78bdfc55-5ab4-43dd-a079-1a6a8bdc6c84",
+    "status": "completed",
+    "agent_name": "研究员",
+    "runtime_id": null,
+    "started_at": "2026-10-13T02:40:00Z",
+    "completed_at": "2026-10-13T03:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   "last_failed_run": null
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:fcb34737-941d-40cf-bb12-2c83e35cff43",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "fcb34737-941d-40cf-bb12-2c83e35cff43",
+   "identifier": "DEL-100",
+   "title": "调研：竞品定价页结构",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "3007f85b-e0a8-427d-8c81-77680f31de82",
+    "name": "Steward"
+   },
+   "project": {
+    "id": "6ccd5cf0-ce7c-4b47-a649-ab50a428caae",
+    "title": "课程改版"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-10-12T08:00:00Z",
+   "last_activity_at": "2026-10-14T08:00:00Z",
+   "url": "https://multica.example/delta-english/issues/fcb34737-941d-40cf-bb12-2c83e35cff43",
+   "latest_run": {
+    "task_id": "383dbb0b-8c06-498c-b880-701dcb87cd04",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-14T07:40:00Z",
+    "completed_at": "2026-10-14T08:00:00Z",
+    "error_kind": "daemon_restart",
+    "error_summary": "daemon restarted while task was in flight"
+   },
+   "last_failed_run": {
+    "task_id": "383dbb0b-8c06-498c-b880-701dcb87cd04",
+    "completed_at": "2026-10-14T08:00:00Z",
+    "error_kind": "daemon_restart"
+   }
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:40084430-7f01-4e2e-9337-c1d1ac31678e",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "40084430-7f01-4e2e-9337-c1d1ac31678e",
+   "identifier": "DEL-103",
+   "title": "统计近 30 天 run 失败类型",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "ca5ed556-3cee-4ff5-80f5-e53b863afdac",
+    "name": "Repo Analyst"
+   },
+   "project": {
+    "id": "f23dd474-83ab-46a6-89cb-6409ba89956f",
+    "title": "周报自动化"
+   },
+   "parent_identifier": "DEL-100",
+   "due_date": null,
+   "created_at": "2026-10-09T01:00:00Z",
+   "last_activity_at": "2026-10-11T01:00:00Z",
+   "url": "https://multica.example/delta-english/issues/40084430-7f01-4e2e-9337-c1d1ac31678e",
+   "latest_run": {
+    "task_id": "4866dab0-bbf9-41e8-ad15-ca47f678450b",
+    "status": "running",
+    "agent_name": "Repo Analyst",
+    "runtime_id": null,
+    "started_at": "2026-10-11T00:40:00Z",
+    "completed_at": null,
+    "error_kind": null,
+    "error_summary": null
+   },
+   "last_failed_run": null
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:cf91f9a3-f2f3-45a4-a077-b60498ba51aa",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "cf91f9a3-f2f3-45a4-a077-b60498ba51aa",
+   "identifier": "DEL-106",
+   "title": "导出 issue 快照到 JSON",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "high",
+   "assignee": {
+    "type": "agent",
+    "id": "c0bc5732-f710-4f54-9eca-6659a0f0f871",
+    "name": "Builder"
+   },
+   "project": null,
+   "parent_identifier": "DEL-100",
+   "due_date": "2026-10-13",
+   "created_at": "2026-10-04T01:00:00Z",
+   "last_activity_at": "2026-10-06T01:00:00Z",
+   "url": "https://multica.example/delta-english/issues/cf91f9a3-f2f3-45a4-a077-b60498ba51aa",
    "latest_run": null,
    "last_failed_run": null
   },
   {
-   "key": "23b97393-67c6-4da4-9aac-a224c943337e:6bcc043d-13fa-4cce-9dc0-7d745e43733a",
-   "workspace_id": "23b97393-67c6-4da4-9aac-a224c943337e",
-   "id": "6bcc043d-13fa-4cce-9dc0-7d745e43733a",
-   "identifier": "DEL-112",
-   "title": "导出 issue 快照到 JSON",
-   "status": "todo",
-   "status_category": "todo",
-   "priority": "medium",
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:23af85c3-65fd-4a35-9166-3b356ceee627",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "23af85c3-65fd-4a35-9166-3b356ceee627",
+   "identifier": "DEL-109",
+   "title": "首页信息架构草图",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "urgent",
    "assignee": {
     "type": "agent",
-    "id": "8469c9c7-e44a-4e26-ba20-55ae4373a7cb",
-    "name": "Knowledge Archivist"
+    "id": "3007f85b-e0a8-427d-8c81-77680f31de82",
+    "name": "Steward"
    },
    "project": null,
    "parent_identifier": null,
-   "due_date": null,
-   "created_at": "2026-10-12T06:00:00Z",
-   "last_activity_at": "2026-10-14T06:00:00Z",
-   "url": "https://multica.example/delta-english/issues/DEL-112",
-   "latest_run": {
-    "task_id": "bda47b83-7a14-4278-8f17-492d5a9d9eec",
-    "status": "completed",
-    "agent_name": "Knowledge Archivist",
-    "runtime_id": null,
-    "started_at": "2026-10-14T05:40:00Z",
-    "completed_at": "2026-10-14T06:00:00Z",
-    "error_kind": null,
-    "error_summary": null
-   },
-   "last_failed_run": null
-  },
-  {
-   "key": "23b97393-67c6-4da4-9aac-a224c943337e:5782a47a-eac8-4af2-8a0f-a3b145ace0bb",
-   "workspace_id": "23b97393-67c6-4da4-9aac-a224c943337e",
-   "id": "5782a47a-eac8-4af2-8a0f-a3b145ace0bb",
-   "identifier": "DEL-115",
-   "title": "统计近 30 天 run 失败类型",
-   "status": "in_progress",
-   "status_category": "in_progress",
-   "priority": "high",
-   "assignee": {
-    "type": "agent",
-    "id": "b1e9e587-ff28-41d9-b0ae-77e12bf15669",
-    "name": "前端设计师"
-   },
-   "project": null,
-   "parent_identifier": null,
-   "due_date": null,
+   "due_date": "2026-10-13",
    "created_at": "2026-10-12T01:00:00Z",
    "last_activity_at": "2026-10-14T01:00:00Z",
-   "url": "https://multica.example/delta-english/issues/DEL-115",
+   "url": "https://multica.example/delta-english/issues/23af85c3-65fd-4a35-9166-3b356ceee627",
    "latest_run": {
-    "task_id": "6451e7e9-1b4c-4a07-bd9e-3d6158704436",
-    "status": "completed",
-    "agent_name": "前端设计师",
+    "task_id": "02fc9c79-b262-4b80-ba8f-acd566223e38",
+    "status": "failed",
+    "agent_name": "Steward",
     "runtime_id": null,
     "started_at": "2026-10-14T00:40:00Z",
     "completed_at": "2026-10-14T01:00:00Z",
+    "error_kind": "rate_limit",
+    "error_summary": "429 too many requests, retry after 60s"
+   },
+   "last_failed_run": {
+    "task_id": "02fc9c79-b262-4b80-ba8f-acd566223e38",
+    "completed_at": "2026-10-14T01:00:00Z",
+    "error_kind": "rate_limit"
+   }
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:d3491336-af44-4969-8e8f-4cbbc2bdc1b3",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "d3491336-af44-4969-8e8f-4cbbc2bdc1b3",
+   "identifier": "DEL-112",
+   "title": "调研：竞品定价页结构",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "3007f85b-e0a8-427d-8c81-77680f31de82",
+    "name": "Steward"
+   },
+   "project": null,
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-25T17:00:00Z",
+   "last_activity_at": "2026-09-27T17:00:00Z",
+   "url": "https://multica.example/delta-english/issues/d3491336-af44-4969-8e8f-4cbbc2bdc1b3",
+   "latest_run": {
+    "task_id": "06279860-d6cb-47dc-be94-192455ef9eb1",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-09-27T16:40:00Z",
+    "completed_at": "2026-09-27T17:00:00Z",
     "error_kind": null,
     "error_summary": null
    },
-   "last_failed_run": null
+   "last_failed_run": {
+    "task_id": "07da7add-1cf8-4919-8ff6-c0f6c36d0feb",
+    "completed_at": "2026-09-27T15:00:00Z",
+    "error_kind": "process"
+   }
   }
  ]
 }

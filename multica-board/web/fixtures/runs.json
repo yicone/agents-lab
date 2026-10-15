@@ -1,0 +1,462 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "by_issue": {
+  "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:d343ad5e-9f8e-41d9-bc61-cec0b55c9fb4": [
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:04ae10b5-8373-4c84-ad70-b39a7ee96043",
+    "task_id": "04ae10b5-8373-4c84-ad70-b39a7ee96043",
+    "status": "completed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:3073084c-c52c-43f7-a02e-a9517af9dcd6",
+    "task_id": "3073084c-c52c-43f7-a02e-a9517af9dcd6",
+    "status": "completed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-10-13T22:25:00Z",
+    "completed_at": "2026-10-13T23:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:de28cfd8-144c-406a-92dd-f0fd8aa4cada",
+    "task_id": "de28cfd8-144c-406a-92dd-f0fd8aa4cada",
+    "status": "completed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-10-12T21:14:00Z",
+    "completed_at": "2026-10-12T22:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
+  ],
+  "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:ae72d1ec-2788-4966-b04f-cf5499912414": [
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:20b6c7bd-0b6e-4b9b-9257-a733b0233a1d",
+    "task_id": "20b6c7bd-0b6e-4b9b-9257-a733b0233a1d",
+    "status": "failed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-09-27T16:40:00Z",
+    "completed_at": "2026-09-27T17:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:dfe5ecf7-a389-43af-b1dc-84f46b613754",
+    "task_id": "dfe5ecf7-a389-43af-b1dc-84f46b613754",
+    "status": "failed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-09-26T20:53:00Z",
+    "completed_at": "2026-09-26T21:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:73b65abd-fee8-4e62-a68a-b3c5b6911f3d",
+    "task_id": "73b65abd-fee8-4e62-a68a-b3c5b6911f3d",
+    "status": "completed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-09-26T17:11:00Z",
+    "completed_at": "2026-09-26T18:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:3f8db01c-c4dc-4b02-9b15-7ae8f588f1b2",
+    "task_id": "3f8db01c-c4dc-4b02-9b15-7ae8f588f1b2",
+    "status": "failed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-09-25T17:38:00Z",
+    "completed_at": "2026-09-25T18:00:00Z",
+    "error_kind": "rate_limit",
+    "error_summary": "429 too many requests, retry after 60s"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:62ad8aaf-4604-44ec-b184-b4784d43cc07",
+    "task_id": "62ad8aaf-4604-44ec-b184-b4784d43cc07",
+    "status": "failed",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-09-25T07:20:00Z",
+    "completed_at": "2026-09-25T08:00:00Z",
+    "error_kind": "rate_limit",
+    "error_summary": "429 too many requests, retry after 60s"
+   }
+  ],
+  "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:2da26773-39b6-40ed-bae5-d2ae371b574f": [
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:f36ecc5f-ea15-4638-beb9-f2f9cfa5a852",
+    "task_id": "f36ecc5f-ea15-4638-beb9-f2f9cfa5a852",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-06T00:40:00Z",
+    "completed_at": "2026-10-06T01:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:d1cfab54-d82e-4779-b1b6-9e4467217923",
+    "task_id": "d1cfab54-d82e-4779-b1b6-9e4467217923",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-05T04:53:00Z",
+    "completed_at": "2026-10-05T05:00:00Z",
+    "error_kind": "unknown",
+    "error_summary": "unexpected response from runtime"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:85711cf0-5492-4cce-bf57-97f519ad869c",
+    "task_id": "85711cf0-5492-4cce-bf57-97f519ad869c",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-04T06:30:00Z",
+    "completed_at": "2026-10-04T07:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:0503d5a9-06ab-499a-88f9-3c0c44753493",
+    "task_id": "0503d5a9-06ab-499a-88f9-3c0c44753493",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-03T12:37:00Z",
+    "completed_at": "2026-10-03T13:00:00Z",
+    "error_kind": "model_unavailable",
+    "error_summary": "model not available on this runtime"
+   }
+  ],
+  "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:669b4f45-e66b-4313-b272-8a91d7441338": [
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:730b8697-5122-4f42-b0ae-f0b6111049c9",
+    "task_id": "730b8697-5122-4f42-b0ae-f0b6111049c9",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
+    "error_kind": "rate_limit",
+    "error_summary": "429 too many requests, retry after 60s"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:f6361cad-7855-48a8-81d1-f9728337e4e0",
+    "task_id": "f6361cad-7855-48a8-81d1-f9728337e4e0",
+    "status": "cancelled",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-13T00:22:00Z",
+    "completed_at": "2026-10-13T01:00:00Z",
+    "error_kind": "cancelled",
+    "error_summary": "cancelled by user"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:e5b3b0eb-9a70-4f1d-a013-52ccef00237b",
+    "task_id": "e5b3b0eb-9a70-4f1d-a013-52ccef00237b",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-12T07:36:00Z",
+    "completed_at": "2026-10-12T08:00:00Z",
+    "error_kind": "unknown",
+    "error_summary": "unexpected response from runtime"
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:e764e650-653d-431b-9d58-f9c06aca3bda",
+    "task_id": "e764e650-653d-431b-9d58-f9c06aca3bda",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-11T23:37:00Z",
+    "completed_at": "2026-10-12T00:00:00Z",
+    "error_kind": "model_unavailable",
+    "error_summary": "model not available on this runtime"
+   }
+  ],
+  "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:edf68e0f-0fe8-4e7d-bc96-290d02c99de5": [
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:c40830f9-fdb2-42af-b743-99ced305f9dc",
+    "task_id": "c40830f9-fdb2-42af-b743-99ced305f9dc",
+    "status": "completed",
+    "agent_name": "Knowledge Archivist",
+    "runtime_id": null,
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:67d89cc2-6b25-4558-a95f-c4815b62df93",
+    "task_id": "67d89cc2-6b25-4558-a95f-c4815b62df93",
+    "status": "cancelled",
+    "agent_name": "Knowledge Archivist",
+    "runtime_id": null,
+    "started_at": "2026-10-14T00:39:00Z",
+    "completed_at": "2026-10-14T01:00:00Z",
+    "error_kind": "cancelled",
+    "error_summary": "cancelled by user"
+   }
+  ],
+  "aa134a90-6b63-413d-8b4e-d4df0384aa16:da1a2e0c-0d77-46cd-8967-5093191ae788": [
+   {
+    "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:1bf6e91d-00d0-428c-8b0d-4cc6c566f44d",
+    "task_id": "1bf6e91d-00d0-428c-8b0d-4cc6c566f44d",
+    "status": "completed",
+    "agent_name": "Knowledge Archivist",
+    "runtime_id": null,
+    "started_at": "2026-10-14T05:40:00Z",
+    "completed_at": "2026-10-14T06:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:30196cb7-00ec-4748-9b3b-55e0884b84d8",
+    "task_id": "30196cb7-00ec-4748-9b3b-55e0884b84d8",
+    "status": "completed",
+    "agent_name": "Knowledge Archivist",
+    "runtime_id": null,
+    "started_at": "2026-10-13T04:54:00Z",
+    "completed_at": "2026-10-13T05:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:da5a2067-073e-4204-aedf-28a696904b9d",
+    "task_id": "da5a2067-073e-4204-aedf-28a696904b9d",
+    "status": "cancelled",
+    "agent_name": "Knowledge Archivist",
+    "runtime_id": null,
+    "started_at": "2026-10-13T01:25:00Z",
+    "completed_at": "2026-10-13T02:00:00Z",
+    "error_kind": "cancelled",
+    "error_summary": "cancelled by user"
+   }
+  ],
+  "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:b8e903ad-ca6c-49e7-959b-48afb1846a7d": [
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:26a189cf-3d99-4848-b062-6ad6f6a8901f",
+    "task_id": "26a189cf-3d99-4848-b062-6ad6f6a8901f",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-11T00:40:00Z",
+    "completed_at": "2026-10-11T01:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
+  ],
+  "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:92f2da78-1534-4495-808d-9252ad4b9e8c": [
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:60da24be-4898-42f8-9935-e48e3e508715",
+    "task_id": "60da24be-4898-42f8-9935-e48e3e508715",
+    "status": "completed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-09-27T16:40:00Z",
+    "completed_at": "2026-09-27T17:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:fe6f2c89-4faa-4d41-8d3b-bb099a706af9",
+    "task_id": "fe6f2c89-4faa-4d41-8d3b-bb099a706af9",
+    "status": "failed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-09-27T03:49:00Z",
+    "completed_at": "2026-09-27T04:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
+   },
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:6236bcbe-5c91-40cb-a0b2-d4ac4eabd472",
+    "task_id": "6236bcbe-5c91-40cb-a0b2-d4ac4eabd472",
+    "status": "completed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-09-26T19:28:00Z",
+    "completed_at": "2026-09-26T20:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:fc8ced33-2e0b-48ce-96a6-c558f427ab7f",
+    "task_id": "fc8ced33-2e0b-48ce-96a6-c558f427ab7f",
+    "status": "completed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-09-25T13:24:00Z",
+    "completed_at": "2026-09-25T14:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:28de31c1-a552-495e-abcc-043d13fabcce",
+    "task_id": "28de31c1-a552-495e-abcc-043d13fabcce",
+    "status": "failed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-09-25T05:18:00Z",
+    "completed_at": "2026-09-25T06:00:00Z",
+    "error_kind": "model_unavailable",
+    "error_summary": "model not available on this runtime"
+   }
+  ],
+  "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:4f17492d-5a9d-4eec-9abc-53485c45862e": [
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:366c6be1-aadc-401e-b246-1eaf50c69faa",
+    "task_id": "366c6be1-aadc-401e-b246-1eaf50c69faa",
+    "status": "running",
+    "agent_name": "前端设计师",
+    "runtime_id": null,
+    "started_at": "2026-10-06T00:40:00Z",
+    "completed_at": null,
+    "error_kind": null,
+    "error_summary": null
+   }
+  ],
+  "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:f259e22a-c4c3-403a-9b0d-91646451e7e9": [
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:78bdfc55-5ab4-43dd-a079-1a6a8bdc6c84",
+    "task_id": "78bdfc55-5ab4-43dd-a079-1a6a8bdc6c84",
+    "status": "completed",
+    "agent_name": "研究员",
+    "runtime_id": null,
+    "started_at": "2026-10-13T02:40:00Z",
+    "completed_at": "2026-10-13T03:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:74d5b06c-08a9-4a88-9d56-0600cc913008",
+    "task_id": "74d5b06c-08a9-4a88-9d56-0600cc913008",
+    "status": "cancelled",
+    "agent_name": "研究员",
+    "runtime_id": null,
+    "started_at": "2026-10-12T20:25:00Z",
+    "completed_at": "2026-10-12T21:00:00Z",
+    "error_kind": "cancelled",
+    "error_summary": "cancelled by user"
+   }
+  ],
+  "c1d9396f-867e-4b87-a926-41ad01dc6b50:fcb34737-941d-40cf-bb12-2c83e35cff43": [
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:383dbb0b-8c06-498c-b880-701dcb87cd04",
+    "task_id": "383dbb0b-8c06-498c-b880-701dcb87cd04",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-14T07:40:00Z",
+    "completed_at": "2026-10-14T08:00:00Z",
+    "error_kind": "daemon_restart",
+    "error_summary": "daemon restarted while task was in flight"
+   },
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:ae3fa745-7a0b-41a2-a178-820caa2fbb2e",
+    "task_id": "ae3fa745-7a0b-41a2-a178-820caa2fbb2e",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-13T22:16:00Z",
+    "completed_at": "2026-10-13T23:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:4a522e8e-0208-46f4-91fa-92fd2a4268b7",
+    "task_id": "4a522e8e-0208-46f4-91fa-92fd2a4268b7",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-12T23:26:00Z",
+    "completed_at": "2026-10-13T00:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
+  ],
+  "c1d9396f-867e-4b87-a926-41ad01dc6b50:40084430-7f01-4e2e-9337-c1d1ac31678e": [
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:4866dab0-bbf9-41e8-ad15-ca47f678450b",
+    "task_id": "4866dab0-bbf9-41e8-ad15-ca47f678450b",
+    "status": "running",
+    "agent_name": "Repo Analyst",
+    "runtime_id": null,
+    "started_at": "2026-10-11T00:40:00Z",
+    "completed_at": null,
+    "error_kind": null,
+    "error_summary": null
+   },
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:c3d5366e-677d-4f95-a775-a09ad5f8c069",
+    "task_id": "c3d5366e-677d-4f95-a775-a09ad5f8c069",
+    "status": "failed",
+    "agent_name": "Repo Analyst",
+    "runtime_id": null,
+    "started_at": "2026-10-09T23:47:00Z",
+    "completed_at": "2026-10-10T00:00:00Z",
+    "error_kind": "daemon_restart",
+    "error_summary": "daemon restarted while task was in flight"
+   },
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:01f9b463-39c1-4271-aee0-f9a5bfa06677",
+    "task_id": "01f9b463-39c1-4271-aee0-f9a5bfa06677",
+    "status": "failed",
+    "agent_name": "Repo Analyst",
+    "runtime_id": null,
+    "started_at": "2026-10-09T15:32:00Z",
+    "completed_at": "2026-10-09T16:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
+   }
+  ],
+  "c1d9396f-867e-4b87-a926-41ad01dc6b50:23af85c3-65fd-4a35-9166-3b356ceee627": [
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:02fc9c79-b262-4b80-ba8f-acd566223e38",
+    "task_id": "02fc9c79-b262-4b80-ba8f-acd566223e38",
+    "status": "failed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-14T00:40:00Z",
+    "completed_at": "2026-10-14T01:00:00Z",
+    "error_kind": "rate_limit",
+    "error_summary": "429 too many requests, retry after 60s"
+   },
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:c1609173-af27-4776-9616-f7c6ffc9a5a3",
+    "task_id": "c1609173-af27-4776-9616-f7c6ffc9a5a3",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-10-13T09:49:00Z",
+    "completed_at": "2026-10-13T10:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
+  ],
+  "c1d9396f-867e-4b87-a926-41ad01dc6b50:d3491336-af44-4969-8e8f-4cbbc2bdc1b3": [
+   {
+    "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:06279860-d6cb-47dc-be94-192455ef9eb1",
+    "task_id": "06279860-d6cb-47dc-be94-192455ef9eb1",
+    "status": "completed",
+    "agent_name": "Steward",
+    "runtime_id": null,
+    "started_at": "2026-09-27T16:40:00Z",
+    "completed_at": "2026-09-27T17:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
+  ]
+ }
+}

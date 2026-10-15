@@ -89,6 +89,7 @@ button, select, input { font: inherit; color: inherit; }
 
 .snapshot { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .snapshot .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.snapshot.idle .dot { background: var(--faint); }
 .snapshot.warn { color: var(--warn); }
 .snapshot.warn .dot { background: var(--warn); }
 .snapshot.bad { color: var(--bad); font-weight: 600; }
@@ -114,6 +115,26 @@ button, select, input { font: inherit; color: inherit; }
 }
 .search:focus-within { border-color: var(--accent); }
 .search input { border: 0; background: transparent; outline: none; flex: 1; min-width: 0; padding: 3px 0; }
+
+.banner {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--bad);
+  border-left-width: 4px;
+  background: var(--bad-bg);
+  display: grid;
+  gap: 2px;
+}
+.banner[hidden] { display: none; }
+.banner-title { color: var(--bad); font-weight: 650; }
+.banner-msg {
+  font: 12px var(--mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.banner-hint { font-size: 12px; }
+.banner-facts { font-size: 11px; color: var(--muted); }
 
 .health { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .ws-chip {
@@ -230,8 +251,7 @@ button, select, input { font: inherit; color: inherit; }
   border-radius: var(--radius);
   padding: 7px 9px;
 }
-a.card:hover { border-color: var(--accent); }
-a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card:hover { border-color: var(--line); box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
 .card-head { display: flex; align-items: center; gap: 6px; font-size: 11px; }
 .card-head .ident { font: 11px var(--mono); color: var(--muted); }
 .card-head .status { margin-left: auto; color: var(--faint); }
@@ -243,6 +263,19 @@ a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+a.card-title:hover { color: var(--accent); text-decoration: underline; }
+a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+.card-context { font-size: 11px; color: var(--faint); margin-bottom: 2px; }
+.runs-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.runs-btn:hover { text-decoration: underline; }
+.runs-none { font-size: 11px; color: var(--faint); }
 .card-error {
   font-size: 11px;
   color: var(--muted);
@@ -300,3 +333,43 @@ a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .agent-status { color: var(--muted); }
 .agent-status.s-working { color: var(--run); font-weight: 600; }
 .is-archived td { color: var(--faint); }
+
+/* ---------- runs drawer ---------- */
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: min(420px, 100vw);
+  overflow-y: auto;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.12);
+  padding: 12px 16px 24px;
+}
+.drawer[hidden] { display: none; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; }
+.drawer-close {
+  border: 0;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.drawer-close:hover { background: var(--panel-2); color: var(--text); }
+.drawer-title { font-size: 14px; margin: 6px 0 2px; }
+.drawer-link { font-size: 12px; color: var(--accent); }
+.drawer-link:hover { text-decoration: underline; }
+.drawer-sub { margin: 12px 0 6px; font-size: 11px; color: var(--muted); }
+.runs { list-style: none; margin: 0; padding: 0; }
+.run-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.run-line { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.run-line .tag { margin-left: 0; }
+.run-agent { font-weight: 550; }
+.run-error { margin-top: 2px; font-size: 11px; color: var(--muted); word-break: break-word; }
+.tag.ok { background: transparent; color: var(--ok); border: 1px solid currentColor; line-height: 14px; }

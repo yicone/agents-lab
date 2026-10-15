@@ -1,0 +1,85 @@
+{
+ "api_version": "0",
+ "generated_at": "2026-10-14T08:20:00Z",
+ "collect_interval_s": 60,
+ "multica_web_base": "https://multica.example",
+ "collector": {
+  "last_attempt_at": "2026-10-14T08:59:55Z",
+  "last_success_at": "2026-10-14T08:20:00Z",
+  "error": {
+   "kind": "auth",
+   "message": "401 unauthorized: token expired for profile desktop-api.multica.ai"
+  }
+ },
+ "workspaces": [
+  {
+   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "slug": "alpha-lab",
+   "name": "Alpha Lab",
+   "collect_state": "stale",
+   "last_success_at": "2026-10-14T08:20:00Z",
+   "last_attempt_at": "2026-10-14T08:20:00Z",
+   "error": null,
+   "counts": {
+    "open_issues": 5,
+    "agents": 5,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "collect_state": "stale",
+   "last_success_at": "2026-10-14T08:20:00Z",
+   "last_attempt_at": "2026-10-14T08:20:00Z",
+   "error": null,
+   "counts": {
+    "open_issues": 6,
+    "agents": 5,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "slug": "gamma-oasis",
+   "name": "Gamma Oasis",
+   "collect_state": "stale",
+   "last_success_at": "2026-10-14T08:20:00Z",
+   "last_attempt_at": "2026-10-14T08:20:00Z",
+   "error": null,
+   "counts": {
+    "open_issues": 5,
+    "agents": 5,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "slug": "delta-english",
+   "name": "Delta 英语",
+   "collect_state": "stale",
+   "last_success_at": "2026-10-14T08:20:00Z",
+   "last_attempt_at": "2026-10-14T08:20:00Z",
+   "error": null,
+   "counts": {
+    "open_issues": 5,
+    "agents": 6,
+    "runtimes": 5
+   }
+  },
+  {
+   "id": "81cfd429-5faa-4a72-ace6-e363659c5195",
+   "slug": "epsilon-brand",
+   "name": "Epsilon Brand",
+   "collect_state": "never",
+   "last_success_at": null,
+   "last_attempt_at": "2026-10-14T08:20:00Z",
+   "error": {
+    "kind": "auth",
+    "message": "403 forbidden"
+   },
+   "counts": null
+  }
+ ]
+}
