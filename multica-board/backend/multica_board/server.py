@@ -61,12 +61,9 @@ STATIC_ROUTES: dict[str, Callable[[Views], Any]] = {
     "/api/issues": lambda v: v.issues(),
     "/api/agents": lambda v: v.agents(),
     "/api/runtimes": lambda v: v.runtimes(),
+    "/api/stats/failures": lambda v: v.failure_stats(),
 }
 ISSUE_RUNS = re.compile(r"^/api/issues/([0-9A-Za-z-]{1,64})/([0-9A-Za-z-]{1,64})/runs$")
-
-
-class BadRequest(Exception):
-    pass
 
 
 def attention_format(query: str) -> str:

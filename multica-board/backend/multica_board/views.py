@@ -19,6 +19,7 @@ RUNS_PER_ISSUE = 20
 ATTENTION_TITLE_CHARS = 80
 ATTENTION_TEXT_BYTES = 2048
 ATTENTION_BUCKETS = ("in_review", "blocked", "failed_runs", "offline_runtimes")
+TOP_FAILURE_REASONS = 3
 
 
 class NotFound(Exception):
@@ -638,3 +639,117 @@ class Views:
         elif typ == "member":
             name = member_names.get((ws, aid))
         return {"type": typ, "id": aid, "name": name}
+
+    # --- /api/stats/failures ------------------------------------------------
+
+    def failure_stats(self) -> dict[str, Any]:
+        """Failed-run counts for the last 24h and 7d, grouped by provider, runtime, and agent.
+
+        `failure_reason` is the classified `error_kind` (quota, rate_limit, …), not the raw
+        error text. A run counts when its `completed_at` (else `created_at`) falls in the
+        window. Provider comes from the runtime recorded on the run, summed across workspaces.
+        """
+        now = _now()
+        cuts = {
+            "h24": _iso(now - timedelta(hours=RECENT_WINDOW_H)),
+            "d7": _iso(now - LAST_FAILED_WINDOW),
+        }
+        agent_rows = {
+            (r["workspace_id"], r["id"]): r
+            for r in self.store.query(
+                "SELECT workspace_id, id, name, runtime_id FROM agents WHERE server=?", (self.server,)
+            )
+        }
+        runtime_rows = {
+            (r["workspace_id"], r["id"]): r
+            for r in self.store.query(
+                "SELECT workspace_id, id, name, custom_name, provider FROM runtimes WHERE server=?",
+                (self.server,),
+            )
+        }
+        providers: dict[str | None, dict[str, Any]] = {}
+        runtimes: dict[tuple[str, str | None], dict[str, Any]] = {}
+        agents: dict[tuple[str, str | None], dict[str, Any]] = {}
+
+        def bucket() -> dict[str, Any]:
+            return {"failed": {"h24": 0, "d7": 0}, "reasons": {}}
+
+        def add(group: dict[str, Any], reason: str, window: str) -> None:
+            group["failed"][window] += 1
+            group["reasons"].setdefault(reason, {"h24": 0, "d7": 0})[window] += 1
+
+        for t in self.store.query(
+            "SELECT workspace_id, agent_id, runtime_id, created_at, completed_at, error_kind "
+            "FROM tasks WHERE server=? AND status='failed'",
+            (self.server,),
+        ):
+            when = t["completed_at"] or t["created_at"] or ""
+            windows = [name for name, cut in cuts.items() if when >= cut]
+            if not windows:
+                continue
+            ws = t["workspace_id"]
+            rid = t["runtime_id"] or None
+            aid = t["agent_id"] or None
+            rt = runtime_rows.get((ws, rid)) if rid else None
+            provider = (rt.get("provider") or None) if rt else None
+            reason = t["error_kind"] or "unknown"
+            for window in windows:
+                add(providers.setdefault(provider, bucket()), reason, window)
+                add(runtimes.setdefault((ws, rid), bucket()), reason, window)
+                add(agents.setdefault((ws, aid), bucket()), reason, window)
+
+        def top_reasons(group: dict[str, Any]) -> list[dict[str, Any]]:
+            rows = [
+                {"failure_reason": reason, "h24": counts["h24"], "d7": counts["d7"]}
+                for reason, counts in group["reasons"].items()
+            ]
+            rows.sort(key=lambda r: (-r["d7"], -r["h24"], r["failure_reason"]))
+            return rows[:TOP_FAILURE_REASONS]
+
+        def emit(group: dict[str, Any]) -> dict[str, Any]:
+            return {"failed": dict(group["failed"]), "top_reasons": top_reasons(group)}
+
+        by_provider = [{"provider": provider, **emit(group)} for provider, group in providers.items()]
+        by_provider.sort(key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["provider"] is None, r["provider"] or ""))
+
+        by_runtime = []
+        for (ws, rid), group in runtimes.items():
+            rt = runtime_rows.get((ws, rid)) if rid else None
+            by_runtime.append(
+                {
+                    "key": _key(ws, rid or ""),
+                    "workspace_id": ws,
+                    "id": rid,
+                    "name": ((rt.get("custom_name") or rt.get("name")) if rt else None),
+                    "provider": (rt.get("provider") or None) if rt else None,
+                    **emit(group),
+                }
+            )
+        by_runtime.sort(
+            key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["name"] is None, r["name"] or "", r["key"])
+        )
+
+        by_agent = []
+        for (ws, aid), group in agents.items():
+            ag = agent_rows.get((ws, aid)) if aid else None
+            by_agent.append(
+                {
+                    "key": _key(ws, aid or ""),
+                    "workspace_id": ws,
+                    "id": aid,
+                    "name": ag.get("name") if ag else None,
+                    "runtime_id": ag.get("runtime_id") if ag else None,
+                    **emit(group),
+                }
+            )
+        by_agent.sort(
+            key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["name"] is None, r["name"] or "", r["key"])
+        )
+
+        return {
+            "generated_at": self.generated_at(),
+            "windows": {"h24": RECENT_WINDOW_H, "d7": int(LAST_FAILED_WINDOW.total_seconds() // 3600)},
+            "by_provider": by_provider,
+            "by_runtime": by_runtime,
+            "by_agent": by_agent,
+        }
