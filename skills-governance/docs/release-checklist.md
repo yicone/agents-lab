@@ -13,6 +13,9 @@ Applies to:
 - `skills-lifecycle-manager`
 - `skills-governance/docs/index.md`
 - `skills-governance/config/source-types.yaml`
+- `skills-governance/config/skills-inventory.json`
+- `skills-governance/config/skills-inventory.schema.json`
+- `skills-governance/scripts/validate_skills_inventory.py`
 - `skills-governance/backlog.md`
 
 ## Checklist
@@ -21,7 +24,7 @@ Applies to:
 - Each skill explicitly says what it does **not** handle
 - Output fields are structurally aligned across the governance skills where they intentionally overlap
 - Each skill points to the other related governance skills
-- Each skill points state updates to `[[OS-LOG/Skills 当前状态清单]]`
+- Each skill points inventory updates to `skills-governance/config/skills-inventory.json`; `[[OS-LOG/Skills 当前状态清单]]` is a human mirror, not a write target
 - Each skill explicitly avoids writing live state back into `[[OS-RES/Skills 管理与治理原则]]`
 - Each skill has explicit stop conditions
 - The governance index gives a short routing rule

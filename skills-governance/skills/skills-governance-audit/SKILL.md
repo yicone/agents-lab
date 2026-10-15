@@ -209,10 +209,10 @@ If a state note or backlog should change, suggest:
 
 Default state destinations:
 
-- `[[OS-LOG/Skills 当前状态清单]]`
-- `[[OS-LOG/Skills 治理待办与未决事项]]`
+- `skills-governance/config/skills-inventory.json` for inventory updates. Validate with `skills-governance/scripts/validate_skills_inventory.py --check-paths`.
+- `[[OS-LOG/Skills 治理待办与未决事项]]` for backlog notes only when a human page is still in use; backlog status itself lives in Multica ACM-122.
 
-Do not write live inventory or backlog state into:
+`[[OS-LOG/Skills 当前状态清单]]` is a human mirror. Project it one way from the JSON when a person needs the view. Do not write live inventory or backlog state into:
 
 - `[[OS-RES/Skills 管理与治理原则]]`
 

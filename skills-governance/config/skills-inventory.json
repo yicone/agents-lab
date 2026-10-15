@@ -1,0 +1,585 @@
+{
+  "schema": "skills-inventory/v1",
+  "updated_at": "2026-10-15T08:15:37Z",
+  "description": "Machine-readable source of truth for skills in this repository. The Logseq page OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file.",
+  "human_mirror": {
+    "page": "OS-LOG/Skills 当前状态清单",
+    "role": "human_view",
+    "projection": "one_way_from_this_file"
+  },
+  "skills": [
+    {
+      "name": "acns-inbox",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/acns/acns-inbox"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": "<target-project-skill-dir>/acns-inbox",
+          "kind": "declared_target",
+          "target": null
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:6e8d8658386b5020a2b44889209874ccc0f09f2ea23f23fa8491ff775d5bf615",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/acns/acns-inbox"
+      ]
+    },
+    {
+      "name": "acns-pdf-summary",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/acns/acns-pdf-summary"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": "<target-project-skill-dir>/acns-pdf-summary",
+          "kind": "declared_target",
+          "target": null
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:193939d20199294d45d04076a13714fe7b576bd40bf6db924ce2d357eb9e19ce",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/acns/acns-pdf-summary"
+      ]
+    },
+    {
+      "name": "acns-route-inbox",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/acns/acns-route-inbox"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": "<target-project-skill-dir>/acns-route-inbox",
+          "kind": "declared_target",
+          "target": null
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:e7fe9edb37f9523e4526836ce62435a5d9efc9b3aba0558a87f99f0ae130b949",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/acns/acns-route-inbox"
+      ]
+    },
+    {
+      "name": "acns-suggest-archive",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/acns/acns-suggest-archive"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": "<target-project-skill-dir>/acns-suggest-archive",
+          "kind": "declared_target",
+          "target": null
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:41bd60744699dfd4d3a236415032d5f294da400c8e1c636d931b14cf801f552f",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/acns/acns-suggest-archive"
+      ]
+    },
+    {
+      "name": "acns-weekly-review",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/acns/acns-weekly-review"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": "<target-project-skill-dir>/acns-weekly-review",
+          "kind": "declared_target",
+          "target": null
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:ff3e1a8370d83f403877b0281a2471e0ef34771b38be5c70ad6e932803f089a8",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/acns/acns-weekly-review"
+      ]
+    },
+    {
+      "name": "agent-research",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/agent-research"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/agent-research",
+          "kind": "symlink",
+          "target": "../../skills/agent-research"
+        },
+        {
+          "path": ".codex/skills/agent-research",
+          "kind": "symlink",
+          "target": "../../skills/agent-research"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:321545fc94429f38a6b55f8390b71f510983adc5d9489953cb6440367c0f33aa",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/agent-research",
+        ".agents/skills/agent-research",
+        ".codex/skills/agent-research"
+      ]
+    },
+    {
+      "name": "devin-pr-review-thread",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/devin-pr-review-thread"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/devin-pr-review-thread",
+          "kind": "symlink",
+          "target": "../../skills/devin-pr-review-thread"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:f296f94d81a38fc505c6623926ff13a945f839fb8476e5e9679aea510c579747",
+      "current_version": "0.4.0",
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/devin-pr-review-thread",
+        ".agents/skills/devin-pr-review-thread"
+      ]
+    },
+    {
+      "name": "logseq-acns-vault",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/logseq-acns-vault"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:ade65b60d8ea292b3940a04e2c08fec23326225973d14e2b2bc8645ef76f9671",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/logseq-acns-vault"
+      ]
+    },
+    {
+      "name": "logseq-acns-write",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/logseq-acns-write"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:5ee3703b450a5e30914ebf0e68208ab4f7463e3637d7535fa2cce2a233aa51b1",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/logseq-acns-write"
+      ]
+    },
+    {
+      "name": "logseq-http-transport",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/logseq-http-transport"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:d1ec210068f36248556449d8976bae85b6be865c92467561e48d3585e826aeee",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/logseq-http-transport"
+      ]
+    },
+    {
+      "name": "notion-reading-helper",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/notion-reading-helper"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".codex/skills/notion-reading-helper",
+          "kind": "symlink",
+          "target": "../../skills/notion-reading-helper"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:ed49c15aa938a1aed995993696b4586f9e93f0401dff5f06b2aee74e64230b94",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/notion-reading-helper",
+        ".codex/skills/notion-reading-helper"
+      ]
+    },
+    {
+      "name": "skills-cli-reconcile",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills-governance/skills/skills-cli-reconcile"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/skills-cli-reconcile",
+          "kind": "symlink",
+          "target": "../../skills-governance/skills/skills-cli-reconcile"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:d1df8c7c3f0e0a36455312f2cb5a3a6a2c1836937735749542f1218fb3fc0e7f",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills-governance/skills/skills-cli-reconcile",
+        ".agents/skills/skills-cli-reconcile"
+      ]
+    },
+    {
+      "name": "skills-governance-audit",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills-governance/skills/skills-governance-audit"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/skills-governance-audit",
+          "kind": "symlink",
+          "target": "../../skills-governance/skills/skills-governance-audit"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:5faf597cc7f14380d9c4b153978cd4c57ad1693be198ee3c489eb2afcb43b7b4",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills-governance/skills/skills-governance-audit",
+        ".agents/skills/skills-governance-audit"
+      ]
+    },
+    {
+      "name": "skills-intake-local",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills-governance/skills/skills-intake-local"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/skills-intake-local",
+          "kind": "symlink",
+          "target": "../../skills-governance/skills/skills-intake-local"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:76e833b4af70acecc5eee709fc95fc1d4989428fd48247af45147b25d1d86d55",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills-governance/skills/skills-intake-local",
+        ".agents/skills/skills-intake-local"
+      ]
+    },
+    {
+      "name": "skills-lifecycle-manager",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills-governance/skills/skills-lifecycle-manager"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/skills-lifecycle-manager",
+          "kind": "symlink",
+          "target": "../../skills-governance/skills/skills-lifecycle-manager"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:18b05db0bef5289f16ad98d37b5dfbfa4cb043940e878eb9117f2987c8945a0d",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills-governance/skills/skills-lifecycle-manager",
+        ".agents/skills/skills-lifecycle-manager"
+      ]
+    },
+    {
+      "name": "skills-promote-global",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills-governance/skills/skills-promote-global"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/skills-promote-global",
+          "kind": "symlink",
+          "target": "../../skills-governance/skills/skills-promote-global"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:4278988dac076777431993386779a8dd90f866b7853a4f447cdfd83204f47cb4",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills-governance/skills/skills-promote-global",
+        ".agents/skills/skills-promote-global"
+      ]
+    },
+    {
+      "name": "vaultwarden-secret-migration",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/vaultwarden-secret-migration"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:8aecfa50dbff49d34fdb7532b61434f7a6042ca068dc8378f24e4f2c99589380",
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/vaultwarden-secret-migration"
+      ]
+    },
+    {
+      "name": "worktree-branch-governance-audit",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/worktree-branch-governance-audit"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/worktree-branch-governance-audit",
+          "kind": "symlink",
+          "target": "../../skills/worktree-branch-governance-audit"
+        },
+        {
+          "path": ".codex/skills/worktree-branch-governance-audit",
+          "kind": "symlink",
+          "target": "../../skills/worktree-branch-governance-audit"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:6b666518d08e7b680aa3449e98db8586ed2538c6c5e66ddee1831353cdfaad7e",
+      "current_version": null,
+      "scope": "cross-repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/worktree-branch-governance-audit",
+        ".agents/skills/worktree-branch-governance-audit",
+        ".codex/skills/worktree-branch-governance-audit"
+      ]
+    }
+  ]
+}

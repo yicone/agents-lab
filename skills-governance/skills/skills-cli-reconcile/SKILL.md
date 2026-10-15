@@ -181,11 +181,11 @@ If a state note or inventory exists, write back:
 - risk notes
 - recent change summary
 
-Default state note:
+Default inventory:
 
-- `[[OS-LOG/Skills 当前状态清单]]`
+- `skills-governance/config/skills-inventory.json` (validate with `skills-governance/scripts/validate_skills_inventory.py --check-paths`)
 
-Do not write live inventory state back into:
+`[[OS-LOG/Skills 当前状态清单]]` is a human mirror. Project it one way from the JSON when a person needs the view. Do not write live inventory state back into:
 
 - `[[OS-RES/Skills 管理与治理原则]]`
 
