@@ -1,11 +1,13 @@
-"""Read models for API contract v0 (multica-board/docs/api-contract.md). Pure cache reads."""
+"""Read models for API contract v0.2 (multica-board/docs/api-contract.md). Pure cache reads."""
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_since
 from .collector import COLLECTOR, WORKSPACE
 from .store import Store
 
@@ -14,6 +16,10 @@ QUEUED_TASK = ("queued", "dispatched", "waiting_local_directory")
 LAST_FAILED_WINDOW = timedelta(days=7)
 RECENT_WINDOW_H = 24
 RUNS_PER_ISSUE = 20
+ATTENTION_TITLE_CHARS = 80
+ATTENTION_TEXT_BYTES = 2048
+ATTENTION_BUCKETS = ("in_review", "blocked", "failed_runs", "offline_runtimes")
+TOP_FAILURE_REASONS = 3
 
 
 class NotFound(Exception):
@@ -44,6 +50,97 @@ def _key(ws: str, rid: str) -> str:
 def _closed(row: dict[str, Any]) -> bool:
     cat = (row.get("status_category") or row.get("status") or "").lower()
     return cat in CLOSED_CATEGORIES
+
+
+def _flat(text: Any) -> str | None:
+    if text is None:
+        return None
+    flat = " ".join(str(text).split())
+    return flat or None
+
+
+def _clip_title(text: Any) -> str | None:
+    flat = _flat(text)
+    if flat is None:
+        return None
+    return flat[:ATTENTION_TITLE_CHARS]
+
+
+def _attention_item(
+    identifier: str, title: Any, status: str, when: Any, agent_name: Any
+) -> dict[str, Any]:
+    return {
+        "identifier": identifier,
+        "title": _clip_title(title),
+        "status": status,
+        "time": _flat(when),
+        "agent_name": _flat(agent_name),
+    }
+
+
+def _issue_bucket(row: dict[str, Any]) -> str | None:
+    """`status` wins when it disagrees with `status_category`."""
+    status = (row.get("status") or "").lower()
+    if status in ("in_review", "blocked"):
+        return status
+    category = (row.get("status_category") or "").lower()
+    if category in ("in_review", "blocked"):
+        return category
+    return None
+
+
+def _sort_attention(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Stable: time descending, null times last, identifier ascending on ties.
+    ordered = sorted(items, key=lambda it: it["identifier"] or "")
+    ordered.sort(key=lambda it: it["time"] or "", reverse=True)
+    return ordered
+
+
+def _cell(value: Any) -> str:
+    return _flat(value) or "-"
+
+
+def render_attention_text(body: dict[str, Any]) -> str:
+    """Compact plaintext for `?format=text`. Always ends with a newline; capped at 2048 bytes."""
+    lines = [
+        f"generated_at {_cell(body.get('generated_at'))}",
+        f"window_h {_cell(body.get('window_h'))}",
+    ]
+    for ws in body.get("workspaces") or []:
+        lines.append("")
+        lines.append(f"# {_cell(ws.get('slug') or ws.get('id'))} {_cell(ws.get('name'))}")
+        for bucket in ATTENTION_BUCKETS:
+            items = ws.get(bucket) or []
+            if not items:
+                continue
+            lines.append(f"{bucket} {len(items)}")
+            for it in items:
+                lines.append(
+                    "\t".join(
+                        _cell(it.get(field))
+                        for field in ("identifier", "status", "time", "agent_name", "title")
+                    )
+                )
+    return _fit_text(lines)
+
+
+def _fit_text(lines: list[str]) -> str:
+    def packed(chosen: list[str], truncated: bool) -> str:
+        parts = list(chosen)
+        if truncated:
+            parts.append("…")
+        return "\n".join(parts) + "\n"
+
+    if len(packed(lines, False).encode()) <= ATTENTION_TEXT_BYTES:
+        return packed(lines, False)
+    kept: list[str] = []
+    for line in lines:
+        if len(packed(kept + [line], True).encode()) > ATTENTION_TEXT_BYTES:
+            break
+        kept.append(line)
+    if not kept:
+        return "…\n"
+    return packed(kept, True)
 
 
 class Views:
@@ -312,3 +409,347 @@ class Views:
             for r in self.store.query("SELECT * FROM runtimes WHERE server=? ORDER BY provider, name", (self.server,))
         ]
         return {"generated_at": self.generated_at(), "items": items}
+
+    # --- /api/attention -----------------------------------------------------
+
+    def attention(self) -> dict[str, Any]:
+        """Workspace-grouped items Steward should look at. Fields are intentionally tiny."""
+        agent_names = self._names("agents", "id", "name")
+        issue_rows: dict[tuple[str, str], dict[str, Any]] = {}
+        buckets: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+        def ensure(ws: str) -> dict[str, list[dict[str, Any]]]:
+            return buckets.setdefault(ws, {name: [] for name in ATTENTION_BUCKETS})
+
+        for row in self.store.query("SELECT * FROM issues WHERE server=?", (self.server,)):
+            issue_rows[(row["workspace_id"], row["id"])] = row
+            bucket = _issue_bucket(row)
+            if not bucket:
+                continue
+            agent = None
+            if row.get("assignee_type") == "agent" and row.get("assignee_id"):
+                agent = agent_names.get((row["workspace_id"], row["assignee_id"]))
+            ensure(row["workspace_id"])[bucket].append(
+                _attention_item(
+                    row["identifier"] or row["id"],
+                    row.get("title"),
+                    row.get("status") or bucket,
+                    row.get("last_activity_at") or row.get("updated_at") or row.get("created_at"),
+                    agent,
+                )
+            )
+
+        cutoff = _iso(_now() - timedelta(hours=RECENT_WINDOW_H))
+        for task in self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND lower(status)='failed' "
+            "AND coalesce(completed_at, created_at, '') >= ?",
+            (self.server, cutoff),
+        ):
+            issue = issue_rows.get((task["workspace_id"], task["issue_id"])) if task.get("issue_id") else None
+            identifier = (issue or {}).get("identifier") or task.get("issue_id") or task["id"]
+            agent = agent_names.get((task["workspace_id"], task["agent_id"])) if task.get("agent_id") else None
+            ensure(task["workspace_id"])["failed_runs"].append(
+                _attention_item(
+                    identifier,
+                    (issue or {}).get("title"),
+                    "failed",
+                    task.get("completed_at") or task.get("created_at"),
+                    agent,
+                )
+            )
+
+        bound: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for agent in self.store.query(
+            "SELECT workspace_id, id, name, runtime_id FROM agents "
+            "WHERE server=? AND archived_at IS NULL AND runtime_id IS NOT NULL AND runtime_id != ''",
+            (self.server,),
+        ):
+            bound.setdefault((agent["workspace_id"], agent["runtime_id"]), []).append(
+                (agent["name"] or "", agent["id"])
+            )
+
+        for runtime in self.store.query(
+            "SELECT * FROM runtimes WHERE server=? AND lower(status)='offline'", (self.server,)
+        ):
+            agents = bound.get((runtime["workspace_id"], runtime["id"]))
+            if not agents:
+                continue
+            ordered = sorted(agents, key=lambda pair: ((_flat(pair[0]) or pair[1]).casefold(), pair[1]))
+            ensure(runtime["workspace_id"])["offline_runtimes"].append(
+                _attention_item(
+                    runtime["id"],
+                    runtime.get("custom_name") or runtime.get("name"),
+                    "offline",
+                    runtime.get("last_seen_at"),
+                    ", ".join(_flat(name) or aid for name, aid in ordered),
+                )
+            )
+
+        meta = {
+            r["id"]: r
+            for r in self.store.query("SELECT id, slug, name FROM workspaces WHERE server=?", (self.server,))
+        }
+        workspaces = []
+        for ws_id, groups in buckets.items():
+            filled = {name: _sort_attention(items) for name, items in groups.items() if items}
+            if not filled:
+                continue
+            info = meta.get(ws_id) or {}
+            workspaces.append(
+                {
+                    "id": ws_id,
+                    "slug": info.get("slug"),
+                    "name": info.get("name"),
+                    **{name: filled[name] for name in ATTENTION_BUCKETS if name in filled},
+                }
+            )
+        workspaces.sort(key=lambda w: ((w.get("name") or "").casefold(), w["id"]))
+        return {"generated_at": self.generated_at(), "window_h": RECENT_WINDOW_H, "workspaces": workspaces}
+
+    def attention_text(self) -> str:
+        return render_attention_text(self.attention())
+
+    # --- /api/changes -------------------------------------------------------
+
+    def changes(self, since: str | None, *, limit: int = CHANGES_PAGE) -> dict[str, Any]:
+        """Deltas after `since` (ISO time or a previous cursor). Omitted `since` only issues a cursor."""
+        if limit < 1 or limit > CHANGES_PAGE:
+            raise BadRequest("limit out of range")
+        mode, value = parse_since(since)
+        horizon = _iso(_now() - timedelta(days=CHANGE_RETENTION_DAYS))
+        self.store.prune_changes(self.server, horizon)
+
+        def envelope(items: list[dict[str, Any]], cursor: int, reset: bool, has_more: bool) -> dict[str, Any]:
+            return {
+                "generated_at": self.generated_at(),
+                "cursor": format_cursor(cursor),
+                "reset": reset,
+                "retained_days": CHANGE_RETENTION_DAYS,
+                "has_more": has_more,
+                "items": items,
+            }
+
+        if mode == "none":
+            tip, _oldest = self.store.change_bounds(self.server)
+            return envelope([], tip, False, False)
+        if mode == "time" and value < horizon:
+            tip, _oldest = self.store.change_bounds(self.server)
+            return envelope([], tip, True, False)
+
+        if mode == "time":
+            snap = self.store.fetch_changes(self.server, after_seq=None, after_at=value, limit=limit + 1)
+        else:
+            snap = self.store.fetch_changes(self.server, after_seq=value, after_at=None, limit=limit + 1)
+            oldest = snap["oldest"]
+            if value > snap["tip"] or (oldest is not None and oldest > value + 1):
+                return envelope([], snap["tip"], True, False)
+
+        rows = snap["rows"]
+        has_more = len(rows) > limit
+        page = rows[:limit]
+        if has_more:
+            cursor = int(page[-1]["seq"])
+        else:
+            floor = value if mode == "seq" else 0
+            cursor = max(snap["tip"], floor)
+        return envelope(self._render_changes(page), cursor, False, has_more)
+
+    def _render_changes(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not rows:
+            return []
+        agent_names = self._names("agents", "id", "name")
+        member_names = self._names("members", "user_id", "name")
+        identifiers = self._names("issues", "id", "identifier")
+        return [self._change_item(r, agent_names, member_names, identifiers) for r in rows]
+
+    def _change_item(
+        self,
+        row: dict[str, Any],
+        agent_names: dict[tuple[str, str], Any],
+        member_names: dict[tuple[str, str], Any],
+        identifiers: dict[tuple[str, str], Any],
+    ) -> dict[str, Any]:
+        payload = json.loads(row["payload_json"])
+        ws = row["workspace_id"]
+        kind = row["kind"]
+        base: dict[str, Any] = {"kind": kind, "at": row["at"], "workspace_id": ws}
+        if kind in ("issue_status", "issue_assignee"):
+            base["key"] = _key(ws, row["resource_id"])
+            base["id"] = row["resource_id"]
+            base["identifier"] = payload.get("identifier")
+            if kind == "issue_status":
+                base.update(
+                    {
+                        "status": payload.get("status"),
+                        "status_category": payload.get("status_category"),
+                        "previous_status": payload.get("previous_status"),
+                        "previous_status_category": payload.get("previous_status_category"),
+                    }
+                )
+            else:
+                base["assignee"] = self._person(ws, payload.get("assignee_type"), payload.get("assignee_id"), agent_names, member_names)
+                base["previous_assignee"] = self._person(
+                    ws, payload.get("previous_assignee_type"), payload.get("previous_assignee_id"), agent_names, member_names
+                )
+            return base
+        if kind in ("run", "run_failed"):
+            issue_id = payload.get("issue_id")
+            base.update(
+                {
+                    "key": _key(ws, row["resource_id"]),
+                    "task_id": row["resource_id"],
+                    "issue_id": issue_id,
+                    "identifier": identifiers.get((ws, issue_id)) if issue_id else None,
+                    "status": payload.get("status"),
+                    "agent_name": agent_names.get((ws, payload.get("agent_id"))),
+                    "runtime_id": payload.get("runtime_id"),
+                    "started_at": payload.get("started_at"),
+                    "completed_at": payload.get("completed_at"),
+                    "error_kind": payload.get("error_kind"),
+                    "error_summary": payload.get("error_summary"),
+                }
+            )
+            return base
+        if kind == "runtime":
+            base.update(
+                {
+                    "key": _key(ws, row["resource_id"]),
+                    "id": row["resource_id"],
+                    "name": payload.get("name"),
+                    "status": payload.get("status"),
+                    "previous_status": payload.get("previous_status"),
+                }
+            )
+            return base
+        raise ValueError(f"unknown change kind {kind}")
+
+    @staticmethod
+    def _person(
+        ws: str,
+        typ: str | None,
+        aid: str | None,
+        agent_names: dict[tuple[str, str], Any],
+        member_names: dict[tuple[str, str], Any],
+    ) -> dict[str, Any] | None:
+        if not typ or not aid:
+            return None
+        name = None
+        if typ == "agent":
+            name = agent_names.get((ws, aid))
+        elif typ == "member":
+            name = member_names.get((ws, aid))
+        return {"type": typ, "id": aid, "name": name}
+
+    # --- /api/stats/failures ------------------------------------------------
+
+    def failure_stats(self) -> dict[str, Any]:
+        """Failed-run counts for the last 24h and 7d, grouped by provider, runtime, and agent.
+
+        `failure_reason` is the classified `error_kind` (quota, rate_limit, …), not the raw
+        error text. A run counts when its `completed_at` (else `created_at`) falls in the
+        window. Provider comes from the runtime recorded on the run, summed across workspaces.
+        """
+        now = _now()
+        cuts = {
+            "h24": _iso(now - timedelta(hours=RECENT_WINDOW_H)),
+            "d7": _iso(now - LAST_FAILED_WINDOW),
+        }
+        agent_rows = {
+            (r["workspace_id"], r["id"]): r
+            for r in self.store.query(
+                "SELECT workspace_id, id, name, runtime_id FROM agents WHERE server=?", (self.server,)
+            )
+        }
+        runtime_rows = {
+            (r["workspace_id"], r["id"]): r
+            for r in self.store.query(
+                "SELECT workspace_id, id, name, custom_name, provider FROM runtimes WHERE server=?",
+                (self.server,),
+            )
+        }
+        providers: dict[str | None, dict[str, Any]] = {}
+        runtimes: dict[tuple[str, str | None], dict[str, Any]] = {}
+        agents: dict[tuple[str, str | None], dict[str, Any]] = {}
+
+        def bucket() -> dict[str, Any]:
+            return {"failed": {"h24": 0, "d7": 0}, "reasons": {}}
+
+        def add(group: dict[str, Any], reason: str, window: str) -> None:
+            group["failed"][window] += 1
+            group["reasons"].setdefault(reason, {"h24": 0, "d7": 0})[window] += 1
+
+        for t in self.store.query(
+            "SELECT workspace_id, agent_id, runtime_id, created_at, completed_at, error_kind "
+            "FROM tasks WHERE server=? AND status='failed'",
+            (self.server,),
+        ):
+            when = t["completed_at"] or t["created_at"] or ""
+            windows = [name for name, cut in cuts.items() if when >= cut]
+            if not windows:
+                continue
+            ws = t["workspace_id"]
+            rid = t["runtime_id"] or None
+            aid = t["agent_id"] or None
+            rt = runtime_rows.get((ws, rid)) if rid else None
+            provider = (rt.get("provider") or None) if rt else None
+            reason = t["error_kind"] or "unknown"
+            for window in windows:
+                add(providers.setdefault(provider, bucket()), reason, window)
+                add(runtimes.setdefault((ws, rid), bucket()), reason, window)
+                add(agents.setdefault((ws, aid), bucket()), reason, window)
+
+        def top_reasons(group: dict[str, Any]) -> list[dict[str, Any]]:
+            rows = [
+                {"failure_reason": reason, "h24": counts["h24"], "d7": counts["d7"]}
+                for reason, counts in group["reasons"].items()
+            ]
+            rows.sort(key=lambda r: (-r["d7"], -r["h24"], r["failure_reason"]))
+            return rows[:TOP_FAILURE_REASONS]
+
+        def emit(group: dict[str, Any]) -> dict[str, Any]:
+            return {"failed": dict(group["failed"]), "top_reasons": top_reasons(group)}
+
+        by_provider = [{"provider": provider, **emit(group)} for provider, group in providers.items()]
+        by_provider.sort(key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["provider"] is None, r["provider"] or ""))
+
+        by_runtime = []
+        for (ws, rid), group in runtimes.items():
+            rt = runtime_rows.get((ws, rid)) if rid else None
+            by_runtime.append(
+                {
+                    "key": _key(ws, rid or ""),
+                    "workspace_id": ws,
+                    "id": rid,
+                    "name": ((rt.get("custom_name") or rt.get("name")) if rt else None),
+                    "provider": (rt.get("provider") or None) if rt else None,
+                    **emit(group),
+                }
+            )
+        by_runtime.sort(
+            key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["name"] is None, r["name"] or "", r["key"])
+        )
+
+        by_agent = []
+        for (ws, aid), group in agents.items():
+            ag = agent_rows.get((ws, aid)) if aid else None
+            by_agent.append(
+                {
+                    "key": _key(ws, aid or ""),
+                    "workspace_id": ws,
+                    "id": aid,
+                    "name": ag.get("name") if ag else None,
+                    "runtime_id": ag.get("runtime_id") if ag else None,
+                    **emit(group),
+                }
+            )
+        by_agent.sort(
+            key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["name"] is None, r["name"] or "", r["key"])
+        )
+
+        return {
+            "generated_at": self.generated_at(),
+            "windows": {"h24": RECENT_WINDOW_H, "d7": int(LAST_FAILED_WINDOW.total_seconds() // 3600)},
+            "by_provider": by_provider,
+            "by_runtime": by_runtime,
+            "by_agent": by_agent,
+        }

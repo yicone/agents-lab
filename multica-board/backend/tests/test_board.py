@@ -16,12 +16,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fake_cli import FAKE_TOKEN, FakeMultica, agent, issue, runtime, task  # noqa: E402
+from multica_board.changes import BadRequest, diff_issues, diff_runtimes, events_for_tasks  # noqa: E402
 from multica_board.cli_runner import CliError, CliRunner, CommandNotAllowed, assert_read_only  # noqa: E402
 from multica_board.collector import WORKSPACE, CollectOptions, Collector  # noqa: E402
 from multica_board.redact import ERROR_KINDS, classify_error, redact  # noqa: E402
 from multica_board.server import STATIC_CSP, BoardServer, assert_loopback  # noqa: E402
 from multica_board.store import Store  # noqa: E402
-from multica_board.views import NotFound, Views  # noqa: E402
+from multica_board.views import ATTENTION_TEXT_BYTES, NotFound, Views, render_attention_text  # noqa: E402
 
 WS_A, WS_B = "ws-a", "ws-b"
 SERVER = "test-profile"
@@ -441,7 +442,7 @@ class ViewTests(unittest.TestCase):
         return {i["id"]: i for i in self.v.issues()["items"]}
 
     def test_generated_at_is_collect_finish(self):
-        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes()):
+        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes(), self.v.attention(), self.v.changes(None), self.v.failure_stats()):
             self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
 
     def test_meta(self):
@@ -505,6 +506,112 @@ class ViewTests(unittest.TestCase):
         with self.assertRaises(NotFound):
             self.v.issue_runs("w1", "nope")
 
+    def test_failure_stats_from_seed(self):
+        body = self.v.failure_stats()
+        self.assertEqual(body["windows"], {"h24": 24, "d7": 168})
+        # r1 daemon_restart (5h), r3 quota (2h), r6 network (30h); r7 timeout is older than 7d.
+        reasons = [
+            {"failure_reason": "daemon_restart", "h24": 1, "d7": 1},
+            {"failure_reason": "quota", "h24": 1, "d7": 1},
+            {"failure_reason": "network", "h24": 0, "d7": 1},
+        ]
+        failed = {"h24": 2, "d7": 3}
+        self.assertEqual(body["by_provider"], [{"provider": "cursor", "failed": failed, "top_reasons": reasons}])
+        self.assertEqual(body["by_runtime"], [{
+            "key": "w1:rt", "workspace_id": "w1", "id": "rt", "name": "Cursor (box)", "provider": "cursor",
+            "failed": failed, "top_reasons": reasons,
+        }])
+        self.assertEqual(body["by_agent"], [{
+            "key": "w1:ag", "workspace_id": "w1", "id": "ag", "name": "Builder", "runtime_id": "rt",
+            "failed": failed, "top_reasons": reasons,
+        }])
+        blob = json.dumps(body)
+        for secret in ("usage limit", "daemon restarted", "conn refused", "error_summary"):
+            self.assertNotIn(secret, blob)
+
+
+class FailureStatsTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.v = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+        s = SERVER
+        with self.store.tx() as c:
+            self.store.upsert(c, "workspaces", {"server": s, "id": "w1", "name": "One", "slug": "one"})
+            self.store.upsert(c, "workspaces", {"server": s, "id": "w2", "name": "Two", "slug": "two"})
+            self.store.upsert(c, "runtimes", {"server": s, "workspace_id": "w1", "id": "rt-old", "name": "Cursor old",
+                                              "provider": "cursor"})
+            self.store.upsert(c, "runtimes", {"server": s, "workspace_id": "w1", "id": "rt-new", "name": "Codex",
+                                              "custom_name": "Codex box", "provider": "codex"})
+            self.store.upsert(c, "runtimes", {"server": s, "workspace_id": "w2", "id": "rt-b", "name": "Cursor b",
+                                              "provider": "cursor"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "w1", "id": "ag", "name": "Builder",
+                                            "runtime_id": "rt-new"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "w2", "id": "ag", "name": "Builder",
+                                            "runtime_id": "rt-b"})
+
+            def run(ws, tid, rid, status, hours, kind):
+                self.store.upsert(c, "tasks", {
+                    "server": s, "workspace_id": ws, "id": tid, "agent_id": "ag", "runtime_id": rid,
+                    "status": status, "created_at": ago(hours), "completed_at": ago(hours), "error_kind": kind,
+                    "error_summary": f"secret {FAKE_TOKEN} {kind}",
+                })
+
+            # cursor / w1: quota x3 in 24h, rate_limit x2 (one inside 24h), timeout and network once each in 7d.
+            # timeout and network tie, so network wins the third top_reasons slot.
+            for i, hours in enumerate((1, 2, 3)):
+                run("w1", f"q{i}", "rt-old", "failed", hours, "quota")
+            run("w1", "rl0", "rt-old", "failed", 4, "rate_limit")
+            run("w1", "rl1", "rt-old", "failed", 30, "rate_limit")
+            run("w1", "to", "rt-old", "failed", 40, "timeout")  # ties network, sorts later, dropped from top_reasons
+            run("w1", "net", "rt-old", "failed", 50, "network")
+            run("w2", "qb", "rt-b", "failed", 5, "quota")  # same provider, other workspace
+            run("w1", "cx", "rt-new", "failed", 6, "process")
+            run("w1", "ghost", "missing", "failed", 26, None)  # unknown runtime, unclassified -> unknown
+            run("w1", "old", "rt-old", "failed", 24 * 8, "auth")  # outside 7d
+            run("w1", "ok", "rt-old", "completed", 1, "quota")
+            run("w1", "cancel", "rt-old", "cancelled", 1, "cancelled")
+        self.store.set_meta("last_collect", {"finished_at": "2026-10-14T09:00:00Z"})
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_groups_windows_and_top3(self):
+        body = self.v.failure_stats()
+        self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
+        providers = {row["provider"]: row for row in body["by_provider"]}
+        # w1 cursor: quota 3, rate_limit 2, timeout 1, network 1 = 7; plus w2 quota 1 = 8. h24: 3+1 + w2 1 = 5.
+        cursor = providers["cursor"]
+        self.assertEqual(cursor["failed"], {"h24": 5, "d7": 8})
+        self.assertEqual([r["failure_reason"] for r in cursor["top_reasons"]], ["quota", "rate_limit", "network"])
+        self.assertEqual(cursor["top_reasons"][0], {"failure_reason": "quota", "h24": 4, "d7": 4})
+        self.assertEqual(sum(r["d7"] for r in cursor["top_reasons"]), 7)  # timeout ties network and sorts later
+        self.assertEqual(providers["codex"]["failed"], {"h24": 1, "d7": 1})
+        self.assertEqual(providers["codex"]["top_reasons"], [{"failure_reason": "process", "h24": 1, "d7": 1}])
+        self.assertEqual(providers[None]["failed"], {"h24": 0, "d7": 1})
+        self.assertEqual(providers[None]["top_reasons"], [{"failure_reason": "unknown", "h24": 0, "d7": 1}])
+        self.assertEqual([row["provider"] for row in body["by_provider"]], ["cursor", "codex", None])
+
+        runtimes = {(row["workspace_id"], row["id"]): row for row in body["by_runtime"]}
+        self.assertEqual(runtimes[("w1", "rt-old")]["failed"], {"h24": 4, "d7": 7})
+        self.assertEqual(runtimes[("w1", "rt-old")]["name"], "Cursor old")
+        self.assertEqual(runtimes[("w2", "rt-b")]["failed"], {"h24": 1, "d7": 1})
+        self.assertEqual(runtimes[("w1", "rt-new")]["name"], "Codex box")
+        ghost = runtimes[("w1", "missing")]
+        self.assertEqual((ghost["name"], ghost["provider"], ghost["failed"]), (None, None, {"h24": 0, "d7": 1}))
+
+        agents = {(row["workspace_id"], row["id"]): row for row in body["by_agent"]}
+        # w1 agent: cursor failures 7 + codex 1 + unknown 1 = 9 in 7d; h24 is cursor 4 + codex 1 = 5.
+        # runtime_id is the current binding, not the runtime each run used.
+        self.assertEqual(agents[("w1", "ag")]["runtime_id"], "rt-new")
+        self.assertEqual(agents[("w1", "ag")]["name"], "Builder")
+        self.assertEqual(agents[("w1", "ag")]["failed"], {"h24": 5, "d7": 9})
+        self.assertEqual(agents[("w2", "ag")]["key"], "w2:ag")
+        self.assertNotEqual(agents[("w1", "ag")]["key"], agents[("w2", "ag")]["key"])
+        blob = json.dumps(body)
+        self.assertNotIn(FAKE_TOKEN, blob)
+        self.assertNotIn("error_summary", blob)
+        self.assertNotIn("secret", blob)
+
 
 class ServerTests(unittest.TestCase):
     @classmethod
@@ -543,7 +650,7 @@ class ServerTests(unittest.TestCase):
                 assert_loopback(host)
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs"):
+        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
@@ -553,7 +660,8 @@ class ServerTests(unittest.TestCase):
             json.loads(body)
 
     def test_removed_and_unknown_endpoints(self):
-        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/issues/w1/nope/runs"):
+        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/stats",
+                     "/api/issues/w1/nope/runs"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 404, path)
             self.assertEqual(json.loads(body)["error"]["code"], "not_found")
@@ -588,6 +696,495 @@ class ServerTests(unittest.TestCase):
             r, body = self.req("GET", p)
             self.assertEqual(r.status, 404, p)
             self.assertNotIn(b"nope", body)
+
+    def test_changes_http(self):
+        r, body = self.req("GET", "/api/changes")
+        self.assertEqual(r.status, 200)
+        data = json.loads(body)
+        self.assertEqual(data["cursor"], "v1:0")
+        self.assertEqual(data["items"], [])
+        self.assertEqual(data["retained_days"], 7)
+        self.assertFalse(data["reset"])
+        self.assertFalse(data["has_more"])
+        self.assertEqual(r.getheader("Cache-Control"), "no-store")
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+
+        r, body = self.req("GET", "/api/changes?since=yesterday")
+        self.assertEqual(r.status, 400)
+        err = json.loads(body)
+        self.assertEqual(err["error"]["code"], "bad_request")
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+
+        r, body = self.req("GET", "/api/changes?since=2000-01-01T00:00:00Z")
+        self.assertEqual(r.status, 200)
+        self.assertTrue(json.loads(body)["reset"])
+        self.assertEqual(json.loads(body)["items"], [])
+
+        r, body = self.req("GET", "/api/changes?since=a&since=b")
+        self.assertEqual(r.status, 400)
+        self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
+
+
+    def test_attention_http(self):
+        r, body = self.req("GET", "/api/attention")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(r.getheader("Cache-Control"), "no-store")
+        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+        self.assertNotIn(b": ", body)
+        data = json.loads(body)
+        self.assertEqual([i["identifier"] for i in data["workspaces"][0]["failed_runs"]], ["ORPHAN", "CHILD"])
+
+        r, body = self.req("GET", "/api/attention?format=text")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "text/plain; charset=utf-8")
+        self.assertEqual(r.getheader("Content-Security-Policy"), "default-src 'none'; frame-ancestors 'none'")
+        text = body.decode()
+        self.assertLessEqual(len(body), ATTENTION_TEXT_BYTES)
+        self.assertIn("failed_runs 2", text)
+        self.assertIn("ORPHAN", text)
+        self.assertTrue(text.endswith("\n"))
+        self.assertNotIn("daemon restarted", text)
+
+        r, body = self.req("GET", "/api/attention/?format=TEXT")
+        self.assertEqual(r.status, 200)
+        self.assertTrue(r.getheader("Content-Type").startswith("text/plain"))
+
+        r, body = self.req("GET", "/api/attention?format=json")
+        self.assertEqual(json.loads(body)["window_h"], 24)
+
+        r, body = self.req("HEAD", "/api/attention?format=text")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(body, b"")
+        self.assertGreater(int(r.getheader("Content-Length")), 0)
+
+        for path in ("/api/attention?format=html", "/api/attention?format=text&format=json", "/api/attention?format="):
+            r, body = self.req("GET", path)
+            self.assertEqual(r.status, 400, path)
+            self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
+
+        r, _ = self.req("GET", "/api/attention?format=text", {"Host": "attacker.test"})
+        self.assertEqual(r.status, 421)
+        r, body = self.req("POST", "/api/attention")
+        self.assertEqual(r.status, 405)
+
+
+AT = "2026-10-15T00:00:00Z"
+
+
+def _issue_row(iid, status="todo", assignee=None):
+    return {
+        "id": iid, "identifier": iid.upper(), "status": status, "status_category": status,
+        "assignee_type": assignee[0] if assignee else None, "assignee_id": assignee[1] if assignee else None,
+        "title": "ignored",
+    }
+
+
+class ChangeDiffTests(unittest.TestCase):
+    def test_issues_only_status_and_assignee_of_known_rows(self):
+        old = [_issue_row("a", assignee=("agent", "ag")), _issue_row("b")]
+        new = [
+            _issue_row("a", status="in_review", assignee=("member", "u1")),
+            {**_issue_row("b"), "title": "renamed", "priority": "high"},
+            _issue_row("c"),
+        ]
+        kinds = [(e["kind"], e["resource_id"]) for e in diff_issues(old, new, AT)]
+        self.assertEqual(kinds, [("issue_status", "a"), ("issue_assignee", "a")])
+        status = diff_issues(old, new, AT)[0]["payload"]
+        self.assertEqual(status["previous_status"], "todo")
+        self.assertEqual(status["status"], "in_review")
+
+    def test_runtime_online_boundary(self):
+        old = [
+            {"id": "on", "status": "online", "name": "Box", "custom_name": None},
+            {"id": "off", "status": "offline", "name": "Off", "custom_name": "Custom"},
+        ]
+        new = [
+            {"id": "on", "status": "connecting", "name": "Box", "custom_name": None},
+            {"id": "off", "status": "offline", "name": "Off", "custom_name": "Custom"},
+            {"id": "new-on", "status": "online", "name": "N", "custom_name": None},
+            {"id": "new-off", "status": "offline", "name": "X", "custom_name": None},
+        ]
+        ev = {(e["resource_id"], e["payload"]["previous_status"], e["payload"]["status"]) for e in diff_runtimes(old, new, AT)}
+        self.assertEqual(ev, {("on", "online", "connecting"), ("new-on", None, "online")})
+        gone = diff_runtimes(old, [], AT)
+        self.assertEqual(
+            [(e["resource_id"], e["payload"]["status"], e["payload"]["name"]) for e in gone],
+            [("on", None, "Box")],
+        )
+
+    def test_task_events(self):
+        row = {
+            "id": "t", "status": "failed", "issue_id": "i", "agent_id": "a", "runtime_id": "r",
+            "started_at": AT, "completed_at": AT, "error_kind": "process", "error_summary": "process exited",
+        }
+        self.assertEqual([e["kind"] for e in events_for_tasks([row], {}, AT)], ["run", "run_failed"])
+        self.assertEqual(events_for_tasks([row], {"t": "failed"}, AT), [])
+        running = {**row, "status": "running", "error_kind": None, "error_summary": None, "completed_at": None}
+        self.assertEqual([e["kind"] for e in events_for_tasks([running], {}, AT)], ["run"])
+        self.assertEqual([e["kind"] for e in events_for_tasks([row], {"t": "running"}, AT)], ["run_failed"])
+
+
+def _small_board() -> dict:
+    live = task(WS_A, "run-live", "ag1", ago(1), status="running", issue_id=f"{WS_A}-issue-0002", completed_at=None)
+    old = task(WS_A, "run-old", "ag1", ago(2), status="completed", issue_id=f"{WS_A}-issue-0002")
+    return {
+        WS_A: {
+            "meta": {"id": WS_A, "name": "Alpha", "slug": "alpha"},
+            "issues": [
+                issue(WS_A, 1, status="todo", status_category="todo", assignee_type="agent", assignee_id="ag1"),
+                issue(WS_A, 2, status="in_progress", status_category="in_progress"),
+            ],
+            "agents": [agent(WS_A, "ag1", name="Builder")],
+            "runtimes": [runtime(WS_A)],
+            "members": [{"user_id": "u1", "name": "Yi", "role": "owner", "workspace_id": WS_A}],
+            "tasks": {"ag1": [live, old]},
+        }
+    }
+
+
+def _nchanges(store: Store) -> int:
+    return store.query("SELECT COUNT(*) AS n FROM changes")[0]["n"]
+
+
+class ChangeFeedTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.data = _small_board()
+        self.fake = FakeMultica(self.data)
+        self.store, self.col = make(self.fake, self.db)
+        self.views = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_baseline_then_deltas(self):
+        self.assertTrue(self.col.collect()["ok"])
+        self.assertEqual(_nchanges(self.store), 0)
+        first = self.views.changes("v1:0")
+        self.assertEqual(first["items"], [])
+        self.assertFalse(first["reset"])
+        self.assertEqual(first["cursor"], "v1:0")
+        self.assertTrue(self.store.has_baseline(SERVER, WS_A, "issues"))
+        self.assertTrue(self.store.has_baseline(SERVER, WS_A, "runtimes"))
+        self.assertTrue(self.store.has_baseline(SERVER, WS_A, "tasks:ag1"))
+
+        issue1 = self.data[WS_A]["issues"][0]
+        issue1["status"] = "in_review"
+        issue1["status_category"] = "in_review"
+        issue1["assignee_type"] = "member"
+        issue1["assignee_id"] = "u1"
+        self.data[WS_A]["issues"][1]["title"] = "renamed"
+        self.data[WS_A]["issues"][1]["priority"] = "high"
+        self.data[WS_A]["issues"].append(issue(WS_A, 3))
+        self.data[WS_A]["runtimes"][0]["status"] = "offline"
+        self.data[WS_A]["runtimes"].append(runtime(WS_A, "rt2", name="Extra"))
+        failed = task(
+            WS_A, "run-live", "ag1", ago(1), status="failed", issue_id=f"{WS_A}-issue-0002",
+            error=f"process exited with code 1; Authorization: Bearer {FAKE_TOKEN}",
+        )
+        new_run = task(WS_A, "run-new", "ag1", ago(0.05), status="running", issue_id=f"{WS_A}-issue-0001", completed_at=None)
+        old = task(WS_A, "run-old", "ag1", ago(2), status="completed", issue_id=f"{WS_A}-issue-0002")
+        self.data[WS_A]["tasks"]["ag1"] = [new_run, failed, old]
+
+        self.assertTrue(self.col.collect()["ok"])
+        self.assertEqual(_nchanges(self.store), 6)
+        full = self.views.changes("v1:0")
+        self.assertFalse(full["reset"])
+        self.assertFalse(full["has_more"])
+        self.assertEqual(full["retained_days"], 7)
+        self.assertEqual(full["generated_at"][:4], "2026")
+        blob = json.dumps(full)
+        self.assertNotIn(FAKE_TOKEN, blob)
+        self.assertNotIn("secret body", blob)
+        self.assertNotIn(FAKE_TOKEN, json.dumps(self.store.query("SELECT payload_json FROM changes")))
+
+        by_key = {}
+        for item in full["items"]:
+            by_key.setdefault((item["kind"], item.get("id") or item["task_id"]), item)
+        self.assertEqual(set(by_key), {
+            ("issue_status", f"{WS_A}-issue-0001"),
+            ("issue_assignee", f"{WS_A}-issue-0001"),
+            ("runtime", "rt1"),
+            ("runtime", "rt2"),
+            ("run", "run-new"),
+            ("run_failed", "run-live"),
+        })
+        st = by_key[("issue_status", f"{WS_A}-issue-0001")]
+        self.assertEqual(st["identifier"], "T-1")
+        self.assertEqual(st["status"], "in_review")
+        self.assertEqual(st["previous_status"], "todo")
+        self.assertEqual(st["status_category"], "in_review")
+        self.assertEqual(st["previous_status_category"], "todo")
+        self.assertEqual(st["key"], f"{WS_A}:{WS_A}-issue-0001")
+        ag = by_key[("issue_assignee", f"{WS_A}-issue-0001")]
+        self.assertEqual(ag["assignee"], {"type": "member", "id": "u1", "name": "Yi"})
+        self.assertEqual(ag["previous_assignee"], {"type": "agent", "id": "ag1", "name": "Builder"})
+        self.assertEqual(by_key[("runtime", "rt1")]["status"], "offline")
+        self.assertEqual(by_key[("runtime", "rt1")]["previous_status"], "online")
+        self.assertEqual(by_key[("runtime", "rt1")]["name"], "Codex (box)")
+        self.assertEqual(by_key[("runtime", "rt2")]["previous_status"], None)
+        self.assertEqual(by_key[("runtime", "rt2")]["name"], "Extra")
+        run = by_key[("run", "run-new")]
+        self.assertEqual(run["status"], "running")
+        self.assertEqual(run["identifier"], "T-1")
+        self.assertEqual(run["agent_name"], "Builder")
+        self.assertIsNone(run["error_kind"])
+        self.assertNotIn("agent_id", run)
+        failed_ev = by_key[("run_failed", "run-live")]
+        self.assertEqual(failed_ev["error_kind"], "process")
+        self.assertIn("[redacted]", failed_ev["error_summary"])
+        self.assertIn("process exited", failed_ev["error_summary"])
+        self.assertEqual(failed_ev["identifier"], "T-2")
+
+        hand = self.views.changes(None)
+        self.assertEqual(hand["items"], [])
+        self.assertEqual(hand["cursor"], full["cursor"])
+        self.assertEqual(self.views.changes(hand["cursor"])["items"], [])
+
+        drained = []
+        since = "v1:0"
+        pages = 0
+        while True:
+            page = self.views.changes(since, limit=2)
+            self.assertFalse(page["reset"])
+            drained.extend(page["items"])
+            pages += 1
+            if not page["has_more"]:
+                self.assertEqual(page["cursor"], full["cursor"])
+                break
+            since = page["cursor"]
+            self.assertLess(pages, 10)
+        self.assertEqual(drained, full["items"])
+        self.assertGreater(pages, 1)
+
+        latest = max(i["at"] for i in full["items"])
+        self.assertEqual(self.views.changes(latest)["items"], [])
+        self.assertFalse(self.views.changes(ago(1))["reset"])
+        self.assertEqual(len(self.views.changes(ago(1))["items"]), 6)
+        self.assertTrue(self.views.changes("2000-01-01T00:00:00Z")["reset"])
+        self.assertEqual(self.views.changes("2999-01-01T00:00:00Z")["items"], [])
+        with self.assertRaises(BadRequest):
+            self.views.changes("yesterday")
+        with self.assertRaises(BadRequest):
+            self.views.changes("2026-10-15T00:00:00")
+
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 6)
+
+    def test_purge_rebaseline_does_not_replay(self):
+        self.col.collect()
+        self.data[WS_A]["runtimes"][0]["status"] = "offline"
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 1)
+        self.fake.fail[WS_A] = "403 forbidden: not a member"
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 0)
+        self.assertFalse(self.store.has_baseline(SERVER, WS_A, "runtimes"))
+        del self.fake.fail[WS_A]
+        self.data[WS_A]["runtimes"][0]["status"] = "online"
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 0)
+        self.data[WS_A]["runtimes"][0]["status"] = "offline"
+        self.col.collect()
+        body = self.views.changes("v1:1")
+        self.assertFalse(body["reset"])
+        self.assertEqual([(i["kind"], i["id"], i["status"]) for i in body["items"]], [("runtime", "rt1", "offline")])
+        self.assertTrue(self.views.changes("v1:0")["reset"])
+
+
+class ChangeRetentionTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.views = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+
+    def tearDown(self):
+        self.store.close()
+
+    def _ev(self, at: str, rid: str, name: str) -> dict:
+        return {
+            "at": at, "kind": "runtime", "resource_id": rid,
+            "payload": {"name": name, "status": "offline", "previous_status": "online"},
+        }
+
+    def test_prune_gap_and_server_scope(self):
+        self.store.append_changes(SERVER, WS_A, [self._ev(ago(8 * 24), "old", "Old")])
+        self.store.append_changes(SERVER, WS_A, [self._ev(ago(1), "fresh", "Fresh")])
+        self.store.append_changes("other", WS_A, [self._ev(ago(30 * 24), "foreign", "FOREIGN-MARKER")])
+
+        recent = self.views.changes(ago(2))
+        self.assertFalse(recent["reset"])
+        self.assertEqual([i["id"] for i in recent["items"]], ["fresh"])
+        self.assertNotIn("FOREIGN-MARKER", json.dumps(recent))
+        self.assertEqual(self.store.query("SELECT COUNT(*) AS n FROM changes WHERE resource_id='old'")[0]["n"], 0)
+        self.assertEqual(self.store.query("SELECT COUNT(*) AS n FROM changes WHERE server='other'")[0]["n"], 1)
+
+        self.assertTrue(self.views.changes("v1:0")["reset"])
+        self.assertEqual(self.views.changes("v1:0")["items"], [])
+        kept = self.views.changes("v1:1")
+        self.assertFalse(kept["reset"])
+        self.assertEqual([i["id"] for i in kept["items"]], ["fresh"])
+        self.assertTrue(self.views.changes("v1:999999")["reset"])
+        hand = self.views.changes(None)
+        self.assertEqual(hand["items"], [])
+        self.assertEqual(self.views.changes(hand["cursor"])["items"], [])
+
+
+class AttentionTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.v = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+        s = SERVER
+        long_title = "测" * 81
+        with self.store.tx() as c:
+            def ws(i, name, slug):
+                self.store.upsert(c, "workspaces", {"server": s, "id": i, "name": name, "slug": slug})
+
+            def issue(ws_id, i, **kw):
+                base = {"server": s, "workspace_id": ws_id, "id": i, "identifier": i, "title": i,
+                        "status": "todo", "status_category": "todo", "created_at": "2026-10-01T00:00:00Z"}
+                self.store.upsert(c, "issues", {**base, **kw})
+
+            ws("wa", "Alpha", "alpha")
+            ws("wb", "Beta", "beta")
+            ws("wz", "Zed", "zed")
+            issue("wa", "ACM-1", title=long_title, status="in_review", status_category="in_review",
+                  assignee_type="agent", assignee_id="ag1", last_activity_at="2026-10-14T09:00:00Z")
+            issue("wa", "ACM-2", title="hello\nworld\t!", status="in_review", status_category="in_review",
+                  assignee_type="member", assignee_id="u1", last_activity_at="2026-10-14T07:00:00Z")
+            issue("wa", "ACM-3", title="waiting review", status="waiting", status_category="in_review",
+                  assignee_type="agent", assignee_id="missing", last_activity_at="2026-10-14T10:00:00Z")
+            issue("wa", "ACM-4", title="status wins", status="in_review", status_category="blocked",
+                  assignee_type="squad", assignee_id="sq", last_activity_at="2026-10-14T08:00:00Z")
+            issue("wa", "ACM-5", title="no time", status="in_review", status_category="in_review",
+                  last_activity_at=None, updated_at=None, created_at=None)
+            issue("wa", "ACM-8", title="blocked two", status="blocked", status_category="blocked",
+                  last_activity_at="2026-10-14T06:00:00Z")
+            issue("wa", "ACM-9", title="blocked one", status="todo", status_category="blocked",
+                  last_activity_at="2026-10-14T06:00:00Z")
+            issue("wa", "ACM-OPEN", title="still open", status="in_progress", status_category="in_progress")
+            issue("wa", "ACM-DONE", title="closed", status="done", status_category="done")
+            issue("wb", "ACM-B", title="beta todo", status="todo", status_category="todo")
+            issue("wz", "ACM-7", title="zed blocked", status="blocked", status_category="blocked",
+                  assignee_type="agent", assignee_id="agz", last_activity_at="2026-10-14T01:00:00Z")
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "ag1", "name": "Builder",
+                                            "status": "working", "runtime_id": "rt-off", "runtime_bound": 1})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "agz2", "name": "Zed Agent",
+                                            "status": "idle", "runtime_id": "rt-off", "runtime_bound": 0})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "ada", "name": "Ada",
+                                            "status": "idle", "runtime_id": "rt-off", "archived_at": "2026-01-01T00:00:00Z"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "only-old", "name": "Old",
+                                            "status": "idle", "runtime_id": "rt-dead", "archived_at": "2026-01-01T00:00:00Z"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "live", "name": "Live",
+                                            "status": "idle", "runtime_id": "rt-on"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wz", "id": "agz", "name": "Zed",
+                                            "status": "idle", "runtime_id": None})
+            for rid, status, custom in (
+                ("rt-off", "offline", "Cursor box"),
+                ("rt-dead", "Offline", None),
+                ("rt-on", "online", None),
+                ("rt-empty", "offline", "nobody"),
+            ):
+                self.store.upsert(c, "runtimes", {
+                    "server": s, "workspace_id": "wa", "id": rid, "name": "plain-" + rid, "custom_name": custom,
+                    "status": status, "last_seen_at": "2026-10-14T04:00:00Z", "device_info": "secret-device",
+                })
+
+            def run(tid, issue_id, status, hours, err=None):
+                self.store.upsert(c, "tasks", {
+                    "server": s, "workspace_id": "wa", "id": tid, "agent_id": "ag1", "issue_id": issue_id,
+                    "status": status, "created_at": ago(hours), "completed_at": ago(hours),
+                    "error_summary": err,
+                })
+
+            run("t-acm", "ACM-1", "failed", 3, "Bearer secret-token")
+            run("t-old", "ACM-1", "failed", 30, "too old")
+            run("t-ok", "ACM-1", "completed", 0.5, None)
+            run("t-gone", "gone-issue", "failed", 2, None)
+            self.store.upsert(c, "tasks", {
+                "server": s, "workspace_id": "wa", "id": "t-none", "agent_id": None, "issue_id": None,
+                "status": "FAILED", "created_at": ago(1), "completed_at": None, "error_summary": "no issue",
+            })
+        self.store.set_meta("last_collect", {"finished_at": "2026-10-14T09:00:00Z"})
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_groups_fields_and_order(self):
+        body = self.v.attention()
+        self.assertEqual([w["id"] for w in body["workspaces"]], ["wa", "wz"])
+        alpha, zed = body["workspaces"]
+        self.assertEqual(list(alpha), ["id", "slug", "name", "in_review", "blocked", "failed_runs", "offline_runtimes"])
+        self.assertEqual([i["identifier"] for i in alpha["in_review"]], ["ACM-3", "ACM-1", "ACM-4", "ACM-2", "ACM-5"])
+        acm1 = alpha["in_review"][1]
+        self.assertEqual(acm1["title"], "测" * 80)
+        self.assertEqual(len(acm1["title"]), 80)
+        self.assertEqual(acm1["agent_name"], "Builder")
+        self.assertEqual(alpha["in_review"][0]["status"], "waiting")
+        self.assertIsNone(alpha["in_review"][0]["agent_name"])
+        self.assertEqual(alpha["in_review"][2]["status"], "in_review")
+        self.assertIsNone(alpha["in_review"][2]["agent_name"])
+        self.assertEqual(alpha["in_review"][3]["title"], "hello world !")
+        self.assertIsNone(alpha["in_review"][3]["agent_name"])
+        self.assertIsNone(alpha["in_review"][4]["time"])
+        self.assertEqual([i["identifier"] for i in alpha["blocked"]], ["ACM-8", "ACM-9"])
+        self.assertEqual(alpha["blocked"][1]["status"], "todo")
+        self.assertEqual([i["identifier"] for i in alpha["failed_runs"]], ["t-none", "gone-issue", "ACM-1"])
+        self.assertIsNone(alpha["failed_runs"][0]["title"])
+        self.assertIsNone(alpha["failed_runs"][0]["agent_name"])
+        self.assertEqual(alpha["failed_runs"][0]["status"], "failed")
+        self.assertIsNone(alpha["failed_runs"][1]["title"])
+        self.assertEqual(alpha["failed_runs"][2]["title"], "测" * 80)
+        self.assertEqual(alpha["failed_runs"][2]["agent_name"], "Builder")
+        self.assertEqual(alpha["offline_runtimes"], [{
+            "identifier": "rt-off",
+            "title": "Cursor box",
+            "status": "offline",
+            "time": "2026-10-14T04:00:00Z",
+            "agent_name": "Builder, Zed Agent",
+        }])
+        self.assertEqual(zed["blocked"][0]["agent_name"], "Zed")
+        blob = json.dumps(body)
+        self.assertNotIn("secret-token", blob)
+        self.assertNotIn("secret-device", blob)
+        self.assertNotIn("too old", blob)
+        self.assertNotIn("ACM-OPEN", blob)
+        self.assertNotIn("ACM-DONE", blob)
+        self.assertNotIn("ACM-B", blob)
+        self.assertNotIn("rt-on", blob)
+        self.assertNotIn("rt-dead", blob)
+        self.assertNotIn("rt-empty", blob)
+        text = render_attention_text(body)
+        self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
+        self.assertIn("# alpha Alpha", text)
+        self.assertIn("offline_runtimes 1", text)
+        self.assertNotIn("\n…\n", text)
+        row = next(line for line in text.splitlines() if line.startswith("ACM-2\t"))
+        self.assertNotIn("\n", row)
+        self.assertEqual(row.split("\t")[4], "hello world !")
+
+    def test_text_budget(self):
+        items = [
+            {"identifier": f"ACM-{i:04d}", "title": "标" * 80, "status": "in_review",
+             "time": "2026-10-14T09:00:00Z", "agent_name": "Builder"}
+            for i in range(80)
+        ]
+        body = {
+            "generated_at": "2026-10-14T09:00:00Z",
+            "window_h": 24,
+            "workspaces": [{"id": "w", "slug": "lab", "name": "Lab", "in_review": items}],
+        }
+        text = render_attention_text(body)
+        self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
+        self.assertTrue(text.endswith("…\n"))
+        self.assertIn("in_review 80", text)
+        self.assertLess(text.count("\t"), 80)
+        self.assertEqual(text.splitlines()[-1], "…")
 
 
 if __name__ == "__main__":

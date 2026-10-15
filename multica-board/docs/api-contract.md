@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.1）
+# Multica Board 只读 API 契约（v0.2）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`（必改项，后端待实现）。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -216,7 +216,245 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 `name` 优先用 runtime 的自定义名。同一台机器在不同 workspace 注册为不同 runtime 记录（不同 `id`），前端按 `provider` 聚合做跨 workspace 汇总，按 `workspace_id + id` 精确 join。
 
+## `GET /api/attention`
+
+给 Steward 的一次请求摘要。看板页面不调用这个接口。只读缓存，字段是白名单，不带 URL、正文、错误原文、runtime 设备信息。
+
+查询参数 `format`：缺省或 `json` 返回 JSON；`text` 返回纯文本。大小写不敏感，前后空白忽略。其它值 `400`，`{"error":{"code":"bad_request","message":"format must be json or text"}}`。
+
+```json
+{
+  "generated_at": "2026-10-14T09:00:00Z",
+  "window_h": 24,
+  "workspaces": [
+    {
+      "id": "ws-uuid",
+      "slug": "acm-lab",
+      "name": "ACM Lab",
+      "in_review": [
+        {
+          "identifier": "ACM-165",
+          "title": "Multica Board API：需处理事项摘要接口",
+          "status": "in_review",
+          "time": "2026-10-15T05:00:04Z",
+          "agent_name": "Builder"
+        }
+      ],
+      "failed_runs": [
+        {
+          "identifier": "ACM-162",
+          "title": "后端采集",
+          "status": "failed",
+          "time": "2026-10-14T08:00:00Z",
+          "agent_name": "Builder"
+        }
+      ],
+      "offline_runtimes": [
+        {
+          "identifier": "rt-uuid",
+          "title": "Cursor (tr-mini-m4)",
+          "status": "offline",
+          "time": "2026-10-14T04:00:00Z",
+          "agent_name": "Builder"
+        }
+      ]
+    }
+  ]
+}
+```
+
+四个桶是 `in_review`、`blocked`、`failed_runs`、`offline_runtimes`。空桶不出现，四个桶都空的 workspace 也不出现。
+
+- 每条只含 `identifier`、`title`、`status`、`time`、`agent_name`。`title` 先把连续空白压成一个空格，再截到 80 个字符（不加省略号）。没有的字段为 `null`，不用空字符串。
+- `in_review` / `blocked`：`status` 或 `status_category` 为这两个值的 issue（小写比较）。两者不一致时以 `status` 为准，只进一个桶。条目的 `status` 用 issue 自己的 `status`，没有则用桶名。`time` 取 `last_activity_at`，否则 `updated_at`，否则 `created_at`。`agent_name` 只在负责人是 agent 时填名字，成员、squad、未分配都是 `null`。`identifier` 没有时退回 issue id。
+- `failed_runs`：近 `window_h`（24）小时内 `status=failed` 的 run，按 `completed_at`（没有则 `created_at`）计算。之后又成功的也保留。`identifier` 优先用 issue 的 identifier，否则 issue id，否则 task id。`title` 是 issue 标题，issue 不在缓存里为 `null`。`status` 固定 `failed`。`agent_name` 是跑这次 run 的 agent。
+- `offline_runtimes`：`status` 为 `offline`（小写比较），且至少有一个未归档 agent 的 `runtime_id` 指向它。归档 agent 不算绑定。`identifier` 是 runtime id，`title` 优先自定义名，`time` 是 `last_seen_at`，`status` 固定 `offline`。多个 agent 的名字按名字排序后用 `, ` 拼进 `agent_name`；没有名字时用 agent id。
+- 同一 workspace 内按 `time` 倒序，没有时间的排最后；时间相同按 `identifier` 升序。workspace 按 `name` 不区分大小写，再按 `id`。
+- `?format=text` 是紧凑纯文本，`Content-Type: text/plain; charset=utf-8`，目标小于 2KB。超过 2048 字节时从末尾整行丢掉，并在最后一行写 `…`（全文计数仍写在桶标题上）。空桶不出现。列之间用制表符，顺序为 identifier、status、time、agent 名、title。缺失单元格是 `-`。字段里的换行和制表符会先被压成空格，所以一行一条。
+
+```text
+generated_at 2026-10-14T09:00:00Z
+window_h 24
+
+# acm-lab ACM Lab
+in_review 1
+ACM-165	in_review	2026-10-15T05:00:04Z	Builder	Multica Board API：需处理事项摘要接口
+failed_runs 1
+ACM-162	failed	2026-10-14T08:00:00Z	Builder	后端采集
+offline_runtimes 1
+rt-uuid	offline	2026-10-14T04:00:00Z	Builder	Cursor (tr-mini-m4)
+```
+
+## `GET /api/changes`
+
+增量，用来避免每次采集都重拉 `/api/issues`、`/api/runtimes` 和 run 列表。`?since=` 省略时只签发 cursor、不返回历史。`since` 为 ISO 8601 UTC 时间，或上一次响应里的 `cursor`。
+
+```json
+{
+  "generated_at": "2026-10-15T05:10:00Z",
+  "cursor": "v1:6",
+  "reset": false,
+  "retained_days": 7,
+  "has_more": false,
+  "items": [
+    {
+      "kind": "issue_status",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:issue-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "issue-uuid",
+      "identifier": "ACM-166",
+      "status": "in_review",
+      "status_category": "in_review",
+      "previous_status": "in_progress",
+      "previous_status_category": "in_progress"
+    },
+    {
+      "kind": "issue_assignee",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:issue-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "issue-uuid",
+      "identifier": "ACM-166",
+      "assignee": { "type": "agent", "id": "uuid", "name": "Builder" },
+      "previous_assignee": { "type": "member", "id": "uuid", "name": "Yi" }
+    },
+    {
+      "kind": "run",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:task-uuid",
+      "workspace_id": "ws-uuid",
+      "task_id": "task-uuid",
+      "issue_id": "issue-uuid",
+      "identifier": "ACM-166",
+      "status": "running",
+      "agent_name": "Builder",
+      "runtime_id": "rt-uuid",
+      "started_at": "2026-10-15T05:09:00Z",
+      "completed_at": null,
+      "error_kind": null,
+      "error_summary": null
+    },
+    {
+      "kind": "run_failed",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:task-uuid",
+      "workspace_id": "ws-uuid",
+      "task_id": "task-uuid",
+      "issue_id": "issue-uuid",
+      "identifier": "ACM-166",
+      "status": "failed",
+      "agent_name": "Builder",
+      "runtime_id": "rt-uuid",
+      "started_at": "2026-10-15T05:09:00Z",
+      "completed_at": "2026-10-15T05:10:00Z",
+      "error_kind": "process",
+      "error_summary": "process exited with code 1"
+    },
+    {
+      "kind": "runtime",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:rt-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "rt-uuid",
+      "name": "Cursor (tr-mini-m4)",
+      "status": "offline",
+      "previous_status": "online"
+    }
+  ]
+}
+```
+
+历史不完整时仍是 `200`，`reset: true`、`items: []`，`cursor` 停在当前末端。客户端应重拉全量，再从这个 cursor 继续：
+
+```json
+{
+  "generated_at": "2026-10-15T05:10:00Z",
+  "cursor": "v1:128",
+  "reset": true,
+  "retained_days": 7,
+  "has_more": false,
+  "items": []
+}
+```
+
+- `at` 是采集器**观察到**变化的时间（秒），不是 issue 的 `updated_at`。比较按秒截断，`since` 为开区间（`at > since`）。同一秒里的事件用返回的 cursor 续拉，不要用事件自己的 `at`。
+- `cursor` 形如 `v1:<序号>`，不透明，只回传响应里的值。`v1:0` 表示从日志开头重放；若开头已被裁掉则 `reset: true`。序号比当前末端还大（例如换过缓存库）同样 `reset`。
+- 不带 `since`：`items` 为空，`cursor` 为当前末端。接入时先拉全量，再立刻取一次 cursor，之后只传 cursor。
+- 单次最多 500 条，按发生顺序。`has_more: true` 时把返回的 `cursor` 当作下一次 `since`。
+- 保留 7 天（`retained_days`）。更早的 `since`，或 cursor 前面有被裁掉的序号，返回 `reset: true`，不把残缺窗口伪装成完整增量。
+- 每个 workspace、每种资源的**第一次成功快照只建基线，不产生事件**（issues、runtimes，以及每个 agent 的 tasks 各自一份）。基线之后才记录：
+  - `issue_status` / `issue_assignee`：已在快照里的 issue，状态或指派变了。新建 issue、标题、优先级、从列表消失都不记。
+  - `run`：基线之后新出现的 task。已经是 `failed` 时紧跟一条 `run_failed`。
+  - `run_failed`：基线里已有的 run 后来变成 `failed`，或上面这条新的失败 run。`completed` 等其它状态变化不记。
+  - `runtime`：是否等于 `online` 发生了变化。新出现且已是 `online` 记上线（`previous_status: null`）。原先 `online`、这次不在快照里，`status: null`。`offline` 与 `connecting` 之间不算。
+- 指派和 agent 名在读的时候 join，规则与 `/api/issues` 相同（`squad` 的 `name` 为 `null`）。`error_summary` 已脱敏。
+- 撤权清缓存时，该 workspace 的变更和基线一起删掉。下一次成功采集重新建基线，不会把旧快照再放进增量。
+- 非法 `since`（不是 UTC 时间也不是 cursor）为 `400`，`error.code=bad_request`。
+
+## `GET /api/stats/failures`
+
+按 provider、runtime、agent 汇总失败的 run，用来判断额度与稳定性。只读，走和其它 `/api/*` 相同的 Host / 跨源校验与安全头。不返回 `error_summary` 或原始错误文本。
+
+```json
+{
+  "generated_at": "2026-10-14T09:00:00Z",
+  "windows": { "h24": 24, "d7": 168 },
+  "by_provider": [
+    {
+      "provider": "cursor",
+      "failed": { "h24": 3, "d7": 6 },
+      "top_reasons": [
+        { "failure_reason": "quota", "h24": 2, "d7": 3 },
+        { "failure_reason": "rate_limit", "h24": 1, "d7": 2 },
+        { "failure_reason": "timeout", "h24": 0, "d7": 1 }
+      ]
+    }
+  ],
+  "by_runtime": [
+    {
+      "key": "ws-uuid:rt-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "rt-uuid",
+      "name": "Cursor (tr-mini-m4)",
+      "provider": "cursor",
+      "failed": { "h24": 3, "d7": 6 },
+      "top_reasons": [
+        { "failure_reason": "quota", "h24": 2, "d7": 3 },
+        { "failure_reason": "rate_limit", "h24": 1, "d7": 2 },
+        { "failure_reason": "timeout", "h24": 0, "d7": 1 }
+      ]
+    }
+  ],
+  "by_agent": [
+    {
+      "key": "ws-uuid:agent-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "agent-uuid",
+      "name": "Builder",
+      "runtime_id": "rt-uuid",
+      "failed": { "h24": 2, "d7": 4 },
+      "top_reasons": [
+        { "failure_reason": "quota", "h24": 2, "d7": 3 },
+        { "failure_reason": "process", "h24": 0, "d7": 1 }
+      ]
+    }
+  ]
+}
+```
+
+- 只统计 `status=failed` 的 run。时间取 `completed_at`，没有则用 `created_at`，和响应时刻比较（与 `/api/agents` 的 `recent` 相同，不是 `generated_at`）。`h24` 是 `d7` 的子集。
+- `failure_reason` 就是入库时归类的 `error_kind`（`quota` → … → `unknown`）。CLI 的 task 没有单独的 failure reason 字段，原始 `error` 文本不进入本接口。没有 `error_kind` 的失败记为 `unknown`。
+- `failed` 是该组窗口内的全部失败次数。`top_reasons` 最多 3 条，按 `d7`、`h24`、`failure_reason` 排序；被截掉的原因仍算在 `failed` 里。
+- `by_provider` 把各 workspace 里同一 `provider` 加总（额度通常按 provider 共享）。runtime 不在缓存、或 `provider` 为空时归入 `"provider": null`。
+- `by_runtime` / `by_agent` 按 `workspace_id + id` 分开，不跨 workspace 合并。runtime 的 `name` 规则同 `/api/runtimes`。agent 的 `runtime_id` 是**当前绑定**，不是每条 run 当时的 runtime；run 记在哪个 runtime 上，由 `by_runtime` 和 `by_provider` 决定。
+- 7 天内没有失败的组不出现。缓存只保留 `--run-days`（默认 14）天的 run，所以 7 天窗口在默认配置下是完整的。
+- 排序：`failed.d7` 降序，其次 `failed.h24`，再按名称；名称为空的排在后面。
+
 ## 变更记录
 
+- v0.2（2026-10-15）：ACM-165 新增 `GET /api/attention`，按 workspace 汇总 in_review、blocked、近 24 小时失败 run、仍绑着 agent 的离线 runtime。`?format=text` 输出不超过 2048 字节的纯文本。
+- v0.2（2026-10-15）：新增 `GET /api/changes`（ACM-166）。`since` 为 ISO 时间或上次的 cursor；缓存保留 7 天的 issue 状态/指派、新 run、run 失败、runtime 上下线。
+- v0.2（2026-10-15）：新增 `GET /api/stats/failures`（ACM-167）。`failure_reason` 取值即 `error_kind`。
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。
