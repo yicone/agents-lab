@@ -1,0 +1,11 @@
+{
+ "cli-down": [
+  "meta",
+  "issues",
+  "agents",
+  "runtimes"
+ ],
+ "cli-stale": [
+  "meta"
+ ]
+}
