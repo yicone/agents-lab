@@ -256,12 +256,15 @@ def validate_document(
                     }
                 )
             if source_class == "local_custom" and not isinstance(canonical, str):
-                errors.append(
-                    {
-                        "path": f"{path}.authority.canonical_path",
-                        "message": "required for local_custom",
-                    }
-                )
+                visible = skill.get("visible_paths") if isinstance(skill.get("visible_paths"), list) else []
+                has_machine_path = any(isinstance(item, str) and is_external_path(item) for item in visible)
+                if not has_machine_path:
+                    errors.append(
+                        {
+                            "path": f"{path}.authority.canonical_path",
+                            "message": "required for local_custom unless a machine visible path is recorded",
+                        }
+                    )
             if isinstance(canonical, str):
                 owner = seen_paths.get(canonical)
                 if owner:

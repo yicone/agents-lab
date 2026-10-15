@@ -191,6 +191,29 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         self.assertIn("skills[0].baseline_ref", paths)
         self.assertIn("skills[0].adapters[0].target", paths)
 
+    def test_machine_local_custom_may_omit_canonical_path(self):
+        record = skill(source_class="local_custom", visible_paths=["~/.agents/skills/pr-review-fix"])
+        record["authority"] = {
+            "ownership": "local",
+            "source_authority": "canonical_git",
+            "update_authority": "repository_maintainer",
+            "canonical_path": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([record]))
+            result = self.run_validator(inventory)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+        bare = skill()
+        bare["authority"] = {**bare["authority"], "canonical_path": None}
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([bare]))
+            result = self.run_validator(inventory)
+        self.assertIn(
+            "skills[0].authority.canonical_path",
+            [item["path"] for item in self.errors_of(result)],
+        )
+
     def test_external_symlink_adapter_is_checked(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -241,6 +264,11 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         names = [item["name"] for item in payload["skills"]]
         self.assertEqual(len(names), len(set(names)))
         self.assertIn("ego-browser", names)
+        classes = {item["name"]: item["source_class"] for item in payload["skills"]}
+        self.assertEqual(classes["pr-review-fix"], "local_custom")
+        self.assertEqual(classes["wechatide-skill"], "third_party_unmanaged")
+        self.assertEqual(classes["external-qa-triage"], "third_party_unmanaged")
+        self.assertEqual(classes["writing-child-presentations"], "third_party_unmanaged")
         for bundle in ("cursor-builtin-skills", "codex-builtin-skills", "hermes-builtin-skills"):
             self.assertIn(bundle, names)
         for item in payload["skills"]:

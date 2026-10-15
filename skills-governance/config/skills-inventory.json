@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-15T09:59:43Z",
+  "updated_at": "2026-10-15T16:20:00Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -1018,11 +1018,11 @@
     },
     {
       "name": "pr-review-fix",
-      "source_class": "third_party_unmanaged",
+      "source_class": "local_custom",
       "authority": {
-        "ownership": "third_party",
-        "source_authority": "upstream_repository",
-        "update_authority": "explicit_review",
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
         "canonical_path": null
       },
       "baseline": {
