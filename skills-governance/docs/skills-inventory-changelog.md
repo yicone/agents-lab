@@ -4,6 +4,9 @@ Notes that do not belong in a new inventory field.
 
 ## 2026-10-16
 
+- Drift reports are produced by `skills-governance/scripts/drift_report.py`. The command reads `review_time`, `baseline_ref`, and `current_version` and does not modify skills or lock files.
+- `skills-governance-audit` baseline hash moved with the audit skill text that runs that report.
+
 - `pr-review-fix` is `local_custom`. It is self-authored and still installed at `~/.agents/skills/pr-review-fix`. It is not in this repository, so `canonical_path` is null.
 - `wechatide-skill` stays `third_party_unmanaged`. It may come from the WeChat DevTools app. That origin is not verified.
 - `external-qa-triage` and `writing-child-presentations` stay `third_party_unmanaged`.

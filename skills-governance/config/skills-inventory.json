@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-15T16:20:00Z",
+  "updated_at": "2026-10-15T17:44:51Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -1290,7 +1290,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "sha256:5faf597cc7f14380d9c4b153978cd4c57ad1693be198ee3c489eb2afcb43b7b4",
+      "baseline_ref": "sha256:8f2abed853d43999b46245b56a558286c2a230e6a57c7a23bb79558a88ae062c",
       "current_version": null,
       "scope": "repo",
       "install_shape": "symlink_adapters",

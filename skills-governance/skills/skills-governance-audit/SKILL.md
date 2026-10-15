@@ -143,7 +143,25 @@ Runtime visibility is not proof of ownership. Record the source authority and up
 
 ### 4. Check Upgrade Drift And Customization
 
-When a baseline or upstream version is available, compare it with the current copy. Record:
+For the full machine inventory, run the read-only drift report first:
+
+```bash
+python3 skills-governance/scripts/drift_report.py --format text
+```
+
+The command reads `skills-governance/config/skills-inventory.json` and reconciles `review_time`, `baseline_ref`, and `current_version` with the recorded path or lock source. It does not modify skills, inventory, or lock files. A directory or lock row with the same name is not provenance.
+
+Each inventory row gets one reconciliation status:
+
+- `missing` — the recorded source path or lock entry is absent
+- `modified` — the observed hash, version, or symlink target differs from the baseline
+- `stale` — the observed source matches the baseline, and `review_time` is missing or older than the lock update
+- `unverified` — there is no baseline, or the only link is a shared name
+- `aligned` — baseline, version, and review time agree with the observed source
+
+Installs with no inventory path are listed as unrecorded: status `missing`, provenance `unverified`. Do not attach them to a row just because the name matches.
+
+When a baseline or upstream version is available, also compare the current copy for:
 
 - version or commit change
 - changed trigger and scope text
@@ -244,6 +262,10 @@ Source Classifications:
 - <skill> -> <local_custom / runtime_builtin / runtime_plugin / skills_cli_managed / third_party_unmanaged / third_party_customized / unknown>
 Source Authority Findings:
 - <skill> -> <provider / repository / plugin / upstream / unknown>
+Drift Report:
+- Command: `python3 skills-governance/scripts/drift_report.py --format text`
+- <skill> -> review_time=<...> baseline_ref=<...> current_version=<...> status=<missing / modified / stale / unverified / aligned>
+- Unrecorded: <path> -> missing record, provenance unverified
 Upgrade Drift Findings:
 - <skill> -> <baseline / changed scope / changed behavior / unavailable>
 Local Skills:
