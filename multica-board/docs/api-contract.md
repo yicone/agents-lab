@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.1）
+# Multica Board 只读 API 契约（v0.2）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`（必改项，后端待实现）。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165），给 Steward 一次请求拿需要处理的事。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -9,7 +9,7 @@
 - 默认监听 `127.0.0.1`，可选 `::1`，其它地址拒绝启动。同一进程在 `/` 下托管 `multica-board/web/`，在 `/api/` 下提供 JSON。
 - `Host` 只接受 `127.0.0.1:<port>`（绑 `::1` 时为 `[::1]:<port>`），`localhost:<port>` 等一律 `421`。跨源 `Origin`（含 `null`）或 `Sec-Fetch-Site: cross-site` 返回 `403`。不返回 CORS 头。请用 `http://127.0.0.1:<port>/` 访问。
 - 只接受 `GET`、`HEAD`，其它方法 `405`。没有任何写 Multica 的路径，也没有“立即刷新”接口；采集由后端定时器驱动。
-- 响应头：`Content-Type: application/json; charset=utf-8`、`Cache-Control: no-store`、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Cross-Origin-Resource-Policy: same-origin`。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。前端不发任何外部请求（不加载头像、字体、CDN）。
+- 响应头：`Content-Type: application/json; charset=utf-8`、`Cache-Control: no-store`、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Cross-Origin-Resource-Policy: same-origin`。`GET /api/attention?format=text` 的 `Content-Type` 改为 `text/plain; charset=utf-8`，其余头相同。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。前端不发任何外部请求（不加载头像、字体、CDN）。
 - 时间一律 ISO 8601 UTC 字符串；缺失为 `null`，不用空字符串。CLI 返回的空字符串由后端转成 `null`。
 - 每个响应带 `generated_at` = **最近一次采集轮次完成的时间**（不是响应时间）；从未完成过采集为 `null`。前端按“`generated_at` 变了才重拉列表”工作。
 - 每条记录带 `key = "<workspace_id>:<resource_id>"`，前端用它去重和做 DOM key。
@@ -216,7 +216,77 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 `name` 优先用 runtime 的自定义名。同一台机器在不同 workspace 注册为不同 runtime 记录（不同 `id`），前端按 `provider` 聚合做跨 workspace 汇总，按 `workspace_id + id` 精确 join。
 
+## `GET /api/attention`
+
+给 Steward 的一次请求摘要。看板页面不调用这个接口。只读缓存，字段是白名单，不带 URL、正文、错误原文、runtime 设备信息。
+
+查询参数 `format`：缺省或 `json` 返回 JSON；`text` 返回纯文本。大小写不敏感，前后空白忽略。其它值 `400`，`{"error":{"code":"bad_request","message":"format must be json or text"}}`。
+
+```json
+{
+  "generated_at": "2026-10-14T09:00:00Z",
+  "window_h": 24,
+  "workspaces": [
+    {
+      "id": "ws-uuid",
+      "slug": "acm-lab",
+      "name": "ACM Lab",
+      "in_review": [
+        {
+          "identifier": "ACM-165",
+          "title": "Multica Board API：需处理事项摘要接口",
+          "status": "in_review",
+          "time": "2026-10-15T05:00:04Z",
+          "agent_name": "Builder"
+        }
+      ],
+      "failed_runs": [
+        {
+          "identifier": "ACM-162",
+          "title": "后端采集",
+          "status": "failed",
+          "time": "2026-10-14T08:00:00Z",
+          "agent_name": "Builder"
+        }
+      ],
+      "offline_runtimes": [
+        {
+          "identifier": "rt-uuid",
+          "title": "Cursor (tr-mini-m4)",
+          "status": "offline",
+          "time": "2026-10-14T04:00:00Z",
+          "agent_name": "Builder"
+        }
+      ]
+    }
+  ]
+}
+```
+
+四个桶是 `in_review`、`blocked`、`failed_runs`、`offline_runtimes`。空桶不出现，四个桶都空的 workspace 也不出现。
+
+- 每条只含 `identifier`、`title`、`status`、`time`、`agent_name`。`title` 先把连续空白压成一个空格，再截到 80 个字符（不加省略号）。没有的字段为 `null`，不用空字符串。
+- `in_review` / `blocked`：`status` 或 `status_category` 为这两个值的 issue（小写比较）。两者不一致时以 `status` 为准，只进一个桶。条目的 `status` 用 issue 自己的 `status`，没有则用桶名。`time` 取 `last_activity_at`，否则 `updated_at`，否则 `created_at`。`agent_name` 只在负责人是 agent 时填名字，成员、squad、未分配都是 `null`。`identifier` 没有时退回 issue id。
+- `failed_runs`：近 `window_h`（24）小时内 `status=failed` 的 run，按 `completed_at`（没有则 `created_at`）计算。之后又成功的也保留。`identifier` 优先用 issue 的 identifier，否则 issue id，否则 task id。`title` 是 issue 标题，issue 不在缓存里为 `null`。`status` 固定 `failed`。`agent_name` 是跑这次 run 的 agent。
+- `offline_runtimes`：`status` 为 `offline`（小写比较），且至少有一个未归档 agent 的 `runtime_id` 指向它。归档 agent 不算绑定。`identifier` 是 runtime id，`title` 优先自定义名，`time` 是 `last_seen_at`，`status` 固定 `offline`。多个 agent 的名字按名字排序后用 `, ` 拼进 `agent_name`；没有名字时用 agent id。
+- 同一 workspace 内按 `time` 倒序，没有时间的排最后；时间相同按 `identifier` 升序。workspace 按 `name` 不区分大小写，再按 `id`。
+- `?format=text` 是紧凑纯文本，`Content-Type: text/plain; charset=utf-8`，目标小于 2KB。超过 2048 字节时从末尾整行丢掉，并在最后一行写 `…`（全文计数仍写在桶标题上）。空桶不出现。列之间用制表符，顺序为 identifier、status、time、agent 名、title。缺失单元格是 `-`。字段里的换行和制表符会先被压成空格，所以一行一条。
+
+```text
+generated_at 2026-10-14T09:00:00Z
+window_h 24
+
+# acm-lab ACM Lab
+in_review 1
+ACM-165	in_review	2026-10-15T05:00:04Z	Builder	Multica Board API：需处理事项摘要接口
+failed_runs 1
+ACM-162	failed	2026-10-14T08:00:00Z	Builder	后端采集
+offline_runtimes 1
+rt-uuid	offline	2026-10-14T04:00:00Z	Builder	Cursor (tr-mini-m4)
+```
+
 ## 变更记录
 
+- v0.2（2026-10-15）：ACM-165 新增 `GET /api/attention`，按 workspace 汇总 in_review、blocked、近 24 小时失败 run、仍绑着 agent 的离线 runtime。`?format=text` 输出不超过 2048 字节的纯文本。
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。

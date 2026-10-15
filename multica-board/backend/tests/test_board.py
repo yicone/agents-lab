@@ -21,7 +21,7 @@ from multica_board.collector import WORKSPACE, CollectOptions, Collector  # noqa
 from multica_board.redact import ERROR_KINDS, classify_error, redact  # noqa: E402
 from multica_board.server import STATIC_CSP, BoardServer, assert_loopback  # noqa: E402
 from multica_board.store import Store  # noqa: E402
-from multica_board.views import NotFound, Views  # noqa: E402
+from multica_board.views import ATTENTION_TEXT_BYTES, NotFound, Views, render_attention_text  # noqa: E402
 
 WS_A, WS_B = "ws-a", "ws-b"
 SERVER = "test-profile"
@@ -441,7 +441,7 @@ class ViewTests(unittest.TestCase):
         return {i["id"]: i for i in self.v.issues()["items"]}
 
     def test_generated_at_is_collect_finish(self):
-        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes()):
+        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes(), self.v.attention()):
             self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
 
     def test_meta(self):
@@ -505,6 +505,27 @@ class ViewTests(unittest.TestCase):
         with self.assertRaises(NotFound):
             self.v.issue_runs("w1", "nope")
 
+    def test_attention_from_seed(self):
+        body = self.v.attention()
+        self.assertEqual(body["window_h"], 24)
+        self.assertEqual([w["id"] for w in body["workspaces"]], ["w1"])
+        ws = body["workspaces"][0]
+        self.assertEqual(list(ws), ["id", "slug", "name", "failed_runs"])
+        runs = ws["failed_runs"]
+        self.assertEqual([r["identifier"] for r in runs], ["ORPHAN", "CHILD"])
+        self.assertEqual(runs[0]["agent_name"], "Builder")
+        self.assertEqual(runs[0]["status"], "failed")
+        self.assertEqual(runs[0]["title"], "orphan")
+        self.assertEqual(set(runs[0]), {"identifier", "title", "status", "time", "agent_name"})
+        blob = json.dumps(body)
+        self.assertNotIn("daemon restarted", blob)
+        self.assertNotIn("usage limit", blob)
+        text = self.v.attention_text()
+        self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
+        self.assertIn("failed_runs 2", text)
+        self.assertNotIn("in_review", text)
+        self.assertNotEqual(text.splitlines()[-1], "…")
+
 
 class ServerTests(unittest.TestCase):
     @classmethod
@@ -543,7 +564,7 @@ class ServerTests(unittest.TestCase):
                 assert_loopback(host)
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs"):
+        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
@@ -553,7 +574,8 @@ class ServerTests(unittest.TestCase):
             json.loads(body)
 
     def test_removed_and_unknown_endpoints(self):
-        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/issues/w1/nope/runs"):
+        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/issues/w1/nope/runs",
+                     "/api/attentioning", "/api/attention/extra"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 404, path)
             self.assertEqual(json.loads(body)["error"]["code"], "not_found")
@@ -588,6 +610,202 @@ class ServerTests(unittest.TestCase):
             r, body = self.req("GET", p)
             self.assertEqual(r.status, 404, p)
             self.assertNotIn(b"nope", body)
+
+    def test_attention_http(self):
+        r, body = self.req("GET", "/api/attention")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(r.getheader("Cache-Control"), "no-store")
+        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+        self.assertNotIn(b": ", body)
+        data = json.loads(body)
+        self.assertEqual([i["identifier"] for i in data["workspaces"][0]["failed_runs"]], ["ORPHAN", "CHILD"])
+
+        r, body = self.req("GET", "/api/attention?format=text")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "text/plain; charset=utf-8")
+        self.assertEqual(r.getheader("Content-Security-Policy"), "default-src 'none'; frame-ancestors 'none'")
+        text = body.decode()
+        self.assertLessEqual(len(body), ATTENTION_TEXT_BYTES)
+        self.assertIn("failed_runs 2", text)
+        self.assertIn("ORPHAN", text)
+        self.assertTrue(text.endswith("\n"))
+        self.assertNotIn("daemon restarted", text)
+
+        r, body = self.req("GET", "/api/attention/?format=TEXT")
+        self.assertEqual(r.status, 200)
+        self.assertTrue(r.getheader("Content-Type").startswith("text/plain"))
+
+        r, body = self.req("GET", "/api/attention?format=json")
+        self.assertEqual(json.loads(body)["window_h"], 24)
+
+        r, body = self.req("HEAD", "/api/attention?format=text")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(body, b"")
+        self.assertGreater(int(r.getheader("Content-Length")), 0)
+
+        for path in ("/api/attention?format=html", "/api/attention?format=text&format=json", "/api/attention?format="):
+            r, body = self.req("GET", path)
+            self.assertEqual(r.status, 400, path)
+            self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
+
+        r, _ = self.req("GET", "/api/attention?format=text", {"Host": "attacker.test"})
+        self.assertEqual(r.status, 421)
+        r, body = self.req("POST", "/api/attention")
+        self.assertEqual(r.status, 405)
+
+
+class AttentionTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.v = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+        s = SERVER
+        long_title = "测" * 81
+        with self.store.tx() as c:
+            def ws(i, name, slug):
+                self.store.upsert(c, "workspaces", {"server": s, "id": i, "name": name, "slug": slug})
+
+            def issue(ws_id, i, **kw):
+                base = {"server": s, "workspace_id": ws_id, "id": i, "identifier": i, "title": i,
+                        "status": "todo", "status_category": "todo", "created_at": "2026-10-01T00:00:00Z"}
+                self.store.upsert(c, "issues", {**base, **kw})
+
+            ws("wa", "Alpha", "alpha")
+            ws("wb", "Beta", "beta")
+            ws("wz", "Zed", "zed")
+            issue("wa", "ACM-1", title=long_title, status="in_review", status_category="in_review",
+                  assignee_type="agent", assignee_id="ag1", last_activity_at="2026-10-14T09:00:00Z")
+            issue("wa", "ACM-2", title="hello\nworld\t!", status="in_review", status_category="in_review",
+                  assignee_type="member", assignee_id="u1", last_activity_at="2026-10-14T07:00:00Z")
+            issue("wa", "ACM-3", title="waiting review", status="waiting", status_category="in_review",
+                  assignee_type="agent", assignee_id="missing", last_activity_at="2026-10-14T10:00:00Z")
+            issue("wa", "ACM-4", title="status wins", status="in_review", status_category="blocked",
+                  assignee_type="squad", assignee_id="sq", last_activity_at="2026-10-14T08:00:00Z")
+            issue("wa", "ACM-5", title="no time", status="in_review", status_category="in_review",
+                  last_activity_at=None, updated_at=None, created_at=None)
+            issue("wa", "ACM-8", title="blocked two", status="blocked", status_category="blocked",
+                  last_activity_at="2026-10-14T06:00:00Z")
+            issue("wa", "ACM-9", title="blocked one", status="todo", status_category="blocked",
+                  last_activity_at="2026-10-14T06:00:00Z")
+            issue("wa", "ACM-OPEN", title="still open", status="in_progress", status_category="in_progress")
+            issue("wa", "ACM-DONE", title="closed", status="done", status_category="done")
+            issue("wb", "ACM-B", title="beta todo", status="todo", status_category="todo")
+            issue("wz", "ACM-7", title="zed blocked", status="blocked", status_category="blocked",
+                  assignee_type="agent", assignee_id="agz", last_activity_at="2026-10-14T01:00:00Z")
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "ag1", "name": "Builder",
+                                            "status": "working", "runtime_id": "rt-off", "runtime_bound": 1})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "agz2", "name": "Zed Agent",
+                                            "status": "idle", "runtime_id": "rt-off", "runtime_bound": 0})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "ada", "name": "Ada",
+                                            "status": "idle", "runtime_id": "rt-off", "archived_at": "2026-01-01T00:00:00Z"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "only-old", "name": "Old",
+                                            "status": "idle", "runtime_id": "rt-dead", "archived_at": "2026-01-01T00:00:00Z"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wa", "id": "live", "name": "Live",
+                                            "status": "idle", "runtime_id": "rt-on"})
+            self.store.upsert(c, "agents", {"server": s, "workspace_id": "wz", "id": "agz", "name": "Zed",
+                                            "status": "idle", "runtime_id": None})
+            for rid, status, custom in (
+                ("rt-off", "offline", "Cursor box"),
+                ("rt-dead", "Offline", None),
+                ("rt-on", "online", None),
+                ("rt-empty", "offline", "nobody"),
+            ):
+                self.store.upsert(c, "runtimes", {
+                    "server": s, "workspace_id": "wa", "id": rid, "name": "plain-" + rid, "custom_name": custom,
+                    "status": status, "last_seen_at": "2026-10-14T04:00:00Z", "device_info": "secret-device",
+                })
+
+            def run(tid, issue_id, status, hours, err=None):
+                self.store.upsert(c, "tasks", {
+                    "server": s, "workspace_id": "wa", "id": tid, "agent_id": "ag1", "issue_id": issue_id,
+                    "status": status, "created_at": ago(hours), "completed_at": ago(hours),
+                    "error_summary": err,
+                })
+
+            run("t-acm", "ACM-1", "failed", 3, "Bearer secret-token")
+            run("t-old", "ACM-1", "failed", 30, "too old")
+            run("t-ok", "ACM-1", "completed", 0.5, None)
+            run("t-gone", "gone-issue", "failed", 2, None)
+            self.store.upsert(c, "tasks", {
+                "server": s, "workspace_id": "wa", "id": "t-none", "agent_id": None, "issue_id": None,
+                "status": "FAILED", "created_at": ago(1), "completed_at": None, "error_summary": "no issue",
+            })
+        self.store.set_meta("last_collect", {"finished_at": "2026-10-14T09:00:00Z"})
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_groups_fields_and_order(self):
+        body = self.v.attention()
+        self.assertEqual([w["id"] for w in body["workspaces"]], ["wa", "wz"])
+        alpha, zed = body["workspaces"]
+        self.assertEqual(list(alpha), ["id", "slug", "name", "in_review", "blocked", "failed_runs", "offline_runtimes"])
+        self.assertEqual([i["identifier"] for i in alpha["in_review"]], ["ACM-3", "ACM-1", "ACM-4", "ACM-2", "ACM-5"])
+        acm1 = alpha["in_review"][1]
+        self.assertEqual(acm1["title"], "测" * 80)
+        self.assertEqual(len(acm1["title"]), 80)
+        self.assertEqual(acm1["agent_name"], "Builder")
+        self.assertEqual(alpha["in_review"][0]["status"], "waiting")
+        self.assertIsNone(alpha["in_review"][0]["agent_name"])
+        self.assertEqual(alpha["in_review"][2]["status"], "in_review")
+        self.assertIsNone(alpha["in_review"][2]["agent_name"])
+        self.assertEqual(alpha["in_review"][3]["title"], "hello world !")
+        self.assertIsNone(alpha["in_review"][3]["agent_name"])
+        self.assertIsNone(alpha["in_review"][4]["time"])
+        self.assertEqual([i["identifier"] for i in alpha["blocked"]], ["ACM-8", "ACM-9"])
+        self.assertEqual(alpha["blocked"][1]["status"], "todo")
+        self.assertEqual([i["identifier"] for i in alpha["failed_runs"]], ["t-none", "gone-issue", "ACM-1"])
+        self.assertIsNone(alpha["failed_runs"][0]["title"])
+        self.assertIsNone(alpha["failed_runs"][0]["agent_name"])
+        self.assertEqual(alpha["failed_runs"][0]["status"], "failed")
+        self.assertIsNone(alpha["failed_runs"][1]["title"])
+        self.assertEqual(alpha["failed_runs"][2]["title"], "测" * 80)
+        self.assertEqual(alpha["failed_runs"][2]["agent_name"], "Builder")
+        self.assertEqual(alpha["offline_runtimes"], [{
+            "identifier": "rt-off",
+            "title": "Cursor box",
+            "status": "offline",
+            "time": "2026-10-14T04:00:00Z",
+            "agent_name": "Builder, Zed Agent",
+        }])
+        self.assertEqual(zed["blocked"][0]["agent_name"], "Zed")
+        blob = json.dumps(body)
+        self.assertNotIn("secret-token", blob)
+        self.assertNotIn("secret-device", blob)
+        self.assertNotIn("too old", blob)
+        self.assertNotIn("ACM-OPEN", blob)
+        self.assertNotIn("ACM-DONE", blob)
+        self.assertNotIn("ACM-B", blob)
+        self.assertNotIn("rt-on", blob)
+        self.assertNotIn("rt-dead", blob)
+        self.assertNotIn("rt-empty", blob)
+        text = render_attention_text(body)
+        self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
+        self.assertIn("# alpha Alpha", text)
+        self.assertIn("offline_runtimes 1", text)
+        self.assertNotIn("\n…\n", text)
+        row = next(line for line in text.splitlines() if line.startswith("ACM-2\t"))
+        self.assertNotIn("\n", row)
+        self.assertEqual(row.split("\t")[4], "hello world !")
+
+    def test_text_budget(self):
+        items = [
+            {"identifier": f"ACM-{i:04d}", "title": "标" * 80, "status": "in_review",
+             "time": "2026-10-14T09:00:00Z", "agent_name": "Builder"}
+            for i in range(80)
+        ]
+        body = {
+            "generated_at": "2026-10-14T09:00:00Z",
+            "window_h": 24,
+            "workspaces": [{"id": "w", "slug": "lab", "name": "Lab", "in_review": items}],
+        }
+        text = render_attention_text(body)
+        self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
+        self.assertTrue(text.endswith("…\n"))
+        self.assertIn("in_review 80", text)
+        self.assertLess(text.count("\t"), 80)
+        self.assertEqual(text.splitlines()[-1], "…")
 
 
 if __name__ == "__main__":

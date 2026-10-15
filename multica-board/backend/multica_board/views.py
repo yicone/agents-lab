@@ -1,4 +1,4 @@
-"""Read models for API contract v0 (multica-board/docs/api-contract.md). Pure cache reads."""
+"""Read models for API contract v0.2 (multica-board/docs/api-contract.md). Pure cache reads."""
 
 from __future__ import annotations
 
@@ -14,6 +14,9 @@ QUEUED_TASK = ("queued", "dispatched", "waiting_local_directory")
 LAST_FAILED_WINDOW = timedelta(days=7)
 RECENT_WINDOW_H = 24
 RUNS_PER_ISSUE = 20
+ATTENTION_TITLE_CHARS = 80
+ATTENTION_TEXT_BYTES = 2048
+ATTENTION_BUCKETS = ("in_review", "blocked", "failed_runs", "offline_runtimes")
 
 
 class NotFound(Exception):
@@ -44,6 +47,97 @@ def _key(ws: str, rid: str) -> str:
 def _closed(row: dict[str, Any]) -> bool:
     cat = (row.get("status_category") or row.get("status") or "").lower()
     return cat in CLOSED_CATEGORIES
+
+
+def _flat(text: Any) -> str | None:
+    if text is None:
+        return None
+    flat = " ".join(str(text).split())
+    return flat or None
+
+
+def _clip_title(text: Any) -> str | None:
+    flat = _flat(text)
+    if flat is None:
+        return None
+    return flat[:ATTENTION_TITLE_CHARS]
+
+
+def _attention_item(
+    identifier: str, title: Any, status: str, when: Any, agent_name: Any
+) -> dict[str, Any]:
+    return {
+        "identifier": identifier,
+        "title": _clip_title(title),
+        "status": status,
+        "time": _flat(when),
+        "agent_name": _flat(agent_name),
+    }
+
+
+def _issue_bucket(row: dict[str, Any]) -> str | None:
+    """`status` wins when it disagrees with `status_category`."""
+    status = (row.get("status") or "").lower()
+    if status in ("in_review", "blocked"):
+        return status
+    category = (row.get("status_category") or "").lower()
+    if category in ("in_review", "blocked"):
+        return category
+    return None
+
+
+def _sort_attention(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Stable: time descending, null times last, identifier ascending on ties.
+    ordered = sorted(items, key=lambda it: it["identifier"] or "")
+    ordered.sort(key=lambda it: it["time"] or "", reverse=True)
+    return ordered
+
+
+def _cell(value: Any) -> str:
+    return _flat(value) or "-"
+
+
+def render_attention_text(body: dict[str, Any]) -> str:
+    """Compact plaintext for `?format=text`. Always ends with a newline; capped at 2048 bytes."""
+    lines = [
+        f"generated_at {_cell(body.get('generated_at'))}",
+        f"window_h {_cell(body.get('window_h'))}",
+    ]
+    for ws in body.get("workspaces") or []:
+        lines.append("")
+        lines.append(f"# {_cell(ws.get('slug') or ws.get('id'))} {_cell(ws.get('name'))}")
+        for bucket in ATTENTION_BUCKETS:
+            items = ws.get(bucket) or []
+            if not items:
+                continue
+            lines.append(f"{bucket} {len(items)}")
+            for it in items:
+                lines.append(
+                    "\t".join(
+                        _cell(it.get(field))
+                        for field in ("identifier", "status", "time", "agent_name", "title")
+                    )
+                )
+    return _fit_text(lines)
+
+
+def _fit_text(lines: list[str]) -> str:
+    def packed(chosen: list[str], truncated: bool) -> str:
+        parts = list(chosen)
+        if truncated:
+            parts.append("…")
+        return "\n".join(parts) + "\n"
+
+    if len(packed(lines, False).encode()) <= ATTENTION_TEXT_BYTES:
+        return packed(lines, False)
+    kept: list[str] = []
+    for line in lines:
+        if len(packed(kept + [line], True).encode()) > ATTENTION_TEXT_BYTES:
+            break
+        kept.append(line)
+    if not kept:
+        return "…\n"
+    return packed(kept, True)
 
 
 class Views:
@@ -312,3 +406,102 @@ class Views:
             for r in self.store.query("SELECT * FROM runtimes WHERE server=? ORDER BY provider, name", (self.server,))
         ]
         return {"generated_at": self.generated_at(), "items": items}
+
+    # --- /api/attention -----------------------------------------------------
+
+    def attention(self) -> dict[str, Any]:
+        """Workspace-grouped items Steward should look at. Fields are intentionally tiny."""
+        agent_names = self._names("agents", "id", "name")
+        issue_rows: dict[tuple[str, str], dict[str, Any]] = {}
+        buckets: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+        def ensure(ws: str) -> dict[str, list[dict[str, Any]]]:
+            return buckets.setdefault(ws, {name: [] for name in ATTENTION_BUCKETS})
+
+        for row in self.store.query("SELECT * FROM issues WHERE server=?", (self.server,)):
+            issue_rows[(row["workspace_id"], row["id"])] = row
+            bucket = _issue_bucket(row)
+            if not bucket:
+                continue
+            agent = None
+            if row.get("assignee_type") == "agent" and row.get("assignee_id"):
+                agent = agent_names.get((row["workspace_id"], row["assignee_id"]))
+            ensure(row["workspace_id"])[bucket].append(
+                _attention_item(
+                    row["identifier"] or row["id"],
+                    row.get("title"),
+                    row.get("status") or bucket,
+                    row.get("last_activity_at") or row.get("updated_at") or row.get("created_at"),
+                    agent,
+                )
+            )
+
+        cutoff = _iso(_now() - timedelta(hours=RECENT_WINDOW_H))
+        for task in self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND lower(status)='failed' "
+            "AND coalesce(completed_at, created_at, '') >= ?",
+            (self.server, cutoff),
+        ):
+            issue = issue_rows.get((task["workspace_id"], task["issue_id"])) if task.get("issue_id") else None
+            identifier = (issue or {}).get("identifier") or task.get("issue_id") or task["id"]
+            agent = agent_names.get((task["workspace_id"], task["agent_id"])) if task.get("agent_id") else None
+            ensure(task["workspace_id"])["failed_runs"].append(
+                _attention_item(
+                    identifier,
+                    (issue or {}).get("title"),
+                    "failed",
+                    task.get("completed_at") or task.get("created_at"),
+                    agent,
+                )
+            )
+
+        bound: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for agent in self.store.query(
+            "SELECT workspace_id, id, name, runtime_id FROM agents "
+            "WHERE server=? AND archived_at IS NULL AND runtime_id IS NOT NULL AND runtime_id != ''",
+            (self.server,),
+        ):
+            bound.setdefault((agent["workspace_id"], agent["runtime_id"]), []).append(
+                (agent["name"] or "", agent["id"])
+            )
+
+        for runtime in self.store.query(
+            "SELECT * FROM runtimes WHERE server=? AND lower(status)='offline'", (self.server,)
+        ):
+            agents = bound.get((runtime["workspace_id"], runtime["id"]))
+            if not agents:
+                continue
+            ordered = sorted(agents, key=lambda pair: ((_flat(pair[0]) or pair[1]).casefold(), pair[1]))
+            ensure(runtime["workspace_id"])["offline_runtimes"].append(
+                _attention_item(
+                    runtime["id"],
+                    runtime.get("custom_name") or runtime.get("name"),
+                    "offline",
+                    runtime.get("last_seen_at"),
+                    ", ".join(_flat(name) or aid for name, aid in ordered),
+                )
+            )
+
+        meta = {
+            r["id"]: r
+            for r in self.store.query("SELECT id, slug, name FROM workspaces WHERE server=?", (self.server,))
+        }
+        workspaces = []
+        for ws_id, groups in buckets.items():
+            filled = {name: _sort_attention(items) for name, items in groups.items() if items}
+            if not filled:
+                continue
+            info = meta.get(ws_id) or {}
+            workspaces.append(
+                {
+                    "id": ws_id,
+                    "slug": info.get("slug"),
+                    "name": info.get("name"),
+                    **{name: filled[name] for name in ATTENTION_BUCKETS if name in filled},
+                }
+            )
+        workspaces.sort(key=lambda w: ((w.get("name") or "").casefold(), w["id"]))
+        return {"generated_at": self.generated_at(), "window_h": RECENT_WINDOW_H, "workspaces": workspaces}
+
+    def attention_text(self) -> str:
+        return render_attention_text(self.attention())

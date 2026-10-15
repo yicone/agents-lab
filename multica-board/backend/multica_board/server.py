@@ -1,4 +1,4 @@
-"""Loopback-only, GET-only JSON API (contract v0) plus the static web/ frontend."""
+"""Loopback-only, GET-only JSON API (contract v0.2) plus the static web/ frontend."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from .views import NotFound, Views
 
@@ -65,6 +65,26 @@ STATIC_ROUTES: dict[str, Callable[[Views], Any]] = {
 ISSUE_RUNS = re.compile(r"^/api/issues/([0-9A-Za-z-]{1,64})/([0-9A-Za-z-]{1,64})/runs$")
 
 
+class BadRequest(Exception):
+    pass
+
+
+def attention_format(query: str) -> str:
+    """Return `json` (default) or `text`. Anything else is a client error."""
+    try:
+        values = parse_qs(query, keep_blank_values=True, max_num_fields=32).get("format")
+    except ValueError as exc:
+        raise BadRequest("format must be json or text") from exc
+    if not values:
+        return "json"
+    kinds = {v.strip().lower() for v in values}
+    if kinds == {"text"}:
+        return "text"
+    if kinds == {"json"}:
+        return "json"
+    raise BadRequest("format must be json or text")
+
+
 class Handler(BaseHTTPRequestHandler):
     server: BoardServer
     server_version = "multica-board"
@@ -115,6 +135,9 @@ class Handler(BaseHTTPRequestHandler):
     def _api(self, path: str) -> None:
         views = self.server.views
         try:
+            if path == "/api/attention":
+                self._attention(views)
+                return
             if path in STATIC_ROUTES:
                 body = STATIC_ROUTES[path](views)
             elif m := ISSUE_RUNS.match(path):
@@ -125,11 +148,22 @@ class Handler(BaseHTTPRequestHandler):
         except NotFound as exc:
             self._error(HTTPStatus.NOT_FOUND, "not_found", str(exc))
             return
+        except BadRequest as exc:
+            self._error(HTTPStatus.BAD_REQUEST, "bad_request", str(exc))
+            return
         except Exception:
             log.exception("handler error on %s", path)
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal", "internal error")
             return
         self._json(HTTPStatus.OK, body)
+
+    def _attention(self, views: Views) -> None:
+        fmt = attention_format(urlsplit(self.path).query)
+        if fmt == "text":
+            data = views.attention_text().encode()
+            self._send(HTTPStatus.OK, data, "text/plain; charset=utf-8", {"Content-Security-Policy": API_CSP})
+            return
+        self._json(HTTPStatus.OK, views.attention())
 
     def _static(self, raw_path: str) -> None:
         root = self.server.static_dir

@@ -9,7 +9,7 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `backend/`：采集、缓存与只读 API（Python ≥ 3.10 标准库，无依赖；需要 `multica` CLI ≥ 0.6.2 在 `PATH` 上）。归 Builder（ACM-162）。
 - `web/`：前端静态页面（无构建、无依赖），由后端在 `/` 托管。归前端设计师（ACM-163）。
 - `web/fixtures/`：契约样例响应（虚构数据），`generate.py` 重新生成。
-- `docs/api-contract.md`：前后端只读 API 契约（v0）。改契约先在 ACM-163 说。
+- `docs/api-contract.md`：前后端只读 API 契约（v0.2）。改契约先在 ACM-163 说。
 - `docs/frontend-design.md`：信息架构与交互设计。
 
 ## 运行
@@ -63,7 +63,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 
 ## API
 
-契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
+契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项；`?format=text` 为不超过 2048 字节的纯文本）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
 
 实现上需要知道的约定：
 
