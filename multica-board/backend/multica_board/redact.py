@@ -56,6 +56,8 @@ ERROR_KINDS = (
 )
 
 _RULES: list[tuple[str, re.Pattern[str]]] = [
+    # Checked first: the message embeds the configured binary path, which may contain words other rules match.
+    ("process", re.compile(r"(?i)\bCLI not found\b|command not found|executable file not found")),
     ("quota", re.compile(r"(?i)usage limit|quota|insufficient[_ ]?(credit|balance|funds)|billing|credit balance|exceeded your current")),
     ("rate_limit", re.compile(r"(?i)\b429\b|rate[ _-]?limit|too many requests|overloaded")),
     ("auth", re.compile(r"(?i)\b(401|403)\b|unauthori[sz]ed|unauthenticated|forbidden|authentication|not logged in|invalid (api )?key|permission denied|not a member|no server configured|run 'multica (setup|login)'")),

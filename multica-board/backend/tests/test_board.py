@@ -99,6 +99,8 @@ class RedactTests(unittest.TestCase):
             "[Errno 61] Connection refused": "network",
             "task cancelled by server": "cancelled",
             "hermes process exited": "process",
+            "multica CLI not found: /opt/tls-network/multica": "process",
+            "zsh: command not found: multica": "process",
             "something odd": "unknown",
         }
         for msg, want in cases.items():
@@ -301,6 +303,7 @@ class CollectorHealthTests(unittest.TestCase):
         self.assertIsNone(meta["generated_at"])
         err = meta["collector"]["error"]
         self.assertEqual(err["message"], "multica CLI not found: ~/no-such-dir/multica")  # home path redacted
+        self.assertEqual(err["kind"], "process")
         self.assertIsNotNone(meta["collector"]["last_attempt_at"])
         self.assertIsNone(meta["collector"]["last_success_at"])
 
