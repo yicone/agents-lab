@@ -12,9 +12,9 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
-from .views import NotFound, Views
+from .views import BadRequest, NotFound, Views
 
 log = logging.getLogger("multica_board.http")
 
@@ -117,11 +117,16 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path in STATIC_ROUTES:
                 body = STATIC_ROUTES[path](views)
+            elif path == "/api/changes":
+                body = views.changes(self._since_arg())
             elif m := ISSUE_RUNS.match(path):
                 body = views.issue_runs(m.group(1), m.group(2))
             else:
                 self._error(HTTPStatus.NOT_FOUND, "not_found", "unknown endpoint")
                 return
+        except BadRequest as exc:
+            self._error(HTTPStatus.BAD_REQUEST, "bad_request", str(exc))
+            return
         except NotFound as exc:
             self._error(HTTPStatus.NOT_FOUND, "not_found", str(exc))
             return
@@ -130,6 +135,18 @@ class Handler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal", "internal error")
             return
         self._json(HTTPStatus.OK, body)
+
+    def _since_arg(self) -> str | None:
+        query = urlsplit(self.path).query
+        if len(query) > 256:
+            raise BadRequest("query string is too long")
+        parsed = parse_qs(query, keep_blank_values=True)
+        if "since" not in parsed:
+            return None
+        vals = parsed["since"]
+        if len(vals) != 1:
+            raise BadRequest("since must be a single value")
+        return vals[0]
 
     def _static(self, raw_path: str) -> None:
         root = self.server.static_dir

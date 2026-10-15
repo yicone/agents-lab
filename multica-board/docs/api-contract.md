@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.1）
+# Multica Board 只读 API 契约（v0.2）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`（必改项，后端待实现）。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/changes`（ACM-166）。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -216,7 +216,115 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 `name` 优先用 runtime 的自定义名。同一台机器在不同 workspace 注册为不同 runtime 记录（不同 `id`），前端按 `provider` 聚合做跨 workspace 汇总，按 `workspace_id + id` 精确 join。
 
+## `GET /api/changes`
+
+增量，用来避免每次采集都重拉 `/api/issues`、`/api/runtimes` 和 run 列表。`?since=` 省略时只签发 cursor、不返回历史。`since` 为 ISO 8601 UTC 时间，或上一次响应里的 `cursor`。
+
+```json
+{
+  "generated_at": "2026-10-15T05:10:00Z",
+  "cursor": "v1:6",
+  "reset": false,
+  "retained_days": 7,
+  "has_more": false,
+  "items": [
+    {
+      "kind": "issue_status",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:issue-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "issue-uuid",
+      "identifier": "ACM-166",
+      "status": "in_review",
+      "status_category": "in_review",
+      "previous_status": "in_progress",
+      "previous_status_category": "in_progress"
+    },
+    {
+      "kind": "issue_assignee",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:issue-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "issue-uuid",
+      "identifier": "ACM-166",
+      "assignee": { "type": "agent", "id": "uuid", "name": "Builder" },
+      "previous_assignee": { "type": "member", "id": "uuid", "name": "Yi" }
+    },
+    {
+      "kind": "run",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:task-uuid",
+      "workspace_id": "ws-uuid",
+      "task_id": "task-uuid",
+      "issue_id": "issue-uuid",
+      "identifier": "ACM-166",
+      "status": "running",
+      "agent_name": "Builder",
+      "runtime_id": "rt-uuid",
+      "started_at": "2026-10-15T05:09:00Z",
+      "completed_at": null,
+      "error_kind": null,
+      "error_summary": null
+    },
+    {
+      "kind": "run_failed",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:task-uuid",
+      "workspace_id": "ws-uuid",
+      "task_id": "task-uuid",
+      "issue_id": "issue-uuid",
+      "identifier": "ACM-166",
+      "status": "failed",
+      "agent_name": "Builder",
+      "runtime_id": "rt-uuid",
+      "started_at": "2026-10-15T05:09:00Z",
+      "completed_at": "2026-10-15T05:10:00Z",
+      "error_kind": "process",
+      "error_summary": "process exited with code 1"
+    },
+    {
+      "kind": "runtime",
+      "at": "2026-10-15T05:10:00Z",
+      "key": "ws-uuid:rt-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "rt-uuid",
+      "name": "Cursor (tr-mini-m4)",
+      "status": "offline",
+      "previous_status": "online"
+    }
+  ]
+}
+```
+
+历史不完整时仍是 `200`，`reset: true`、`items: []`，`cursor` 停在当前末端。客户端应重拉全量，再从这个 cursor 继续：
+
+```json
+{
+  "generated_at": "2026-10-15T05:10:00Z",
+  "cursor": "v1:128",
+  "reset": true,
+  "retained_days": 7,
+  "has_more": false,
+  "items": []
+}
+```
+
+- `at` 是采集器**观察到**变化的时间（秒），不是 issue 的 `updated_at`。比较按秒截断，`since` 为开区间（`at > since`）。同一秒里的事件用返回的 cursor 续拉，不要用事件自己的 `at`。
+- `cursor` 形如 `v1:<序号>`，不透明，只回传响应里的值。`v1:0` 表示从日志开头重放；若开头已被裁掉则 `reset: true`。序号比当前末端还大（例如换过缓存库）同样 `reset`。
+- 不带 `since`：`items` 为空，`cursor` 为当前末端。接入时先拉全量，再立刻取一次 cursor，之后只传 cursor。
+- 单次最多 500 条，按发生顺序。`has_more: true` 时把返回的 `cursor` 当作下一次 `since`。
+- 保留 7 天（`retained_days`）。更早的 `since`，或 cursor 前面有被裁掉的序号，返回 `reset: true`，不把残缺窗口伪装成完整增量。
+- 每个 workspace、每种资源的**第一次成功快照只建基线，不产生事件**（issues、runtimes，以及每个 agent 的 tasks 各自一份）。基线之后才记录：
+  - `issue_status` / `issue_assignee`：已在快照里的 issue，状态或指派变了。新建 issue、标题、优先级、从列表消失都不记。
+  - `run`：基线之后新出现的 task。已经是 `failed` 时紧跟一条 `run_failed`。
+  - `run_failed`：基线里已有的 run 后来变成 `failed`，或上面这条新的失败 run。`completed` 等其它状态变化不记。
+  - `runtime`：是否等于 `online` 发生了变化。新出现且已是 `online` 记上线（`previous_status: null`）。原先 `online`、这次不在快照里，`status: null`。`offline` 与 `connecting` 之间不算。
+- 指派和 agent 名在读的时候 join，规则与 `/api/issues` 相同（`squad` 的 `name` 为 `null`）。`error_summary` 已脱敏。
+- 撤权清缓存时，该 workspace 的变更和基线一起删掉。下一次成功采集重新建基线，不会把旧快照再放进增量。
+- 非法 `since`（不是 UTC 时间也不是 cursor）为 `400`，`error.code=bad_request`。
+
 ## 变更记录
 
+- v0.2（2026-10-15）：新增 `GET /api/changes`（ACM-166）。`since` 为 ISO 时间或上次的 cursor；缓存保留 7 天的 issue 状态/指派、新 run、run 失败、runtime 上下线。
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_since
 from .collector import COLLECTOR, WORKSPACE
 from .store import Store
 
@@ -312,3 +314,134 @@ class Views:
             for r in self.store.query("SELECT * FROM runtimes WHERE server=? ORDER BY provider, name", (self.server,))
         ]
         return {"generated_at": self.generated_at(), "items": items}
+
+    # --- /api/changes -------------------------------------------------------
+
+    def changes(self, since: str | None, *, limit: int = CHANGES_PAGE) -> dict[str, Any]:
+        """Deltas after `since` (ISO time or a previous cursor). Omitted `since` only issues a cursor."""
+        if limit < 1 or limit > CHANGES_PAGE:
+            raise BadRequest("limit out of range")
+        mode, value = parse_since(since)
+        horizon = _iso(_now() - timedelta(days=CHANGE_RETENTION_DAYS))
+        self.store.prune_changes(self.server, horizon)
+
+        def envelope(items: list[dict[str, Any]], cursor: int, reset: bool, has_more: bool) -> dict[str, Any]:
+            return {
+                "generated_at": self.generated_at(),
+                "cursor": format_cursor(cursor),
+                "reset": reset,
+                "retained_days": CHANGE_RETENTION_DAYS,
+                "has_more": has_more,
+                "items": items,
+            }
+
+        if mode == "none":
+            tip, _oldest = self.store.change_bounds(self.server)
+            return envelope([], tip, False, False)
+        if mode == "time" and value < horizon:
+            tip, _oldest = self.store.change_bounds(self.server)
+            return envelope([], tip, True, False)
+
+        if mode == "time":
+            snap = self.store.fetch_changes(self.server, after_seq=None, after_at=value, limit=limit + 1)
+        else:
+            snap = self.store.fetch_changes(self.server, after_seq=value, after_at=None, limit=limit + 1)
+            oldest = snap["oldest"]
+            if value > snap["tip"] or (oldest is not None and oldest > value + 1):
+                return envelope([], snap["tip"], True, False)
+
+        rows = snap["rows"]
+        has_more = len(rows) > limit
+        page = rows[:limit]
+        if has_more:
+            cursor = int(page[-1]["seq"])
+        else:
+            floor = value if mode == "seq" else 0
+            cursor = max(snap["tip"], floor)
+        return envelope(self._render_changes(page), cursor, False, has_more)
+
+    def _render_changes(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not rows:
+            return []
+        agent_names = self._names("agents", "id", "name")
+        member_names = self._names("members", "user_id", "name")
+        identifiers = self._names("issues", "id", "identifier")
+        return [self._change_item(r, agent_names, member_names, identifiers) for r in rows]
+
+    def _change_item(
+        self,
+        row: dict[str, Any],
+        agent_names: dict[tuple[str, str], Any],
+        member_names: dict[tuple[str, str], Any],
+        identifiers: dict[tuple[str, str], Any],
+    ) -> dict[str, Any]:
+        payload = json.loads(row["payload_json"])
+        ws = row["workspace_id"]
+        kind = row["kind"]
+        base: dict[str, Any] = {"kind": kind, "at": row["at"], "workspace_id": ws}
+        if kind in ("issue_status", "issue_assignee"):
+            base["key"] = _key(ws, row["resource_id"])
+            base["id"] = row["resource_id"]
+            base["identifier"] = payload.get("identifier")
+            if kind == "issue_status":
+                base.update(
+                    {
+                        "status": payload.get("status"),
+                        "status_category": payload.get("status_category"),
+                        "previous_status": payload.get("previous_status"),
+                        "previous_status_category": payload.get("previous_status_category"),
+                    }
+                )
+            else:
+                base["assignee"] = self._person(ws, payload.get("assignee_type"), payload.get("assignee_id"), agent_names, member_names)
+                base["previous_assignee"] = self._person(
+                    ws, payload.get("previous_assignee_type"), payload.get("previous_assignee_id"), agent_names, member_names
+                )
+            return base
+        if kind in ("run", "run_failed"):
+            issue_id = payload.get("issue_id")
+            base.update(
+                {
+                    "key": _key(ws, row["resource_id"]),
+                    "task_id": row["resource_id"],
+                    "issue_id": issue_id,
+                    "identifier": identifiers.get((ws, issue_id)) if issue_id else None,
+                    "status": payload.get("status"),
+                    "agent_name": agent_names.get((ws, payload.get("agent_id"))),
+                    "runtime_id": payload.get("runtime_id"),
+                    "started_at": payload.get("started_at"),
+                    "completed_at": payload.get("completed_at"),
+                    "error_kind": payload.get("error_kind"),
+                    "error_summary": payload.get("error_summary"),
+                }
+            )
+            return base
+        if kind == "runtime":
+            base.update(
+                {
+                    "key": _key(ws, row["resource_id"]),
+                    "id": row["resource_id"],
+                    "name": payload.get("name"),
+                    "status": payload.get("status"),
+                    "previous_status": payload.get("previous_status"),
+                }
+            )
+            return base
+        raise ValueError(f"unknown change kind {kind}")
+
+    @staticmethod
+    def _person(
+        ws: str,
+        typ: str | None,
+        aid: str | None,
+        agent_names: dict[tuple[str, str], Any],
+        member_names: dict[tuple[str, str], Any],
+    ) -> dict[str, Any] | None:
+        if not typ or not aid:
+            return None
+        name = None
+        if typ == "agent":
+            name = agent_names.get((ws, aid))
+        elif typ == "member":
+            name = member_names.get((ws, aid))
+        return {"type": typ, "id": aid, "name": name}
