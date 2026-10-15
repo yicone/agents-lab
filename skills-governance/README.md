@@ -16,7 +16,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `skills/`: governance-specific agent entrypoints
 - `docs/`: durable governance rules, operating guides, and state-note conventions
 - `config/`: source classes and the machine-readable skills inventory (`skills-inventory.json`)
-- `scripts/`: inventory validation, plus snapshot, stage, diff, gate, activate, and rollback commands
+- `scripts/`: inventory validation, the read-only drift report, plus snapshot, stage, diff, gate, activate, and rollback commands
 - `tests/`: focused tests for the safety commands
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 

@@ -67,17 +67,17 @@
           "enum": ["active", "staged", "quarantined", "retired", "unknown"]
         },
         "review_time": {
-          "description": "Reserved for drift reports (ACM-142). Last review timestamp, or null when the record has not been reviewed.",
+          "description": "Drift report field (ACM-142). Last review timestamp, or null when the record has not been reviewed.",
           "type": ["string", "null"],
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
         },
         "baseline_ref": {
-          "description": "Reserved for drift reports (ACM-142). Pointer to the reviewed baseline. content_hash records use sha256:<64 hex of SKILL.md>. Null only when baseline.kind is none.",
+          "description": "Drift report field (ACM-142). Pointer to the reviewed baseline. content_hash records use sha256:<64 hex of SKILL.md>. Null only when baseline.kind is none.",
           "type": ["string", "null"],
           "minLength": 1
         },
         "current_version": {
-          "description": "Reserved for drift reports (ACM-142). Explicit compatibility version, usually SKILL.md metadata.version. Null when Git history is the only version authority.",
+          "description": "Drift report field (ACM-142). Explicit compatibility version, usually SKILL.md metadata.version. Null when Git history is the only version authority.",
           "type": ["string", "null"],
           "minLength": 1
         },

@@ -14,6 +14,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
   - for deciding whether a local or project-scoped skill should be generalized and promoted to global scope
 - `skills-governance-audit`
   - for read-only scanning of source authority, ownership drift, conflict signals, provenance gaps, update drift, and naming-taxonomy issues before choosing another workflow
+  - run `skills-governance/scripts/drift_report.py` for the inventory drift report (`review_time`, `baseline_ref`, `current_version`)
 - `worktree-branch-governance-audit`
   - for read-only reconciliation of branch and worktree guidance against project-specific evidence, including global-default fit, upstream topology, deployment coupling, and rule placement
 

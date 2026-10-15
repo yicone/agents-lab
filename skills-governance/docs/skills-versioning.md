@@ -47,6 +47,8 @@ Machine installs keep the same fields. `authority.canonical_path` is null when t
 
 Use `metadata.version` only when a Skill needs an explicit compatibility marker. Do not duplicate inventory state in every `SKILL.md`. After editing the registry, run `skills-governance/scripts/validate_skills_inventory.py --check-paths`.
 
+`skills-governance/scripts/drift_report.py` prints the source and version drift report from this file. It is read-only: it does not modify skills, the inventory, or lock files. Reconciliation uses `review_time`, `baseline_ref`, and `current_version`. A matching skill name is not provenance.
+
 ## Publishing And Installation
 
 - Git is the version authority for local canonical Skills.
