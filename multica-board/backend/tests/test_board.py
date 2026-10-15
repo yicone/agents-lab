@@ -152,6 +152,36 @@ class RunnerTests(unittest.TestCase):
             self.assertNotIn(k, env)
         self.assertEqual(env["GODEBUG"], "tlsmlkem=0")
 
+    def test_cwd_is_neutral_not_launch_dir(self):
+        fake = FakeMultica(fixture())
+        CliRunner(profile=SERVER, _exec=fake).run(["agent", "list"], workspace_id=WS_A)
+        CliRunner(profile=SERVER, _exec=fake).run(["agent", "list"], workspace_id=WS_A)
+        cwd = fake.cwds[0]
+        self.assertIsNotNone(cwd)
+        self.assertEqual(fake.cwds[1], cwd)  # shared across runners; the serve loop builds one per cycle
+        self.assertNotEqual(os.path.realpath(cwd), os.path.realpath(os.getcwd()))
+        self.assertEqual(os.listdir(cwd), [])
+        for parent in Path(cwd).resolve().parents:
+            self.assertFalse((parent / ".multica").exists(), parent)
+
+    def test_real_subprocess_ignores_local_multica_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            launch = Path(tmp, "task-workdir")
+            (launch / ".multica").mkdir(parents=True)
+            (launch / ".multica" / "daemon_task_context.json").write_text("{}")
+            stub = Path(tmp, "multica")
+            stub.write_text('#!/bin/sh\nprintf \'{"cwd": "%s"}\' "$(pwd -P)"\n')
+            stub.chmod(0o755)
+            prev = os.getcwd()
+            os.chdir(launch)
+            try:
+                res = CliRunner(profile=SERVER, binary=str(stub), retries=0).run(["workspace", "list"])
+            finally:
+                os.chdir(prev)
+        child = Path(res.data["cwd"])
+        self.assertNotEqual(child, launch.resolve())
+        self.assertNotIn(launch.resolve(), child.parents)
+
     def test_error_redacted_and_retry(self):
         fake = FakeMultica(fixture())
         fake.fail[WS_A] = f"connection reset; token={FAKE_TOKEN}"

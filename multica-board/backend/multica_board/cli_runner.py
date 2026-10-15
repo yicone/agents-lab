@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -33,6 +36,20 @@ _STRIPPED_ENV = ("MULTICA_WORKSPACE_ID", "MULTICA_TOKEN", "MULTICA_SERVER_URL")
 _STRIPPED_ENV_PREFIXES = ("MULTICA_TASK_",)
 
 _NEXT_CURSOR = re.compile(r'--before\s+"([^"]+)"')
+
+# The CLI discovers a `.multica` directory from its cwd upward, and a match overrides --profile.
+# Children therefore always start in an empty private directory, whatever the board's own cwd is.
+_neutral_cwd: str | None = None
+_neutral_lock = threading.Lock()
+
+
+def neutral_cwd() -> str:
+    global _neutral_cwd
+    with _neutral_lock:
+        if _neutral_cwd is None or not os.path.isdir(_neutral_cwd):
+            _neutral_cwd = tempfile.mkdtemp(prefix="multica-board-cli-")
+            atexit.register(shutil.rmtree, _neutral_cwd, True)
+        return _neutral_cwd
 
 
 class CommandNotAllowed(Exception):
@@ -130,6 +147,7 @@ class CliRunner:
                     text=True,
                     timeout=self.timeout_s,
                     env=self._env(),
+                    cwd=neutral_cwd(),
                     stdin=subprocess.DEVNULL,
                 )
         except subprocess.TimeoutExpired:

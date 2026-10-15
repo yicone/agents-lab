@@ -30,11 +30,13 @@ class FakeMultica:
         self.workspaces = workspaces
         self.calls: list[list[str]] = []
         self.envs: list[dict[str, str]] = []
+        self.cwds: list[str | None] = []
         self.fail: dict[str, str] = {}  # workspace_id -> stderr message
 
     def __call__(self, argv, **kw) -> subprocess.CompletedProcess:
         self.calls.append(list(argv))
         self.envs.append(dict(kw.get("env") or {}))
+        self.cwds.append(kw.get("cwd"))
         flags, words = _parse(argv)
         ws = flags.get("--workspace-id")
         if ws and ws in self.fail:
