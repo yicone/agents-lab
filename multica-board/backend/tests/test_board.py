@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fake_cli import FAKE_TOKEN, FakeMultica, agent, issue, runtime, task  # noqa: E402
+from multica_board.changes import BadRequest, diff_issues, diff_runtimes, events_for_tasks  # noqa: E402
 from multica_board.cli_runner import CliError, CliRunner, CommandNotAllowed, assert_read_only  # noqa: E402
 from multica_board.collector import WORKSPACE, CollectOptions, Collector  # noqa: E402
 from multica_board.redact import ERROR_KINDS, classify_error, redact  # noqa: E402
@@ -441,7 +442,7 @@ class ViewTests(unittest.TestCase):
         return {i["id"]: i for i in self.v.issues()["items"]}
 
     def test_generated_at_is_collect_finish(self):
-        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes(), self.v.attention()):
+        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes(), self.v.attention(), self.v.changes(None)):
             self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
 
     def test_meta(self):
@@ -505,27 +506,6 @@ class ViewTests(unittest.TestCase):
         with self.assertRaises(NotFound):
             self.v.issue_runs("w1", "nope")
 
-    def test_attention_from_seed(self):
-        body = self.v.attention()
-        self.assertEqual(body["window_h"], 24)
-        self.assertEqual([w["id"] for w in body["workspaces"]], ["w1"])
-        ws = body["workspaces"][0]
-        self.assertEqual(list(ws), ["id", "slug", "name", "failed_runs"])
-        runs = ws["failed_runs"]
-        self.assertEqual([r["identifier"] for r in runs], ["ORPHAN", "CHILD"])
-        self.assertEqual(runs[0]["agent_name"], "Builder")
-        self.assertEqual(runs[0]["status"], "failed")
-        self.assertEqual(runs[0]["title"], "orphan")
-        self.assertEqual(set(runs[0]), {"identifier", "title", "status", "time", "agent_name"})
-        blob = json.dumps(body)
-        self.assertNotIn("daemon restarted", blob)
-        self.assertNotIn("usage limit", blob)
-        text = self.v.attention_text()
-        self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
-        self.assertIn("failed_runs 2", text)
-        self.assertNotIn("in_review", text)
-        self.assertNotEqual(text.splitlines()[-1], "…")
-
 
 class ServerTests(unittest.TestCase):
     @classmethod
@@ -564,7 +544,7 @@ class ServerTests(unittest.TestCase):
                 assert_loopback(host)
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention"):
+        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
@@ -574,8 +554,7 @@ class ServerTests(unittest.TestCase):
             json.loads(body)
 
     def test_removed_and_unknown_endpoints(self):
-        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/issues/w1/nope/runs",
-                     "/api/attentioning", "/api/attention/extra"):
+        for path in ("/api/board", "/api/workspaces", "/api/runs", "/api/health", "/api/issues/w1/nope/runs"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 404, path)
             self.assertEqual(json.loads(body)["error"]["code"], "not_found")
@@ -610,6 +589,36 @@ class ServerTests(unittest.TestCase):
             r, body = self.req("GET", p)
             self.assertEqual(r.status, 404, p)
             self.assertNotIn(b"nope", body)
+
+    def test_changes_http(self):
+        r, body = self.req("GET", "/api/changes")
+        self.assertEqual(r.status, 200)
+        data = json.loads(body)
+        self.assertEqual(data["cursor"], "v1:0")
+        self.assertEqual(data["items"], [])
+        self.assertEqual(data["retained_days"], 7)
+        self.assertFalse(data["reset"])
+        self.assertFalse(data["has_more"])
+        self.assertEqual(r.getheader("Cache-Control"), "no-store")
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+
+        r, body = self.req("GET", "/api/changes?since=yesterday")
+        self.assertEqual(r.status, 400)
+        err = json.loads(body)
+        self.assertEqual(err["error"]["code"], "bad_request")
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+
+        r, body = self.req("GET", "/api/changes?since=2000-01-01T00:00:00Z")
+        self.assertEqual(r.status, 200)
+        self.assertTrue(json.loads(body)["reset"])
+        self.assertEqual(json.loads(body)["items"], [])
+
+        r, body = self.req("GET", "/api/changes?since=a&since=b")
+        self.assertEqual(r.status, 400)
+        self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
+
 
     def test_attention_http(self):
         r, body = self.req("GET", "/api/attention")
@@ -654,6 +663,269 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(r.status, 421)
         r, body = self.req("POST", "/api/attention")
         self.assertEqual(r.status, 405)
+
+
+AT = "2026-10-15T00:00:00Z"
+
+
+def _issue_row(iid, status="todo", assignee=None):
+    return {
+        "id": iid, "identifier": iid.upper(), "status": status, "status_category": status,
+        "assignee_type": assignee[0] if assignee else None, "assignee_id": assignee[1] if assignee else None,
+        "title": "ignored",
+    }
+
+
+class ChangeDiffTests(unittest.TestCase):
+    def test_issues_only_status_and_assignee_of_known_rows(self):
+        old = [_issue_row("a", assignee=("agent", "ag")), _issue_row("b")]
+        new = [
+            _issue_row("a", status="in_review", assignee=("member", "u1")),
+            {**_issue_row("b"), "title": "renamed", "priority": "high"},
+            _issue_row("c"),
+        ]
+        kinds = [(e["kind"], e["resource_id"]) for e in diff_issues(old, new, AT)]
+        self.assertEqual(kinds, [("issue_status", "a"), ("issue_assignee", "a")])
+        status = diff_issues(old, new, AT)[0]["payload"]
+        self.assertEqual(status["previous_status"], "todo")
+        self.assertEqual(status["status"], "in_review")
+
+    def test_runtime_online_boundary(self):
+        old = [
+            {"id": "on", "status": "online", "name": "Box", "custom_name": None},
+            {"id": "off", "status": "offline", "name": "Off", "custom_name": "Custom"},
+        ]
+        new = [
+            {"id": "on", "status": "connecting", "name": "Box", "custom_name": None},
+            {"id": "off", "status": "offline", "name": "Off", "custom_name": "Custom"},
+            {"id": "new-on", "status": "online", "name": "N", "custom_name": None},
+            {"id": "new-off", "status": "offline", "name": "X", "custom_name": None},
+        ]
+        ev = {(e["resource_id"], e["payload"]["previous_status"], e["payload"]["status"]) for e in diff_runtimes(old, new, AT)}
+        self.assertEqual(ev, {("on", "online", "connecting"), ("new-on", None, "online")})
+        gone = diff_runtimes(old, [], AT)
+        self.assertEqual(
+            [(e["resource_id"], e["payload"]["status"], e["payload"]["name"]) for e in gone],
+            [("on", None, "Box")],
+        )
+
+    def test_task_events(self):
+        row = {
+            "id": "t", "status": "failed", "issue_id": "i", "agent_id": "a", "runtime_id": "r",
+            "started_at": AT, "completed_at": AT, "error_kind": "process", "error_summary": "process exited",
+        }
+        self.assertEqual([e["kind"] for e in events_for_tasks([row], {}, AT)], ["run", "run_failed"])
+        self.assertEqual(events_for_tasks([row], {"t": "failed"}, AT), [])
+        running = {**row, "status": "running", "error_kind": None, "error_summary": None, "completed_at": None}
+        self.assertEqual([e["kind"] for e in events_for_tasks([running], {}, AT)], ["run"])
+        self.assertEqual([e["kind"] for e in events_for_tasks([row], {"t": "running"}, AT)], ["run_failed"])
+
+
+def _small_board() -> dict:
+    live = task(WS_A, "run-live", "ag1", ago(1), status="running", issue_id=f"{WS_A}-issue-0002", completed_at=None)
+    old = task(WS_A, "run-old", "ag1", ago(2), status="completed", issue_id=f"{WS_A}-issue-0002")
+    return {
+        WS_A: {
+            "meta": {"id": WS_A, "name": "Alpha", "slug": "alpha"},
+            "issues": [
+                issue(WS_A, 1, status="todo", status_category="todo", assignee_type="agent", assignee_id="ag1"),
+                issue(WS_A, 2, status="in_progress", status_category="in_progress"),
+            ],
+            "agents": [agent(WS_A, "ag1", name="Builder")],
+            "runtimes": [runtime(WS_A)],
+            "members": [{"user_id": "u1", "name": "Yi", "role": "owner", "workspace_id": WS_A}],
+            "tasks": {"ag1": [live, old]},
+        }
+    }
+
+
+def _nchanges(store: Store) -> int:
+    return store.query("SELECT COUNT(*) AS n FROM changes")[0]["n"]
+
+
+class ChangeFeedTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.data = _small_board()
+        self.fake = FakeMultica(self.data)
+        self.store, self.col = make(self.fake, self.db)
+        self.views = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_baseline_then_deltas(self):
+        self.assertTrue(self.col.collect()["ok"])
+        self.assertEqual(_nchanges(self.store), 0)
+        first = self.views.changes("v1:0")
+        self.assertEqual(first["items"], [])
+        self.assertFalse(first["reset"])
+        self.assertEqual(first["cursor"], "v1:0")
+        self.assertTrue(self.store.has_baseline(SERVER, WS_A, "issues"))
+        self.assertTrue(self.store.has_baseline(SERVER, WS_A, "runtimes"))
+        self.assertTrue(self.store.has_baseline(SERVER, WS_A, "tasks:ag1"))
+
+        issue1 = self.data[WS_A]["issues"][0]
+        issue1["status"] = "in_review"
+        issue1["status_category"] = "in_review"
+        issue1["assignee_type"] = "member"
+        issue1["assignee_id"] = "u1"
+        self.data[WS_A]["issues"][1]["title"] = "renamed"
+        self.data[WS_A]["issues"][1]["priority"] = "high"
+        self.data[WS_A]["issues"].append(issue(WS_A, 3))
+        self.data[WS_A]["runtimes"][0]["status"] = "offline"
+        self.data[WS_A]["runtimes"].append(runtime(WS_A, "rt2", name="Extra"))
+        failed = task(
+            WS_A, "run-live", "ag1", ago(1), status="failed", issue_id=f"{WS_A}-issue-0002",
+            error=f"process exited with code 1; Authorization: Bearer {FAKE_TOKEN}",
+        )
+        new_run = task(WS_A, "run-new", "ag1", ago(0.05), status="running", issue_id=f"{WS_A}-issue-0001", completed_at=None)
+        old = task(WS_A, "run-old", "ag1", ago(2), status="completed", issue_id=f"{WS_A}-issue-0002")
+        self.data[WS_A]["tasks"]["ag1"] = [new_run, failed, old]
+
+        self.assertTrue(self.col.collect()["ok"])
+        self.assertEqual(_nchanges(self.store), 6)
+        full = self.views.changes("v1:0")
+        self.assertFalse(full["reset"])
+        self.assertFalse(full["has_more"])
+        self.assertEqual(full["retained_days"], 7)
+        self.assertEqual(full["generated_at"][:4], "2026")
+        blob = json.dumps(full)
+        self.assertNotIn(FAKE_TOKEN, blob)
+        self.assertNotIn("secret body", blob)
+        self.assertNotIn(FAKE_TOKEN, json.dumps(self.store.query("SELECT payload_json FROM changes")))
+
+        by_key = {}
+        for item in full["items"]:
+            by_key.setdefault((item["kind"], item.get("id") or item["task_id"]), item)
+        self.assertEqual(set(by_key), {
+            ("issue_status", f"{WS_A}-issue-0001"),
+            ("issue_assignee", f"{WS_A}-issue-0001"),
+            ("runtime", "rt1"),
+            ("runtime", "rt2"),
+            ("run", "run-new"),
+            ("run_failed", "run-live"),
+        })
+        st = by_key[("issue_status", f"{WS_A}-issue-0001")]
+        self.assertEqual(st["identifier"], "T-1")
+        self.assertEqual(st["status"], "in_review")
+        self.assertEqual(st["previous_status"], "todo")
+        self.assertEqual(st["status_category"], "in_review")
+        self.assertEqual(st["previous_status_category"], "todo")
+        self.assertEqual(st["key"], f"{WS_A}:{WS_A}-issue-0001")
+        ag = by_key[("issue_assignee", f"{WS_A}-issue-0001")]
+        self.assertEqual(ag["assignee"], {"type": "member", "id": "u1", "name": "Yi"})
+        self.assertEqual(ag["previous_assignee"], {"type": "agent", "id": "ag1", "name": "Builder"})
+        self.assertEqual(by_key[("runtime", "rt1")]["status"], "offline")
+        self.assertEqual(by_key[("runtime", "rt1")]["previous_status"], "online")
+        self.assertEqual(by_key[("runtime", "rt1")]["name"], "Codex (box)")
+        self.assertEqual(by_key[("runtime", "rt2")]["previous_status"], None)
+        self.assertEqual(by_key[("runtime", "rt2")]["name"], "Extra")
+        run = by_key[("run", "run-new")]
+        self.assertEqual(run["status"], "running")
+        self.assertEqual(run["identifier"], "T-1")
+        self.assertEqual(run["agent_name"], "Builder")
+        self.assertIsNone(run["error_kind"])
+        self.assertNotIn("agent_id", run)
+        failed_ev = by_key[("run_failed", "run-live")]
+        self.assertEqual(failed_ev["error_kind"], "process")
+        self.assertIn("[redacted]", failed_ev["error_summary"])
+        self.assertIn("process exited", failed_ev["error_summary"])
+        self.assertEqual(failed_ev["identifier"], "T-2")
+
+        hand = self.views.changes(None)
+        self.assertEqual(hand["items"], [])
+        self.assertEqual(hand["cursor"], full["cursor"])
+        self.assertEqual(self.views.changes(hand["cursor"])["items"], [])
+
+        drained = []
+        since = "v1:0"
+        pages = 0
+        while True:
+            page = self.views.changes(since, limit=2)
+            self.assertFalse(page["reset"])
+            drained.extend(page["items"])
+            pages += 1
+            if not page["has_more"]:
+                self.assertEqual(page["cursor"], full["cursor"])
+                break
+            since = page["cursor"]
+            self.assertLess(pages, 10)
+        self.assertEqual(drained, full["items"])
+        self.assertGreater(pages, 1)
+
+        latest = max(i["at"] for i in full["items"])
+        self.assertEqual(self.views.changes(latest)["items"], [])
+        self.assertFalse(self.views.changes(ago(1))["reset"])
+        self.assertEqual(len(self.views.changes(ago(1))["items"]), 6)
+        self.assertTrue(self.views.changes("2000-01-01T00:00:00Z")["reset"])
+        self.assertEqual(self.views.changes("2999-01-01T00:00:00Z")["items"], [])
+        with self.assertRaises(BadRequest):
+            self.views.changes("yesterday")
+        with self.assertRaises(BadRequest):
+            self.views.changes("2026-10-15T00:00:00")
+
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 6)
+
+    def test_purge_rebaseline_does_not_replay(self):
+        self.col.collect()
+        self.data[WS_A]["runtimes"][0]["status"] = "offline"
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 1)
+        self.fake.fail[WS_A] = "403 forbidden: not a member"
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 0)
+        self.assertFalse(self.store.has_baseline(SERVER, WS_A, "runtimes"))
+        del self.fake.fail[WS_A]
+        self.data[WS_A]["runtimes"][0]["status"] = "online"
+        self.col.collect()
+        self.assertEqual(_nchanges(self.store), 0)
+        self.data[WS_A]["runtimes"][0]["status"] = "offline"
+        self.col.collect()
+        body = self.views.changes("v1:1")
+        self.assertFalse(body["reset"])
+        self.assertEqual([(i["kind"], i["id"], i["status"]) for i in body["items"]], [("runtime", "rt1", "offline")])
+        self.assertTrue(self.views.changes("v1:0")["reset"])
+
+
+class ChangeRetentionTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.views = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+
+    def tearDown(self):
+        self.store.close()
+
+    def _ev(self, at: str, rid: str, name: str) -> dict:
+        return {
+            "at": at, "kind": "runtime", "resource_id": rid,
+            "payload": {"name": name, "status": "offline", "previous_status": "online"},
+        }
+
+    def test_prune_gap_and_server_scope(self):
+        self.store.append_changes(SERVER, WS_A, [self._ev(ago(8 * 24), "old", "Old")])
+        self.store.append_changes(SERVER, WS_A, [self._ev(ago(1), "fresh", "Fresh")])
+        self.store.append_changes("other", WS_A, [self._ev(ago(30 * 24), "foreign", "FOREIGN-MARKER")])
+
+        recent = self.views.changes(ago(2))
+        self.assertFalse(recent["reset"])
+        self.assertEqual([i["id"] for i in recent["items"]], ["fresh"])
+        self.assertNotIn("FOREIGN-MARKER", json.dumps(recent))
+        self.assertEqual(self.store.query("SELECT COUNT(*) AS n FROM changes WHERE resource_id='old'")[0]["n"], 0)
+        self.assertEqual(self.store.query("SELECT COUNT(*) AS n FROM changes WHERE server='other'")[0]["n"], 1)
+
+        self.assertTrue(self.views.changes("v1:0")["reset"])
+        self.assertEqual(self.views.changes("v1:0")["items"], [])
+        kept = self.views.changes("v1:1")
+        self.assertFalse(kept["reset"])
+        self.assertEqual([i["id"] for i in kept["items"]], ["fresh"])
+        self.assertTrue(self.views.changes("v1:999999")["reset"])
+        hand = self.views.changes(None)
+        self.assertEqual(hand["items"], [])
+        self.assertEqual(self.views.changes(hand["cursor"])["items"], [])
 
 
 class AttentionTests(unittest.TestCase):

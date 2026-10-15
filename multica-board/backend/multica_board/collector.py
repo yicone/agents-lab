@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from .changes import CHANGE_RETENTION_DAYS, diff_issues, diff_runtimes, events_for_tasks
 from .cli_runner import CliError, CliRunner
 from .redact import classify_error, redact
 from .store import Store
@@ -127,6 +128,7 @@ class Collector:
     # --- top level ------------------------------------------------------------
 
     def collect(self) -> dict[str, Any]:
+        self.store.prune_changes(self.server, iso(utcnow() - timedelta(days=CHANGE_RETENTION_DAYS)))
         started = iso(utcnow())
         try:
             res = self.runner.run(["workspace", "list"])
@@ -265,7 +267,9 @@ class Collector:
                 break
             offset += len(page)
         complete = total is None or len(seen) >= int(total)
-        self.store.replace_snapshot(self.server, ws, "issues", list(seen.values()))
+        self.store.replace_snapshot(
+            self.server, ws, "issues", list(seen.values()), observe=diff_issues, at=iso(utcnow())
+        )
         return len(seen), complete, None
 
     def _projects(self, ws: str):
@@ -293,7 +297,7 @@ class Collector:
         items = _as_list(res.data, "runtimes")
         self._check_scope(ws, items)
         rows = [norm_runtime(r) for r in items if r.get("id")]
-        self.store.replace_snapshot(self.server, ws, "runtimes", rows)
+        self.store.replace_snapshot(self.server, ws, "runtimes", rows, observe=diff_runtimes, at=iso(utcnow()))
         return len(rows), True, None
 
     def _agents(self, ws: str):
@@ -312,31 +316,44 @@ class Collector:
         return sum(n for n, _ in results), all(c for _, c in results)
 
     def _agent_tasks(self, ws: str, agent_id: str, cutoff: str) -> tuple[int, bool]:
+        resource = f"tasks:{agent_id}"
+        baselined = self.store.has_baseline(self.server, ws, resource)
         known = self.store.known_task_ids(self.server, ws, agent_id)
         cursor: str | None = None
         total = pages = 0
-        while True:
-            args = ["agent", "tasks", agent_id, "--limit", str(TASK_PAGE)]
-            if cursor:
-                args += ["--before", cursor]
-            res = self.runner.run(args, workspace_id=ws)
-            items = _as_list(res.data, "tasks")
-            self._check_scope(ws, items)
-            rows = [norm_task(t) for t in items if t.get("id")]
-            self.store.upsert_many(self.server, ws, "tasks", rows)
-            total += len(rows)
-            pages += 1
-            cursor = res.next_cursor
-            if not cursor or not rows:
-                return total, True
-            oldest = min((r["created_at"] or "") for r in rows)
-            if oldest and oldest < cutoff:
-                return total, True
-            # Incremental: stop once we reach terminal runs we already cached.
-            if not self.opts.full and any(known.get(r["id"]) in TERMINAL_TASK for r in rows):
-                return total, True
-            if pages >= self.opts.max_task_pages:
-                return total, False
+        finished = False
+        try:
+            while True:
+                args = ["agent", "tasks", agent_id, "--limit", str(TASK_PAGE)]
+                if cursor:
+                    args += ["--before", cursor]
+                res = self.runner.run(args, workspace_id=ws)
+                items = _as_list(res.data, "tasks")
+                self._check_scope(ws, items)
+                rows = [norm_task(t) for t in items if t.get("id")]
+                self.store.upsert_tasks(
+                    self.server, ws, rows, observe=events_for_tasks if baselined else None, at=iso(utcnow())
+                )
+                total += len(rows)
+                pages += 1
+                cursor = res.next_cursor
+                if not cursor or not rows:
+                    finished = True
+                    return total, True
+                oldest = min((r["created_at"] or "") for r in rows)
+                if oldest and oldest < cutoff:
+                    finished = True
+                    return total, True
+                # Incremental: stop once we reach terminal runs we already cached.
+                if not self.opts.full and any(known.get(r["id"]) in TERMINAL_TASK for r in rows):
+                    finished = True
+                    return total, True
+                if pages >= self.opts.max_task_pages:
+                    finished = True
+                    return total, False
+        finally:
+            if finished and not baselined:
+                self.store.set_baseline(self.server, ws, resource)
 
 
 def _kind(exc: CliError) -> str:
