@@ -5,6 +5,8 @@ const META_POLL_MS = 15_000;
 const STALE_DAY_OPTIONS = [1, 3, 7, 14];
 const QUEUED_RUN = new Set(["queued", "dispatched", "waiting_local_directory"]);
 const QUOTA_KINDS = new Set(["quota", "rate_limit"]);
+const CLOSED_CATEGORIES = new Set(["done", "cancelled", "canceled"]);
+const LANE_LIMIT = 30;
 
 const ERROR_KIND_LABEL = {
   quota: "额度",
@@ -66,6 +68,7 @@ const state = {
   route: parseRoute(),
   staleDays: Number(localStorage.getItem("mb.staleDays")) || 3,
   drawer: null,
+  expandedLanes: new Set(),
 };
 
 // ---------- data ----------
@@ -251,8 +254,13 @@ function wsTag(ws) {
   return h("span", { class: "ws-tag", style: { "--ws-hue": hueOf(ws.slug) }, title: ws.name }, ws.name);
 }
 
+/** With --refresh 0 nothing is collected, so age alone must not mark a workspace as stale. */
+function wsState(ws) {
+  return ws.collect_state === "stale" && collectInterval() === 0 ? "ok" : ws.collect_state;
+}
+
 function isWsDegraded(ws) {
-  return ws && (ws.collect_state === "error" || ws.collect_state === "stale");
+  return ws && (wsState(ws) === "error" || wsState(ws) === "stale");
 }
 
 function matchesQuery(q, ...fields) {
@@ -367,10 +375,11 @@ function renderChrome() {
   document.getElementById("health").replaceChildren(
     ...(state.meta?.workspaces ?? []).map((ws) => {
       const active = state.route.ws === ws.slug;
+      const st = wsState(ws);
       let detail = "";
-      if (ws.collect_state === "never") detail = ws.error ? `未加载 · ${errKind(ws.error.kind)}` : "未加载";
-      else if (ws.collect_state === "error") detail = `${errKind(ws.error?.kind) || "失败"} · ${ago(ws.last_success_at)}`;
-      else if (ws.collect_state === "stale") detail = `过期 · ${ago(ws.last_success_at)}`;
+      if (st === "never") detail = ws.error ? `未加载 · ${errKind(ws.error.kind)}` : "未加载";
+      else if (st === "error") detail = `${errKind(ws.error?.kind) || "失败"} · ${ago(ws.last_success_at)}`;
+      else if (st === "stale") detail = `过期 · ${ago(ws.last_success_at)}`;
       const title = [
         `${ws.name}（${ws.slug}）`,
         `最近成功：${absTime(ws.last_success_at) || "从未"}`,
@@ -382,7 +391,7 @@ function renderChrome() {
         "button",
         {
           type: "button",
-          class: `ws-chip state-${ws.collect_state}${active ? " active" : ""}`,
+          class: `ws-chip state-${st}${active ? " active" : ""}`,
           style: { "--ws-hue": hueOf(ws.slug) },
           title,
           "aria-pressed": active ? "true" : "false",
@@ -465,12 +474,38 @@ function issueCard(it, ws, cls) {
   );
 }
 
+function laneBody(id, entries) {
+  const expanded = state.expandedLanes.has(id);
+  const shown = expanded ? entries : entries.slice(0, LANE_LIMIT);
+  const rest = entries.length - shown.length;
+  const toggle = (on) => () => {
+    if (on) state.expandedLanes.add(id);
+    else state.expandedLanes.delete(id);
+    renderMain();
+    if (!on) {
+      const head = document.querySelector(`.lane-${id} .lane-head`);
+      const offset = head ? head.getBoundingClientRect().top - document.querySelector(".topbar").offsetHeight - 8 : 0;
+      if (offset < 0) window.scrollBy(0, offset);
+    }
+  };
+  return h(
+    "div",
+    { class: "lane-body" },
+    shown.map((e) => issueCard(e.it, e.ws, e.cls)),
+    rest > 0
+      ? h("button", { type: "button", class: "lane-more", onclick: toggle(true) }, `显示其余 ${rest} 条`)
+      : expanded && entries.length > LANE_LIMIT
+        ? h("button", { type: "button", class: "lane-more", onclick: toggle(false) }, `收起到 ${LANE_LIMIT} 条`)
+        : null,
+  );
+}
+
 function renderIssues() {
   const wsMap = wsById();
   const { ws: wsSlug, q } = state.route;
   const staleMs = state.staleDays * 86400_000;
   const lanes = Object.fromEntries(LANES.map((l) => [l.id, []]));
-  let others = 0;
+  const others = new Map();
 
   for (const it of state.issues) {
     const ws = wsMap.get(it.workspace_id);
@@ -478,8 +513,10 @@ function renderIssues() {
     if (!matchesQuery(q, it.identifier, it.title, it.assignee?.name, it.latest_run?.agent_name, ws?.name, it.project?.title, it.parent_identifier)) continue;
     const cls = classifyIssue(it, staleMs);
     if (cls.lane) lanes[cls.lane].push({ it, ws, cls });
-    else others += 1;
+    else if (!CLOSED_CATEGORIES.has(it.status_category)) others.set(it.status, (others.get(it.status) ?? 0) + 1);
   }
+  const othersTotal = [...others.values()].reduce((a, b) => a + b, 0);
+  const othersDetail = [...others].sort((a, b) => b[1] - a[1]).map(([s, n]) => `${STATUS_LABEL[s] ?? s} ${n}`).join(" · ");
 
   const sortKey = (e) =>
     Date.parse((e.cls.lane === "failed" && e.it.latest_run?.completed_at) || e.it.last_activity_at || 0);
@@ -505,7 +542,11 @@ function renderIssues() {
         STALE_DAY_OPTIONS.map((d) => h("option", { value: d, selected: d === state.staleDays }, `${d} 天`)),
       ),
     ),
-    h("span", { class: "muted" }, `其他打开 issue ${others} 条（进行中且有活动，不在关注范围）`),
+    h(
+      "span",
+      { class: "muted", title: "不在四栏里的打开 issue：有近期活动或有运行中的 run，以及 backlog" },
+      othersTotal ? `其余 ${othersTotal} 条打开 issue 不在关注范围（${othersDetail}）` : "所有打开 issue 都在关注范围内",
+    ),
   );
 
   const board = h(
@@ -521,9 +562,7 @@ function renderIssues() {
           h("span", { class: "lane-title" }, l.title),
           h("span", { class: "count" }, lanes[l.id].length),
         ),
-        lanes[l.id].length
-          ? h("div", { class: "lane-body" }, lanes[l.id].map((e) => issueCard(e.it, e.ws, e.cls)))
-          : h("div", { class: "empty" }, "无"),
+        lanes[l.id].length ? laneBody(l.id, lanes[l.id]) : h("div", { class: "empty" }, "无"),
       ),
     ),
   );
@@ -587,7 +626,7 @@ function renderDrawer() {
   if (!d.opener) d.opener = document.activeElement;
   const ws = wsById().get(d.it.workspace_id);
   let body;
-  if (d.loading) body = h("div", { class: "empty" }, "加载中…");
+  if (d.loading) body = h("div", { class: "empty loading", "aria-busy": "true" }, "加载中…");
   else if (d.error) body = h("div", { class: "empty bad-n" }, `加载失败：${d.error}`);
   else if (d.notFound || !d.items.length) body = h("div", { class: "empty" }, "14 天内没有 run");
   else body = h("ol", { class: "runs" }, d.items.map(runRow));

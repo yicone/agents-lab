@@ -243,6 +243,16 @@ button, select, input { font: inherit; color: inherit; }
 .lane-title { font-weight: 650; }
 .lane-head .count { font: 12px var(--mono); color: var(--muted); }
 .lane-body { display: flex; flex-direction: column; gap: 6px; }
+.lane-more {
+  border: 1px dashed var(--line);
+  background: transparent;
+  border-radius: var(--radius);
+  padding: 5px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.lane-more:hover { background: var(--panel); }
 
 .card {
   display: block;
