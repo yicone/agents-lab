@@ -578,7 +578,7 @@
       "status": "active",
       "review_time": null,
       "baseline_ref": "sha256:9402bf03db895209a755d5e2af9b436dbf98eed0911907110a4ea482c30632de",
-      "current_version": "0.5.1.13",
+      "current_version": "2.0.0",
       "scope": "app-bundled",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
