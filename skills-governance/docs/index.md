@@ -30,4 +30,4 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 ## Related Principles
 
 - `OS-RES/Skills 管理与治理原则`
-- `OS-LOG/Skills 当前状态清单`
+- `config/skills-inventory.json` — machine-readable inventory; `OS-LOG/Skills 当前状态清单` is the human mirror

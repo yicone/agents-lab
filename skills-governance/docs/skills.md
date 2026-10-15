@@ -14,7 +14,7 @@ Runtime visibility is not ownership. A Skill may be visible because it is local,
 - `third_party_customized`: third-party Skill with a local wrapper, overlay, fork, patch, or replacement
 - `unknown`: source or update authority has not been verified
 
-The machine-readable baseline is [../config/source-types.yaml](../config/source-types.yaml).
+The machine-readable source classes are [../config/source-types.yaml](../config/source-types.yaml). Per-skill records live in [../config/skills-inventory.json](../config/skills-inventory.json), validated by `scripts/validate_skills_inventory.py`.
 
 ## Canonical And Runtime Layers
 

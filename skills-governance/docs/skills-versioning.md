@@ -33,16 +33,19 @@ Before upgrading a non-local Skill, retain a baseline reference and inspect the 
 
 ## Per-Skill Metadata
 
-Keep required metadata in `SKILL.md` frontmatter. For governed non-local Skills, the inventory should additionally record:
+Keep required metadata in `SKILL.md` frontmatter. The live registry is `skills-governance/config/skills-inventory.json`. Each record stores:
 
-- source class and source authority
-- visible paths and install shape
-- current version or baseline reference
-- local customization mode
-- conflict status
-- last review time
+- `source_class` and `authority` (`ownership`, `source_authority`, `update_authority`, `canonical_path`)
+- `baseline` plus the drift pointer `baseline_ref`
+- `adapters` and `status`
+- `review_time` and `current_version` (reserved for drift reports; null until a review or explicit version exists)
+- visible paths, install shape, local customization, and conflict status
 
-Use `metadata.version` only when a Skill needs an explicit compatibility marker. Do not duplicate inventory state in every `SKILL.md`.
+For a `content_hash` baseline, `baseline_ref` is `sha256:` plus the SHA-256 of that skill's `SKILL.md`. `current_version` copies `metadata.version` when present. Local skills otherwise stay versioned by Git, so `current_version` stays null.
+
+Machine installs keep the same fields. `authority.canonical_path` is null when this repository is not the source. A self-authored skill that is not in this repo yet stays `local_custom` and records its `~` install path in `visible_paths`. `~` or absolute paths record the install and its symlink adapters. Skills CLI / `~/.agents/.skill-lock.json` installs use `skills_cli_managed`; `current_version` uses the lock `skillFolderHash` when that file has no semver. App-bundled and vendor-bundled skills use `runtime_builtin`. A vendor bundle is one summary record, not one record per bundled skill. Do not add a second inventory file for Obsidian or Logseq.
+
+Use `metadata.version` only when a Skill needs an explicit compatibility marker. Do not duplicate inventory state in every `SKILL.md`. After editing the registry, run `skills-governance/scripts/validate_skills_inventory.py --check-paths`.
 
 ## Publishing And Installation
 
