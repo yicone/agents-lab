@@ -63,7 +63,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 
 ## API
 
-契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
+契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
 
 实现上需要知道的约定：
 

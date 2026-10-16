@@ -18,7 +18,14 @@ RECENT_WINDOW_H = 24
 RUNS_PER_ISSUE = 20
 ATTENTION_TITLE_CHARS = 80
 ATTENTION_TEXT_BYTES = 2048
-ATTENTION_BUCKETS = ("in_review", "blocked", "failed_runs", "offline_runtimes")
+ATTENTION_BUCKETS = (
+    "in_review",
+    "blocked",
+    "failed_runs",
+    "offline_runtimes",
+    "missing_hermes_async_delegation",
+)
+HERMES_ASYNC_SKILL = "hermes-async-delegation"
 TOP_FAILURE_REASONS = 3
 
 
@@ -87,6 +94,18 @@ def _issue_bucket(row: dict[str, Any]) -> str | None:
     if category in ("in_review", "blocked"):
         return category
     return None
+
+
+def _skill_names(raw: str | None) -> set[str]:
+    if not raw:
+        return set()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return set()
+    if not isinstance(data, list):
+        return set()
+    return {name for name in data if isinstance(name, str) and name}
 
 
 def _sort_attention(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -466,6 +485,31 @@ class Views:
         ):
             bound.setdefault((agent["workspace_id"], agent["runtime_id"]), []).append(
                 (agent["name"] or "", agent["id"])
+            )
+
+        providers = {
+            (runtime["workspace_id"], runtime["id"]): (runtime.get("provider") or "").casefold()
+            for runtime in self.store.query(
+                "SELECT workspace_id, id, provider FROM runtimes WHERE server=?", (self.server,)
+            )
+        }
+        for agent in self.store.query(
+            "SELECT workspace_id, id, name, runtime_id, updated_at, skills_json FROM agents "
+            "WHERE server=? AND archived_at IS NULL AND runtime_id IS NOT NULL AND runtime_id != ''",
+            (self.server,),
+        ):
+            if providers.get((agent["workspace_id"], agent["runtime_id"])) != "hermes":
+                continue
+            if HERMES_ASYNC_SKILL in _skill_names(agent.get("skills_json")):
+                continue
+            ensure(agent["workspace_id"])["missing_hermes_async_delegation"].append(
+                _attention_item(
+                    agent["id"],
+                    agent.get("name"),
+                    "missing_skill",
+                    agent.get("updated_at"),
+                    agent.get("name"),
+                )
             )
 
         for runtime in self.store.query(

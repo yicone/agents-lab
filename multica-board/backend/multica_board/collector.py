@@ -82,6 +82,27 @@ def norm_issue(i: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def enabled_skill_names(raw: Any) -> list[str]:
+    """Enabled workspace-skill names only. Instructions and skill bodies stay out of the cache."""
+    names: list[str] = []
+    if not isinstance(raw, list):
+        return names
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict) or item.get("enabled") is False:
+            continue
+        name = item.get("name")
+        if not isinstance(name, str):
+            continue
+        name = " ".join(name.split())
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+    names.sort()
+    return names
+
+
 def norm_agent(a: dict[str, Any]) -> dict[str, Any]:
     keep = [
         "id", "name", "status", "runtime_id", "runtime_mode", "model", "thinking_level",
@@ -89,6 +110,7 @@ def norm_agent(a: dict[str, Any]) -> dict[str, Any]:
     ]
     row = _nn({k: a.get(k) for k in keep})
     row["runtime_bound"] = int(bool(a.get("runtime_bound")))
+    row["skills_json"] = json.dumps(enabled_skill_names(a.get("skills")), ensure_ascii=False)
     return row
 
 

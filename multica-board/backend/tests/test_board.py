@@ -212,6 +212,31 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(oct(os.stat(self.db).st_mode & 0o777), "0o600")
         self.assertEqual(ws_state(store, WS_A)["collect_state"], "ok")
 
+    def test_enabled_skill_names_cached_without_bodies(self):
+        data = fixture()
+        data[WS_A]["agents"][0] = agent(
+            WS_A,
+            "ag1",
+            skills=[
+                {"name": "mem-distill", "enabled": True, "description": FAKE_TOKEN},
+                {"name": "hermes-async-delegation", "enabled": True},
+                {"name": "mem-distill", "enabled": True},
+                {"name": "  spaced   name  ", "enabled": True},
+                {"name": "off", "enabled": False, "content": FAKE_TOKEN},
+                {"name": "", "enabled": True},
+                "nope",
+                {"enabled": True},
+            ],
+        )
+        store, col = make(FakeMultica(data), self.db)
+        col.collect()
+        row = store.query("SELECT skills_json FROM agents WHERE id='ag1'")[0]
+        self.assertEqual(
+            json.loads(row["skills_json"]),
+            ["hermes-async-delegation", "mem-distill", "spaced name"],
+        )
+        self.assertNotIn(FAKE_TOKEN.encode(), self.db.read_bytes())
+
     def test_empty_strings_become_null(self):
         store, col = make(FakeMultica(fixture()), self.db)
         col.collect()
@@ -1167,6 +1192,55 @@ class AttentionTests(unittest.TestCase):
         row = next(line for line in text.splitlines() if line.startswith("ACM-2\t"))
         self.assertNotIn("\n", row)
         self.assertEqual(row.split("\t")[4], "hello world !")
+
+    def test_hermes_agents_missing_async_delegation_skill(self):
+        s = SERVER
+        with self.store.tx() as c:
+            self.store.upsert(c, "workspaces", {
+                "server": s, "id": "wh", "name": "Hermes Lab", "slug": "hermes-lab",
+            })
+            for rid, provider in (("rt-h", "Hermes"), ("rt-c", "codex")):
+                self.store.upsert(c, "runtimes", {
+                    "server": s, "workspace_id": "wh", "id": rid, "name": provider,
+                    "provider": provider, "status": "online",
+                })
+
+            def ag(aid, name, runtime, skills, updated, archived=None):
+                self.store.upsert(c, "agents", {
+                    "server": s, "workspace_id": "wh", "id": aid, "name": name,
+                    "runtime_id": runtime, "archived_at": archived, "updated_at": updated,
+                    "skills_json": None if skills is None else json.dumps(skills),
+                })
+
+            ag("m-new", "Vega\nLab", "rt-h", ["knowledge-routing"], "2026-10-16T02:00:00Z")
+            ag("m-b", "Reviewer", "rt-h", [], "2026-10-16T01:00:00Z")
+            ag("m-a", "Archivist", "rt-h", None, "2026-10-16T01:00:00Z")
+            ag("has-skill", "存储", "rt-h", ["hermes-async-delegation"], "2026-10-16T03:00:00Z")
+            ag("archived", "Old", "rt-h", [], "2026-10-16T04:00:00Z", archived="2026-01-01T00:00:00Z")
+            ag("codex", "Builder", "rt-c", [], "2026-10-16T05:00:00Z")
+            ag("ghost", "Ghost", "rt-missing", [], "2026-10-16T06:00:00Z")
+
+        hermes = next(w for w in self.v.attention()["workspaces"] if w["id"] == "wh")
+        self.assertEqual(
+            list(hermes),
+            ["id", "slug", "name", "missing_hermes_async_delegation"],
+        )
+        self.assertEqual(
+            [(i["identifier"], i["title"], i["status"], i["agent_name"]) for i in hermes["missing_hermes_async_delegation"]],
+            [
+                ("m-new", "Vega Lab", "missing_skill", "Vega Lab"),
+                ("m-a", "Archivist", "missing_skill", "Archivist"),
+                ("m-b", "Reviewer", "missing_skill", "Reviewer"),
+            ],
+        )
+        blob = json.dumps(hermes)
+        self.assertNotIn("has-skill", blob)
+        self.assertNotIn("archived", blob)
+        self.assertNotIn("codex", blob)
+        self.assertNotIn("ghost", blob)
+        text = render_attention_text({"generated_at": "t", "window_h": 24, "workspaces": [hermes]})
+        self.assertIn("missing_hermes_async_delegation 3", text)
+        self.assertIn("m-new\tmissing_skill\t2026-10-16T02:00:00Z\tVega Lab\tVega Lab", text)
 
     def test_text_budget(self):
         items = [
