@@ -38,6 +38,8 @@ def skill(**overrides):
         "review_time": None,
         "baseline_ref": None,
         "current_version": None,
+        "customization_mode": "none",
+        "compatibility_constraints": [],
     }
     record.update(overrides)
     return record
@@ -81,8 +83,19 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         required = schema["$defs"]["skill"]["required"]
         module = load_validator()
         self.assertEqual(list(module.SKILL_REQUIRED), required)
-        for field in ("review_time", "baseline_ref", "current_version"):
+        for field in (
+            "review_time",
+            "baseline_ref",
+            "current_version",
+            "customization_mode",
+            "compatibility_constraints",
+        ):
             self.assertIn(field, required)
+        module_modes = set(module.CUSTOMIZATION_MODES)
+        self.assertEqual(set(schema["$defs"]["skill"]["properties"]["customization_mode"]["enum"]), module_modes)
+        constraint = schema["$defs"]["compatibility_constraint"]
+        self.assertEqual(constraint["required"], ["kind", "value"])
+        self.assertEqual(set(constraint["properties"]["kind"]["enum"]), set(module.CONSTRAINT_KINDS))
         for field in ("source_class", "authority", "baseline", "adapters", "status"):
             self.assertIn(field, required)
 
@@ -243,6 +256,10 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
 
     def test_repo_inventory_covers_canonical_skills(self):
         self.assertTrue(INVENTORY.is_file(), "skills-inventory.json is missing")
+        payload = json.loads(INVENTORY.read_text(encoding="utf-8"))
+        for item in payload["skills"]:
+            self.assertEqual(item["customization_mode"], "none", item["name"])
+            self.assertEqual(item["compatibility_constraints"], [], item["name"])
         result = self.run_validator(
             INVENTORY,
             "--check-paths",
@@ -250,7 +267,6 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
             str(REPO),
         )
         self.assertEqual(result.returncode, 0, result.stdout)
-        payload = json.loads(INVENTORY.read_text(encoding="utf-8"))
         recorded = {
             item["authority"]["canonical_path"]
             for item in payload["skills"]
@@ -309,6 +325,43 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
             self.assertTrue(item["baseline"]["subject"])
             self.assertTrue(item["current_version"])
             self.assertIsNone(item["review_time"])
+
+    def test_customization_mode_must_match_local_delta(self):
+        record = skill(local_customization="local_delta", customization_mode="none")
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([record]))
+            result = self.run_validator(inventory)
+        self.assertIn(
+            "skills[0].customization_mode",
+            [item["path"] for item in self.errors_of(result)],
+        )
+
+        excluded = skill(
+            local_customization="none",
+            customization_mode="policy_exclusion",
+            compatibility_constraints=[{"kind": "policy", "value": "do not load under claude"}],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([excluded]))
+            result = self.run_validator(inventory)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_compatibility_constraint_shape(self):
+        record = skill(
+            customization_mode="overlay",
+            local_customization="local_delta",
+            compatibility_constraints=[
+                {"kind": "upstream_version", "value": "github:example/skills@abc"},
+                {"kind": "nope", "value": "x"},
+                "text",
+            ],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([record]))
+            result = self.run_validator(inventory)
+        paths = {item["path"] for item in self.errors_of(result)}
+        self.assertIn("skills[0].compatibility_constraints[1].kind", paths)
+        self.assertIn("skills[0].compatibility_constraints[2]", paths)
 
     def test_plugin_coordinate_requires_subject_and_version(self):
         record = skill(

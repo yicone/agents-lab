@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-16T01:37:08Z",
+  "updated_at": "2026-10-16T03:18:16Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -40,6 +40,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/acns/acns-inbox",
@@ -78,6 +80,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/acns/acns-pdf-summary",
@@ -116,6 +120,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/acns/acns-route-inbox",
@@ -154,6 +160,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/acns/acns-suggest-archive",
@@ -192,6 +200,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/acns/acns-weekly-review",
@@ -219,6 +229,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/agent-browser"
@@ -256,6 +268,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/agent-research",
@@ -290,6 +304,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/archify",
@@ -323,6 +339,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/archify-review",
@@ -350,6 +368,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/brainstorming"
@@ -376,6 +396,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.claude/plugins/cache/nowledge-community/nowledge-mem/0.7.26/skills"
@@ -402,6 +424,8 @@
       "scope": "vendor-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/skills"
@@ -428,6 +452,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-curated/cloudflare/11c74d6b/skills"
@@ -454,6 +480,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-primary-runtime/documents/26.1013.11914/skills"
@@ -480,6 +508,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-curated/figma/11c74d6b/skills"
@@ -506,6 +536,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-curated/github/11c74d6b/skills"
@@ -532,6 +564,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-curated/notion/11c74d6b/skills"
@@ -558,6 +592,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/nowledge-community/nowledge-mem/0.1.40/skills"
@@ -584,6 +620,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-primary-runtime/pdf/26.1013.11914/skills"
@@ -610,6 +648,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-primary-runtime/presentations/26.1013.11914/skills"
@@ -636,6 +676,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-bundled/record-and-replay/1.0.1001425/skills"
@@ -662,6 +704,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-primary-runtime/spreadsheets/26.1013.11914/skills"
@@ -688,6 +732,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-primary-runtime/template-creator/26.1013.11914/skills"
@@ -714,6 +760,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-bundled/visualize/1.0.49/skills"
@@ -751,6 +799,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/computer-use",
@@ -779,6 +829,8 @@
       "scope": "vendor-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.cursor/skills-cursor"
@@ -805,6 +857,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.cursor/plugins/cache/cursor-public/notion-workspace/cf1324609edba6d617164f1dec138aeb43f26735/skills"
@@ -831,6 +885,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.cursor/plugins/cache/understand-anything/understand-anything/54754a6f97051d1d76c8758353d8ea41afe502a6/skills"
@@ -857,6 +913,8 @@
       "scope": "plugin-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.cursor/plugins/cache/cursor-public/x/850d7f2e9f5e55dff7eb00a0a479337fe79eb22f/skills"
@@ -894,6 +952,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/devin-pr-review-thread",
@@ -922,6 +982,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/distill-memory"
@@ -948,6 +1010,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/doc"
@@ -1000,6 +1064,8 @@
       "scope": "app-bundled",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.local/share/ego/ego-skills",
@@ -1031,6 +1097,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/external-qa-triage"
@@ -1068,6 +1136,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/firecrawl-developer-index",
@@ -1096,6 +1166,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/gh-fix-ci"
@@ -1122,6 +1194,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/google-cloud-recipe-auth"
@@ -1148,6 +1222,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/google-cloud-recipe-onboarding"
@@ -1174,6 +1250,8 @@
       "scope": "vendor-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.hermes/skills"
@@ -1206,6 +1284,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/logseq-acns-vault",
@@ -1239,6 +1319,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/logseq-acns-write",
@@ -1272,6 +1354,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/logseq-http-transport",
@@ -1305,6 +1389,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/notion-reading-helper",
@@ -1338,6 +1424,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/orca-cli",
@@ -1376,6 +1464,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/orchestration",
@@ -1404,6 +1494,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/performance-lighthouse-runner"
@@ -1430,6 +1522,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/playwright"
@@ -1456,6 +1550,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/pr-review-fix"
@@ -1482,6 +1578,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/read-working-memory"
@@ -1508,6 +1606,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/save-handoff"
@@ -1534,6 +1634,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/save-thread"
@@ -1560,6 +1662,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/screenshot"
@@ -1586,6 +1690,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/search-memory"
@@ -1612,6 +1718,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/skill-creator"
@@ -1638,6 +1746,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/skill-installer"
@@ -1675,6 +1785,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-cli-reconcile",
@@ -1714,6 +1826,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-governance-audit",
@@ -1753,6 +1867,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-intake-local",
@@ -1792,6 +1908,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-lifecycle-manager",
@@ -1831,6 +1949,8 @@
       "scope": "repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills-governance/skills/skills-promote-global",
@@ -1859,6 +1979,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/ui-ux-pro-max"
@@ -1891,6 +2013,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand",
@@ -1924,6 +2048,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-chat",
@@ -1957,6 +2083,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-dashboard",
@@ -1990,6 +2118,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-diff",
@@ -2023,6 +2153,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-domain",
@@ -2056,6 +2188,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-explain",
@@ -2089,6 +2223,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-figma",
@@ -2122,6 +2258,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-knowledge",
@@ -2155,6 +2293,8 @@
       "scope": "machine",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/understand-onboard",
@@ -2182,6 +2322,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/using-git-worktrees"
@@ -2208,6 +2350,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/using-superpowers"
@@ -2234,6 +2378,8 @@
       "scope": "repo",
       "install_shape": "canonical_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/vaultwarden-secret-migration"
@@ -2260,6 +2406,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/wechatide-skill"
@@ -2286,6 +2434,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/weread-skills"
@@ -2328,6 +2478,8 @@
       "scope": "cross-repo",
       "install_shape": "symlink_adapters",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "skills/worktree-branch-governance-audit",
@@ -2357,6 +2509,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/writing-child-presentations"
@@ -2383,6 +2537,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/writing-plans"
@@ -2409,6 +2565,8 @@
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/writing-skills"

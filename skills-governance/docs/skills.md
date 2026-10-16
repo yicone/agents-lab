@@ -33,7 +33,7 @@ Before changing a non-local Skill, capture the current version or content baseli
 - changed dependencies and adapter paths
 - behavior overlap with another visible Skill
 
-Do not edit a third-party or runtime-provided Skill in place and then call it upstream-managed. Record the local delta explicitly and choose one of the supported future models: wrapper, overlay, fork, policy exclusion, or local replacement. The concrete automation for snapshots, diffs, and rollback is tracked in [../backlog.md](../backlog.md).
+Do not edit a third-party or runtime-provided Skill in place and then call it upstream-managed. Record the local delta explicitly and choose one of the supported future models: wrapper, overlay, fork, policy exclusion, or local replacement. The inventory stores that choice as `customization_mode` and any limits as `compatibility_constraints`. The concrete automation for snapshots, diffs, and rollback is tracked in [../backlog.md](../backlog.md).
 
 ## Scope And Generalization
 

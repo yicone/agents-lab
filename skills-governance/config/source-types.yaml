@@ -11,6 +11,8 @@ schema_version: 1
 #   visible_paths -> visible_paths
 #   current_install_shape -> install_shape
 #   local_customization -> local_customization
+#   customization_mode -> customization_mode
+#   compatibility_constraints -> compatibility_constraints
 #   baseline_reference -> baseline_ref
 #   conflict_status -> conflict_status
 #   last_reviewed -> review_time
@@ -75,6 +77,8 @@ required_record_fields:
   - visible_paths
   - current_install_shape
   - local_customization
+  - customization_mode
+  - compatibility_constraints
   - baseline_reference
   - conflict_status
   - last_reviewed

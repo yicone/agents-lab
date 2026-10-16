@@ -46,7 +46,9 @@
         "status",
         "review_time",
         "baseline_ref",
-        "current_version"
+        "current_version",
+        "customization_mode",
+        "compatibility_constraints"
       ],
       "properties": {
         "name": {
@@ -88,6 +90,23 @@
         "local_customization": {
           "enum": ["none", "local_delta", "unknown"]
         },
+        "customization_mode": {
+          "description": "ACM-134. Which supported customization applies. none and policy_exclusion are not content deltas. wrapper, overlay, fork, and local_replacement require local_customization local_delta. unknown matches an unresolved local delta. ACM-131 owns the decision workflow; this field only records the result.",
+          "enum": [
+            "none",
+            "wrapper",
+            "overlay",
+            "fork",
+            "policy_exclusion",
+            "local_replacement",
+            "unknown"
+          ]
+        },
+        "compatibility_constraints": {
+          "description": "ACM-134. Limits an install or customization must keep. Empty when none are recorded. A policy_exclusion should record its exclusion as a policy item. A content customization may also pin the upstream version, runtime, or adapter it was reviewed against.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/compatibility_constraint" }
+        },
         "conflict_status": {
           "enum": ["none", "open", "unreviewed", "unknown"]
         },
@@ -124,6 +143,21 @@
           "type": "string",
           "minLength": 1,
           "description": "What baseline_ref points at. content_hash records use SKILL.md. Skills CLI upstream_ref records use the lock skillPath. Runtime and plugin records use the version file path."
+        }
+      }
+    },
+    "compatibility_constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {
+          "enum": ["upstream_version", "runtime", "adapter", "policy", "unknown"]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "upstream_version uses a baseline_ref-style coordinate. runtime names a provider such as cursor, codex, claude, or hermes. adapter names a path or adapter kind. policy is a short must-not or exclusion statement. unknown is unresolved constraint text."
         }
       }
     },
