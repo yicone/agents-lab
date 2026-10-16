@@ -25,6 +25,7 @@ The rules here should stay tool-agnostic by default so they remain usable across
 - Skills governance release checklist: [../skills-governance/docs/release-checklist.md](../skills-governance/docs/release-checklist.md)
 - Skills governance case prompt: [../skills-governance/docs/case-prompt.md](../skills-governance/docs/case-prompt.md)
 - Multi-repo AGENTS.md governance research: [research/agents-md-multi-repo-governance.md](research/agents-md-multi-repo-governance.md)
+- CLI-Anything adaptation design and accepted decisions: [research/cli-anything-agent-native-cli-design.md](research/cli-anything-agent-native-cli-design.md)
 - Devin PR review thread evolution: [research/devin-pr-review-thread-timeline.md](research/devin-pr-review-thread-timeline.md)
 - Devin Desktop session ↔ workspace archive: [research/devin-session-workspace/README.md](research/devin-session-workspace/README.md)
 - Logseq vault skill inventory stub: [../skills-governance/docs/logseq-vault-skill-inventory.md](../skills-governance/docs/logseq-vault-skill-inventory.md)
