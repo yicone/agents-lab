@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-16T03:50:00Z",
+  "updated_at": "2026-10-16T08:05:41Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -765,6 +765,53 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/plugins/cache/openai-bundled/visualize/1.0.49/skills"
+      ]
+    },
+    {
+      "name": "colgrep-search",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/colgrep-search"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/colgrep-search",
+          "kind": "symlink",
+          "target": "../../skills/colgrep-search"
+        },
+        {
+          "path": ".codex/skills/colgrep-search",
+          "kind": "symlink",
+          "target": "../../skills/colgrep-search"
+        },
+        {
+          "path": "~/.agents/skills/colgrep-search",
+          "kind": "symlink",
+          "target": "/Users/tr/multica_workspaces_desktop-api.multica.ai/acm-lab-24a04e64d3f5/acm-180-d8f3c9cd8886/workdir/agents-lab/skills/colgrep-search"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "sha256:b94f47dd723e4e70df822dd4c2b70f8b2ea80e5ba6bd63b62234edea24fd2739",
+      "current_version": "1.0.0",
+      "scope": "cross-repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/colgrep-search",
+        ".agents/skills/colgrep-search",
+        ".codex/skills/colgrep-search",
+        "~/.agents/skills/colgrep-search"
       ]
     },
     {

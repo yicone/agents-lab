@@ -4,6 +4,7 @@ Notes that do not belong in a new inventory field.
 
 ## 2026-10-16
 
+- Added local skill `colgrep-search` (`skills/colgrep-search`, version `1.0.0`). It teaches plain `colgrep` / `colgrep -c` search and forbids `--agent`. Repo adapters are `.agents/skills/colgrep-search` and `.codex/skills/colgrep-search`. The machine adapter `~/.agents/skills/colgrep-search` points at this task checkout until the branch is merged into `~/Workspace/agents-lab`.
 - Installed `wechatide-skill` moved from `0.3.11` to `0.3.14` while this registry was open. `baseline_ref` now matches that `SKILL.md`, and `current_version` is `0.3.14`. `review_time` stays null.
 - `cursor-plugin-x` no longer stores the Cursor plugin cache hash. `visible_paths` is `~/.cursor/plugins/cache/cursor-public/x/*/skills` and `baseline.subject` is `~/.cursor/plugins/cache/cursor-public/x/*/.cursor-plugin/plugin.json`. The previous hash directory is gone after a plugin update. `validate_skills_inventory.py --check-paths` and the drift report resolve the `*` segment to the current hash directory.
 - `skill_guard` diff and activate use SkilLock (`skil-lock`) as the capability-drift gate when the binary is on PATH (ACM-128). The report field `capability_gate.backend` is `skil-lock`. When the binary is absent, or `--skil-lock fallback` is set, `backend` is `fallback`, `fallback` is `skill_guard risk signals`, and `reason` says why. A binary that fails to run blocks activation (`capability_gate_error`).
