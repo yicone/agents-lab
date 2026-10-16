@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   agent_id TEXT, runtime_id TEXT, issue_id TEXT, kind TEXT, status TEXT,
   attempt INTEGER, max_attempts INTEGER,
   created_at TEXT, dispatched_at TEXT, started_at TEXT, completed_at TEXT,
-  error_summary TEXT, error_kind TEXT,
+  error_summary TEXT, error_kind TEXT, failure_reason TEXT,
   PRIMARY KEY (server, workspace_id, id)
 );
 CREATE INDEX IF NOT EXISTS tasks_issue ON tasks (server, workspace_id, issue_id, created_at);

@@ -1,4 +1,4 @@
-"""Entry point: `python -m multica_board {workspaces,collect,serve}`."""
+"""Entry point: `python -m multica_board {workspaces,collect,collect-usage,serve}`."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from .collector import COLLECTOR, CollectOptions, Collector, iso, utcnow
 from .redact import redact
 from .server import BoardServer
 from .store import Store
+from .usage import DEFAULT_CODEXBAR, HISTORY_RETENTION_DAYS, UsageCollector, paths_beside
 from .views import Views
 
 DEFAULT_PROFILE = "desktop-api.multica.ai"
@@ -89,6 +90,30 @@ def cmd_collect(a: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 2
 
 
+def cmd_collect_usage(a: argparse.Namespace) -> int:
+    store = _open_store(a.db)
+    try:
+        snapshot, history = paths_beside(a.db)
+        result = UsageCollector(
+            _runner(a),
+            store,
+            a.profile,
+            _opts(a, full=False),
+            codexbar_bin=a.codexbar_bin,
+            usage_days=a.usage_days,
+            snapshot_path=snapshot,
+            history_path=history,
+            history_days=a.history_days,
+        ).collect()
+    except Exception as exc:
+        print(f"error: {redact(str(exc))}", file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_serve(a: argparse.Namespace) -> int:
     store = _open_store(a.db)
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh)
@@ -146,6 +171,13 @@ def main(argv: list[str] | None = None) -> int:
     _collect_args(c)
     c.add_argument("--full", action="store_true", help="page through the full run window, ignoring the incremental stop")
 
+    u = sub.add_parser("collect-usage", help="write the CodexBar + Multica usage snapshot (does not install launchd)")
+    _common(u)
+    _collect_args(u)
+    u.add_argument("--usage-days", type=int, default=14, help="Multica runtime usage window in days (default 14)")
+    u.add_argument("--codexbar-bin", default=DEFAULT_CODEXBAR, help=f"codexbar binary (default {DEFAULT_CODEXBAR})")
+    u.add_argument("--history-days", type=int, default=HISTORY_RETENTION_DAYS, help="usage history retention in days (default 90)")
+
     s = sub.add_parser("serve", help="serve the read-only API on loopback and refresh in the background")
     _common(s)
     _collect_args(s)
@@ -163,7 +195,12 @@ def main(argv: list[str] | None = None) -> int:
         stream=sys.stderr,
     )
     try:
-        return {"workspaces": cmd_workspaces, "collect": cmd_collect, "serve": cmd_serve}[a.cmd](a)
+        return {
+            "workspaces": cmd_workspaces,
+            "collect": cmd_collect,
+            "collect-usage": cmd_collect_usage,
+            "serve": cmd_serve,
+        }[a.cmd](a)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
