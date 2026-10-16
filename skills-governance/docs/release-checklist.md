@@ -30,6 +30,7 @@ Applies to:
 - The governance index gives a short routing rule
 - The package README identifies source authority separately from runtime visibility
 - The audit skill stays read-only and routes findings instead of mutating layouts
+- `conflict_report.py` stays read-only and reports name collision separately from responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity
 - The principle page defines stable rules only
 - The state page carries current status only
 - Source class and update authority are explicit for every reviewed Skill

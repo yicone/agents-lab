@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-16T08:05:41Z",
+  "updated_at": "2026-10-16T17:35:00Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -42,7 +42,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills/acns/acns-inbox",
         "~/.agents/skills/acns-inbox"
@@ -122,7 +122,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills/acns/acns-route-inbox",
         "~/.agents/skills/acns-route-inbox"
@@ -231,7 +231,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/agent-browser"
       ]
@@ -848,7 +848,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/computer-use",
         "~/.claude/skills/computer-use",
@@ -1001,7 +1001,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills/devin-pr-review-thread",
         ".agents/skills/devin-pr-review-thread",
@@ -1113,7 +1113,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.local/share/ego/ego-skills",
         "~/.agents/skills/ego-browser",
@@ -1333,7 +1333,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills/logseq-acns-vault",
         "~/.agents/skills/logseq-acns-vault"
@@ -1368,7 +1368,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills/logseq-acns-write",
         "~/.agents/skills/logseq-acns-write"
@@ -1473,7 +1473,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/orca-cli",
         "~/.hermes/skills/orca-cli"
@@ -1513,7 +1513,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/orchestration",
         "~/.claude/skills/orchestration",
@@ -1599,7 +1599,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/pr-review-fix"
       ]
@@ -1868,7 +1868,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "sha256:8f2abed853d43999b46245b56a558286c2a230e6a57c7a23bb79558a88ae062c",
+      "baseline_ref": "sha256:9f2943f86afcb62ee15911059edd4e8a1104179229123ec04bac12af3789d1ce",
       "current_version": null,
       "scope": "repo",
       "install_shape": "symlink_adapters",
@@ -1916,7 +1916,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills-governance/skills/skills-intake-local",
         ".agents/skills/skills-intake-local",
@@ -1998,7 +1998,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "skills-governance/skills/skills-promote-global",
         ".agents/skills/skills-promote-global",
@@ -2062,7 +2062,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/understand",
         "~/.hermes/skills/understand"
@@ -2307,7 +2307,7 @@
       "local_customization": "none",
       "customization_mode": "none",
       "compatibility_constraints": [],
-      "conflict_status": "unreviewed",
+      "conflict_status": "open",
       "visible_paths": [
         "~/.agents/skills/understand-knowledge",
         "~/.hermes/skills/understand-knowledge"

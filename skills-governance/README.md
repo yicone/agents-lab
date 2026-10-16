@@ -16,7 +16,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `skills/`: governance-specific agent entrypoints
 - `docs/`: durable governance rules, operating guides, and state-note conventions
 - `config/`: source classes and the machine-readable skills inventory (`skills-inventory.json`)
-- `scripts/`: inventory validation, the read-only drift report, plus snapshot, stage, diff, gate, activate, and rollback commands
+- `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, plus snapshot, stage, diff, gate, activate, and rollback commands
 - `tests/`: focused tests for the safety commands
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 
@@ -28,7 +28,7 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 2. Record the source authority and current install shape.
 3. Capture a baseline, then place the candidate in staging instead of the live runtime path.
 4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes. The gate calls SkilLock for capability drift when `skil-lock` is on PATH, and records a risk-signal fallback when it is not.
-5. Check for responsibility overlap and behavior conflicts.
+5. Check conflicts with `python3 skills-governance/scripts/conflict_report.py --format text`. The report separates name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity. It does not select which skill runs.
 6. Decide whether to update, customize, fork, quarantine, or keep the current version.
 7. Update `config/skills-inventory.json` and the Multica backlog (ACM-122). Project the Logseq status page from that file when a human view is needed. Do not mistake runtime visibility for canonical ownership.
 

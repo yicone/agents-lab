@@ -67,4 +67,5 @@ Follow-up:
 
 - audit remains read-only
 - responsibility overlap is treated as a first-class conflict type
+- trigger ambiguity stays a separate conflict type when `Use when` clauses overlap
 - mixed naming families are not treated as wrong by default
