@@ -292,3 +292,41 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         self.assertEqual(by_name["writing-plans"]["current_version"], "cc97fa00eb2ccd4f283e34eb2ba06a48e1e679f7")
         self.assertEqual(by_name["doc"]["baseline_ref"], "github:openai/skills")
         self.assertNotEqual(by_name["doc"]["baseline"]["subject"], by_name["playwright"]["baseline"]["subject"])
+        by_all = {item["name"]: item for item in payload["skills"]}
+        self.assertEqual(by_all["cursor-builtin-skills"]["baseline_ref"], "runtime:cursor")
+        self.assertEqual(by_all["cursor-builtin-skills"]["current_version"], "3.22.12")
+        self.assertEqual(by_all["codex-builtin-skills"]["baseline_ref"], "runtime:codex")
+        self.assertEqual(by_all["codex-builtin-skills"]["current_version"], "0.162.1")
+        self.assertEqual(by_all["hermes-builtin-skills"]["baseline_ref"], "runtime:hermes")
+        self.assertEqual(by_all["hermes-builtin-skills"]["current_version"], "0.21.5+3b4a891174")
+        plugins = [item for item in payload["skills"] if item["source_class"] == "runtime_plugin"]
+        self.assertEqual(len(plugins), 16)
+        for item in plugins:
+            self.assertEqual(item["scope"], "plugin-managed")
+            self.assertEqual(item["baseline"]["kind"], "upstream_ref")
+            self.assertTrue(item["baseline_ref"].startswith("plugin:"), item["name"])
+            self.assertRegex(item["baseline_ref"], r"^plugin:(codex|cursor|claude)/.+@.+$", item["name"])
+            self.assertTrue(item["baseline"]["subject"])
+            self.assertTrue(item["current_version"])
+            self.assertIsNone(item["review_time"])
+
+    def test_plugin_coordinate_requires_subject_and_version(self):
+        record = skill(
+            name="codex-plugin-figma",
+            source_class="runtime_plugin",
+            baseline={"kind": "upstream_ref"},
+            baseline_ref="plugin:figma@openai-curated",
+            current_version=None,
+        )
+        record["authority"] = {
+            "ownership": "plugin_provider",
+            "source_authority": "enabled_plugin",
+            "update_authority": "plugin_upgrade",
+            "canonical_path": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([record]))
+            result = self.run_validator(inventory)
+        paths = {item["path"] for item in self.errors_of(result)}
+        self.assertIn("skills[0].baseline.subject", paths)
+        self.assertIn("skills[0].current_version", paths)

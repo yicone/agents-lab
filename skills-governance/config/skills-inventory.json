@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-16T01:05:06Z",
+  "updated_at": "2026-10-16T01:37:08Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -356,6 +356,32 @@
       ]
     },
     {
+      "name": "claude-plugin-nowledge-mem",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.claude/plugins/cache/nowledge-community/nowledge-mem/0.7.26/.claude-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:claude/nowledge-mem@nowledge-community",
+      "current_version": "0.7.26",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.claude/plugins/cache/nowledge-community/nowledge-mem/0.7.26/skills"
+      ]
+    },
+    {
       "name": "codex-builtin-skills",
       "source_class": "runtime_builtin",
       "authority": {
@@ -365,19 +391,332 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "none"
+        "kind": "upstream_ref",
+        "subject": "~/.codex/packages/standalone/current/codex-package.json"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": null,
-      "current_version": null,
+      "baseline_ref": "runtime:codex",
+      "current_version": "0.162.1",
       "scope": "vendor-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.codex/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-cloudflare",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-curated/cloudflare/11c74d6b/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/cloudflare@openai-curated",
+      "current_version": "0.1.2",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-curated/cloudflare/11c74d6b/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-documents",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-primary-runtime/documents/26.1013.11914/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/documents@openai-primary-runtime",
+      "current_version": "26.1013.11914",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-primary-runtime/documents/26.1013.11914/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-figma",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-curated/figma/11c74d6b/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/figma@openai-curated",
+      "current_version": "2.0.13",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-curated/figma/11c74d6b/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-github",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-curated/github/11c74d6b/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/github@openai-curated",
+      "current_version": "0.1.6",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-curated/github/11c74d6b/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-notion",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-curated/notion/11c74d6b/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/notion@openai-curated",
+      "current_version": "0.1.5",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-curated/notion/11c74d6b/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-nowledge-mem",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/nowledge-community/nowledge-mem/0.1.40/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/nowledge-mem@nowledge-community",
+      "current_version": "0.1.40",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/nowledge-community/nowledge-mem/0.1.40/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-pdf",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-primary-runtime/pdf/26.1013.11914/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/pdf@openai-primary-runtime",
+      "current_version": "26.1013.11914",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-primary-runtime/pdf/26.1013.11914/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-presentations",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-primary-runtime/presentations/26.1013.11914/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/presentations@openai-primary-runtime",
+      "current_version": "26.1013.11914",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-primary-runtime/presentations/26.1013.11914/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-record-and-replay",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-bundled/record-and-replay/1.0.1001425/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/record-and-replay@openai-bundled",
+      "current_version": "1.0.1001425",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-bundled/record-and-replay/1.0.1001425/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-spreadsheets",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-primary-runtime/spreadsheets/26.1013.11914/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/spreadsheets@openai-primary-runtime",
+      "current_version": "26.1013.11914",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-primary-runtime/spreadsheets/26.1013.11914/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-template-creator",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-primary-runtime/template-creator/26.1013.11914/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/template-creator@openai-primary-runtime",
+      "current_version": "26.1013.11914",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-primary-runtime/template-creator/26.1013.11914/skills"
+      ]
+    },
+    {
+      "name": "codex-plugin-visualize",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.codex/plugins/cache/openai-bundled/visualize/1.0.49/.codex-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:codex/visualize@openai-bundled",
+      "current_version": "1.0.49",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.codex/plugins/cache/openai-bundled/visualize/1.0.49/skills"
       ]
     },
     {
@@ -429,19 +768,98 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "none"
+        "kind": "upstream_ref",
+        "subject": "/Applications/Cursor.app/Contents/Info.plist"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": null,
-      "current_version": null,
+      "baseline_ref": "runtime:cursor",
+      "current_version": "3.22.12",
       "scope": "vendor-managed",
       "install_shape": "real_directory",
       "local_customization": "none",
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.cursor/skills-cursor"
+      ]
+    },
+    {
+      "name": "cursor-plugin-notion-workspace",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.cursor/plugins/cache/cursor-public/notion-workspace/cf1324609edba6d617164f1dec138aeb43f26735/.cursor-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:cursor/notion-workspace@cursor-public",
+      "current_version": "0.1.0",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.cursor/plugins/cache/cursor-public/notion-workspace/cf1324609edba6d617164f1dec138aeb43f26735/skills"
+      ]
+    },
+    {
+      "name": "cursor-plugin-understand-anything",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.cursor/plugins/cache/understand-anything/understand-anything/54754a6f97051d1d76c8758353d8ea41afe502a6/.claude-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:cursor/understand-anything@understand-anything",
+      "current_version": "2.8.1",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.cursor/plugins/cache/understand-anything/understand-anything/54754a6f97051d1d76c8758353d8ea41afe502a6/skills"
+      ]
+    },
+    {
+      "name": "cursor-plugin-x",
+      "source_class": "runtime_plugin",
+      "authority": {
+        "ownership": "plugin_provider",
+        "source_authority": "enabled_plugin",
+        "update_authority": "plugin_upgrade",
+        "canonical_path": null
+      },
+      "baseline": {
+        "kind": "upstream_ref",
+        "subject": "~/.cursor/plugins/cache/cursor-public/x/850d7f2e9f5e55dff7eb00a0a479337fe79eb22f/.cursor-plugin/plugin.json"
+      },
+      "adapters": [],
+      "status": "active",
+      "review_time": null,
+      "baseline_ref": "plugin:cursor/x@cursor-public",
+      "current_version": "2.6.6",
+      "scope": "plugin-managed",
+      "install_shape": "real_directory",
+      "local_customization": "none",
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "~/.cursor/plugins/cache/cursor-public/x/850d7f2e9f5e55dff7eb00a0a479337fe79eb22f/skills"
       ]
     },
     {
@@ -745,13 +1163,14 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "none"
+        "kind": "upstream_ref",
+        "subject": "~/.hermes/hermes-agent/install-stamp.json"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": null,
-      "current_version": null,
+      "baseline_ref": "runtime:hermes",
+      "current_version": "0.21.5+3b4a891174",
       "scope": "vendor-managed",
       "install_shape": "real_directory",
       "local_customization": "none",

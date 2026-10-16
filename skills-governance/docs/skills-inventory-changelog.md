@@ -4,6 +4,11 @@ Notes that do not belong in a new inventory field.
 
 ## 2026-10-16
 
+- Runtime bundles and enabled plugins that ship skills now have provider/version coordinates. A vendor bundle stays one summary record. `baseline_ref` is `runtime:<provider>` or `plugin:<host>/<id>`, `baseline.subject` is the version file, and `current_version` is the version read from that file. `review_time` stays null. The host is part of the plugin coordinate because Codex and Claude can enable the same plugin id at different versions.
+- `cursor-builtin-skills` is `runtime:cursor` at Cursor `CFBundleShortVersionString`. `codex-builtin-skills` is `runtime:codex` from `~/.codex/packages/standalone/current/codex-package.json`. `hermes-builtin-skills` is `runtime:hermes` from `install-stamp.json` as `baseVersion+commit[:10]`, not `displayVersion`.
+- Enabled Codex plugins are the `enabled = true` tables in `~/.codex/config.toml`. Cursor plugins are the installed cache under `~/.cursor/plugins/cache`, not marketplace clones. Claude plugins are `~/.claude/plugins/installed_plugins.json`. Each plugin with at least one `SKILL.md` is one `runtime_plugin` summary. Plugins with no skills are scanned and not given a row: Codex `chrome`, `computer-use`, `browser`, `codex-app-tools`, `unified-computer-use`, `code-review`; Cursor `github`; Hermes `homeassistant` (no `SKILL.md`).
+- Plugin rows do not replace Skills CLI rows. `understand-*` and Nowledge Mem skills installed under `~/.agents/skills` stay `skills_cli_managed`.
+
 - Skills CLI rows in the inventory now follow the lock at `~/.agents/.skill-lock.json`. `baseline_ref` is `github:<source>`, `baseline.subject` is `skillPath`, and `current_version` is `skillFolderHash`. The lock file was not modified. `review_time` stays null until a content review. The drift report treats a `SKILL.md` subject that differs from `skillPath` as unverified.
 - `agent-browser` has an empty lock `skillFolderHash`, so `current_version` stays null. Its upstream coordinate is `github:vercel-labs/agent-browser` and its path is `skills/agent-browser/SKILL.md`.
 - `writing-plans` lock hash moved from `be89d032af0d3621f689e8bd6083e4010971e5fa` to `cc97fa00eb2ccd4f283e34eb2ba06a48e1e679f7` (`updatedAt` 2026-10-15T08:15:44.460Z). The inventory now records the lock hash. The other 35 CLI hashes were already equal to the lock and were kept.

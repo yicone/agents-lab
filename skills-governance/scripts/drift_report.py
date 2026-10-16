@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Read-only source and version drift report for the skills inventory.
 
-Compares each inventory record with the path, SKILL.md, or Skills CLI lock
-entry it already names. Uses review_time, baseline_ref, and current_version.
+Compares each inventory record with the path, SKILL.md, Skills CLI lock
+entry, or provider version file it already names. Uses review_time,
+baseline_ref, and current_version. Runtime bundles use runtime:<provider>.
+Enabled plugins use plugin:<host>/<id>.
 Does not modify skills, inventory, or lock files. A shared skill name is only
 an index; it is not provenance.
 """
@@ -11,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import plistlib
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,6 +47,7 @@ UNVERIFIED = frozenset(
         "lock_source_mismatch",
         "lock_path_mismatch",
         "lock_hash_empty",
+        "provider_version_unreadable",
     }
 )
 STATUSES = ("missing", "modified", "stale", "unverified", "aligned")
@@ -208,6 +212,77 @@ def consider_content(
     return observed_version, observed_baseline
 
 
+def provider_coordinate(baseline_ref: object) -> str | None:
+    if not isinstance(baseline_ref, str):
+        return None
+    for prefix in ("runtime:", "plugin:"):
+        if baseline_ref.startswith(prefix) and baseline_ref[len(prefix) :].strip():
+            return prefix[:-1]
+    return None
+
+
+def read_provider_version(path: Path) -> str | None:
+    """Read a provider version from a plugin manifest, runtime package, stamp, or app plist."""
+    if not path.is_file():
+        return None
+    if path.suffix == ".plist":
+        try:
+            data = plistlib.loads(path.read_bytes())
+        except (OSError, plistlib.InvalidFileException, ValueError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        value = data.get("CFBundleShortVersionString")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    base = data.get("baseVersion")
+    commit = data.get("commit")
+    if isinstance(base, str) and base.strip() and isinstance(commit, str) and len(commit) >= 10:
+        return f"{base.strip()}+{commit[:10]}"
+    version = data.get("version")
+    if isinstance(version, str) and version.strip():
+        return version.strip()
+    return None
+
+
+def consider_provider(
+    skill: dict,
+    repo_root: Path,
+    findings: set[str],
+    details: list[str],
+) -> tuple[str | None, str | None]:
+    baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
+    subject = baseline.get("subject")
+    primary = first_visible(skill, repo_root)
+    if primary is not None and not path_present(primary):
+        findings.add("source_missing")
+    if not isinstance(subject, str) or not subject.strip():
+        findings.add("baseline_absent")
+        return None, None
+    version_file = inventory.locate_path(subject, repo_root)
+    if not version_file.is_file():
+        findings.add("source_missing")
+        details.append(f"provider version file missing: {subject}")
+        return None, None
+    observed = read_provider_version(version_file)
+    if observed is None:
+        findings.add("provider_version_unreadable")
+        details.append(f"provider version unreadable: {subject}")
+        return None, skill.get("baseline_ref")
+    current = skill.get("current_version")
+    note_version(current, observed, findings)
+    if "version_mismatch" in findings:
+        details.append(f"provider version {observed} != current_version {current}")
+    return observed, skill.get("baseline_ref")
+
+
 def upstream_source(baseline_ref: object) -> tuple[str | None, str | None]:
     if not isinstance(baseline_ref, str) or not baseline_ref.strip():
         return None, None
@@ -319,6 +394,7 @@ def reconcile_skill(skill: dict, repo_root: Path, lock_skills: dict) -> dict:
     observed_version = None
     observed_baseline = None
     lock_updated = None
+    provider = provider_coordinate(skill.get("baseline_ref")) if kind == "upstream_ref" else None
     if kind == "none" or skill.get("baseline_ref") is None and kind != "content_hash":
         findings.add("baseline_absent")
         primary = first_visible(skill, repo_root)
@@ -326,6 +402,9 @@ def reconcile_skill(skill: dict, repo_root: Path, lock_skills: dict) -> dict:
             findings.add("source_missing")
     elif kind == "content_hash":
         observed_version, observed_baseline = consider_content(skill, repo_root, findings, details)
+        consider_links(skill, repo_root, findings)
+    elif provider:
+        observed_version, observed_baseline = consider_provider(skill, repo_root, findings, details)
         consider_links(skill, repo_root, findings)
     elif kind in {"git_commit", "upstream_ref"}:
         observed_version, observed_baseline, lock_updated = consider_lock(
@@ -355,11 +434,10 @@ def reconcile_skill(skill: dict, repo_root: Path, lock_skills: dict) -> dict:
 
 
 def is_bundle(skill: dict) -> bool:
-    baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
-    return (
-        skill.get("source_class") == "runtime_builtin"
-        and skill.get("scope") == "vendor-managed"
-        and baseline.get("kind") == "none"
+    source = skill.get("source_class")
+    scope = skill.get("scope")
+    return (source == "runtime_builtin" and scope == "vendor-managed") or (
+        source == "runtime_plugin" and scope == "plugin-managed"
     )
 
 
