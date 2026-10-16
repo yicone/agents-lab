@@ -18,6 +18,7 @@ schema_version: 1
 #   last_reviewed -> review_time
 #
 # Drift reports read review_time, baseline_ref, and current_version.
+# Conflict reports read SKILL.md claims. They do not write conflict_status.
 
 # Source authority is separate from where an agent happens to discover a Skill.
 source_classes:

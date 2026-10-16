@@ -76,14 +76,14 @@ Always report:
 - `state_update_suggestions`
 - `followups`
 
-Suggested conflict types:
+Suggested conflict types, matching `skills-governance/scripts/conflict_report.py`:
 
 - `name_collision`
-- `scope_collision`
-- `behavior_overlap`
-- `dependency_conflict`
-- `path_conflict`
 - `responsibility_overlap`
+- `behavior_divergence`
+- `scope_shadowing`
+- `dependency_conflict`
+- `trigger_ambiguity`
 
 Suggested naming findings:
 
@@ -172,19 +172,24 @@ If no baseline can be captured, report `unverified` rather than implying that th
 
 ### 5. Detect Conflict Signals
 
-Look for conflicts such as:
+Run the read-only report before classifying by hand:
 
-- two skills competing for the same name
-- one global skill shadowing a narrower-scoped local skill
-- two skills appearing to solve the same user need with different rules
-- one runtime-facing path acting as source while another canonical source also exists
-- two closely related skills whose trigger boundaries are too ambiguous
+```bash
+python3 skills-governance/scripts/conflict_report.py --format text
+```
 
-When trigger ambiguity is the main issue, classify it as:
+The command does not write `conflict_status` and does not select which skill runs. Use its type names as the finding types:
 
-- `responsibility_overlap`
+- `name_collision`: one skill name, two different `SKILL.md` hashes
+- `responsibility_overlap`: two skills claim the same responsibility phrase
+- `behavior_divergence`: related skills disagree, or the same name has different content
+- `scope_shadowing`: a broader scope installs a different copy under the same directory name
+- `dependency_conflict`: a skill depends on a missing, retired, quarantined, or cyclic skill, or pins two versions
+- `trigger_ambiguity`: two `Use when` clauses can match the same request
 
-Use this especially when an agent may reasonably hesitate between two skills because each appears eligible for the same request.
+Keep `trigger_ambiguity` as its own type. Do not fold it into `responsibility_overlap`.
+
+A phrase claimed by three or more skills is a family marker. The report does not emit a pair for that phrase alone. An explicit handoff that names the other skill is `boundary_stated`; it is not behavior divergence.
 
 ### 6. Check Naming Taxonomy
 
@@ -275,7 +280,8 @@ Third-Party Skills:
 Unknown Skills:
 - <skill>
 Conflict Findings:
-- Type: <responsibility_overlap / ...>
+- Command: `python3 skills-governance/scripts/conflict_report.py --format text`
+- Type: <name_collision / responsibility_overlap / behavior_divergence / scope_shadowing / dependency_conflict / trigger_ambiguity>
   Skills: <skill-a>, <skill-b>
   Why It Matters: <...>
   Recommended Winner Or Boundary: <...>

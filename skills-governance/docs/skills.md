@@ -44,7 +44,7 @@ Do not edit a third-party or runtime-provided Skill in place and then call it up
 
 ## Routing
 
-- Need to understand what is installed, who owns it, or what conflicts: `skills-governance-audit`
+- Need to understand what is installed, who owns it, or what conflicts: `skills-governance-audit`, then `python3 skills-governance/scripts/conflict_report.py --format text`
 - Need to choose reuse, install, fork, or build: `skills-lifecycle-manager`
 - Need to restore a confirmed third-party Skill to Skills CLI: `skills-cli-reconcile`
 - Need to bring a self-authored Skill into canonical Git: `skills-intake-local`
