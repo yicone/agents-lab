@@ -97,6 +97,18 @@
 
 重点审查 `unexpected_instructions`、`unexpected_files`、`scripts`、`network_behavior`、`secret_access`、`trigger_changes` 和 `adapter_paths`。门禁是保守信号，不是自动判定恶意；即使退出码为 `0`，也不能替代对重要 Skill 的人工审查。
 
+### 能力漂移后端
+
+`diff` 和未加 `--force` 的 `activate` 会同时询问 SkilLock。快照与候选的 skill 根目录被投影到临时目录的 `.codex/skills/<name>/`，先对快照执行 `skil-lock init --baseline`，再在候选目录写入 `mode: block` 的 `.skil-lock.yaml` 并执行 `skil-lock ci`。适配器根目录仍由本仓库的路径信号负责，不送进 SkilLock。
+
+报告里的 `capability_gate` 记录实际后端：
+
+- `backend: skil-lock` 且 `blocked: true`：能力面相对快照发生未批准漂移，信号为 `capability_drift`，`--gate` 退出码为 `2`。
+- `backend: fallback`：本机没有可执行的 `skil-lock`，或显式传入 `--skil-lock fallback`。`fallback` 字段固定为 `skill_guard risk signals`，`reason` 写明原因。这时仍用上面的风险信号做决定，缺二进制不等于审查通过。
+- `error: true`：指定的二进制无法执行，或 `init` / `ci` 失败、超时。失败关闭，信号为 `capability_gate_error`，不激活。
+
+`--skil-lock <path>` 指向一个具体二进制。默认从 `PATH` 查找 `skil-lock`。
+
 如果门禁阻断，先保存 JSON 结果并检查具体文件。确认变化符合预期后，再用 `--force` 激活；如果不符合预期，丢弃暂存目录，live 树无需回滚。若采用 SkilLock，应同时审查其 `skills.lock` 和能力差异结果，将它作为更细粒度的行为门禁。
 
 ### 4. 审查通过后再激活
@@ -131,6 +143,6 @@
 - [GitHub CLI Skill Update](https://cli.github.com/manual/gh_skill_update)：适合 GitHub 来源的远端 SHA 检查、dry-run 和更新；
 - [SkilLock](https://github.com/skills-lock/skil-lock)：适合记录和比较 shell、URL、路径、脚本等结构化能力，并在 CI 中阻断策略违规；
 - [skillshare](https://github.com/runkids/skillshare)：适合建立跨运行时的统一来源和同步层；
-- 本仓库的 `skill_guard.py`：补足跨来源快照、暂存、来源分类、适配器路径记录、激活前审查以及没有专用能力门禁时的保守回滚保护。
+- 本仓库的 `skill_guard.py`：补足跨来源快照、暂存、来源分类、适配器路径记录、激活前审查以及没有专用能力门禁时的保守回滚保护。`skil-lock` 在 PATH 上时，它是能力漂移 gate 的后端；不在时，报告明确回退到风险信号。
 
 这些工具不能互相替代。升级应先进入暂存，差异审查通过后再激活；对于第三方来源的实际版本和语义变化，仍以来源仓库、锁文件和人工审查为准。

@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 SCHEMA_NAME = "skills-inventory/v1"
+CACHE_HASH_SEGMENT = re.compile(r"^[0-9a-f]{8,64}$")
 SKILL_REQUIRED = (
     "name",
     "source_class",
@@ -170,8 +171,47 @@ def is_external_path(value: str) -> bool:
 
 def locate_path(value: str, repo_root: Path) -> Path:
     if is_external_path(value):
-        return Path(value).expanduser()
-    return repo_root / value
+        path = Path(value).expanduser()
+    else:
+        path = repo_root / value
+    return resolve_cache_hash(path)
+
+
+def resolve_cache_hash(path: Path) -> Path:
+    """Replace one `*` segment with the current content-addressed cache directory.
+
+    Cursor plugin installs live under a hash directory that changes on update.
+    Inventory records keep `*` there instead of a hash. The chosen child is a
+    directory whose name is 8 to 64 lowercase hex digits. A child that makes
+    the rest of the path exist wins; otherwise the newest child wins.
+    """
+    parts = list(path.parts)
+    if parts.count("*") != 1:
+        return path
+    index = parts.index("*")
+    parent = Path(*parts[:index]) if index else Path()
+    remainder = parts[index + 1 :]
+    if not parent.is_dir():
+        return path
+    matches = [
+        child
+        for child in parent.iterdir()
+        if child.is_dir() and not child.is_symlink() and CACHE_HASH_SEGMENT.fullmatch(child.name)
+    ]
+    if not matches:
+        return path
+
+    def rank(child: Path) -> tuple:
+        target = child.joinpath(*remainder) if remainder else child
+        try:
+            exists = target.exists()
+            mtime = child.stat().st_mtime
+        except OSError:
+            return (False, 0.0)
+        return (exists, mtime)
+
+    chosen = max(matches, key=rank)
+    return chosen.joinpath(*remainder) if remainder else chosen
 
 
 def validate_document(

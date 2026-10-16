@@ -261,3 +261,170 @@ class SkillGuardTests(unittest.TestCase):
             )
             self.assertEqual(refused.returncode, 1, refused.stdout)
             self.assertIn("never the runtime directory", refused.stderr)
+
+    def write_fake_skil_lock(self, directory: Path, mode: str) -> Path:
+        binary = directory / "skil-lock"
+        binary.write_text(
+            "\n".join(
+                [
+                    "#!/usr/bin/env python3",
+                    "import sys",
+                    "from pathlib import Path",
+                    f"mode = {mode!r}",
+                    "args = sys.argv[1:]",
+                    "if args and args[0] == 'init':",
+                    "    out = args[args.index('-o') + 1]",
+                    "    Path(out).write_text('skills.lock\\n', encoding='utf-8')",
+                    "    sys.exit(0)",
+                    "if args and args[0] == 'ci':",
+                    "    if mode == 'error':",
+                    "        print('error: scan failed', file=sys.stderr)",
+                    "        sys.exit(2)",
+                    "    root = Path(args[1])",
+                    "    text = []",
+                    "    for path in root.rglob('*'):",
+                    "        if path.is_file():",
+                    "            text.append(path.read_text(encoding='utf-8', errors='replace'))",
+                    "    if 'UNAPPROVED_CAPABILITY' in '\\n'.join(text):",
+                    "        print('BLOCK: 1 of 1 entries at severity >= medium')",
+                    "        sys.exit(1)",
+                    "    print('PASS: no capability deltas')",
+                    "    sys.exit(0)",
+                    "sys.exit(2)",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        binary.chmod(0o755)
+        return binary
+
+    def test_missing_skil_lock_records_risk_signal_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "skills"
+            root.mkdir()
+            (root / "SKILL.md").write_text("---\nname: demo\n---\nStable.\n", encoding="utf-8")
+            snapshot = Path(directory) / "snapshot"
+            made = self.run_guard(
+                "snapshot",
+                "--skill-root",
+                str(root),
+                "--source-class",
+                "local_custom",
+                "--output",
+                str(snapshot),
+            )
+            self.assertEqual(made.returncode, 0, made.stderr)
+            report = self.run_guard(
+                "diff",
+                "--snapshot",
+                str(snapshot),
+                "--skil-lock",
+                "fallback",
+                "--gate",
+                "--format",
+                "json",
+            )
+            self.assertEqual(report.returncode, 0, report.stdout)
+            gate = json.loads(report.stdout)["capability_gate"]
+            self.assertEqual(gate["backend"], "fallback")
+            self.assertEqual(gate["fallback"], "skill_guard risk signals")
+            self.assertIn("disabled", gate["reason"])
+            self.assertFalse(gate["blocked"])
+
+    def test_skil_lock_blocks_capability_drift_when_risk_signals_allow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            binary = self.write_fake_skil_lock(base, "pass")
+            live = base / "live"
+            candidate = base / "candidate"
+            staging = base / "staging"
+            snapshot = base / "snapshot"
+            body = "---\nname: demo\n---\nStable.\n"
+            self._write_skill(live, body, {"notes.txt": "before\n"})
+            self._write_skill(
+                candidate, body, {"notes.txt": "UNAPPROVED_CAPABILITY\n"}
+            )
+            made = self.run_guard(
+                "snapshot",
+                "--skill-root",
+                str(live),
+                "--source-class",
+                "local_custom",
+                "--output",
+                str(snapshot),
+            )
+            self.assertEqual(made.returncode, 0, made.stderr)
+            staged = self.run_guard(
+                "stage",
+                "--skill-root",
+                str(candidate),
+                "--live-root",
+                str(live),
+                "--snapshot",
+                str(snapshot),
+                "--output",
+                str(staging),
+            )
+            self.assertEqual(staged.returncode, 0, staged.stderr)
+            blocked = self.run_guard(
+                "diff",
+                "--snapshot",
+                str(snapshot),
+                "--staging",
+                str(staging),
+                "--skil-lock",
+                str(binary),
+                "--gate",
+                "--format",
+                "json",
+            )
+            self.assertEqual(blocked.returncode, 2, blocked.stdout)
+            payload = json.loads(blocked.stdout)
+            self.assertEqual(payload["signals"], ["capability_drift"])
+            self.assertEqual(payload["capability_gate"]["backend"], "skil-lock")
+            self.assertTrue(payload["capability_gate"]["blocked"])
+            self.assertIn("BLOCK:", payload["capability_gate"]["summary"])
+            refused = self.run_guard(
+                "activate",
+                "--staging",
+                str(staging),
+                "--skil-lock",
+                str(binary),
+            )
+            self.assertEqual(refused.returncode, 2, refused.stdout)
+            self.assertEqual((live / "notes.txt").read_text(encoding="utf-8"), "before\n")
+
+    def test_skil_lock_failure_blocks_activation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            binary = self.write_fake_skil_lock(base, "error")
+            root = base / "skills"
+            root.mkdir()
+            (root / "SKILL.md").write_text("---\nname: demo\n---\nStable.\n", encoding="utf-8")
+            snapshot = base / "snapshot"
+            made = self.run_guard(
+                "snapshot",
+                "--skill-root",
+                str(root),
+                "--source-class",
+                "local_custom",
+                "--output",
+                str(snapshot),
+            )
+            self.assertEqual(made.returncode, 0, made.stderr)
+            report = self.run_guard(
+                "diff",
+                "--snapshot",
+                str(snapshot),
+                "--skil-lock",
+                str(binary),
+                "--gate",
+                "--format",
+                "json",
+            )
+            self.assertEqual(report.returncode, 2, report.stdout)
+            payload = json.loads(report.stdout)
+            self.assertIn("capability_gate_error", payload["signals"])
+            self.assertTrue(payload["capability_gate"]["error"])
+            self.assertTrue(payload["capability_gate"]["blocked"])

@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-16T03:18:16Z",
+  "updated_at": "2026-10-16T03:50:00Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -903,7 +903,7 @@
       },
       "baseline": {
         "kind": "upstream_ref",
-        "subject": "~/.cursor/plugins/cache/cursor-public/x/850d7f2e9f5e55dff7eb00a0a479337fe79eb22f/.cursor-plugin/plugin.json"
+        "subject": "~/.cursor/plugins/cache/cursor-public/x/*/.cursor-plugin/plugin.json"
       },
       "adapters": [],
       "status": "active",
@@ -917,7 +917,7 @@
       "compatibility_constraints": [],
       "conflict_status": "unreviewed",
       "visible_paths": [
-        "~/.cursor/plugins/cache/cursor-public/x/850d7f2e9f5e55dff7eb00a0a479337fe79eb22f/skills"
+        "~/.cursor/plugins/cache/cursor-public/x/*/skills"
       ]
     },
     {
@@ -2401,8 +2401,8 @@
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "sha256:ca52735c502cee495380eae4ba2679931320d5c326c077c1b11fa90930578805",
-      "current_version": "0.3.11",
+      "baseline_ref": "sha256:0cd161a3fdc5f496ad00013cb2f882d4e1f093e54e7984e83368cedbee9e40a2",
+      "current_version": "0.3.14",
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",

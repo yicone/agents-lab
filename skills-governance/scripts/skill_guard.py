@@ -13,6 +13,9 @@ import stat
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import capability_gate  # noqa: E402
+
 
 GATE_SIGNALS = {
     "unexpected_instructions",
@@ -312,6 +315,43 @@ def resolve_compare_roots(args: argparse.Namespace, snapshot_root_count: int) ->
     return None
 
 
+def skill_root_pair(
+    snapshot_dir: Path, manifest: dict, current_roots: list[Path] | None
+) -> tuple[list[Path], list[Path]]:
+    baseline: list[Path] = []
+    candidate: list[Path] = []
+    for index, root_info in enumerate(manifest["roots"]):
+        if root_info.get("kind") != "skill":
+            continue
+        baseline.append(snapshot_dir / root_info["snapshot_path"])
+        if current_roots is not None:
+            candidate.append(current_roots[index])
+        else:
+            candidate.append(Path(root_info["original_path"]))
+    return baseline, candidate
+
+
+def attach_capability_gate(
+    report: dict,
+    snapshot_dir: Path,
+    manifest: dict,
+    current_roots: list[Path] | None,
+    skil_lock: str | None,
+) -> dict:
+    binary, preset = capability_gate.resolve_skil_lock(skil_lock)
+    baseline, candidate = skill_root_pair(snapshot_dir, manifest, current_roots)
+    gate = capability_gate.evaluate(binary, preset, baseline, candidate)
+    report["capability_gate"] = gate
+    if gate.get("blocked"):
+        signal = "capability_gate_error" if gate.get("error") else "capability_drift"
+        signals = list(report.get("signals") or [])
+        if signal not in signals:
+            signals.append(signal)
+        report["signals"] = sorted(signals)
+        report["blocked"] = True
+    return report
+
+
 def print_diff_report(report: dict, fmt: str) -> None:
     if fmt == "json":
         print(json.dumps(report, indent=2))
@@ -321,6 +361,17 @@ def print_diff_report(report: dict, fmt: str) -> None:
     print(f"Snapshot: {snapshot_dir}")
     print(f"Changes: {len(report['changes'])}")
     print(f"Decision: {'BLOCK' if blocked else 'ALLOW'}")
+    gate = report.get("capability_gate") or {}
+    if gate.get("backend") == "fallback":
+        print(
+            "Capability gate: fallback"
+            f" ({gate.get('fallback')}; {gate.get('reason')})"
+        )
+    elif gate.get("error"):
+        print(f"Capability gate: error ({gate.get('reason')})")
+    elif gate.get("backend") == "skil-lock":
+        verdict = "BLOCK" if gate.get("blocked") else "ALLOW"
+        print(f"Capability gate: skil-lock {verdict}")
     if blocked:
         print("Signals: " + ", ".join(report["signals"]))
     for change in report["changes"]:
@@ -333,6 +384,9 @@ def diff_snapshot(args: argparse.Namespace) -> int:
     manifest = read_json(snapshot_dir / "manifest.json")
     current = resolve_compare_roots(args, len(manifest["roots"]))
     report = compare_to_snapshot(snapshot_dir, current)
+    report = attach_capability_gate(
+        report, snapshot_dir, manifest, current, getattr(args, "skil_lock", None)
+    )
     if getattr(args, "staging", None):
         report["staging"] = str(root_path(args.staging))
     print_diff_report(report, args.format)
@@ -420,8 +474,12 @@ def activate(args: argparse.Namespace) -> int:
                 "activation requires --snapshot (or a staging-bound snapshot); "
                 "use --force only after explicit review"
             )
-        current = staging_compare_roots(staging_dir, len(read_json(snapshot_dir / "manifest.json")["roots"]))
+        manifest = read_json(snapshot_dir / "manifest.json")
+        current = staging_compare_roots(staging_dir, len(manifest["roots"]))
         report = compare_to_snapshot(snapshot_dir, current)
+        report = attach_capability_gate(
+            report, snapshot_dir, manifest, current, getattr(args, "skil_lock", None)
+        )
         report["staging"] = str(staging_dir)
         if report["blocked"]:
             print(
@@ -455,6 +513,9 @@ def activate(args: argparse.Namespace) -> int:
                 "activated": activated,
                 "blocked": False,
                 "gate": "skipped" if args.force else "allow",
+                "capability_gate": None
+                if args.force
+                else (report or {}).get("capability_gate", {}).get("backend"),
                 "snapshot": str(snapshot_dir) if snapshot_dir else None,
             }
         )
@@ -497,6 +558,10 @@ def parser() -> argparse.ArgumentParser:
     diff.add_argument("--staging", help="compare snapshot against a staging directory instead of live roots")
     diff.add_argument("--format", choices=("text", "json"), default="text")
     diff.add_argument("--gate", action="store_true", help="exit 2 when a review-blocking signal is found")
+    diff.add_argument(
+        "--skil-lock",
+        help="skil-lock binary, or 'fallback' to keep skill_guard risk signals",
+    )
     diff.set_defaults(func=diff_snapshot)
     staged = sub.add_parser(
         "stage",
@@ -524,6 +589,10 @@ def parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="activate even if gate would block, or if no snapshot is bound",
+    )
+    apply.add_argument(
+        "--skil-lock",
+        help="skil-lock binary, or 'fallback' to keep skill_guard risk signals",
     )
     apply.set_defaults(func=activate)
     restore = sub.add_parser("rollback", help="restore trees from a snapshot")
