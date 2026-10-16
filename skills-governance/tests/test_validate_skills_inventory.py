@@ -275,3 +275,20 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
             self.assertIn("review_time", item)
             self.assertIn("baseline_ref", item)
             self.assertIn("current_version", item)
+        cli = [item for item in payload["skills"] if item["source_class"] == "skills_cli_managed"]
+        self.assertEqual(len(cli), 37)
+        for item in cli:
+            self.assertEqual(item["baseline"]["kind"], "upstream_ref")
+            self.assertTrue(item["baseline"]["subject"].endswith("SKILL.md"), item["name"])
+            self.assertTrue(item["baseline_ref"].startswith("github:"), item["name"])
+            self.assertIn("/", item["baseline_ref"])
+            version = item["current_version"]
+            if version is not None:
+                self.assertRegex(version, r"^[0-9a-f]{40}$", item["name"])
+        by_name = {item["name"]: item for item in cli}
+        self.assertIsNone(by_name["agent-browser"]["current_version"])
+        self.assertEqual(by_name["agent-browser"]["baseline_ref"], "github:vercel-labs/agent-browser")
+        self.assertEqual(by_name["writing-plans"]["baseline_ref"], "github:obra/superpowers")
+        self.assertEqual(by_name["writing-plans"]["current_version"], "cc97fa00eb2ccd4f283e34eb2ba06a48e1e679f7")
+        self.assertEqual(by_name["doc"]["baseline_ref"], "github:openai/skills")
+        self.assertNotEqual(by_name["doc"]["baseline"]["subject"], by_name["playwright"]["baseline"]["subject"])

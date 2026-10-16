@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-15T17:44:51Z",
+  "updated_at": "2026-10-16T01:05:06Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -209,7 +209,7 @@
       },
       "baseline": {
         "kind": "upstream_ref",
-        "subject": "skill-lock"
+        "subject": "skills/agent-browser/SKILL.md"
       },
       "adapters": [],
       "status": "active",
@@ -273,8 +273,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "archify/SKILL.md"
       },
       "adapters": [
         {
@@ -285,7 +285,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "ffb8258f653b66f5afb8340bf8eb61c7309830ff",
+      "baseline_ref": "github:tt-a1i/archify",
       "current_version": "ffb8258f653b66f5afb8340bf8eb61c7309830ff",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -306,8 +306,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": ".agents/skills/archify-review/SKILL.md"
       },
       "adapters": [
         {
@@ -318,7 +318,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "cd88f8830b8452dde849fdb792b4abd04ebf2cf1",
+      "baseline_ref": "github:tt-a1i/archify",
       "current_version": "cd88f8830b8452dde849fdb792b4abd04ebf2cf1",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -339,13 +339,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/brainstorming/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "2934541ea5541995c4a8eed5b4bda3cba4d24e85",
+      "baseline_ref": "github:obra/superpowers",
       "current_version": "2934541ea5541995c4a8eed5b4bda3cba4d24e85",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -390,8 +390,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/computer-use/SKILL.md"
       },
       "adapters": [
         {
@@ -407,7 +407,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "fab1436f0d73889492279544eadebc9bcc2694b6",
+      "baseline_ref": "github:stablyai/orca",
       "current_version": "fab1436f0d73889492279544eadebc9bcc2694b6",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -493,13 +493,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "nowledge-mem-npx-skills/skills/distill-memory/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "dd517a351cdeeda61020ebe76c62da2e47d2aae6",
+      "baseline_ref": "github:nowledge-co/community",
       "current_version": "dd517a351cdeeda61020ebe76c62da2e47d2aae6",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -519,13 +519,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/.curated/doc/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "94abe963d5a513f339f11b040aca11d9cecfbfd0",
+      "baseline_ref": "github:openai/skills",
       "current_version": "94abe963d5a513f339f11b040aca11d9cecfbfd0",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -628,8 +628,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/core/firecrawl-developer-index/SKILL.md"
       },
       "adapters": [
         {
@@ -645,7 +645,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "2e4f6d3f44d85f4b037935b239c923c75621802c",
+      "baseline_ref": "github:firecrawl/skills",
       "current_version": "2e4f6d3f44d85f4b037935b239c923c75621802c",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -667,13 +667,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/.curated/gh-fix-ci/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "3f99938c9464393f27cc4cc00e4ba17387517803",
+      "baseline_ref": "github:openai/skills",
       "current_version": "3f99938c9464393f27cc4cc00e4ba17387517803",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -693,13 +693,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/cloud/google-cloud-recipe-auth/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "557547f1b9cc838c78e6f19e1015ea8bd6b832fc",
+      "baseline_ref": "github:google/skills",
       "current_version": "557547f1b9cc838c78e6f19e1015ea8bd6b832fc",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -719,13 +719,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/cloud/google-cloud-recipe-onboarding/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "0f32afd9d99d1da58049935a538b57267b691261",
+      "baseline_ref": "github:google/skills",
       "current_version": "0f32afd9d99d1da58049935a538b57267b691261",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -902,8 +902,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/orca-cli/SKILL.md"
       },
       "adapters": [
         {
@@ -914,7 +914,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "ee3a35c76f875ea6ebaf68947af13ba6346b13f2",
+      "baseline_ref": "github:stablyai/orca",
       "current_version": "ee3a35c76f875ea6ebaf68947af13ba6346b13f2",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -935,8 +935,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/orchestration/SKILL.md"
       },
       "adapters": [
         {
@@ -952,7 +952,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "ebd864919dd8cab9d7049fc624c9afeebce2767c",
+      "baseline_ref": "github:stablyai/orca",
       "current_version": "ebd864919dd8cab9d7049fc624c9afeebce2767c",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -974,13 +974,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "planned-skills/generated/05-frontend-dev/performance-lighthouse-runner/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "954e6fa464b1639d1e5dff0435babb371fc6b1d6",
+      "baseline_ref": "github:jeremylongshore/claude-code-plugins-plus-skills",
       "current_version": "954e6fa464b1639d1e5dff0435babb371fc6b1d6",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1000,13 +1000,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/.curated/playwright/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "74888f3c1d5581aea6415e78d5fbd760a8ab2a41",
+      "baseline_ref": "github:openai/skills",
       "current_version": "74888f3c1d5581aea6415e78d5fbd760a8ab2a41",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1052,13 +1052,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "nowledge-mem-npx-skills/skills/read-working-memory/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "3ba4934079d121ee72f3ab7a340217ee848bdef8",
+      "baseline_ref": "github:nowledge-co/community",
       "current_version": "3ba4934079d121ee72f3ab7a340217ee848bdef8",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1078,13 +1078,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "nowledge-mem-npx-skills/skills/save-handoff/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "76289df2016204f7d8c7c8df596d42f8814a5655",
+      "baseline_ref": "github:nowledge-co/community",
       "current_version": "76289df2016204f7d8c7c8df596d42f8814a5655",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1104,13 +1104,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "nowledge-mem-npx-skills/skills/save-thread/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "829139503db133128ecbc9174527c2fded880d3a",
+      "baseline_ref": "github:nowledge-co/community",
       "current_version": "829139503db133128ecbc9174527c2fded880d3a",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1130,13 +1130,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/.curated/screenshot/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "52b8e26e5313cfeba3da7cb9057bdb94c1cf7ed1",
+      "baseline_ref": "github:openai/skills",
       "current_version": "52b8e26e5313cfeba3da7cb9057bdb94c1cf7ed1",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1156,13 +1156,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "nowledge-mem-npx-skills/skills/search-memory/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "50b5f78b8418710a500ea0d0843422950128f918",
+      "baseline_ref": "github:nowledge-co/community",
       "current_version": "50b5f78b8418710a500ea0d0843422950128f918",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1182,13 +1182,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/.system/skill-creator/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "8bfb6b8774d223eea3e788cfdfa1e4209e5e2ae9",
+      "baseline_ref": "github:openai/skills",
       "current_version": "8bfb6b8774d223eea3e788cfdfa1e4209e5e2ae9",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1208,13 +1208,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/.system/skill-installer/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "6c065e2ccde6a5a653a32e507bc0323455367e53",
+      "baseline_ref": "github:openai/skills",
       "current_version": "6c065e2ccde6a5a653a32e507bc0323455367e53",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1429,13 +1429,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": ".claude/skills/ui-ux-pro-max/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "75e1acaafe8b08e59d4b86fc253ac7873aff6bba",
+      "baseline_ref": "github:nextlevelbuilder/ui-ux-pro-max-skill",
       "current_version": "75e1acaafe8b08e59d4b86fc253ac7873aff6bba",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1455,8 +1455,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand/SKILL.md"
       },
       "adapters": [
         {
@@ -1467,7 +1467,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "ba1531e0a35466deb7990f28b00feded4d21ed91",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "ba1531e0a35466deb7990f28b00feded4d21ed91",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1488,8 +1488,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-chat/SKILL.md"
       },
       "adapters": [
         {
@@ -1500,7 +1500,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "bae3c467b630980e98641995c3b5221033f1af53",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "bae3c467b630980e98641995c3b5221033f1af53",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1521,8 +1521,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-dashboard/SKILL.md"
       },
       "adapters": [
         {
@@ -1533,7 +1533,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "78c13dba34205a2e6017da63e2928d16c51d51a4",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "78c13dba34205a2e6017da63e2928d16c51d51a4",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1554,8 +1554,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-diff/SKILL.md"
       },
       "adapters": [
         {
@@ -1566,7 +1566,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "61b952946f0391a63552c1b3df80714cfc354e0d",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "61b952946f0391a63552c1b3df80714cfc354e0d",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1587,8 +1587,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-domain/SKILL.md"
       },
       "adapters": [
         {
@@ -1599,7 +1599,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "f8cdc13343e3cadd9c9f2f0c3cca90d673dcb49b",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "f8cdc13343e3cadd9c9f2f0c3cca90d673dcb49b",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1620,8 +1620,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-explain/SKILL.md"
       },
       "adapters": [
         {
@@ -1632,7 +1632,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "39341fa100bad0bd4b3f3fa6e6805a59359325e3",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "39341fa100bad0bd4b3f3fa6e6805a59359325e3",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1653,8 +1653,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-figma/SKILL.md"
       },
       "adapters": [
         {
@@ -1665,7 +1665,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "72ae2d69cd2867157dbb23a18b200e2711e878da",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "72ae2d69cd2867157dbb23a18b200e2711e878da",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1686,8 +1686,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-knowledge/SKILL.md"
       },
       "adapters": [
         {
@@ -1698,7 +1698,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "1b837bdc251b653f46d6e4f7e00dc0e347287295",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "1b837bdc251b653f46d6e4f7e00dc0e347287295",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1719,8 +1719,8 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "understand-anything-plugin/skills/understand-onboard/SKILL.md"
       },
       "adapters": [
         {
@@ -1731,7 +1731,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "fc03d9eef0516290d73e883b6048eaeeba9cc165",
+      "baseline_ref": "github:egonex-ai/understand-anything",
       "current_version": "fc03d9eef0516290d73e883b6048eaeeba9cc165",
       "scope": "machine",
       "install_shape": "symlink_adapters",
@@ -1752,13 +1752,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/using-git-worktrees/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "a5b3f5965f321175a7f07dcadff0bb79adb9e9f7",
+      "baseline_ref": "github:obra/superpowers",
       "current_version": "a5b3f5965f321175a7f07dcadff0bb79adb9e9f7",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1778,13 +1778,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/using-superpowers/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "7569e98e26e69d0cc0b16da7ea4c30f48e94ca02",
+      "baseline_ref": "github:obra/superpowers",
       "current_version": "7569e98e26e69d0cc0b16da7ea4c30f48e94ca02",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1856,13 +1856,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "2a9e612eba9f430a55b45b8921e11139033d45dd",
+      "baseline_ref": "github:Tencent/WeChatReading",
       "current_version": "2a9e612eba9f430a55b45b8921e11139033d45dd",
       "scope": "machine",
       "install_shape": "real_directory",
@@ -1953,14 +1953,14 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/writing-plans/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "be89d032af0d3621f689e8bd6083e4010971e5fa",
-      "current_version": "be89d032af0d3621f689e8bd6083e4010971e5fa",
+      "baseline_ref": "github:obra/superpowers",
+      "current_version": "cc97fa00eb2ccd4f283e34eb2ba06a48e1e679f7",
       "scope": "machine",
       "install_shape": "real_directory",
       "local_customization": "none",
@@ -1979,13 +1979,13 @@
         "canonical_path": null
       },
       "baseline": {
-        "kind": "git_commit",
-        "subject": "skill-lock"
+        "kind": "upstream_ref",
+        "subject": "skills/writing-skills/SKILL.md"
       },
       "adapters": [],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "657cdd6aef472054ffd3f0e7798494d79be9f807",
+      "baseline_ref": "github:obra/superpowers",
       "current_version": "657cdd6aef472054ffd3f0e7798494d79be9f807",
       "scope": "machine",
       "install_shape": "real_directory",

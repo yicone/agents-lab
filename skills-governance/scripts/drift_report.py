@@ -42,6 +42,7 @@ UNVERIFIED = frozenset(
         "baseline_absent",
         "name_mismatch",
         "lock_source_mismatch",
+        "lock_path_mismatch",
         "lock_hash_empty",
     }
 )
@@ -222,7 +223,8 @@ def consider_lock(
     details: list[str],
     repo_root: Path,
 ) -> tuple[str | None, str | None, datetime | None]:
-    kind = (skill.get("baseline") or {}).get("kind")
+    baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
+    kind = baseline.get("kind")
     entry = lock_skills.get(skill.get("name")) if isinstance(lock_skills, dict) else None
     primary = first_visible(skill, repo_root)
     if primary is not None and not path_present(primary):
@@ -239,6 +241,14 @@ def consider_lock(
         findings.add("lock_source_match" if matched else "lock_source_mismatch")
         if not matched:
             details.append(f"lock source {entry.get('sourceType')}:{entry.get('source')} != baseline_ref {skill.get('baseline_ref')}")
+        subject = baseline.get("subject")
+        lock_path = entry.get("skillPath")
+        if isinstance(subject, str) and subject.endswith("SKILL.md"):
+            if subject == lock_path:
+                findings.add("lock_path_match")
+            else:
+                findings.add("lock_path_mismatch")
+                details.append(f"lock skillPath {lock_path} != baseline.subject {subject}")
         current = skill.get("current_version")
         if matched and folder_hash and current not in (None, folder_hash):
             findings.add("lock_hash_mismatch")
