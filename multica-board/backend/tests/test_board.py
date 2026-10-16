@@ -1136,6 +1136,15 @@ class AttentionTests(unittest.TestCase):
                 "status": "FAILED", "created_at": ago(1), "completed_at": None, "error_summary": "no issue",
             })
         self.store.set_meta("last_collect", {"finished_at": "2026-10-14T09:00:00Z"})
+        completed = self.store.query(
+            "SELECT completed_at FROM tasks WHERE server=? AND id=?", (SERVER, "t-ok"),
+        )[0]["completed_at"]
+        self.store.append_changes(SERVER, "wa", [{
+            "at": completed,
+            "kind": "issue_status",
+            "resource_id": "ACM-1",
+            "payload": {"status": "in_review", "previous_status": "in_progress"},
+        }])
 
     def tearDown(self):
         self.store.close()
@@ -1259,6 +1268,83 @@ class AttentionTests(unittest.TestCase):
         self.assertIn("in_review 80", text)
         self.assertLess(text.count("\t"), 80)
         self.assertEqual(text.splitlines()[-1], "…")
+
+
+class AgentUpdateAttentionTests(unittest.TestCase):
+    """ACM-129 / ACM-139 / ACM-140: a finished assignee run with no covering transition."""
+
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.v = Views(self.store, SERVER, app_url="https://app.test", collect_interval_s=60)
+        s = SERVER
+        with self.store.tx() as c:
+            self.store.upsert(c, "workspaces", {
+                "server": s, "id": "wa", "name": "ACM Lab", "slug": "acm-lab",
+            })
+            self.store.upsert(c, "agents", {
+                "server": s, "workspace_id": "wa", "id": "builder", "name": "Builder",
+            })
+
+            def issue(iid, status, category=None):
+                self.store.upsert(c, "issues", {
+                    "server": s, "workspace_id": "wa", "id": iid, "identifier": iid,
+                    "title": iid, "status": status, "status_category": category or status,
+                    "assignee_type": "agent", "assignee_id": "builder",
+                    "created_at": ago(48),
+                })
+
+            def run(tid, iid, when, status="completed", agent="builder"):
+                self.store.upsert(c, "tasks", {
+                    "server": s, "workspace_id": "wa", "id": tid, "agent_id": agent,
+                    "issue_id": iid, "status": status, "created_at": when, "completed_at": when,
+                })
+
+            issue("ACM-129", "in_progress")
+            run("run-129", "ACM-129", ago(1))
+            issue("ACM-139", "in_review")
+            run("run-139", "ACM-139", ago(0.2))
+            issue("ACM-140", "in_review")
+            run("run-140", "ACM-140", ago(0.3))
+            issue("ACM-COVERED", "in_review")
+            run("run-covered", "ACM-COVERED", ago(0.5))
+            issue("ACM-DONE", "done")
+            run("run-done", "ACM-DONE", ago(0.4))
+            issue("ACM-BACKLOG", "backlog")
+            run("run-backlog", "ACM-BACKLOG", ago(0.4))
+            issue("ACM-OTHER", "in_progress")
+            run("run-other", "ACM-OTHER", ago(0.4), agent="someone-else")
+        self.store.append_changes(s, "wa", [
+            {"at": ago(2), "kind": "issue_status", "resource_id": "ACM-139",
+             "payload": {"status": "in_review", "previous_status": "in_progress"}},
+            {"at": ago(3), "kind": "issue_status", "resource_id": "ACM-140",
+             "payload": {"status": "in_review", "previous_status": "in_progress"}},
+            {"at": ago(0.5), "kind": "issue_status", "resource_id": "ACM-COVERED",
+             "payload": {"status": "in_review", "previous_status": "in_progress"}},
+        ])
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_uncovered_assignee_runs(self):
+        body = self.v.attention()
+        ws = body["workspaces"][0]
+        updates = {item["identifier"]: item for item in ws["agent_updates"]}
+        self.assertEqual(set(updates), {"ACM-129", "ACM-139", "ACM-140"})
+        self.assertEqual(updates["ACM-129"]["status"], "in_progress")
+        self.assertEqual(updates["ACM-129"]["agent_name"], "Builder")
+        self.assertEqual(updates["ACM-139"]["status"], "in_review")
+        self.assertEqual(updates["ACM-140"]["status"], "in_review")
+        review = {item["identifier"] for item in ws["in_review"]}
+        self.assertIn("ACM-139", review)
+        self.assertIn("ACM-140", review)
+        self.assertIn("ACM-COVERED", review)
+        self.assertNotIn("ACM-129", review)
+        self.assertNotIn("ACM-DONE", json.dumps(body))
+        self.assertNotIn("ACM-BACKLOG", json.dumps(body))
+        self.assertNotIn("ACM-OTHER", json.dumps(ws.get("agent_updates")))
+        text = render_attention_text(body)
+        self.assertIn("agent_updates 3", text)
+        self.assertIn("ACM-129\tin_progress\t", text)
 
 
 if __name__ == "__main__":

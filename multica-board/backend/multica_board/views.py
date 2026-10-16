@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from .agent_delivery import decide_delivery
 from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_since
 from .collector import COLLECTOR, WORKSPACE
 from .store import Store
@@ -21,6 +22,7 @@ ATTENTION_TEXT_BYTES = 2048
 ATTENTION_BUCKETS = (
     "in_review",
     "blocked",
+    "agent_updates",
     "failed_runs",
     "offline_runtimes",
     "missing_hermes_async_delegation",
@@ -431,6 +433,72 @@ class Views:
 
     # --- /api/attention -----------------------------------------------------
 
+    def _agent_update_items(self, issue_rows, agent_names, cutoff: str):
+        """Completed assignee runs in the window that no status reminder covered.
+
+        Comment text is not in the cache, so this is the run fallback of
+        decide_delivery. The bridge applies the same function to comments.
+        """
+        runs: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for task in self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND lower(status)='completed' "
+            "AND coalesce(completed_at, created_at, '') >= ?",
+            (self.server, cutoff),
+        ):
+            if not task.get("issue_id") or not task.get("agent_id"):
+                continue
+            runs.setdefault((task["workspace_id"], task["issue_id"]), []).append({
+                "id": task["id"],
+                "agent_id": task["agent_id"],
+                "status": "completed",
+                "completed_at": task.get("completed_at") or task.get("created_at"),
+                "is_new": True,
+            })
+        transitions: dict[tuple[str, str], list[dict[str, str]]] = {}
+        for row in self.store.query(
+            "SELECT workspace_id, resource_id, at, payload_json FROM changes "
+            "WHERE server=? AND kind='issue_status' AND at >= ?",
+            (self.server, cutoff),
+        ):
+            try:
+                payload = json.loads(row["payload_json"] or "{}")
+            except json.JSONDecodeError:
+                continue
+            transitions.setdefault((row["workspace_id"], row["resource_id"]), []).append(
+                {"to": payload.get("status"), "at": row["at"]}
+            )
+        found: list[tuple[str, dict[str, Any]]] = []
+        for key, issue in issue_rows.items():
+            issue_runs = runs.get(key)
+            if not issue_runs:
+                continue
+            if issue.get("assignee_type") != "agent" or not issue.get("assignee_id"):
+                continue
+            decision = decide_delivery(
+                status=issue.get("status"),
+                status_category=issue.get("status_category"),
+                assignee_type=issue.get("assignee_type"),
+                assignee_id=issue.get("assignee_id"),
+                comments=[],
+                runs=issue_runs,
+                transitions=transitions.get(key) or [],
+            )
+            if decision["action"] != "notify":
+                continue
+            ws_id = issue["workspace_id"]
+            agent = agent_names.get((ws_id, issue.get("assignee_id")))
+            found.append((
+                ws_id,
+                _attention_item(
+                    issue.get("identifier") or issue["id"],
+                    issue.get("title"),
+                    issue.get("status") or "agent_update",
+                    decision.get("at"),
+                    agent,
+                ),
+            ))
+        return found
+
     def attention(self) -> dict[str, Any]:
         """Workspace-grouped items Steward should look at. Fields are intentionally tiny."""
         agent_names = self._names("agents", "id", "name")
@@ -476,6 +544,9 @@ class Views:
                     agent,
                 )
             )
+
+        for ws_id, item in self._agent_update_items(issue_rows, agent_names, cutoff):
+            ensure(ws_id).setdefault("agent_updates", []).append(item)
 
         bound: dict[tuple[str, str], list[tuple[str, str]]] = {}
         for agent in self.store.query(

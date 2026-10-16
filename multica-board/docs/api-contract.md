@@ -1,6 +1,6 @@
 # Multica Board 只读 API 契约（v0.3）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -240,6 +240,15 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
           "agent_name": "Builder"
         }
       ],
+      "agent_updates": [
+        {
+          "identifier": "ACM-129",
+          "title": "门禁",
+          "status": "in_progress",
+          "time": "2026-10-15T08:21:09Z",
+          "agent_name": "Builder"
+        }
+      ],
       "failed_runs": [
         {
           "identifier": "ACM-162",
@@ -272,10 +281,11 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 }
 ```
 
-五个桶是 `in_review`、`blocked`、`failed_runs`、`offline_runtimes`、`missing_hermes_async_delegation`。空桶不出现，五个桶都空的 workspace 也不出现。
+六个桶是 `in_review`、`blocked`、`agent_updates`、`failed_runs`、`offline_runtimes`、`missing_hermes_async_delegation`。空桶不出现，六个桶都空的 workspace 也不出现。
 
 - 每条只含 `identifier`、`title`、`status`、`time`、`agent_name`。`title` 先把连续空白压成一个空格，再截到 80 个字符（不加省略号）。没有的字段为 `null`，不用空字符串。
 - `in_review` / `blocked`：`status` 或 `status_category` 为这两个值的 issue（小写比较）。两者不一致时以 `status` 为准，只进一个桶。条目的 `status` 用 issue 自己的 `status`，没有则用桶名。`time` 取 `last_activity_at`，否则 `updated_at`，否则 `created_at`。`agent_name` 只在负责人是 agent 时填名字，成员、squad、未分配都是 `null`。`identifier` 没有时退回 issue id。
+- `agent_updates`：负责人是 agent，且当前状态不是 `done` / `cancelled` / `backlog` 的 issue。近 `window_h`（24）小时内，该 agent 有 `status=completed` 的 run，并且 changes 日志里没有一次进入 `in_review` 或 `blocked` 的迁移落在该 run 完成时间前后 15 分钟内。`time` 是这次 run 的 `completed_at`（没有则 `created_at`）。`status` 用 issue 自己的当前状态，所以停在 `in_progress` 或早已处于 `in_review` 的新交付都会出现。`agent_name` 是负责人。判断与状态桥接共用同一函数：桥接以该 agent 的新评论为主信号，没有评论时才用 run 完成兜底，并丢掉纯确认和重复回复；看板缓存没有评论正文，因此这里只呈现 run 兜底。已被同期状态迁移覆盖的交付不进这个桶。issue 仍可同时留在 `in_review` 或 `blocked`，那是当前状态，不与本桶合成一条。
 - `failed_runs`：近 `window_h`（24）小时内 `status=failed` 的 run，按 `completed_at`（没有则 `created_at`）计算。之后又成功的也保留。`identifier` 优先用 issue 的 identifier，否则 issue id，否则 task id。`title` 是 issue 标题，issue 不在缓存里为 `null`。`status` 固定 `failed`。`agent_name` 是跑这次 run 的 agent。
 - `offline_runtimes`：`status` 为 `offline`（小写比较），且至少有一个未归档 agent 的 `runtime_id` 指向它。归档 agent 不算绑定。`identifier` 是 runtime id，`title` 优先自定义名，`time` 是 `last_seen_at`，`status` 固定 `offline`。多个 agent 的名字按名字排序后用 `, ` 拼进 `agent_name`；没有名字时用 agent id。
 - `missing_hermes_async_delegation`：未归档、且 `runtime_id` 指向 `provider` 为 `hermes`（不区分大小写）的 agent，启用中的 workspace skill 名单里没有 `hermes-async-delegation`。`identifier` 是 agent id，`title` 和 `agent_name` 都是 agent 名，`status` 固定 `missing_skill`，`time` 是 `updated_at`。归档 agent、非 Hermes runtime、runtime 不在缓存里、以及已启用该 skill 的 agent 都不出现。采集只缓存启用的 skill 名（`enabled: false` 视为未挂）；skill 正文不入库，`/api/agents` 也不返回这份名单。
@@ -289,6 +299,8 @@ window_h 24
 # acm-lab ACM Lab
 in_review 1
 ACM-165	in_review	2026-10-15T05:00:04Z	Builder	Multica Board API：需处理事项摘要接口
+agent_updates 1
+ACM-129	in_progress	2026-10-15T08:21:09Z	Builder	门禁
 failed_runs 1
 ACM-162	failed	2026-10-14T08:00:00Z	Builder	后端采集
 offline_runtimes 1
@@ -465,6 +477,7 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 
 ## 变更记录
 
+- v0.4（2026-10-16）：ACM-179 在 `GET /api/attention` 增加 `agent_updates`，列出近 24 小时内负责人 agent 已完成、但没有被同期 `in_review` / `blocked` 迁移覆盖的 run。
 - v0.3（2026-10-16）：ACM-174 在 `GET /api/attention` 增加 `missing_hermes_async_delegation`，列出未启用 skill `hermes-async-delegation` 的 Hermes agent。
 - v0.2（2026-10-15）：ACM-165 新增 `GET /api/attention`，按 workspace 汇总 in_review、blocked、近 24 小时失败 run、仍绑着 agent 的离线 runtime。`?format=text` 输出不超过 2048 字节的纯文本。
 - v0.2（2026-10-15）：新增 `GET /api/changes`（ACM-166）。`since` 为 ISO 时间或上次的 cursor；缓存保留 7 天的 issue 状态/指派、新 run、run 失败、runtime 上下线。
