@@ -14,7 +14,7 @@ That JSON record is what agents read and write for:
 
 - source class, authority, baseline, adapters, and status
 - `review_time`, `baseline_ref`, and `current_version` for drift reports
-- local customization and conflict status
+- local customization, customization mode, compatibility constraints, and conflict status
 
 ## Human Mirror
 

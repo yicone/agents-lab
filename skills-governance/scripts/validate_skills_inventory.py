@@ -26,6 +26,8 @@ SKILL_REQUIRED = (
     "review_time",
     "baseline_ref",
     "current_version",
+    "customization_mode",
+    "compatibility_constraints",
 )
 AUTHORITY_REQUIRED = (
     "ownership",
@@ -58,6 +60,23 @@ INSTALL_SHAPES = {
     "unknown",
 }
 CUSTOMIZATION = {"none", "local_delta", "unknown"}
+CUSTOMIZATION_MODES = {
+    "none",
+    "wrapper",
+    "overlay",
+    "fork",
+    "policy_exclusion",
+    "local_replacement",
+    "unknown",
+}
+CONSTRAINT_KINDS = {"upstream_version", "runtime", "adapter", "policy", "unknown"}
+CONSTRAINT_KEYS = {"kind", "value"}
+CONSTRAINT_REQUIRED = ("kind", "value")
+MODE_BY_LOCAL_CUSTOMIZATION = {
+    "none": {"none", "policy_exclusion"},
+    "local_delta": {"wrapper", "overlay", "fork", "local_replacement", "unknown"},
+    "unknown": {"unknown"},
+}
 CONFLICT = {"none", "open", "unreviewed", "unknown"}
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -364,10 +383,12 @@ def validate_document(
         for field, allowed in (
             ("install_shape", INSTALL_SHAPES),
             ("local_customization", CUSTOMIZATION),
+            ("customization_mode", CUSTOMIZATION_MODES),
             ("conflict_status", CONFLICT),
         ):
             if field in skill and skill.get(field) not in allowed:
                 errors.append({"path": f"{path}.{field}", "message": "unsupported value"})
+        errors.extend(check_customization(skill, path))
         if "scope" in skill and not (isinstance(skill.get("scope"), str) and skill["scope"].strip()):
             errors.append({"path": f"{path}.scope", "message": "must be a non-empty string"})
         visible = skill.get("visible_paths")
@@ -420,6 +441,63 @@ def validate_document(
 
         if repo_root is not None and isinstance(skill, dict):
             errors.extend(check_skill_paths(skill, path, repo_root))
+    return errors
+
+
+def check_customization(skill: dict, path: str) -> list[dict]:
+    """Record customization mode and compatibility constraints (ACM-134)."""
+    errors: list[dict] = []
+    mode = skill.get("customization_mode")
+    flag = skill.get("local_customization")
+    if (
+        "customization_mode" in skill
+        and "local_customization" in skill
+        and mode in CUSTOMIZATION_MODES
+        and flag in CUSTOMIZATION
+        and mode not in MODE_BY_LOCAL_CUSTOMIZATION[flag]
+    ):
+        errors.append(
+            {
+                "path": f"{path}.customization_mode",
+                "message": f"{mode} does not match local_customization {flag}",
+            }
+        )
+
+    constraints = skill.get("compatibility_constraints")
+    if "compatibility_constraints" not in skill:
+        return errors
+    if not isinstance(constraints, list):
+        errors.append({"path": f"{path}.compatibility_constraints", "message": "must be an array"})
+        return errors
+    seen: dict[tuple[str, str], int] = {}
+    for index, item in enumerate(constraints):
+        item_path = f"{path}.compatibility_constraints[{index}]"
+        if not isinstance(item, dict):
+            errors.append({"path": item_path, "message": "must be an object"})
+            continue
+        expect_keys(item, CONSTRAINT_KEYS, CONSTRAINT_REQUIRED, item_path, errors)
+        kind = item.get("kind")
+        value = item.get("value")
+        if "kind" in item and kind not in CONSTRAINT_KINDS:
+            errors.append(
+                {
+                    "path": f"{item_path}.kind",
+                    "message": "must be upstream_version, runtime, adapter, policy, or unknown",
+                }
+            )
+        if "value" in item and not (isinstance(value, str) and value.strip()):
+            errors.append({"path": f"{item_path}.value", "message": "must be a non-empty string"})
+        if isinstance(kind, str) and isinstance(value, str):
+            key = (kind, value)
+            if key in seen:
+                errors.append(
+                    {
+                        "path": item_path,
+                        "message": f"duplicate of {path}.compatibility_constraints[{seen[key]}]",
+                    }
+                )
+            else:
+                seen[key] = index
     return errors
 
 
