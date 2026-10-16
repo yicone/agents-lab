@@ -339,6 +339,83 @@ class DriftReportTests(unittest.TestCase):
         self.assertIn("baseline_ref", payload["skills"][0])
         self.assertIn("current_version", payload["skills"][0])
 
+    def provider_record(self, **overrides):
+        bundle = self.root / "bundled"
+        bundle.mkdir(exist_ok=True)
+        write_skill(bundle, "child-skill", "child-skill")
+        record = {
+            "name": "cursor-plugin-x",
+            "source_class": "runtime_plugin",
+            "authority": {
+                "ownership": "plugin_provider",
+                "source_authority": "enabled_plugin",
+                "update_authority": "plugin_upgrade",
+                "canonical_path": None,
+            },
+            "baseline": {"kind": "upstream_ref", "subject": str(self.root / "plugin.json")},
+            "adapters": [],
+            "status": "active",
+            "review_time": None,
+            "baseline_ref": "plugin:cursor/x@cursor-public",
+            "current_version": "2.6.6",
+            "scope": "plugin-managed",
+            "visible_paths": [str(bundle)],
+        }
+        record.update(overrides)
+        return record
+
+    def test_provider_version_match_is_stale_and_hides_children(self):
+        manifest = self.root / "plugin.json"
+        manifest.write_text(json.dumps({"version": "2.6.6"}), encoding="utf-8")
+        record = self.provider_record()
+        report = self.report([record], scan_roots=[self.root / "bundled"])
+        row = self.skill_row(report, "cursor-plugin-x")
+        self.assertEqual(row["reconciliation_status"], "stale")
+        self.assertEqual(row["observed_version"], "2.6.6")
+        self.assertIn("version_match", row["findings"])
+        self.assertEqual(report["unrecorded"], [])
+
+    def test_provider_version_mismatch_is_modified(self):
+        manifest = self.root / "plugin.json"
+        manifest.write_text(json.dumps({"version": "9.0.0"}), encoding="utf-8")
+        row = self.skill_row(self.report([self.provider_record()]), "cursor-plugin-x")
+        self.assertEqual(row["reconciliation_status"], "modified")
+        self.assertEqual(row["observed_version"], "9.0.0")
+        self.assertIn("version_mismatch", row["findings"])
+
+    def test_runtime_stamp_ignores_display_version(self):
+        stamp = self.root / "install-stamp.json"
+        stamp.write_text(
+            json.dumps(
+                {
+                    "baseVersion": "0.21.5",
+                    "commit": "3b4a8911741a09440e0a10f25996eb41cf0f061f",
+                    "displayVersion": "0.21.5+7948.g3b4a891.dirty",
+                }
+            ),
+            encoding="utf-8",
+        )
+        record = self.provider_record(
+            name="hermes-builtin-skills",
+            source_class="runtime_builtin",
+            scope="vendor-managed",
+            baseline_ref="runtime:hermes",
+            current_version="0.21.5+3b4a891174",
+            baseline={"kind": "upstream_ref", "subject": str(stamp)},
+        )
+        record["authority"]["ownership"] = "runtime_provider"
+        record["authority"]["source_authority"] = "runtime_distribution"
+        record["authority"]["update_authority"] = "runtime_upgrade"
+        row = self.skill_row(self.report([record]), "hermes-builtin-skills")
+        self.assertEqual(row["reconciliation_status"], "stale")
+        self.assertEqual(row["observed_version"], "0.21.5+3b4a891174")
+
+    def test_missing_provider_version_file_is_missing(self):
+        record = self.provider_record()
+        row = self.skill_row(self.report([record]), "cursor-plugin-x")
+        self.assertEqual(row["reconciliation_status"], "missing")
+        self.assertIn("source_missing", row["findings"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -281,6 +281,7 @@ def validate_document(
 
         baseline = skill.get("baseline")
         kind = None
+        subject = None
         if isinstance(baseline, dict):
             expect_keys(baseline, BASELINE_KEYS, ("kind",), f"{path}.baseline", errors)
             kind = baseline.get("kind")
@@ -319,6 +320,24 @@ def validate_document(
                 errors.append({"path": f"{path}.baseline_ref", "message": "must be a non-empty string"})
             elif kind is None and baseline_ref is not None and not isinstance(baseline_ref, str):
                 errors.append({"path": f"{path}.baseline_ref", "message": "must be a string or null"})
+            if isinstance(baseline_ref, str) and (
+                baseline_ref.startswith("runtime:") or baseline_ref.startswith("plugin:")
+            ):
+                if not (isinstance(subject, str) and subject.strip()):
+                    errors.append(
+                        {
+                            "path": f"{path}.baseline.subject",
+                            "message": "required for runtime: and plugin: coordinates",
+                        }
+                    )
+                version = skill.get("current_version")
+                if not (isinstance(version, str) and version.strip()):
+                    errors.append(
+                        {
+                            "path": f"{path}.current_version",
+                            "message": "required for runtime: and plugin: coordinates",
+                        }
+                    )
 
         review_time = skill.get("review_time")
         if "review_time" in skill and review_time is not None and not (
