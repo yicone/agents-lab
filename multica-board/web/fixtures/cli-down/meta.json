@@ -1,0 +1,15 @@
+{
+ "api_version": "0",
+ "generated_at": null,
+ "collect_interval_s": 60,
+ "multica_web_base": "https://multica.example",
+ "collector": {
+  "last_attempt_at": "2026-10-14T08:59:55Z",
+  "last_success_at": null,
+  "error": {
+   "kind": "process",
+   "message": "multica CLI not found: ~/bin/multica"
+  }
+ },
+ "workspaces": []
+}

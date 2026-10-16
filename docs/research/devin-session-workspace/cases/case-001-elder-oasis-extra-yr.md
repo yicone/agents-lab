@@ -1,13 +1,62 @@
-# Case 1：Elder Oasis 会话被附加 `yr` 工作目录污染
+# Case 001：Elder Oasis / `yr` 额外工作目录
 
-## 时间与范围
+## 摘要
+
+这是本档案的首个特别处理案例：Elder Oasis 相关 Devin local 会话的 canonical cwd 是 `/Users/tr/Workspace/elder-oasis`，但 CLI 与 Desktop 镜像中出现了 `/Users/tr/Workspace/yr` 作为额外工作目录。修复目标是清理额外字段，不迁移会话、不修改 Space membership。
+
+## 处理对象
+
+首批四个：`accurate-opossum`、`garrulous-haddock`、`wistful-bowl`、`lumbar-success`。
+
+同一 Space 后续确认的五个污染源：`foam-yamamomo`、`ember-foxtail`、`dear-reader`、`lemon-brook`、`lilac-lungfish`。
+
+后续追加：`unequaled-feverfew`，其 canonical cwd 正确但独立出现同样的 `yr` 额外目录字段。
+
+## 修复内容
+
+在 Desktop 与 CLI 完全退出后，按 Session ID、canonical cwd、provider 和精确旧值做保护性更新：
+
+```text
+CLI sessions.workspace_dirs:
+  ["/Users/tr/Workspace/yr"] → []
+
+Desktop info._meta["cognition.ai/additionalWorkspaceDirs"]:
+  删除 /Users/tr/Workspace/yr
+```
+
+未修改：
+
+- canonical `working_directory` / Desktop `cwd`；
+- title、model、provider、hidden；
+- Space `resourceToSpace` membership；
+- ACP 会话本地存储。
+
+## 证据与验证
+
+- 首批修复后冷启动，Explorer 只显示 `elder-oasis`，不再显示 `yr`。
+- `unequaled-feverfew` 修复前后 CLI 与 Desktop 数据库完整性检查均为 `ok`，字段读回符合预期。
+- `unequaled-feverfew` 修复备份目录：
+
+  ```text
+  ~/.local/share/devin/cli/repair-backup-20260930T021200+0800-unequaled-feverfew
+  ```
+
+## 与运行时问题的边界
+
+修复持久化额外目录后，Elder Oasis 仍出现过侧边栏会话消失、Project 数量变化和 editor tab 恢复。这些现象不等价于 `yr` 字段再次写回，另行记录在 [观察 002](../observations/obs-002-2026-09-30-elder-oasis-projection.md)。
+
+特别是，`unequaled-feverfew` 在本次修复时曾被 `resourceToSpace` 读为独立 Space；后续当前快照显示它已出现在 Elder Oasis，属于独立的 Space 归属变化线索，不能直接归因于本次额外目录修复。
+
+## 附录：详细调查与修复记录
+
+### 时间与范围
 
 - 调查与修复：2026-09-15
 - 产品：Devin Desktop 3.10.23 / local Devin CLI
 - 目标主目录：`/Users/tr/Workspace/elder-oasis`
 - 异常附加目录：`/Users/tr/Workspace/yr`
 
-## 目标 Session
+### 目标 Session
 
 | Session ID | Session Name |
 |---|---|
@@ -16,7 +65,7 @@
 | `wistful-bowl` | 订阅消息通知 & 下拉刷新 |
 | `lumbar-success` | 数据库运维 |
 
-## 用户观察
+### 用户观察
 
 1. Agent's working directories 显示 `elder-oasis` 和 `yr`。
 2. 打开目标 Session 后，Explorer 的 Workspace 自动包含两个目录。
@@ -24,7 +73,7 @@
 4. 这些 Session 历史上曾位于同一个 Space；用户后来执行了 `Ungroup`。因此当前分离的
    Space 不能被当作原始状态。
 
-## 已确认事实
+### 已确认事实
 
 调查读取了 Devin CLI 会话库和 Desktop 状态库：
 
@@ -44,7 +93,7 @@ Desktop 对应记录的 `info._meta["cognition.ai/additionalWorkspaceDirs"]` 也
 应用内的 `sessionWorkingSetFolders` 逻辑将主目录与附加目录去重合并，正好解释了 UI 中的
 两个目录。
 
-## 修复动作
+### 修复动作
 
 在 Devin Desktop 和 Devin CLI 均退出后：
 
@@ -54,7 +103,7 @@ Desktop 对应记录的 `info._meta["cognition.ai/additionalWorkspaceDirs"]` 也
 4. 删除 Desktop 镜像中的 `cognition.ai/additionalWorkspaceDirs` 字段。
 5. 冷启动 Devin，逐一打开四个 Session。
 
-## 验证结果
+### 验证结果
 
 - 四个 Session 的主目录仍为 `elder-oasis`。
 - 四个 CLI `workspace_dirs` 均为 `[]`。
@@ -62,7 +111,7 @@ Desktop 对应记录的 `info._meta["cognition.ai/additionalWorkspaceDirs"]` 也
 - 四次 Explorer 检查均只显示 `elder-oasis`，没有重新加入 `yr`。
 - 修复没有修改项目文件、Session transcript 或 Space 分组。
 
-## 根因结论与未决问题
+### 根因结论与未决问题
 
 已证实的直接原因是四个 Session 的持久化附加目录字段被写成了 `yr`。尚未证实的是最初
 写入的具体事件。用户关于“另一个 `workspace_dirs` 为其他目录的 Session 混入同一 Space 后，
@@ -71,7 +120,7 @@ Desktop 对应记录的 `info._meta["cognition.ai/additionalWorkspaceDirs"]` 也
 这暴露出至少一个设计缺陷：Space 目录并集、当前 Explorer 视图和 Session 持久化附加目录之间
 缺少清晰的作用域提示；Remove Folder from Workspace 也没有显式说明它是否会持久化到 Session。
 
-## 2026-09-19 复发与扩展修复
+### 2026-09-19 复发与扩展修复
 
 `accurate-opossum` 再次在 Explorer 中显示 `yr`，且 Space 中的会话列表出现短暂消失。复查表明，
 最初四个目标会话仍保持干净；同一 Elder Oasis Space 内另有五个本地 Devin 会话携带相同的持久化
@@ -99,7 +148,7 @@ lilac-lungfish
 因此早期 `--apply` 在检查文件句柄时可能将自身误判为外部数据库占用。读取函数现在在检查前显式
 `close()` 连接，回归测试通过。这个问题与 Devin Desktop 自动重启或重新写入数据库无关。
 
-## 2026-09-19：工作目录已修复，但 Space 列表继续隐藏会话
+### 2026-09-19：工作目录已修复，但 Space 列表继续隐藏会话
 
 Desktop 重启后的 UI 证据显示，`yr` 没有重新出现；但打开上述历史会话后，它们会从 Elder Oasis 的
 左侧列表逐渐消失。此时不是持久化的 Space 成员关系被删除：
@@ -147,7 +196,7 @@ connectorIsAvailable(session.providerId) &&
 冷启动后、点击前和点击后各导出一次 `__acpStore`，比较九条 local Devin session summary 及
 connector 状态的增删，而不是修改并不存在的持久化 `arenaId`。
 
-## 2026-09-19：冷启动后静置对照
+### 2026-09-19：冷启动后静置对照
 
 用户在冷启动 Devin Desktop 后、未点击任何问题会话时连续截图：刚启动和数秒后的
 `Elder Oasis` 列表都完整包含九条本地 Devin 会话及四条 ACP 会话。随后对同一窗口进行只读观察：
@@ -163,7 +212,7 @@ connector 状态的增删，而不是修改并不存在的持久化 `arenaId`。
 0、1、3、10 秒导出 `acp.sessions`、`agentRequests` 和 provider 可用状态，同时确认持久化
 `resourceToSpace` 未变化。
 
-## 2026-09-20：点击触发的受控复现
+### 2026-09-20：点击触发的受控复现
 
 在不修改数据库、项目文件或 Space 配置的前提下，使用冷启动后的同一 Devin 窗口完成一次受控点击：
 
@@ -201,7 +250,7 @@ Desktop runtime 的列表投影/筛选错误。当前最小根因表述应为：
 Session 数据仍完整，但本地 Devin 会话缺失于 `acp.sessions`，而历史会话激活触发了面板从
 持久化投影切换到 runtime-dependent 投影。
 
-## Workaround 与 bug report 草稿
+### Workaround 与 bug report 草稿
 
 ### 当前可逆 workaround
 

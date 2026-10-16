@@ -15,7 +15,8 @@ Goal:
 
 Relevant governance references:
 - OS-RES/Skills 管理与治理原则
-- OS-LOG/Skills 当前状态清单
+- skills-governance/config/skills-inventory.json
+- OS-LOG/Skills 当前状态清单 (human mirror only)
 - skills-governance/backlog.md
 - skills-governance/config/source-types.yaml
 - skills-governance-audit

@@ -1,21 +1,24 @@
 # Logseq Vault Skill Inventory
 
-This file is a repository-side stub, not the canonical inventory.
+This file is a repository-side stub. It does not store the live inventory.
 
-## Canonical State Source
+## Machine-Readable Source
 
-The current state inventory for Logseq-vault skills now lives in Logseq:
+The source of truth is:
 
-- `[[OS-LOG/Skills 当前状态清单]]`
+- `skills-governance/config/skills-inventory.json`
 
-That page is the source of truth for:
+Validate it with `skills-governance/scripts/validate_skills_inventory.py`. The schema is `skills-inventory/v1` in `skills-governance/config/skills-inventory.schema.json`. Source classes remain in `skills-governance/config/source-types.yaml`.
 
-- locally owned, runtime-bundled, plugin-provided, third-party, and unknown classification
-- provenance
-- source/update authority and Skills CLI takeover status
-- baseline, local customization, conflict status, and last review time
-- risk review queue
-- recent changes
+That JSON record is what agents read and write for:
+
+- source class, authority, baseline, adapters, and status
+- `review_time`, `baseline_ref`, and `current_version` for drift reports
+- local customization and conflict status
+
+## Human Mirror
+
+`[[OS-LOG/Skills 当前状态清单]]` stays as the human-facing view. When someone needs that page updated, project from the JSON in one direction. Agents do not write the Logseq page as a second inventory, and they do not write live inventory state into `[[OS-RES/Skills 管理与治理原则]]`.
 
 ## Repository Role
 
@@ -24,5 +27,4 @@ Repository docs should keep:
 - durable principles
 - layout and versioning rules
 - canonical-source rules for locally owned skills
-
-Repository docs should not duplicate the live inventory state long-term.
+- the machine-readable inventory and its validator

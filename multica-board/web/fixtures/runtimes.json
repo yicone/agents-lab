@@ -1,0 +1,225 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "items": [
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:dd26ccd7-7e22-4912-ac43-201f9595f31b",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "dd26ccd7-7e22-4912-ac43-201f9595f31b",
+   "name": "Claude (dev-mini)",
+   "provider": "claude",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:37Z",
+   "device_info": "dev-mini · claude"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:5d024404-349b-4226-9a38-427a377e6f3a",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "5d024404-349b-4226-9a38-427a377e6f3a",
+   "name": "Codex (dev-mini)",
+   "provider": "codex",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:47Z",
+   "device_info": "dev-mini · codex"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:0ed1d832-9c11-4b25-ad64-9627242293f4",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "0ed1d832-9c11-4b25-ad64-9627242293f4",
+   "name": "Cursor (dev-mini)",
+   "provider": "cursor",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:11Z",
+   "device_info": "dev-mini · cursor"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:0f9788e3-261b-44a9-96fb-25b9118e6fc7",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "0f9788e3-261b-44a9-96fb-25b9118e6fc7",
+   "name": "Hermes (dev-mini)",
+   "provider": "hermes",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:10Z",
+   "device_info": "dev-mini · hermes"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:11a43d90-8a53-42d1-b710-05d812dd6870",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "11a43d90-8a53-42d1-b710-05d812dd6870",
+   "name": "Antigravity (dev-mini)",
+   "provider": "antigravity",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:16Z",
+   "device_info": "dev-mini · antigravity"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:ccf6014e-5d81-4f26-9456-ce8f02832688",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "ccf6014e-5d81-4f26-9456-ce8f02832688",
+   "name": "Claude (dev-mini)",
+   "provider": "claude",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:49Z",
+   "device_info": "dev-mini · claude"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:055dc2f4-6316-4019-b9ce-4a7c05d8cc71",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "055dc2f4-6316-4019-b9ce-4a7c05d8cc71",
+   "name": "Codex (dev-mini)",
+   "provider": "codex",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:16Z",
+   "device_info": "dev-mini · codex"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:6ac930c8-d598-4608-9588-1d4b34174b37",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "6ac930c8-d598-4608-9588-1d4b34174b37",
+   "name": "Cursor (dev-mini)",
+   "provider": "cursor",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:28Z",
+   "device_info": "dev-mini · cursor"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:94c70067-9721-489b-8c92-548b793519ab",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "94c70067-9721-489b-8c92-548b793519ab",
+   "name": "Hermes (dev-mini)",
+   "provider": "hermes",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:14Z",
+   "device_info": "dev-mini · hermes"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:c55b545e-4ef0-4149-abbc-8c0b4928c511",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "c55b545e-4ef0-4149-abbc-8c0b4928c511",
+   "name": "Antigravity (dev-mini)",
+   "provider": "antigravity",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:20Z",
+   "device_info": "dev-mini · antigravity"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:32d39ebe-b9bd-4aac-815a-41375bd91766",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "32d39ebe-b9bd-4aac-815a-41375bd91766",
+   "name": "Claude (dev-mini)",
+   "provider": "claude",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:36Z",
+   "device_info": "dev-mini · claude"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:7f8b0df6-9aed-4e09-855d-89dc05e92c96",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "7f8b0df6-9aed-4e09-855d-89dc05e92c96",
+   "name": "Codex (dev-mini)",
+   "provider": "codex",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:24Z",
+   "device_info": "dev-mini · codex"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:9b833162-6326-4222-a83a-a4c899be3fca",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "9b833162-6326-4222-a83a-a4c899be3fca",
+   "name": "Cursor (dev-mini)",
+   "provider": "cursor",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:45Z",
+   "device_info": "dev-mini · cursor"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:e72de4fd-08a9-4dcc-af48-d9232d6355f7",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "e72de4fd-08a9-4dcc-af48-d9232d6355f7",
+   "name": "Hermes (dev-mini)",
+   "provider": "hermes",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:18Z",
+   "device_info": "dev-mini · hermes"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:67c6bda4-5aac-4224-8943-337e2aa06a77",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "67c6bda4-5aac-4224-8943-337e2aa06a77",
+   "name": "Antigravity (dev-mini)",
+   "provider": "antigravity",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:47Z",
+   "device_info": "dev-mini · antigravity"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:bf6da0ba-efe9-45d2-b350-c25cf4bb1c84",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "bf6da0ba-efe9-45d2-b350-c25cf4bb1c84",
+   "name": "Claude (dev-mini)",
+   "provider": "claude",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:24Z",
+   "device_info": "dev-mini · claude"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:2073c89a-866a-4ba9-ac9b-8369a0547324",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "2073c89a-866a-4ba9-ac9b-8369a0547324",
+   "name": "Codex (dev-mini)",
+   "provider": "codex",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:26Z",
+   "device_info": "dev-mini · codex"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:24328272-21c0-4827-9f6a-46867ab1c06f",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "24328272-21c0-4827-9f6a-46867ab1c06f",
+   "name": "Cursor (dev-mini)",
+   "provider": "cursor",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:52Z",
+   "device_info": "dev-mini · cursor"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:4731d5f3-1a40-4def-b33f-9075fedf6268",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "4731d5f3-1a40-4def-b33f-9075fedf6268",
+   "name": "Hermes (dev-mini)",
+   "provider": "hermes",
+   "runtime_mode": "local",
+   "status": "online",
+   "last_seen_at": "2026-10-14T08:59:45Z",
+   "device_info": "dev-mini · hermes"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:89f2f57f-12bd-4d1f-879b-a1818cb6ca47",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "89f2f57f-12bd-4d1f-879b-a1818cb6ca47",
+   "name": "Antigravity (dev-mini)",
+   "provider": "antigravity",
+   "runtime_mode": "local",
+   "status": "offline",
+   "last_seen_at": "2026-10-13T07:00:00Z",
+   "device_info": "dev-mini · antigravity"
+  }
+ ]
+}

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skills-inventory/v1",
+  "title": "Skills Inventory",
+  "description": "Machine-readable source of truth for governed skills. The Logseq page OS-LOG/Skills 当前状态清单 is a human mirror and is projected one way from this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "updated_at", "skills"],
+  "properties": {
+    "schema": {
+      "const": "skills-inventory/v1"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "description": "When this registry file was last written."
+    },
+    "description": {
+      "type": "string"
+    },
+    "human_mirror": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "role", "projection"],
+      "properties": {
+        "page": { "type": "string", "minLength": 1 },
+        "role": { "const": "human_view" },
+        "projection": { "const": "one_way_from_this_file" }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/skill" }
+    }
+  },
+  "$defs": {
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "source_class",
+        "authority",
+        "baseline",
+        "adapters",
+        "status",
+        "review_time",
+        "baseline_ref",
+        "current_version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "source_class": {
+          "type": "string",
+          "description": "One of the classes in source-types.yaml."
+        },
+        "authority": { "$ref": "#/$defs/authority" },
+        "baseline": { "$ref": "#/$defs/baseline" },
+        "adapters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/adapter" }
+        },
+        "status": {
+          "enum": ["active", "staged", "quarantined", "retired", "unknown"]
+        },
+        "review_time": {
+          "description": "Drift report field (ACM-142). Last review timestamp, or null when the record has not been reviewed.",
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "baseline_ref": {
+          "description": "Drift report field (ACM-142). Pointer to the reviewed baseline. content_hash records use sha256:<64 hex of SKILL.md>. Skills CLI upstream_ref records use github:<lock source>. Null only when baseline.kind is none.",
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "current_version": {
+          "description": "Drift report field (ACM-142). Explicit compatibility version, usually SKILL.md metadata.version. Skills CLI records use the lock skillFolderHash, or null when that hash is empty. Null when Git history is the only version authority.",
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "scope": { "type": "string", "minLength": 1 },
+        "install_shape": {
+          "enum": ["canonical_directory", "symlink_adapters", "real_directory", "mixed", "unknown"]
+        },
+        "local_customization": {
+          "enum": ["none", "local_delta", "unknown"]
+        },
+        "conflict_status": {
+          "enum": ["none", "open", "unreviewed", "unknown"]
+        },
+        "visible_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownership", "source_authority", "update_authority", "canonical_path"],
+      "properties": {
+        "ownership": { "type": "string", "minLength": 1 },
+        "source_authority": { "type": "string", "minLength": 1 },
+        "update_authority": { "type": "string", "minLength": 1 },
+        "canonical_path": {
+          "description": "Repo-relative directory that contains SKILL.md. Null when this repository is not the canonical source.",
+          "type": ["string", "null"],
+          "minLength": 1
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["content_hash", "upstream_ref", "git_commit", "none"]
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What baseline_ref points at. content_hash records use SKILL.md. Skills CLI upstream_ref records use the lock skillPath."
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "target"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Repo-relative path, or an absolute/~ path for a machine adapter outside this repository."
+        },
+        "kind": {
+          "enum": ["symlink", "directory", "declared_target", "wrapper"]
+        },
+        "target": {
+          "description": "Symlink target text, or null when the adapter has no link target.",
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

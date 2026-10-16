@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Host-side JSON broker; never expose Devin/gh internals to sandbox callers."""
 from __future__ import annotations
-import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess, re
+import argparse, datetime as dt, hashlib, json, os, pathlib, sys, tempfile, subprocess, re, time
 from contextlib import contextmanager
 from repository_binding import BindingError, normalize_origin
 
 SCHEMA = "devin-host-review/v1"
+PREFLIGHT_TIMEOUT_SECONDS = 90
+PATCH_TIMEOUT_SECONDS = 90
+PATCH_ATTEMPTS = 3
+PATCH_RETRY_DELAY_SECONDS = 1
 ALLOWED_REQUEST = {"schema", "repository_root", "pr_number", "round", "authorization", "timeout_seconds"}
 
-def response(status, req=None, *, evidence_ref=None, retryable=False, findings_count=0, comments=None):
+def response(status, req=None, *, evidence_ref=None, failure_code=None, retryable=False, findings_count=0, comments=None):
     req = req or {}
     auth = req.get("authorization") or {}
     return {"schema": SCHEMA, "status": status, "repository_root": req.get("repository_root"),
             "pr_number": req.get("pr_number"), "head_sha": auth.get("head_sha"),
             "round": req.get("round"), "findings_count": findings_count,
-            "comments": comments or [], "evidence_ref": evidence_ref, "retryable": retryable}
+            "comments": comments or [], "evidence_ref": evidence_ref,
+            "failure_code": failure_code, "retryable": retryable}
 
 def load_json(path):
     try: return json.loads(path.read_text())
@@ -109,14 +114,40 @@ def root_lock(root):
         try: path.unlink()
         except FileNotFoundError: pass
 
-def changed_lines(root, origin, pr):
-    try:
-        p = subprocess.run(["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"], cwd=root, text=True, capture_output=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if p.returncode: return None
+def is_transport_error(detail):
+    markers = ("timeout", "timed out", "tls", "ssl", "connection", "proxy", "network", "eof", "dns")
+    return any(marker in detail.lower() for marker in markers)
+
+
+def github_patch(root, origin, pr):
+    """Fetch a verified PR patch, retrying only bounded transport failures."""
+    commands = [
+        ["gh", "api", f"repos/{origin}/pulls/{pr}", "--header", "Accept: application/vnd.github.v3.diff"],
+        ["gh", "pr", "diff", str(pr), "--repo", origin, "--patch"],
+    ]
+    errors = []
+    for command in commands:
+        command_name = "rest" if command[1] == "api" else "gh-diff"
+        for attempt in range(1, PATCH_ATTEMPTS + 1):
+            try:
+                p = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=PATCH_TIMEOUT_SECONDS)
+            except (OSError, subprocess.SubprocessError) as exc:
+                detail = f"{type(exc).__name__}: {exc}"
+            else:
+                if p.returncode == 0 and p.stdout.strip():
+                    return p.stdout, None
+                detail = (p.stderr or "").strip()[-500:] or f"exit={p.returncode}"
+            errors.append(f"{command_name}[{attempt}/{PATCH_ATTEMPTS}]: {detail}")
+            if not is_transport_error(detail) or attempt == PATCH_ATTEMPTS:
+                break
+            time.sleep(PATCH_RETRY_DELAY_SECONDS * attempt)
+    joined = " | ".join(errors)
+    return None, ("github_transport_unavailable: " + joined if is_transport_error(joined) else "diff_unavailable: " + joined)
+
+
+def parse_changed_lines(patch):
     result, path, line = {}, None, 0
-    for raw in p.stdout.splitlines():
+    for raw in patch.splitlines():
         if raw.startswith("+++ b/"): path = raw[6:]; result.setdefault(path, [])
         elif raw.startswith("@@") and path:
             m = re.search(r"\+(\d+)(?:,(\d+))?", raw)
@@ -127,24 +158,149 @@ def changed_lines(root, origin, pr):
             line += 1
     return result
 
+
+def changed_lines(root, origin, pr):
+    patch, _ = github_patch(root, origin, pr)
+    return parse_changed_lines(patch) if patch else None
+
+
+def changed_patch(root, origin, pr):
+    patch, _ = github_patch(root, origin, pr)
+    return patch
+
+def is_unresolvable_review_comment(result):
+    """Return true when GitHub rejects a line because it is not in the PR diff.
+
+    Devin reviews the verified patch, but GitHub can return a slightly different
+    projection of a large/multi-commit PR.  Such a finding must be recorded and
+    skipped instead of turning already-published findings into a failed review.
+    """
+    text = (result.stderr or "") + "\n" + (result.stdout or "")
+    return result.returncode != 0 and (
+        "could not be resolved" in text.lower()
+        or '"status":422' in text.replace(" ", "").lower()
+        or "http 422" in text.lower()
+    )
+
+
+def review_execution_root(request_root, session):
+    """Choose the stable host cwd used to resume the repository session."""
+    registered_root = session.get("registered_root") if isinstance(session, dict) else None
+    if isinstance(registered_root, str) and pathlib.Path(registered_root).is_dir():
+        return registered_root
+    return request_root
+
+
+def post_review_session_guard(execution_root, session_id):
+    """Confirm Devin did not move the fixed session during the review."""
+    try:
+        process = subprocess.run(
+            ["devin", "list", "--format", "json"],
+            cwd=execution_root,
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "session_working_directory_drift", {"error": type(exc).__name__}
+    if process.returncode != 0:
+        return "session_working_directory_drift", {"error": process.stderr[-1000:]}
+    try:
+        sessions = json.loads(process.stdout)
+    except json.JSONDecodeError:
+        return "session_working_directory_drift", {"error": "session_list_invalid_json"}
+    match = next((item for item in sessions if isinstance(item, dict) and item.get("id") == session_id), None) if isinstance(sessions, list) else None
+    observed = match.get("working_directory") if isinstance(match, dict) else None
+    if not isinstance(observed, str) or pathlib.Path(observed).resolve() != pathlib.Path(execution_root).resolve():
+        return "session_working_directory_drift", {"observed_root": observed, "expected_root": str(pathlib.Path(execution_root).resolve())}
+    return None, {"observed_root": str(pathlib.Path(observed).resolve())}
+
+
+def build_devin_args(session_id, config, prompt_path):
+    args = ["devin"]
+    if config:
+        args += ["--config", config]
+    args += ["-r", session_id, "--model", "swe-2-high", "--permission-mode", "auto",
+             "--respect-workspace-trust", "true", "--prompt-file", str(prompt_path), "-p"]
+    return args
+
+
+def build_review_prompt(pr, head, root, sid, patch):
+    contract = json.dumps({
+        "schema": "devin-pr-review/v1",
+        "session_id": sid,
+        "repository_root": root,
+        "pr_number": pr,
+        "head_sha": head,
+        "findings": [],
+    }, ensure_ascii=False, indent=2)
+    return ("Return exactly one JSON document and no Markdown, prose, code fence, or wrapper text. "
+            "The output must include every top-level field in the contract below; do not omit "
+            "the exact schema value even when findings is empty. Replace only the example values "
+            "and findings array contents.\n\n"
+            f"JSON contract:\n{contract}\n\n"
+            f"Review PR {pr} at head {head} in repository {root}. "
+            f"Your session_id is {sid}; repository_root is {root}. "
+            "The complete verified PR patch is supplied below. Do not invoke tools, run commands, "
+            "open files, call GitHub, edit, commit, or push. Use only this patch and report "
+            "actionable correctness, security, reliability, or maintainability findings on added RIGHT lines. "
+            "Every finding severity MUST be exactly one of blocker, high, medium, or low; never use "
+            "should-fix, must-fix, nit, info, or any other label. Use confidence as a number from 0 to 1, "
+            "side exactly RIGHT, and omit style-only or non-actionable observations. For every finding, "
+            "id MUST be a unique safe identifier across the entire findings array (use F-001, F-002, ... "
+            "in order); before returning, verify that no two findings share an id. If there are no valid "
+            "findings, return an empty findings array rather than placeholder or duplicate ids. "
+            "Every finding title and body MUST be non-empty text: title is a concise defect label and body "
+            "is an actionable explanation with a concrete fix suggestion; never emit blank strings, nulls, "
+            "or whitespace-only values for either field. "
+            "path MUST be a repository-relative POSIX path from the supplied patch (no leading slash and no '..' segments); "
+            "never emit an absolute filesystem path.\n\n"
+            "--- VERIFIED PR PATCH ---\n" + patch + "\n--- END VERIFIED PR PATCH ---")
+
+
 def run_review(root, origin, req, pf, evidence_payload):
     sid = pf["session"]["id"]; head = pf["pr"]["head_sha"]; pr = req["pr_number"]
-    lines = changed_lines(root, origin, pr)
-    if not lines: return "await-user", [], evidence_payload | {"error": "diff unavailable"}
-    prompt = ("Return exactly one JSON document matching devin-pr-review/v1, no Markdown. "
-              f"Review PR {pr} at head {head} in repository {root}. "
-              f"Your session_id is {sid}; repository_root is {root}. "
-              "Do not edit, commit, push, or call GitHub. Report only actionable correctness, security, reliability, or maintainability findings on added RIGHT lines.")
-    devin_args = ["devin"]
+    # Devin mutates a session's working_directory to the cwd used for the
+    # resume. Keep repository-level sessions anchored to their registered main
+    # workspace; the review input is the verified GitHub patch, not local files.
+    execution_root = review_execution_root(root, pf.get("session", {}))
+    patch, patch_error = github_patch(root, origin, pr)
+    if not patch:
+        return "await-user", [], evidence_payload | {"error": patch_error or "diff_unavailable"}
+    lines = parse_changed_lines(patch)
+    if not lines:
+        return "await-user", [], evidence_payload | {"error": "diff_empty"}
+    prompt = build_review_prompt(pr, head, root, sid, patch)
     config = os.environ.get("DEVIN_REVIEW_CONFIG")
-    if config: devin_args += ["--config", config]
-    devin_args += ["-r", sid, "--model", "swe-2-high", "--permission-mode", "auto", "--respect-workspace-trust", "true", "-p", "--", prompt]
+    prompt_fd, prompt_path = tempfile.mkstemp(prefix="devin-review-prompt-", suffix=".txt")
     try:
-        p = subprocess.run(devin_args, cwd=root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
+        os.fchmod(prompt_fd, 0o600)
+        with os.fdopen(prompt_fd, "w", encoding="utf-8") as stream:
+            stream.write(prompt)
+        devin_args = build_devin_args(sid, config, prompt_path)
+    except OSError:
+        try: os.close(prompt_fd)
+        except OSError: pass
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
+        return "await-user", [], evidence_payload | {"error": "prompt_file_failure"}
+    guard_error, guard_evidence = post_review_session_guard(execution_root, sid)
+    evidence_payload["pre_review_session"] = guard_evidence
+    if guard_error:
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
+        return "await-user", [], evidence_payload | {"error": guard_error}
+    try:
+        p = subprocess.run(devin_args, cwd=execution_root, text=True, capture_output=True, timeout=req.get("timeout_seconds", 900))
     except (OSError, subprocess.SubprocessError) as exc:
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
         return "await-user", [], evidence_payload | {"error": "deving_process_failure", "detail": type(exc).__name__}
+    finally:
+        pathlib.Path(prompt_path).unlink(missing_ok=True)
     evidence_payload |= {"returncode": p.returncode, "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}
     if p.returncode != 0 or "requires confirmation" in p.stderr.lower(): return "await-user", [], evidence_payload | {"error": "permission_or_process_failure"}
+    guard_error, guard_evidence = post_review_session_guard(execution_root, sid)
+    evidence_payload["post_review_session"] = guard_evidence
+    if guard_error:
+        return "await-user", [], evidence_payload | {"error": guard_error}
     start = p.stdout.find("{")
     cleaned = p.stdout[start:] if start >= 0 else p.stdout
     try:
@@ -178,6 +334,7 @@ def run_review(root, origin, req, pf, evidence_payload):
     review = parsed
     if not review.get("findings"): return "no-findings", [], evidence_payload
     comments = []
+    dropped_publish = []
     existing = set()
     try:
         listed = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments"], text=True, capture_output=True, timeout=30)
@@ -199,10 +356,18 @@ def run_review(root, origin, req, pf, evidence_payload):
             c = subprocess.run(["gh", "api", f"repos/{origin}/pulls/{pr}/comments", "-f", f"body={body}", "-f", f"commit_id={head}", "-f", f"path={f['path']}", "-F", f"line={f['line']}", "-f", "side=RIGHT"], text=True, capture_output=True, timeout=30)
         except (OSError, subprocess.SubprocessError):
             return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
-        if c.returncode != 0: return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
+        if c.returncode != 0:
+            if is_unresolvable_review_comment(c):
+                dropped_publish.append({"id": f.get("id"), "reason": "github_line_unresolvable"})
+                continue
+            return "await-user", comments, evidence_payload | {"error": "github_publish_failed"}
         try:
             obj = json.loads(c.stdout); comments.append({"id": str(obj.get("id")), "url": obj.get("html_url")})
         except json.JSONDecodeError: return "await-user", comments, evidence_payload | {"error": "github_publish_invalid"}
+    if dropped_publish:
+        evidence_payload["dropped_publish_findings"] = dropped_publish
+    if not comments and dropped_publish:
+        return "await-user", comments, evidence_payload | {"error": "github_publish_unresolvable"}
     return "review-published", comments, evidence_payload
 
 def main():
@@ -210,11 +375,16 @@ def main():
     args = parser.parse_args(); raw = sys.stdin.read()
     try: req = json.loads(raw)
     except json.JSONDecodeError: print(json.dumps(response("invalid-request"))); return 2
+    if isinstance(req, dict) and req.get("schema") == "pr-review-round/v1":
+        print(json.dumps(response("invalid-request", req, failure_code="control_record_not_provider_request")))
+        return 2
     allow_data = load_json(pathlib.Path(args.allowlist).expanduser()) or {}
     allowlist = {str(pathlib.Path(k).resolve()): v for k, v in allow_data.items()} if isinstance(allow_data, dict) else {}
     auth = load_json(pathlib.Path(args.authorizations).expanduser()) or {}
     error = validate_request(req, allowlist, auth if isinstance(auth, dict) else {})
-    if error: print(json.dumps(response(error, req))); return 2
+    if error:
+        print(json.dumps(response(error, req, failure_code=error)))
+        return 2
     aid = req["authorization"]["authorization_id"]
     ledger_path = pathlib.Path(args.ledger).expanduser(); ledger = load_json(ledger_path) or {}
     prior = ledger.get(aid) if isinstance(ledger, dict) else None
@@ -227,7 +397,7 @@ def main():
             atomic_write(ledger_path, ledger)
             preflight = pathlib.Path(__file__).with_name("preflight.py")
             try:
-                proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=30)
+                proc = subprocess.run([sys.executable, str(preflight), "--repo-root", req["repository_root"], "--pr", str(req["pr_number"])], text=True, capture_output=True, timeout=PREFLIGHT_TIMEOUT_SECONDS)
                 try: pf = json.loads(proc.stdout)
                 except json.JSONDecodeError: pf = {"status": "provider-unavailable"}
             except (OSError, subprocess.SubprocessError) as exc:
@@ -235,18 +405,22 @@ def main():
             if proc is None or proc.returncode != 0 or pf.get("status") != "ok":
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "stderr": proc.stderr[-2000:] if proc else ""})
+                out["failure_code"] = pf.get("status") or "provider_unavailable"
             elif req["authorization"]["head_sha"] != pf.get("pr", {}).get("head_sha"):
                 out = response("await-user", req, retryable=False)
                 evidence = write_evidence({"request": req, "preflight": pf, "error": "head_mismatch"})
+                out["failure_code"] = "head_mismatch"
             else:
                 origin = allowlist_origin(str(pathlib.Path(req["repository_root"]).resolve()), allowlist)
                 status, comments, evidence_payload = run_review(req["repository_root"], origin, req, pf, {"request": req, "preflight": pf})
                 out = response(status, req, retryable=False, findings_count=len(comments), comments=comments)
+                if status == "await-user":
+                    out["failure_code"] = evidence_payload.get("error") or "provider_unavailable"
                 evidence = write_evidence(evidence_payload)
             out["evidence_ref"] = evidence
             ledger[aid] = {"status": "complete", "response": out}; atomic_write(ledger_path, ledger)
     except RuntimeError:
-        out = response("provider-unavailable", req, retryable=False)
+        out = response("provider-unavailable", req, failure_code="provider_unavailable", retryable=False)
     print(json.dumps(out, ensure_ascii=False)); return 0
 
 if __name__ == "__main__": raise SystemExit(main())

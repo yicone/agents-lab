@@ -1,6 +1,6 @@
 ---
 name: acns-inbox
-description: Use when the user wants to capture ideas, tasks, questions, or info into the ACNS global Inbox for later triage and routing. If ownership is already known, prefer the Logseq fast-append path (logseq-acns-vault Fast Path) instead of Inbox.
+description: Use when ownership is unclear and a short-TTL capture into the ACNS Inbox shell is needed before routing to Multica / Reminders / conclusion pages. Inbox is not a task park. If ownership is already known, prefer Multica, Apple Reminders, Notion, or Logseq fast-append instead of Inbox.
 metadata:
   owner: agents-lab
   scope: repo
@@ -12,36 +12,44 @@ metadata:
 
 ## Overview
 
-`acns-inbox` is the default global capture workflow for the user's ACNS.
+`acns-inbox` is the **short-TTL capture shell** workflow for the user's ACNS (Agent-era layering v0.1).
+
+`pages/Inbox.md` = queries + empty 「新捕获」. **Inbox is not a task pool.** History archived at `[[I-LOG/Inbox清理归档-2026-10-02]]`. Demoted items live in Multica ACM-105..110 — do not dump them back here.
 
 Its role is:
-1. capture quickly
+1. capture quickly when ownership is unclear
 2. classify lightly
-3. preserve enough context for later routing
-4. avoid premature system spread
+3. preserve enough context for later routing (short TTL)
+4. avoid premature system spread — and avoid long-term Inbox parking
 
-Read when ownership is unclear or routing is non-trivial:
-- `pages/Inbox.md`
-- `AGENTS.md`
-- (optional deeper) `pages/OS-AREA%2F信息管理%2FAI处理Inbox工作流.md`, `pages/OS-RES%2FAI 信息管家运行规则 v1.md`
+Read when ownership is unclear or routing is non-trivial (priority):
+1. `pages/Inbox.md`
+2. `AGENTS.md`
+3. OS-* Inbox workflow pages only if needed — treat as **deprecated-until-updated** (`pages/OS-AREA%2F信息管理%2FAI处理Inbox工作流.md`, `pages/OS-RES%2FAI 信息管家运行规则 v1.md`)
 
-For a known-ownership one-liner, skip these reads and use Fast Path above.
+For a known-ownership one-liner, skip these reads and use Fast Path / Multica / Reminders / Notion as appropriate.
 
 ## Core Principle
 
-Global capture goes to `[[Inbox]]` by default.
+Unclear short-TTL capture may go to `[[Inbox]]`. Actionable process work does **not** park there.
 
 Do this when:
-- ownership is unclear
-- project association is unclear
-- the item is not yet confirmed as a real project delivery action
-- the user is thinking out loud, collecting ideas, or parking something quickly
+- ownership is unclear **and** you need a brief capture window
+- project association is unclear for a moment
+- the user is thinking out loud and a one-line capture buys time before Multica / promote / discard
 
-Do not use Inbox as a reflex when the item is already a clearly defined project task inside an existing project context.
+Do **not** use Inbox as a reflex when:
+- the item is process-state / half-baked / tool-trial → **Multica**
+- the item is a hard-deadline light action → **Apple Reminders**
+- the item is already a clear project delivery task → **Notion**
+- the item is a stable conclusion → namespaced Logseq page
 
 Rule:
-- unclear global capture -> `[[Inbox]]`
-- clear project delivery action in an existing project context -> usually `Notion` project task pool, not `Inbox`
+- unclear short-TTL capture -> `[[Inbox]]` (timeout → Multica / promote / discard)
+- process / demote work -> Multica (not Inbox stack)
+- hard-deadline light action -> Apple Reminders
+- clear project delivery -> Notion
+- vault = stable conclusions only
 
 
 ## Fast Path (skip Inbox ceremony)
@@ -53,7 +61,9 @@ If the user already names an existing Logseq page / today's Journal / a clear No
 | Existing Logseq page + one sentence | `logseq-acns-write` `fast-append` → transport (skip vault deliberation) |
 | Today's focus / execution slice | append to `Journals` via `fast-append` |
 | Confirmed project delivery | Notion task pool — not Inbox, not Logseq task dump |
-| Ownership still unclear | stay on this Inbox skill (minimal metadata below) |
+| Process / half-baked / tool-trial | **Multica** — not Inbox |
+| Hard-deadline light action | **Apple Reminders** — not Inbox |
+| Ownership still unclear (short TTL) | stay on this Inbox skill (minimal metadata below) |
 
 For unclear one-liners into Inbox: write one block with light metadata only — do not over-read reference pages or invent structure.
 
@@ -96,13 +106,18 @@ Use the existing Inbox metadata model, interpreted through the current ACNS obje
 ## When Not to Write to Inbox
 
 Do not write to `Inbox` when:
-- the item is already a confirmed project delivery task
+- the item is process-state / half-baked / tool-trial → write to **Multica**
+- it is a hard-deadline light action → **Apple Reminders**
+- the item is already a confirmed project delivery task → **Notion**
 - it clearly belongs to an active project in `Notion`
 - it is already today's execution slice and should go to `Journals`
-- it is purely durable context that already has an owning Logseq page
+- it is a stable conclusion / durable context → namespaced Logseq page (`pages/视频转长文%2F…`, `pages/X-digests%2F…`, AREA/PROJ/RES/LOG)
+- it was already demoted (Multica ACM-105..110) — do not dump back into Inbox
 
 ## Output Location
 
-When Inbox is the right destination, always write to:
+When Inbox is the right destination (short-TTL only), always write to:
 - `pages/Inbox.md`
 - section: `## 📥 新捕获（AI写入区）`
+
+Near-empty 新捕获 = healthy. Archive: `[[I-LOG/Inbox清理归档-2026-10-02]]`. Routing: `acns-route-inbox`.

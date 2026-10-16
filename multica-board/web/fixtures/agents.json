@@ -1,0 +1,531 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "recent_window_h": 24,
+ "items": [
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
+   "name": "Repo Analyst",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "dd26ccd7-7e22-4912-ac43-201f9595f31b",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 5,
+    "failed": 1,
+    "last_failed_at": "2026-10-13T16:00:00Z",
+    "last_error_kind": "daemon_restart",
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/alpha-lab/agents/7c28ebcf-58eb-4791-a027-d3dd52e81d8e"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
+   "name": "Reviewer",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "11a43d90-8a53-42d1-b710-05d812dd6870",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 3,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/alpha-lab/agents/ad8a8338-ba0e-45b2-8f2f-6d90d339d56a"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:cf1199f9-eefc-43bc-be8d-233ba902121e",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "cf1199f9-eefc-43bc-be8d-233ba902121e",
+   "name": "前端设计师",
+   "status": "idle",
+   "archived": true,
+   "runtime_id": "5d024404-349b-4226-9a38-427a377e6f3a",
+   "model": "gpt-5.6-sol-high",
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 4,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/alpha-lab/agents/cf1199f9-eefc-43bc-be8d-233ba902121e"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:d5a63351-5878-42af-b6f3-2f5824d15a2d",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "d5a63351-5878-42af-b6f3-2f5824d15a2d",
+   "name": "Steward",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "0ed1d832-9c11-4b25-ad64-9627242293f4",
+   "model": "claude-opus-5-5-high",
+   "thinking_level": "high",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 8,
+    "failed": 1,
+    "last_failed_at": "2026-10-14T07:00:00Z",
+    "last_error_kind": "process",
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/alpha-lab/agents/d5a63351-5878-42af-b6f3-2f5824d15a2d"
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:f0905037-380b-485a-b5ba-fb5b3c593843",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "f0905037-380b-485a-b5ba-fb5b3c593843",
+   "name": "Knowledge Archivist",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "11a43d90-8a53-42d1-b710-05d812dd6870",
+   "model": null,
+   "thinking_level": "high",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 2
+   },
+   "recent": {
+    "completed": 7,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/alpha-lab/agents/f0905037-380b-485a-b5ba-fb5b3c593843"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:75b39498-04f8-4714-8b63-baf90462ee16",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "75b39498-04f8-4714-8b63-baf90462ee16",
+   "name": "Reviewer",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": null,
+   "model": null,
+   "thinking_level": "medium",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 0,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/beta-coach/agents/75b39498-04f8-4714-8b63-baf90462ee16"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:0e7f6baf-34bb-4202-b599-803b9f27ae71",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "0e7f6baf-34bb-4202-b599-803b9f27ae71",
+   "name": "Steward",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "c55b545e-4ef0-4149-abbc-8c0b4928c511",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 5,
+    "failed": 2,
+    "last_failed_at": "2026-10-13T17:00:00Z",
+    "last_error_kind": "rate_limit",
+    "last_failed_issue_identifier": "BET-106"
+   },
+   "url": "https://multica.example/beta-coach/agents/0e7f6baf-34bb-4202-b599-803b9f27ae71"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:62c09797-46c6-430a-b15a-d732399d6c5b",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "62c09797-46c6-430a-b15a-d732399d6c5b",
+   "name": "研究员",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "055dc2f4-6316-4019-b9ce-4a7c05d8cc71",
+   "model": null,
+   "thinking_level": "high",
+   "service_tier": "priority",
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 2,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/beta-coach/agents/62c09797-46c6-430a-b15a-d732399d6c5b"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:79b22487-e5c7-4b93-80a8-b34fbb2f6f32",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "79b22487-e5c7-4b93-80a8-b34fbb2f6f32",
+   "name": "Knowledge Archivist",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "055dc2f4-6316-4019-b9ce-4a7c05d8cc71",
+   "model": "gpt-5.6-sol-high",
+   "thinking_level": "medium",
+   "service_tier": "priority",
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 8,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/beta-coach/agents/79b22487-e5c7-4b93-80a8-b34fbb2f6f32"
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:712a9be0-41b3-492b-b92f-3a4e2395b590",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "712a9be0-41b3-492b-b92f-3a4e2395b590",
+   "name": "Repo Analyst",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "055dc2f4-6316-4019-b9ce-4a7c05d8cc71",
+   "model": "gpt-5.6-sol-high",
+   "thinking_level": "high",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 0,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/beta-coach/agents/712a9be0-41b3-492b-b92f-3a4e2395b590"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:085c2e51-05bc-4efc-ab6b-ddebb9852c0d",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "085c2e51-05bc-4efc-ab6b-ddebb9852c0d",
+   "name": "Reviewer",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "67c6bda4-5aac-4224-8943-337e2aa06a77",
+   "model": null,
+   "thinking_level": "medium",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 7,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/gamma-oasis/agents/085c2e51-05bc-4efc-ab6b-ddebb9852c0d"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:40135248-bc62-49b2-b70b-872755b78afd",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "40135248-bc62-49b2-b70b-872755b78afd",
+   "name": "Steward",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "9b833162-6326-4222-a83a-a4c899be3fca",
+   "model": "claude-opus-5-5-high",
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 3,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/gamma-oasis/agents/40135248-bc62-49b2-b70b-872755b78afd"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:236ffd0a-467e-40f1-9a38-eddca6edcb86",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "236ffd0a-467e-40f1-9a38-eddca6edcb86",
+   "name": "研究员",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "e72de4fd-08a9-4dcc-af48-d9232d6355f7",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 2
+   },
+   "recent": {
+    "completed": 0,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/gamma-oasis/agents/236ffd0a-467e-40f1-9a38-eddca6edcb86"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:a946aac3-9fb0-4582-80a4-d7b38b9970f5",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "a946aac3-9fb0-4582-80a4-d7b38b9970f5",
+   "name": "Builder",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "7f8b0df6-9aed-4e09-855d-89dc05e92c96",
+   "model": null,
+   "thinking_level": "high",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 4,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/gamma-oasis/agents/a946aac3-9fb0-4582-80a4-d7b38b9970f5"
+  },
+  {
+   "key": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4:a348df13-2295-4c6b-93cd-566f414f2da3",
+   "workspace_id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
+   "id": "a348df13-2295-4c6b-93cd-566f414f2da3",
+   "name": "前端设计师",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "9b833162-6326-4222-a83a-a4c899be3fca",
+   "model": "composer-2.5",
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 4,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/gamma-oasis/agents/a348df13-2295-4c6b-93cd-566f414f2da3"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:3a62b1f3-a77b-4c88-90ce-f57ce4c3ec30",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "3a62b1f3-a77b-4c88-90ce-f57ce4c3ec30",
+   "name": "Knowledge Archivist",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "89f2f57f-12bd-4d1f-879b-a1818cb6ca47",
+   "model": null,
+   "thinking_level": "high",
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 2
+   },
+   "recent": {
+    "completed": 8,
+    "failed": 1,
+    "last_failed_at": "2026-10-13T15:00:00Z",
+    "last_error_kind": "process",
+    "last_failed_issue_identifier": "DEL-112"
+   },
+   "url": "https://multica.example/delta-english/agents/3a62b1f3-a77b-4c88-90ce-f57ce4c3ec30"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:3007f85b-e0a8-427d-8c81-77680f31de82",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "3007f85b-e0a8-427d-8c81-77680f31de82",
+   "name": "Steward",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "4731d5f3-1a40-4def-b33f-9075fedf6268",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 6,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/delta-english/agents/3007f85b-e0a8-427d-8c81-77680f31de82"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:ca5ed556-3cee-4ff5-80f5-e53b863afdac",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "ca5ed556-3cee-4ff5-80f5-e53b863afdac",
+   "name": "Repo Analyst",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "24328272-21c0-4827-9f6a-46867ab1c06f",
+   "model": "claude-opus-5-5-high",
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 8,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/delta-english/agents/ca5ed556-3cee-4ff5-80f5-e53b863afdac"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:c0bc5732-f710-4f54-9eca-6659a0f0f871",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "c0bc5732-f710-4f54-9eca-6659a0f0f871",
+   "name": "Builder",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "89f2f57f-12bd-4d1f-879b-a1818cb6ca47",
+   "model": "gemini-3.1-pro",
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 3,
+    "failed": 2,
+    "last_failed_at": "2026-10-14T06:00:00Z",
+    "last_error_kind": "quota",
+    "last_failed_issue_identifier": "DEL-100"
+   },
+   "url": "https://multica.example/delta-english/agents/c0bc5732-f710-4f54-9eca-6659a0f0f871"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:16508625-3e3c-4614-ad8e-860629ee724d",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "16508625-3e3c-4614-ad8e-860629ee724d",
+   "name": "研究员",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "24328272-21c0-4827-9f6a-46867ab1c06f",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 8,
+    "failed": 1,
+    "last_failed_at": "2026-10-13T22:00:00Z",
+    "last_error_kind": "process",
+    "last_failed_issue_identifier": "DEL-112"
+   },
+   "url": "https://multica.example/delta-english/agents/16508625-3e3c-4614-ad8e-860629ee724d"
+  },
+  {
+   "key": "c1d9396f-867e-4b87-a926-41ad01dc6b50:b0633175-3399-4aa3-89b1-cb44868e2237",
+   "workspace_id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
+   "id": "b0633175-3399-4aa3-89b1-cb44868e2237",
+   "name": "Reviewer",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "24328272-21c0-4827-9f6a-46867ab1c06f",
+   "model": "claude-opus-5-5-high",
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 6,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 6,
+    "failed": 2,
+    "last_failed_at": "2026-10-14T01:00:00Z",
+    "last_error_kind": "unknown",
+    "last_failed_issue_identifier": "DEL-103"
+   },
+   "url": "https://multica.example/delta-english/agents/b0633175-3399-4aa3-89b1-cb44868e2237"
+  }
+ ]
+}

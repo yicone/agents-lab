@@ -14,6 +14,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
   - for deciding whether a local or project-scoped skill should be generalized and promoted to global scope
 - `skills-governance-audit`
   - for read-only scanning of source authority, ownership drift, conflict signals, provenance gaps, update drift, and naming-taxonomy issues before choosing another workflow
+  - run `skills-governance/scripts/drift_report.py` for the inventory drift report (`review_time`, `baseline_ref`, `current_version`)
 - `worktree-branch-governance-audit`
   - for read-only reconciliation of branch and worktree guidance against project-specific evidence, including global-default fit, upstream topology, deployment coupling, and rule placement
 
@@ -24,10 +25,10 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 - If the skill is self-authored and should be maintained locally -> use `skills-intake-local`
 - If the user explicitly wants broader reuse/global availability -> use `skills-promote-global`
 - If the first question is “what is going on in this skill set?” -> use `skills-governance-audit`
-- If a non-local Skill is about to be upgraded -> first capture a baseline and route through `skills-governance-audit` or `skills-cli-reconcile` before applying the change
+- If a non-local Skill is about to be upgraded -> snapshot the live tree, stage the candidate, review the diff/gate, then activate; do not let the runtime load the new version first
 - If the question is whether branch or worktree rules fit a repository, conflict across AGENTS.md/skills/docs, or belong at another scope -> use `worktree-branch-governance-audit`
 
 ## Related Principles
 
 - `OS-RES/Skills 管理与治理原则`
-- `OS-LOG/Skills 当前状态清单`
+- `config/skills-inventory.json` — machine-readable inventory; `OS-LOG/Skills 当前状态清单` is the human mirror

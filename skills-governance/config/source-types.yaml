@@ -1,5 +1,22 @@
 schema_version: 1
 
+# Source classes live here. Per-skill records live in skills-inventory.json
+# (schema skills-inventory/v1). Agents read and write that file, then run
+# scripts/validate_skills_inventory.py. Do not treat the Logseq status page
+# as a second source of truth.
+#
+# JSON field mapping:
+#   skill -> name
+#   source_authority -> authority.source_authority
+#   visible_paths -> visible_paths
+#   current_install_shape -> install_shape
+#   local_customization -> local_customization
+#   baseline_reference -> baseline_ref
+#   conflict_status -> conflict_status
+#   last_reviewed -> review_time
+#
+# Drift reports read review_time, baseline_ref, and current_version.
+
 # Source authority is separate from where an agent happens to discover a Skill.
 source_classes:
   local_custom:

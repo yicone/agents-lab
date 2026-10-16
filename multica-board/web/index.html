@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Multica Board</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row">
+      <h1 class="brand"><img class="brand-mark" src="favicon.svg" width="16" height="16" alt="">Multica Board</h1>
+      <nav class="tabs" aria-label="视图">
+        <a class="tab" data-view="issues" href="#/issues">Issues 关注 <kbd>1</kbd></a>
+        <a class="tab" data-view="agents" href="#/agents">Agent 矩阵 <kbd>2</kbd></a>
+      </nav>
+      <span id="snapshot" class="snapshot" aria-live="polite"></span>
+      <label class="search">
+        <span class="visually-hidden">搜索</span>
+        <input id="search" type="search" placeholder="搜索 identifier / 标题 / agent / 模型" autocomplete="off" spellcheck="false">
+        <kbd>/</kbd>
+      </label>
+    </div>
+    <div id="banner" class="banner" role="alert" hidden></div>
+    <div id="health" class="health" aria-label="Workspace 采集状态"></div>
+  </header>
+  <main id="main" class="main"></main>
+  <aside id="drawer" class="drawer" aria-label="运行历史" hidden></aside>
+</body>
+</html>

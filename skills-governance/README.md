@@ -15,8 +15,10 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 
 - `skills/`: governance-specific agent entrypoints
 - `docs/`: durable governance rules, operating guides, and state-note conventions
-- `config/`: source classes and machine-readable governance metadata definitions
-- `backlog.md`: tracked work that is planned, in progress, or complete
+- `config/`: source classes and the machine-readable skills inventory (`skills-inventory.json`)
+- `scripts/`: inventory validation, the read-only drift report, plus snapshot, stage, diff, gate, activate, and rollback commands
+- `tests/`: focused tests for the safety commands
+- `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 
 Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. The nested `skills/` here is intentionally limited to the governance workflow itself.
 
@@ -24,11 +26,11 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 
 1. Inventory what the runtime can see and identify the source class.
 2. Record the source authority and current install shape.
-3. Capture a baseline before upgrading or replacing a non-local Skill when possible.
-4. Review the before/after diff and security signals.
+3. Capture a baseline, then place the candidate in staging instead of the live runtime path.
+4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes.
 5. Check for responsibility overlap and behavior conflicts.
 6. Decide whether to update, customize, fork, quarantine, or keep the current version.
-7. Update the inventory and backlog; do not mistake runtime visibility for canonical ownership.
+7. Update `config/skills-inventory.json` and the Multica backlog (ACM-122). Project the Logseq status page from that file when a human view is needed. Do not mistake runtime visibility for canonical ownership.
 
 ## Routing
 
@@ -39,3 +41,5 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 - `skills-promote-global`: evaluate whether a locally owned Skill is suitable for global scope
 
 The current package is a governance control plane, not a replacement for runtime package managers or Skills CLI. It records and reviews changes before they become active where the underlying tool allows that.
+
+See [docs/upgrade-review.md](docs/upgrade-review.md) for the P0 command workflow and community implementation comparison.

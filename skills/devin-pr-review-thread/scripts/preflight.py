@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import sqlite3
 import json
 import os
 import pathlib
@@ -12,24 +13,37 @@ import subprocess
 import sys
 from typing import Any
 
-from repository_binding import BindingError, load_origin_entry, normalize_origin, validate_worktree_boundary
+from repository_binding import (
+    BindingError,
+    SESSION_LAYOUT_EXACT_ROOT,
+    SESSION_LAYOUTS,
+    load_origin_entry,
+    normalize_origin,
+    resolve_session_binding,
+    validate_session_layout,
+)
 
 SCHEMA = "devin-pr-review/preflight-v1"
+DISCOVERY_STRATEGY = "db-hinted-sequential-worktrees-v2"
 MODEL_UID = "swe-2-high"
 MODEL_LABEL = "SWE-2 High"
+MODEL_COMMAND_TIMEOUT_SECONDS = 60
+SESSION_LIST_COMMAND_TIMEOUT_SECONDS = 30
+GITHUB_IDENTITY_TIMEOUT_SECONDS = 20
+GITHUB_IDENTITY_ATTEMPTS = 2
 EXPIRY = dt.date(2026, 10, 26)
 
 
-def run(argv: list[str], timeout: float = 12) -> tuple[int, str, str]:
+def run(argv: list[str], timeout: float = 12, cwd: str | None = None) -> tuple[int, str, str]:
     try:
-        p = subprocess.run(argv, text=True, capture_output=True, timeout=timeout)
+        p = subprocess.run(argv, cwd=cwd, text=True, capture_output=True, timeout=timeout)
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         return 127, "", type(exc).__name__
     return p.returncode, p.stdout, p.stderr
 
 
-def command_json(argv: list[str]) -> tuple[Any | None, str | None]:
-    code, out, err = run(argv)
+def command_json(argv: list[str], cwd: str | None = None, timeout: float = 12) -> tuple[Any | None, str | None]:
+    code, out, err = run(argv, cwd=cwd, timeout=timeout)
     if code != 0:
         return None, f"{argv[0]} exit={code}: {err.strip()[-500:]}"
     try:
@@ -56,19 +70,53 @@ def origin_name(root: str) -> str | None:
         return None
 
 
-def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, Any], str | None]:
+def git_common_dir(root: str) -> str | None:
+    code, out, _ = run(["git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if code or not out.strip():
+        return None
+    return str(pathlib.Path(out.strip()).resolve())
+
+
+def classify_github_error(code: int, stderr: str) -> str:
+    text = stderr.lower()
+    if "filenotfounderror" in text:
+        return "github_cli_unavailable"
+    if any(marker in text for marker in ("http 401", "http 403", "http 404", "bad credentials", "authentication", "forbidden", "could not resolve to a pullrequest")):
+        return "pr_not_found_or_forbidden"
+    transport_markers = ("eof", "timeout", "timed out", "connection", "tls", "ssl", "proxy", "network", "no such host", "temporary failure")
+    if code == 127 or any(marker in text for marker in transport_markers):
+        return "github_transport_unavailable"
+    return "pr_not_found_or_forbidden"
+
+
+def pr_identity(root: str, number: int, origin: str | None) -> tuple[dict[str, Any], str | None, str | None]:
     result = {"number": number, "head_sha": None}
     if not origin:
-        return result, "origin_identity_failed"
-    data, error = command_json(["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"])
-    if error or not isinstance(data, dict) or not data.get("headRefOid"):
-        return result, "pr_identity_failed"
+        return result, "origin_identity_failed", None
+    for attempt in range(GITHUB_IDENTITY_ATTEMPTS):
+        code, out, err = run(
+            ["gh", "pr", "view", str(number), "--repo", origin, "--json", "headRefOid"],
+            cwd=root, timeout=GITHUB_IDENTITY_TIMEOUT_SECONDS,
+        )
+        if code == 0 or classify_github_error(code, err) != "github_transport_unavailable":
+            break
+    if code != 0:
+        return result, classify_github_error(code, err), f"attempts={attempt + 1}; {err.strip()[-500:]}"
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        return result, "github_response_invalid", out[-500:]
+    if not isinstance(data, dict) or not data.get("headRefOid"):
+        return result, "github_response_invalid", repr(data)[-500:]
     result["head_sha"] = data["headRefOid"]
-    return result, None
+    return result, None, None
 
 
 def model_state() -> tuple[dict[str, Any], str | None]:
-    data, error = command_json(["devin", "models", "list", "--format", "json"])
+    data, error = command_json(
+        ["devin", "models", "list", "--format", "json"],
+        timeout=MODEL_COMMAND_TIMEOUT_SECONDS,
+    )
     result = {"label": None, "model_uid": None, "expires_on": EXPIRY.isoformat(), "available": False}
     if error:
         return result, "model_output_invalid"
@@ -83,18 +131,85 @@ def model_state() -> tuple[dict[str, Any], str | None]:
     return result, "model_unavailable"
 
 
-def trust_state(root: str, trust_file: pathlib.Path) -> dict[str, Any]:
+def trust_state(root: str, trust_file: pathlib.Path, additional_paths: set[str] | None = None) -> dict[str, Any]:
     result = {"state": "unknown", "source": str(trust_file)}
     try:
         data = json.loads(trust_file.read_text())
         paths = {str(pathlib.Path(p).resolve()) for p in data.get("trusted_paths", [])}
     except (OSError, json.JSONDecodeError, AttributeError):
         return result
-    result["state"] = "trusted" if root in paths else "untrusted"
+    paths |= {str(pathlib.Path(path).resolve()) for path in (additional_paths or set())}
+    trusted = root in paths
+    if not trusted and pathlib.Path(root, ".git").exists():
+        # Devin stores trust for the main workspace. A Git worktree below a
+        # trusted workspace inherits that trust, while ordinary subdirectories
+        # do not qualify because they lack a .git marker.
+        trusted = any(pathlib.Path(root).is_relative_to(pathlib.Path(path)) for path in paths)
+    result["state"] = "trusted" if trusted else "untrusted"
     return result
 
 
-def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tuple[dict[str, Any], str | None]:
+def session_lookup_roots(root: str, registered_root: str, enrolled_parent: str | None) -> list[str]:
+    """Return bounded roots in which a repository-level session may be visible.
+
+    Devin's working_directory follows the last cwd used to resume a session;
+    it is not tied to the PR head.  Never filter candidates by HEAD here.
+    """
+    lookup_roots = [root]
+    if registered_root not in lookup_roots:
+        lookup_roots.append(registered_root)
+    if not enrolled_parent:
+        return lookup_roots
+    code, output, _ = run(["git", "-C", registered_root, "worktree", "list", "--porcelain"])
+    if code != 0:
+        return lookup_roots
+    parent = pathlib.Path(enrolled_parent)
+    for line in output.splitlines():
+        if not line.startswith("worktree "):
+            continue
+        candidate = str(pathlib.Path(line[9:].strip()).resolve())
+        try:
+            inside_parent = pathlib.Path(candidate).is_relative_to(parent)
+        except ValueError:
+            inside_parent = False
+        if inside_parent and candidate not in lookup_roots:
+            lookup_roots.append(candidate)
+    return lookup_roots
+
+
+def session_database_root(session_id: str) -> str | None:
+    """Read Devin's current workspace hint without mutating its state."""
+    database = pathlib.Path("~/.local/share/devin/cli/sessions.db").expanduser()
+    try:
+        uri = f"file:{database}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=0.2) as connection:
+            row = connection.execute(
+                "select working_directory from sessions where id = ?", (session_id,)
+            ).fetchone()
+        return str(pathlib.Path(row[0]).resolve()) if row and row[0] else None
+    except (OSError, sqlite3.Error):
+        return None
+
+
+def listed_session(root: str, session_id: str) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """Query one workspace without allowing a slow directory to block all discovery."""
+    code, output, error = run(
+        ["devin", "list", "--format", "json"],
+        cwd=root,
+        timeout=SESSION_LIST_COMMAND_TIMEOUT_SECONDS,
+    )
+    if code:
+        return None, error
+    try:
+        sessions = json.loads(output)
+    except json.JSONDecodeError:
+        return None, "invalid_json"
+    if not isinstance(sessions, list) or any(not isinstance(item, dict) for item in sessions):
+        return None, "invalid_shape"
+    return sessions, None
+
+
+def session_state(root: str, origin: str | None, registry: pathlib.Path, expected_head: str | None = None) -> tuple[dict[str, Any], str | None]:
     empty = {"id": None, "registry_state": "missing", "list_state": "unknown", "root": None}
     try:
         data = json.loads(registry.read_text())
@@ -109,30 +224,90 @@ def session_state(root: str, origin: str | None, registry: pathlib.Path) -> tupl
     except BindingError as exc:
         return empty, "session_registry_missing" if "missing" in str(exc) else "session_output_invalid"
     sid = entry.get("session_id")
-    result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None}
-    sessions, error = command_json(["devin", "list", "--format", "json"])
-    if error:
+    result = {"id": sid, "registry_state": "present", "list_state": "unknown", "root": None,
+              "registered_root": None, "observed_root": None, "enrolled_parent": None,
+              "repository_root": None,
+              "repository_common_dir": None,
+              "session_layout": SESSION_LAYOUT_EXACT_ROOT,
+              "lookup_roots": [], "discovery_strategy": DISCOVERY_STRATEGY}
+    registered_root = entry.get("session_root")
+    if not isinstance(registered_root, str) or not registered_root:
+        return result, "session_root_mismatch"
+    registered_root = str(pathlib.Path(registered_root).resolve())
+    try:
+        binding = resolve_session_binding(entry)
+    except BindingError:
+        return result, "session_root_mismatch"
+    repository_root = binding["repository_root"]
+    result["repository_root"] = repository_root
+    registered_common = binding.get("repository_common_dir") or git_common_dir(repository_root)
+    requested_common = git_common_dir(root)
+    if not registered_common or not requested_common or requested_common != registered_common:
+        return result, "repository_boundary_mismatch"
+    result["repository_common_dir"] = registered_common
+    session_layout = entry.get("session_layout", SESSION_LAYOUT_EXACT_ROOT)
+    if session_layout not in SESSION_LAYOUTS:
+        return result, "session_root_mismatch"
+    result["session_layout"] = session_layout
+    enrolled_parent = entry.get("enrolled_parent")
+    if enrolled_parent is not None and not isinstance(enrolled_parent, str):
+        return result, "session_root_mismatch"
+    if isinstance(enrolled_parent, str):
+        enrolled_parent = str(pathlib.Path(enrolled_parent).resolve())
+
+    result["registered_root"] = registered_root
+    # Read the host-side workspace hint before enumerating worktrees.  In the
+    # parent layout the hint is an authoritative drift signal; do not spend
+    # time running `git worktree list` (or `devin list`) when it already proves
+    # that the fixed session moved away from its enrolled execution root.
+    hinted_root = session_database_root(sid)
+    if session_layout == "parent-of-repository" and hinted_root and hinted_root != registered_root:
+        return result, "session_working_directory_drift"
+    lookup_roots = session_lookup_roots(root, registered_root, enrolled_parent)
+    if hinted_root and hinted_root not in lookup_roots:
+        try:
+            inside_boundary = pathlib.Path(hinted_root).is_relative_to(pathlib.Path(registered_root))
+            if enrolled_parent:
+                inside_boundary = inside_boundary or pathlib.Path(hinted_root).is_relative_to(pathlib.Path(enrolled_parent))
+            if inside_boundary:
+                lookup_roots.insert(1, hinted_root)
+        except ValueError:
+            pass
+    result["lookup_roots"] = lookup_roots
+    # Devin lists sessions for the current workspace. Review requests may
+    # target an enrolled nested worktree, so query from the requested root.
+    found = None
+    had_valid_list = False
+    # Devin's list command is workspace-scoped and is not safe to run in
+    # parallel. The DB hint makes the common drifted-session case cheap; the
+    # remaining bounded roots are queried sequentially.
+    for lookup_root in lookup_roots:
+        sessions, error = listed_session(lookup_root, sid)
+        if error or sessions is None:
+            continue
+        had_valid_list = True
+        found = next((x for x in sessions if x.get("id") == sid), None)
+        if found:
+            break
+    result["discovery_attempts"] = 1
+    if not had_valid_list:
         return result, "session_output_invalid"
-    if not isinstance(sessions, list) or any(not isinstance(x, dict) for x in sessions):
-        return result, "session_output_invalid"
-    found = next((x for x in sessions if x.get("id") == sid), None)
     if not found:
         result["list_state"] = "missing"
         return result, "session_missing"
     result["list_state"] = "present"
     result["root"] = found.get("working_directory")
-    registered_root = entry.get("session_root")
-    if not isinstance(registered_root, str) or not registered_root:
+    if not isinstance(result["root"], str) or not result["root"]:
         return result, "session_root_mismatch"
-    registered_root = str(pathlib.Path(registered_root).resolve())
-    if result["root"] and str(pathlib.Path(result["root"]).resolve()) != registered_root:
+    actual_root = str(pathlib.Path(result["root"]).resolve())
+    result["observed_root"] = actual_root
+    if session_layout == "parent-of-repository" and actual_root != registered_root:
+        return result, "session_working_directory_drift"
+    if not validate_session_layout(root, registered_root, enrolled_parent, session_layout, repository_root=repository_root):
         return result, "session_root_mismatch"
-    result["root"] = registered_root
-    enrolled_parent = entry.get("enrolled_parent")
-    if enrolled_parent is not None and not isinstance(enrolled_parent, str):
+    if actual_root != registered_root and not validate_session_layout(actual_root, registered_root, enrolled_parent, session_layout, repository_root=repository_root):
         return result, "session_root_mismatch"
-    if not validate_worktree_boundary(root, registered_root, enrolled_parent):
-        return result, "session_root_mismatch"
+    result["enrolled_parent"] = enrolled_parent
     return result, None
 
 
@@ -172,7 +347,8 @@ def main() -> int:
         "repository": {"canonical_root": root, "origin": None},
         "pr": {"number": args.pr, "head_sha": None},
         "model": {"label": None, "model_uid": None, "expires_on": EXPIRY.isoformat(), "available": None},
-        "workspace_trust": {"state": "unknown", "source": args.trusted_workspaces},
+        "workspace_trust": {"state": "unknown", "source": args.trusted_workspaces,
+                             "repository_root": "unknown", "session_root": "unknown"},
         "session": {"id": None, "registry_state": "unknown", "list_state": "unknown", "root": None},
         "lock": {"state": "none", "path": None, "pid": None, "holder_identity": None},
         "runtime": {"desktop_or_acp_processes": []}, "capabilities": [], "diagnostics": [],
@@ -181,13 +357,25 @@ def main() -> int:
         out["status"] = "repo_identity_failed"; out["diagnostics"].append(root_error or "missing root")
     else:
         out["repository"]["origin"] = origin_name(root)
-        out["pr"], pr_error = pr_identity(root, args.pr, out["repository"]["origin"])
+        out["pr"], pr_error, pr_detail = pr_identity(root, args.pr, out["repository"]["origin"])
         if pr_error:
             out["status"] = pr_error
-        out["workspace_trust"] = trust_state(root, pathlib.Path(args.trusted_workspaces))
+            out["diagnostics"].append({"code": pr_error, "detail": pr_detail})
         out["model"], model_error = model_state()
         if model_error and out["status"] == "ok": out["status"] = model_error
-        out["session"], session_error = session_state(root, out["repository"]["origin"], pathlib.Path(args.registry))
+        out["session"], session_error = session_state(root, out["repository"]["origin"], pathlib.Path(args.registry), out["pr"].get("head_sha"))
+        extra_trust = set()
+        if isinstance(out["session"].get("enrolled_parent"), str):
+            extra_trust.add(out["session"]["enrolled_parent"])
+        target_trust = trust_state(root, pathlib.Path(args.trusted_workspaces), extra_trust)
+        session_root = out["session"].get("registered_root")
+        session_trust = trust_state(session_root, pathlib.Path(args.trusted_workspaces), extra_trust) if isinstance(session_root, str) else {"state": "unknown"}
+        out["workspace_trust"] = {
+            "state": "trusted" if target_trust.get("state") == "trusted" and session_trust.get("state") == "trusted" else "untrusted",
+            "source": args.trusted_workspaces,
+            "repository_root": target_trust.get("state"),
+            "session_root": session_trust.get("state"),
+        }
         if session_error and out["status"] == "ok": out["status"] = session_error
         out["lock"] = lock_state(out["session"].get("id"), pathlib.Path(args.session_lock_dir))
         if out["workspace_trust"]["state"] != "trusted" and out["status"] == "ok": out["status"] = "workspace_untrusted"

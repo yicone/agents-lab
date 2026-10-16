@@ -43,7 +43,7 @@ Required Changes:
 - keep risk review pending
 Follow-up:
 - review scripts, dependencies, and network behavior
-- keep risk status in [[OS-LOG/Skills 当前状态清单]]
+- keep risk status in skills-governance/config/skills-inventory.json
 ```
 
 ## What This Example Guards
