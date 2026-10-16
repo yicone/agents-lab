@@ -1,0 +1,28 @@
+{
+  "id": "logseq-acns-vault-vs-write",
+  "skills": ["logseq-acns-vault", "logseq-acns-write"],
+  "summary": "Both skills claim page ownership and namespace choice. Each names the other and says when to hand off, so the overlap has a boundary and is not behavior divergence. Which skill runs stays with ACM-136.",
+  "boundary": "Load both when the task needs Logseq semantic placement and an ACNS write plan. Prefer logseq-acns-vault while page ownership or namespace choice is still open. Prefer logseq-acns-write when the destination is known and the next step is a write plan.",
+  "sources": {
+    "skills/logseq-acns-vault/SKILL.md": [
+      "deciding page ownership, namespace choice, structured properties",
+      "pair or hand off to:\n- `logseq-acns-write`"
+    ],
+    "skills/logseq-acns-write/SKILL.md": [
+      "- page ownership\n- page naming and namespace choice",
+      "pair or defer first to:\n- `logseq-acns-vault`"
+    ]
+  },
+  "findings": [
+    {
+      "type": "responsibility_overlap",
+      "skills": ["logseq-acns-vault", "logseq-acns-write"],
+      "evidence": [
+        "shared claim \"namespace choice\"",
+        "shared claim \"page ownership\""
+      ],
+      "boundary_stated": true,
+      "routing_note": null
+    }
+  ]
+}

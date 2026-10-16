@@ -17,7 +17,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `docs/`: durable governance rules, operating guides, and state-note conventions
 - `config/`: source classes and the machine-readable skills inventory (`skills-inventory.json`)
 - `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, plus snapshot, stage, diff, gate, activate, and rollback commands
-- `tests/`: focused tests for the safety commands
+- `tests/`: focused tests for the safety commands. Representative conflict cases live in `tests/fixtures/conflicts/`.
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 
 Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. The nested `skills/` here is intentionally limited to the governance workflow itself.
