@@ -4,6 +4,10 @@ Notes that do not belong in a new inventory field.
 
 ## 2026-10-16
 
+- Installed `wechatide-skill` moved from `0.3.11` to `0.3.14` while this registry was open. `baseline_ref` now matches that `SKILL.md`, and `current_version` is `0.3.14`. `review_time` stays null.
+- `cursor-plugin-x` no longer stores the Cursor plugin cache hash. `visible_paths` is `~/.cursor/plugins/cache/cursor-public/x/*/skills` and `baseline.subject` is `~/.cursor/plugins/cache/cursor-public/x/*/.cursor-plugin/plugin.json`. The previous hash directory is gone after a plugin update. `validate_skills_inventory.py --check-paths` and the drift report resolve the `*` segment to the current hash directory.
+- `skill_guard` diff and activate use SkilLock (`skil-lock`) as the capability-drift gate when the binary is on PATH (ACM-128). The report field `capability_gate.backend` is `skil-lock`. When the binary is absent, or `--skil-lock fallback` is set, `backend` is `fallback`, `fallback` is `skill_guard risk signals`, and `reason` says why. A binary that fails to run blocks activation (`capability_gate_error`).
+
 - Every skill record now stores `customization_mode` and `compatibility_constraints` (ACM-134). Current rows are `none` and `[]`: this machine has no recorded content delta. `policy_exclusion` is allowed when `local_customization` is `none`. A content delta must name `wrapper`, `overlay`, `fork`, `local_replacement`, or `unknown`. Constraint kinds are `upstream_version`, `runtime`, `adapter`, `policy`, and `unknown`.
 - The mode-selection workflow stays outside this schema.
 - Runtime bundles and enabled plugins that ship skills now have provider/version coordinates. A vendor bundle stays one summary record. `baseline_ref` is `runtime:<provider>` or `plugin:<host>/<id>`, `baseline.subject` is the version file, and `current_version` is the version read from that file. `review_time` stays null. The host is part of the plugin coordinate because Codex and Claude can enable the same plugin id at different versions.

@@ -27,7 +27,7 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 1. Inventory what the runtime can see and identify the source class.
 2. Record the source authority and current install shape.
 3. Capture a baseline, then place the candidate in staging instead of the live runtime path.
-4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes.
+4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes. The gate calls SkilLock for capability drift when `skil-lock` is on PATH, and records a risk-signal fallback when it is not.
 5. Check for responsibility overlap and behavior conflicts.
 6. Decide whether to update, customize, fork, quarantine, or keep the current version.
 7. Update `config/skills-inventory.json` and the Multica backlog (ACM-122). Project the Logseq status page from that file when a human view is needed. Do not mistake runtime visibility for canonical ownership.

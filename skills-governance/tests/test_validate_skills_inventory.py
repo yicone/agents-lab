@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -317,6 +318,16 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
         self.assertEqual(by_all["hermes-builtin-skills"]["current_version"], "0.21.5+3b4a891174")
         plugins = [item for item in payload["skills"] if item["source_class"] == "runtime_plugin"]
         self.assertEqual(len(plugins), 16)
+        plugin_x = by_all["cursor-plugin-x"]
+        self.assertEqual(
+            plugin_x["visible_paths"],
+            ["~/.cursor/plugins/cache/cursor-public/x/*/skills"],
+        )
+        self.assertEqual(
+            plugin_x["baseline"]["subject"],
+            "~/.cursor/plugins/cache/cursor-public/x/*/.cursor-plugin/plugin.json",
+        )
+        self.assertNotRegex(plugin_x["visible_paths"][0], r"/[0-9a-f]{40}/")
         for item in plugins:
             self.assertEqual(item["scope"], "plugin-managed")
             self.assertEqual(item["baseline"]["kind"], "upstream_ref")
@@ -325,6 +336,32 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
             self.assertTrue(item["baseline"]["subject"])
             self.assertTrue(item["current_version"])
             self.assertIsNone(item["review_time"])
+
+    def test_cache_hash_segment_resolves_without_storing_the_hash(self):
+        validator = load_validator()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin = root / "cache" / "cursor-public" / "x"
+            stale = plugin / ("a" * 40)
+            current = plugin / ("b" * 40)
+            (stale / "skills").mkdir(parents=True)
+            (current / "skills").mkdir(parents=True)
+            (current / ".cursor-plugin").mkdir()
+            (current / ".cursor-plugin" / "plugin.json").write_text(
+                '{"version":"2.6.6"}\n', encoding="utf-8"
+            )
+            os.utime(stale, (1, 1))
+            os.utime(current, (2, 2))
+            skills = validator.locate_path("cache/cursor-public/x/*/skills", root)
+            manifest = validator.locate_path(
+                "cache/cursor-public/x/*/.cursor-plugin/plugin.json", root
+            )
+            self.assertEqual(skills, current / "skills")
+            self.assertEqual(manifest, current / ".cursor-plugin" / "plugin.json")
+            (current / "skills").rmdir()
+            os.utime(current, (3, 3))
+            skills = validator.locate_path("cache/cursor-public/x/*/skills", root)
+            self.assertEqual(skills, stale / "skills")
 
     def test_customization_mode_must_match_local_delta(self):
         record = skill(local_customization="local_delta", customization_mode="none")

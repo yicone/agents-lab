@@ -112,6 +112,7 @@
         },
         "visible_paths": {
           "type": "array",
+          "description": "Repo-relative paths, or absolute/~ paths. A Cursor plugin cache path uses one * segment in place of the content hash.",
           "items": { "type": "string", "minLength": 1 }
         }
       }
