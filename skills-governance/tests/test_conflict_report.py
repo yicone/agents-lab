@@ -145,6 +145,33 @@ class ConflictReportTests(unittest.TestCase):
         )
         self.assertEqual(report["summary"]["scope_shadowing"], 0)
 
+    def test_ego_browser_overlap_records_routing_note_and_not_divergence(self):
+        write_skill(
+            self.root,
+            "skills/agent-browser",
+            "agent-browser",
+            "Browser automation CLI. Use when clicking buttons and taking screenshots.",
+        )
+        write_skill(
+            self.root,
+            "skills/ego-browser",
+            "ego-browser",
+            "Browser automation for a shared session. Use when clicking buttons and taking screenshots.",
+        )
+        report = self.findings(
+            [
+                self.row("agent-browser", "skills/agent-browser"),
+                self.row("ego-browser", "skills/ego-browser"),
+            ]
+        )
+        self.assertNotIn("behavior_divergence", self.types_for(report, "agent-browser", "ego-browser"))
+        finding = next(item for item in report["findings"] if item["type"] == "responsibility_overlap")
+        self.assertEqual(finding["skills"], ["agent-browser", "ego-browser"])
+        self.assertIn("不算行为分歧", finding["routing_note"])
+        self.assertIn("Profile", finding["routing_note"])
+        self.assertIn("Space", finding["routing_note"])
+        self.assertIn("ACM-136", finding["routing_note"])
+
     def test_shared_claim_is_responsibility_overlap(self):
         write_skill(
             self.root,

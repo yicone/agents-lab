@@ -20,6 +20,11 @@ import validate_skills_inventory as inventory  # noqa: E402
 
 
 REPORT_NAME = "skills-conflict/v1"
+EGO_BROWSER_ROUTING_NOTE = (
+    "agent-browser 与 ego-browser 只算职责重叠，不算行为分歧。"
+    "ego-browser 独有：人和 agent 共享浏览器 session，支持多个 Profile 和 Space，适合这些场景。"
+    "路由规则由 ACM-136 决定。"
+)
 TYPES = (
     "name_collision",
     "responsibility_overlap",
@@ -338,6 +343,12 @@ def empty_summary() -> dict[str, int]:
     return {key: 0 for key in TYPES}
 
 
+def routing_note_for(kind: str, names: tuple[str, ...]) -> str | None:
+    if kind == "responsibility_overlap" and names == ("agent-browser", "ego-browser"):
+        return EGO_BROWSER_ROUTING_NOTE
+    return None
+
+
 class Report:
     def __init__(self) -> None:
         self.findings: list[dict] = []
@@ -356,6 +367,7 @@ class Report:
                 "skills": list(names),
                 "evidence": list(proof),
                 "boundary_stated": boundary,
+                "routing_note": routing_note_for(kind, names),
             }
         )
 
@@ -708,6 +720,8 @@ def render_text(report: dict) -> str:
         lines.append(f"- type: {finding['type']}")
         lines.append("  skills: " + ", ".join(finding["skills"]))
         lines.append("  boundary_stated: " + ("yes" if finding["boundary_stated"] else "no"))
+        if finding.get("routing_note"):
+            lines.append(f"  routing_note: {finding['routing_note']}")
         for item in finding["evidence"]:
             lines.append(f"  evidence: {item}")
     return "\n".join(lines) + "\n"
