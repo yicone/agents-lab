@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 TABLES = (
     "workspaces", "sync_status", "issues", "projects", "members", "agents", "runtimes", "tasks",
     "changes", "change_baseline", "meta",
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS agents (
   runtime_id TEXT, runtime_mode TEXT, runtime_bound INTEGER,
   model TEXT, thinking_level TEXT, service_tier TEXT,
   max_concurrent_tasks INTEGER, visibility TEXT, owner_id TEXT,
-  archived_at TEXT, updated_at TEXT,
+  archived_at TEXT, updated_at TEXT, skills_json TEXT,
   PRIMARY KEY (server, workspace_id, id)
 );
 CREATE TABLE IF NOT EXISTS runtimes (
