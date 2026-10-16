@@ -72,12 +72,12 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
         },
         "baseline_ref": {
-          "description": "Drift report field (ACM-142). Pointer to the reviewed baseline. content_hash records use sha256:<64 hex of SKILL.md>. Null only when baseline.kind is none.",
+          "description": "Drift report field (ACM-142). Pointer to the reviewed baseline. content_hash records use sha256:<64 hex of SKILL.md>. Skills CLI upstream_ref records use github:<lock source>. Null only when baseline.kind is none.",
           "type": ["string", "null"],
           "minLength": 1
         },
         "current_version": {
-          "description": "Drift report field (ACM-142). Explicit compatibility version, usually SKILL.md metadata.version. Null when Git history is the only version authority.",
+          "description": "Drift report field (ACM-142). Explicit compatibility version, usually SKILL.md metadata.version. Skills CLI records use the lock skillFolderHash, or null when that hash is empty. Null when Git history is the only version authority.",
           "type": ["string", "null"],
           "minLength": 1
         },
@@ -123,7 +123,7 @@
         "subject": {
           "type": "string",
           "minLength": 1,
-          "description": "What baseline_ref points at. content_hash records use SKILL.md."
+          "description": "What baseline_ref points at. content_hash records use SKILL.md. Skills CLI upstream_ref records use the lock skillPath."
         }
       }
     },

@@ -177,6 +177,39 @@ class DriftReportTests(unittest.TestCase):
         self.assertIn("lock_source_mismatch", row["findings"])
         self.assertNotIn("content_hash_match", row["findings"])
 
+    def test_lock_skill_path_mismatch_is_unverified(self):
+        install = self.root / "installs" / "demo-skill"
+        install.mkdir(parents=True)
+        record = {
+            "name": "demo-skill",
+            "source_class": "skills_cli_managed",
+            "authority": {
+                "ownership": "third_party",
+                "source_authority": "upstream_repository",
+                "update_authority": "skills_cli",
+                "canonical_path": None,
+            },
+            "baseline": {"kind": "upstream_ref", "subject": "skills/other/SKILL.md"},
+            "adapters": [],
+            "status": "active",
+            "review_time": "2026-10-16T00:00:00Z",
+            "baseline_ref": "github:owner/repo",
+            "current_version": "a" * 40,
+            "visible_paths": [str(install)],
+        }
+        lock = {
+            "demo-skill": {
+                "source": "owner/repo",
+                "sourceType": "github",
+                "skillPath": "skills/demo-skill/SKILL.md",
+                "skillFolderHash": "a" * 40,
+            }
+        }
+        row = self.skill_row(self.report([record], lock=lock), "demo-skill")
+        self.assertEqual(row["reconciliation_status"], "unverified")
+        self.assertIn("lock_path_mismatch", row["findings"])
+        self.assertIn("lock_source_match", row["findings"])
+
     def test_lock_hash_mismatch_is_modified(self):
         install = self.root / "installs" / "demo-skill"
         install.mkdir(parents=True)
