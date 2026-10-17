@@ -119,6 +119,13 @@ def _int(value: Any) -> int:
     return int(number)
 
 
+def _strict_int(value: Any, field: str) -> int:
+    number = _num(value)
+    if number is None or number < 0 or not number.is_integer():
+        raise ValueError(f"invalid {field}")
+    return int(number)
+
+
 def _text(value: Any) -> str | None:
     if isinstance(value, str):
         flat = " ".join(value.split())
@@ -437,10 +444,12 @@ def clean_hourly(data: Any, *, workspace_id: str | None = None) -> list[dict[str
     if not isinstance(data, list):
         return []
     rows = []
+    scope_mismatch = False
     for item in data:
         if not isinstance(item, dict):
             continue
-        if workspace_id is not None and item.get("workspace_id") != workspace_id:
+        if workspace_id is not None and item.get("workspace_id") is not None and item.get("workspace_id") != workspace_id:
+            scope_mismatch = True
             continue
         hour = item.get("hour")
         count = item.get("count")
@@ -451,6 +460,8 @@ def clean_hourly(data: Any, *, workspace_id: str | None = None) -> list[dict[str
         if not 0 <= hour <= 23 or count < 0:
             continue
         rows.append({"hour": hour, "count": count})
+    if scope_mismatch:
+        raise ValueError("workspace scope mismatch in activity data")
     rows.sort(key=lambda row: row["hour"])
     return rows
 
@@ -459,20 +470,24 @@ def sum_usage_rows(data: Any, runtime_id: str, *, workspace_id: str | None = Non
     if not isinstance(data, list):
         return []
     acc: dict[str, dict[str, Any]] = {}
+    scope_mismatch = False
     for row in data:
         if not isinstance(row, dict):
             continue
         owner = row.get("runtime_id")
         if owner and owner != runtime_id:
             continue
-        if workspace_id is not None and row.get("workspace_id") != workspace_id:
+        if workspace_id is not None and row.get("workspace_id") is not None and row.get("workspace_id") != workspace_id:
+            scope_mismatch = True
             continue
         day = row.get("date")
         if not isinstance(day, str) or not _DATE.fullmatch(day):
             continue
         cell = acc.setdefault(day, {"date": day, **{name: 0 for name in TOKEN_FIELDS}})
         for name in TOKEN_FIELDS:
-            cell[name] += _int(row.get(name))
+            cell[name] += _strict_int(row.get(name), name)
+    if scope_mismatch:
+        raise ValueError("workspace scope mismatch in usage data")
     return [acc[day] for day in sorted(acc)]
 
 
@@ -557,7 +572,7 @@ def assemble_multica(
                 continue
             cell = slot(ws, rid, day, provider, name)
             for name_field in TOKEN_FIELDS:
-                cell[name_field] += _int(day_row.get(name_field))
+                cell[name_field] += _strict_int(day_row.get(name_field), name_field)
 
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for (ws, rid, _day), cell in cells.items():
@@ -604,6 +619,9 @@ def assemble_multica(
 def _snapshot_state(snapshot: dict[str, Any] | None, quotas: list[dict[str, Any]]) -> str:
     if snapshot is None:
         return "missing"
+    recorded = snapshot.get("snapshot_state")
+    if recorded in {"partial", "error", "empty"}:
+        return recorded
     collected = [item for item in quotas if item.get("status") != "unconnected"]
     if not collected:
         return "empty"
@@ -624,18 +642,23 @@ def build_usage_response(
     collected_at = None
     token_rows: list[dict[str, Any]] = []
     raw_quotas: Any = []
+    collection_errors: list[str] = []
+    recorded_state: str | None = None
     if isinstance(snapshot, dict):
         if isinstance(snapshot.get("days"), int) and snapshot["days"] > 0:
             days = snapshot["days"]
         collected_at = _text(snapshot.get("usage_collected_at"))
         token_rows = snapshot.get("token_by_runtime") or []
         raw_quotas = snapshot.get("external_quotas")
+        recorded_state = snapshot.get("snapshot_state") if isinstance(snapshot.get("snapshot_state"), str) else None
+        collection_errors = [str(item) for item in (snapshot.get("collection_errors") or []) if item]
     quotas = present_quotas(raw_quotas, now)
     return {
         "generated_at": iso(now),
         "usage_collected_at": collected_at,
         "days": days,
-        "snapshot_state": _snapshot_state(snapshot, quotas),
+        "snapshot_state": recorded_state or _snapshot_state(snapshot, quotas),
+        "collection_errors": collection_errors,
         "external_quotas": quotas,
         "signals": collect_signals(quotas),
         "multica_daily": assemble_multica(tasks, runtimes, workspaces, token_rows, days=days, now=now),
