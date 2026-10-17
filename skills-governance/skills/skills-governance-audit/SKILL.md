@@ -1,6 +1,6 @@
 ---
 name: skills-governance-audit
-description: Use when scanning a project, vault, or skill directory for ownership drift, provenance gaps, conflict signals, naming-taxonomy inconsistencies, or unclear routing between existing skills.
+description: Use when scanning a project, vault, or skill directory for ownership drift, provenance gaps, conflict signals, naming-taxonomy inconsistencies, or unclear routing between existing skills. Also use when measuring a skill's static token footprint or file size against its context budget.
 metadata:
   owner: agents-lab
   scope: repo
@@ -21,6 +21,7 @@ It helps answer:
 - whether there are conflict signals between skills
 - whether naming conventions look coherent
 - which follow-up workflow should handle each finding
+- how many static tokens each skill and its referenced docs would cost
 
 ## Do Not Use This Skill For
 
@@ -56,6 +57,7 @@ Helpful optional context:
   - `provenance`
   - `conflicts`
   - `naming`
+  - `footprint`
   - `full`
 
 ## Output Contract
@@ -72,6 +74,7 @@ Always report:
 - `upgrade_drift_findings`
 - `conflict_findings`
 - `naming_findings`
+- `token_footprint`
 - `routing_recommendations`
 - `state_update_suggestions`
 - `followups`
@@ -170,7 +173,29 @@ When a baseline or upstream version is available, also compare the current copy 
 
 If no baseline can be captured, report `unverified` rather than implying that the Skill is current.
 
-### 5. Detect Conflict Signals
+### 5. Estimate Token Footprint
+
+Run the read-only report before judging context cost. `focus: footprint` still runs this step; a `full` audit runs it too.
+
+```bash
+python3 skills-governance/scripts/token_footprint.py --format text
+```
+
+The command does not modify skills, inventory, or lock files. Static tokens use `bytes_div_4`: `ceil(utf-8 bytes / 4)`. The report lists each skill's eager `SKILL.md` and the text files it references, including everything under `references/`.
+
+Thresholds:
+
+- `token_over_budget`: eager `SKILL.md` is over 2,000 static tokens, or a globally injected skill's `SKILL.md` plus referenced docs are over 2,000
+- `size_over_budget`: `SKILL.md` is over 16,384 bytes
+
+For each warning, recommend a downgrade and stop there. Do not rewrite the skill inside the audit:
+
+- `references_subdirectory`: move supporting material into `references/` and load it only when a task needs it
+- `target_scoped`: install the skill on the target project instead of the global catalog
+
+A repository skill that is already split into `references/` can stay under the eager token gate while its referenced docs are still quantified. `--check` exits 2 when the gate fails. Do not promote a warned skill to global scope.
+
+### 6. Detect Conflict Signals
 
 Run the read-only report before classifying by hand:
 
@@ -191,7 +216,7 @@ Keep `trigger_ambiguity` as its own type. Do not fold it into `responsibility_ov
 
 A phrase claimed by three or more skills is a family marker. The report does not emit a pair for that phrase alone. An explicit handoff that names the other skill is `boundary_stated`; it is not behavior divergence.
 
-### 6. Check Naming Taxonomy
+### 7. Check Naming Taxonomy
 
 Audit whether current names follow a coherent taxonomy:
 
@@ -209,7 +234,7 @@ Flag a naming issue only when:
 - one family mixes policy and transport without distinction
 - a rename would materially reduce routing confusion
 
-### 7. Route Findings To The Right Workflow
+### 8. Route Findings To The Right Workflow
 
 For a finding about which skill should run, apply `skills-governance/docs/routing-precedence.md`. Put `stop-and-ask` in `Recommended Winner Or Boundary` when that page says to stop. Do not invent a winner.
 
@@ -223,7 +248,7 @@ For each finding, recommend the next step:
 
 Do not perform the follow-up action inside the audit.
 
-### 8. Suggest State Updates
+### 9. Suggest State Updates
 
 If a state note or backlog should change, suggest:
 
@@ -290,6 +315,11 @@ Conflict Findings:
 Naming Findings:
 - Status: <consistent / taxonomy_mixed_but_explained / naming_taxonomy_drift / rename_candidate>
   Evidence: <...>
+Token Footprint:
+- Command: `python3 skills-governance/scripts/token_footprint.py --format text`
+- Estimator: bytes_div_4
+- <skill> -> eager_tokens=<...> referenced_tokens=<...> static_tokens=<...> warnings=<none / token_over_budget / size_over_budget>
+- suggestion: <references_subdirectory / target_scoped> — <move supporting text into references/ or install only on the target>
 Routing Recommendations:
 - <skill or finding> -> <skills-intake-local / skills-cli-reconcile / skills-promote-global / runtime/plugin review / manual clarification only>
 State Update Suggestions:
@@ -301,6 +331,7 @@ Follow-up:
 ## Example
 
 - See `examples/repo-scan-with-conflicts.md` for a repository-scope audit that surfaces responsibility overlap and naming-taxonomy questions without mutating any skill.
+- See `examples/token-footprint.md` for a context-budget audit that reports static tokens and downgrade suggestions without mutating any skill.
 
 ## Success Criteria
 
@@ -309,4 +340,5 @@ This skill has succeeded when:
 - the current skill set is easier to reason about than before
 - ownership, conflict, and naming problems are separated clearly
 - follow-up work is routed to the right governance workflow
+- over-budget skills are quantified and given a downgrade suggestion
 - no accidental mutation happens during the audit

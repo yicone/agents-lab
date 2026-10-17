@@ -1868,7 +1868,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "sha256:2080e727b67601d0fd65d9280ffde6e3d7b1e713ccc772de4e167c5fca2b467c",
+      "baseline_ref": "sha256:aa629f84fd6b86412e5d1acf370f4a9bc81e3e2bb4f0ebd9ab8fe8785eec7c0b",
       "current_version": null,
       "scope": "repo",
       "install_shape": "symlink_adapters",
