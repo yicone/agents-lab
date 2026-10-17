@@ -1,0 +1,41 @@
+{
+ "api_version": "0",
+ "generated_at": "2026-10-14T09:00:00Z",
+ "collect_interval_s": 60,
+ "multica_web_base": "https://multica.example",
+ "collector": {
+  "last_attempt_at": "2026-10-14T09:00:00Z",
+  "last_success_at": "2026-10-14T09:00:00Z",
+  "error": null
+ },
+ "workspaces": [
+  {
+   "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "slug": "acm-lab",
+   "name": "ACM Lab",
+   "collect_state": "ok",
+   "last_success_at": "2026-10-14T09:00:00Z",
+   "last_attempt_at": "2026-10-14T09:00:00Z",
+   "error": null,
+   "counts": {
+    "open_issues": 1,
+    "agents": 1,
+    "runtimes": 1
+   }
+  },
+  {
+   "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "collect_state": "ok",
+   "last_success_at": "2026-10-14T09:00:00Z",
+   "last_attempt_at": "2026-10-14T09:00:00Z",
+   "error": null,
+   "counts": {
+    "open_issues": 1,
+    "agents": 1,
+    "runtimes": 1
+   }
+  }
+ ]
+}

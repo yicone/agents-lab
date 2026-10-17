@@ -457,6 +457,19 @@
     "error_kind": null,
     "error_summary": null
    }
+  ],
+  "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-302": [
+   {
+    "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:task-demo",
+    "task_id": "task-demo",
+    "status": "completed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-10-13T08:40:00Z",
+    "completed_at": "2026-10-13T09:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
   ]
  }
 }

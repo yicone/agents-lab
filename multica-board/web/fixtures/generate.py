@@ -286,7 +286,172 @@ dump("cli-stale/meta.json", meta(stale_gen, {
     "error": {"kind": "auth", "message": "401 unauthorized: token expired for profile desktop-api.multica.ai"},
 }, stale_ws))
 
+# Default change log is empty so ?mock=1 still resolves /changes. The decide page
+# then shows “no ACM Lab” instead of a false “status log unavailable” error.
+dump("changes.json", {
+    "generated_at": gen,
+    "cursor": "v1:0",
+    "reset": False,
+    "retained_days": 7,
+    "has_more": False,
+    "items": [],
+})
+
+# ?mock=decide — ACM Lab queue with status-entry ages. ?mock=decide-gap forces the
+# retention fallback. ?mock=decide-down lists changes but has no file, so the fetch 404s.
+ACM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+BETA_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+
+
+def decide_ws(ws_id, slug, name):
+    return {
+        "id": ws_id,
+        "slug": slug,
+        "name": name,
+        "collect_state": "ok",
+        "last_success_at": gen,
+        "last_attempt_at": gen,
+        "error": None,
+        "counts": {"open_issues": 1, "agents": 1, "runtimes": 1},
+    }
+
+
+def decide_issue(ws_id, slug, ident, title, status, activity, assignee, run=None):
+    iid = f"decide-{ident.lower()}"
+    return {
+        "key": f"{ws_id}:{iid}",
+        "workspace_id": ws_id,
+        "id": iid,
+        "identifier": ident,
+        "title": title,
+        "status": status,
+        "status_category": status,
+        "priority": "none",
+        "assignee": None if assignee is None else {"type": "agent", "id": f"agent-{assignee}", "name": assignee},
+        "project": {"id": "proj-atlas", "title": "Agent Atlas"},
+        "parent_identifier": None,
+        "due_date": None,
+        "created_at": ago(days=40),
+        "last_activity_at": activity,
+        "url": f"{BASE}/{slug}/issues/{iid}",
+        "latest_run": run,
+        "last_failed_run": (
+            {"task_id": run["task_id"], "completed_at": run["completed_at"], "error_kind": run["error_kind"]}
+            if run and run["status"] == "failed"
+            else None
+        ),
+    }
+
+
+def decide_run(status, at, kind=None):
+    return {
+        "task_id": f"task-{status}-{at}",
+        "status": status,
+        "agent_name": "Builder",
+        "runtime_id": None,
+        "started_at": at,
+        "completed_at": at,
+        "error_kind": kind,
+        "error_summary": "task exceeded 45m wall clock" if kind else None,
+    }
+
+
+def decide_change(ws_id, ident, at, status, previous):
+    iid = f"decide-{ident.lower()}"
+    return {
+        "kind": "issue_status",
+        "at": at,
+        "key": f"{ws_id}:{iid}",
+        "workspace_id": ws_id,
+        "id": iid,
+        "identifier": ident,
+        "status": status,
+        "status_category": status,
+        "previous_status": previous,
+        "previous_status_category": previous,
+    }
+
+
+decide_items = [
+    decide_issue(ACM_ID, "acm-lab", "ACM-301", "目录历史会列出 clipy 但会话没有出来", "blocked", ago(days=16), "Vega"),
+    decide_issue(
+        ACM_ID, "acm-lab", "ACM-302", "本机存储占用与分散落盘", "in_review", ago(days=1), "Builder",
+        decide_run("completed", ago(days=1)),
+    ),
+    decide_issue(ACM_ID, "acm-lab", "ACM-303", "书签自建检索小试", "in_review", ago(days=10), "Builder"),
+    decide_issue(
+        ACM_ID, "acm-lab", "ACM-304", "OpenSpec 全量迁移", "blocked", ago(hours=2), "Vega",
+        decide_run("failed", ago(hours=2), "timeout"),
+    ),
+    decide_issue(ACM_ID, "acm-lab", "ACM-305", "跨 Workspace 全量迁移调研", "in_review", ago(days=7), "Vega"),
+    decide_issue(
+        ACM_ID, "acm-lab", "ACM-306", "mini 腾空间以重装 Fusion", "in_review", ago(days=2), "存储",
+        decide_run("completed", ago(days=2)),
+    ),
+    decide_issue(ACM_ID, "acm-lab", "ACM-307", "状态桥接改为持久 outbox", "blocked", ago(hours=3), "Builder"),
+    decide_issue(ACM_ID, "acm-lab", "ACM-399", "进行中，不应出现在待你决定", "in_progress", ago(hours=1), "Builder"),
+    decide_issue(BETA_ID, "beta-coach", "BET-11", "其他 workspace 的待验收", "in_review", ago(days=3), "Reviewer"),
+    decide_issue(BETA_ID, "beta-coach", "BET-12", "其他 workspace 的受阻", "blocked", ago(days=4), "Reviewer"),
+]
+decide_changes = [
+    decide_change(ACM_ID, "ACM-301", ago(days=3), "in_progress", "todo"),
+    decide_change(ACM_ID, "ACM-302", ago(days=15), "in_review", "in_progress"),
+    decide_change(ACM_ID, "ACM-304", ago(days=8), "blocked", "in_progress"),
+    decide_change(ACM_ID, "ACM-305", ago(days=7), "in_review", "in_progress"),
+    decide_change(ACM_ID, "ACM-306", ago(days=2), "in_review", "in_progress"),
+    decide_change(ACM_ID, "ACM-307", ago(hours=3), "blocked", "in_progress"),
+]
+decide_meta = meta(gen, {"last_attempt_at": gen, "last_success_at": gen, "error": None}, [
+    decide_ws(ACM_ID, "acm-lab", "ACM Lab"),
+    decide_ws(BETA_ID, "beta-coach", "Beta 辅导"),
+])
+decide_issues = {"generated_at": gen, "items": decide_items}
+decide_ok = {
+    "generated_at": gen,
+    "cursor": "v1:6",
+    "reset": False,
+    "retained_days": 7,
+    "has_more": False,
+    "items": decide_changes,
+}
+decide_reset = {
+    "generated_at": gen,
+    "cursor": "v1:6",
+    "reset": True,
+    "retained_days": 7,
+    "has_more": False,
+    "items": [],
+}
+for folder, changes in (("decide", decide_ok), ("decide-gap", decide_reset)):
+    dump(f"{folder}/meta.json", decide_meta)
+    dump(f"{folder}/issues.json", decide_issues)
+    dump(f"{folder}/changes.json", changes)
+dump("decide-down/meta.json", decide_meta)
+dump("decide-down/issues.json", decide_issues)
+
+runs_doc = json.loads((OUT / "runs.json").read_text(encoding="utf-8"))
+runs_doc["by_issue"][f"{ACM_ID}:decide-acm-302"] = [
+    {
+        "key": f"{ACM_ID}:task-demo",
+        "task_id": "task-demo",
+        "status": "completed",
+        "agent_name": "Builder",
+        "runtime_id": None,
+        "started_at": ago(days=1, minutes=20),
+        "completed_at": ago(days=1),
+        "error_kind": None,
+        "error_summary": None,
+    }
+]
+dump("runs.json", runs_doc)
+
 # Which responses each ?mock=<scenario> overrides; the rest come from the default fixtures.
-dump("scenarios.json", {"cli-down": ["meta", "issues", "agents", "runtimes"], "cli-stale": ["meta"]})
+dump("scenarios.json", {
+    "cli-down": ["meta", "issues", "agents", "runtimes"],
+    "cli-stale": ["meta"],
+    "decide": ["meta", "issues", "changes"],
+    "decide-gap": ["meta", "issues", "changes"],
+    "decide-down": ["meta", "issues", "changes"],
+})
 
 print(f"{len(meta_ws)} workspaces, {len(issues)} issues, {len(agents)} agents, {len(runtimes)} runtimes, {len(runs)} run histories")
