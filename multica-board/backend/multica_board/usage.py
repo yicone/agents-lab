@@ -114,7 +114,7 @@ def _num(value: Any) -> float | None:
 
 def _int(value: Any) -> int:
     number = _num(value)
-    if number is None:
+    if number is None or number < 0 or not number.is_integer():
         return 0
     return int(number)
 
@@ -433,12 +433,14 @@ def _public_day(cell: dict[str, Any]) -> dict[str, Any]:
     return day
 
 
-def clean_hourly(data: Any) -> list[dict[str, int]]:
+def clean_hourly(data: Any, *, workspace_id: str | None = None) -> list[dict[str, int]]:
     if not isinstance(data, list):
         return []
     rows = []
     for item in data:
         if not isinstance(item, dict):
+            continue
+        if workspace_id is not None and item.get("workspace_id") != workspace_id:
             continue
         hour = item.get("hour")
         count = item.get("count")
@@ -453,7 +455,7 @@ def clean_hourly(data: Any) -> list[dict[str, int]]:
     return rows
 
 
-def sum_usage_rows(data: Any, runtime_id: str) -> list[dict[str, Any]]:
+def sum_usage_rows(data: Any, runtime_id: str, *, workspace_id: str | None = None) -> list[dict[str, Any]]:
     if not isinstance(data, list):
         return []
     acc: dict[str, dict[str, Any]] = {}
@@ -462,6 +464,8 @@ def sum_usage_rows(data: Any, runtime_id: str) -> list[dict[str, Any]]:
             continue
         owner = row.get("runtime_id")
         if owner and owner != runtime_id:
+            continue
+        if workspace_id is not None and row.get("workspace_id") != workspace_id:
             continue
         day = row.get("date")
         if not isinstance(day, str) or not _DATE.fullmatch(day):
@@ -806,9 +810,12 @@ class UsageCollector:
             if item.get("status") == "error" and isinstance(err, dict) and err.get("message"):
                 errors.append(f"{item.get('provider')}: {err['message']}")
         collected_at = iso(self.now)
+        snapshot_state = "ok" if not errors else ("partial" if tokens or any(q.get("status") == "ok" for q in quotas) else "error")
         snapshot = scrub({
             "usage_collected_at": collected_at,
             "days": self.usage_days,
+            "snapshot_state": snapshot_state,
+            "collection_errors": errors,
             "external_quotas": quotas,
             "token_by_runtime": tokens,
         })
@@ -822,7 +829,7 @@ class UsageCollector:
             len(errors),
         )
         return {
-            "ok": True,
+            "ok": not bool(errors),
             "usage_collected_at": collected_at,
             "providers": {item["provider"]: item["status"] for item in quotas},
             "runtimes_queried": queried,
@@ -931,28 +938,30 @@ class UsageCollector:
         def fetch(item: tuple[dict[str, Any], dict[str, Any]]) -> dict[str, Any]:
             ws, row = item
             rid = row["id"]
+            old = next((x for x in previous.get("token_by_runtime") or []
+                        if isinstance(x, dict) and x.get("workspace_id") == ws["id"] and x.get("runtime_id") == rid), {})
             entry: dict[str, Any] = {
                 "workspace_id": ws["id"],
                 "workspace_slug": ws.get("slug"),
                 "runtime_id": rid,
                 "name": row.get("custom_name") or row.get("name"),
                 "provider": row.get("provider"),
-                "daily": [],
-                "hourly_activity": [],
+                "daily": old.get("daily", []) if isinstance(old, dict) else [],
+                "hourly_activity": old.get("hourly_activity", []) if isinstance(old, dict) else [],
             }
             try:
                 usage = self.runner.run(
                     ["runtime", "usage", rid, "--days", str(self.usage_days)],
                     workspace_id=ws["id"],
                 )
-                entry["daily"] = sum_usage_rows(usage.data, rid)
+                entry["daily"] = sum_usage_rows(usage.data, rid, workspace_id=ws["id"])
             except CliError as exc:
                 entry["usage_error"] = str(exc)
             except Exception as exc:
                 entry["usage_error"] = redact_usage(f"{type(exc).__name__}: {exc}") or "usage failed"
             try:
                 activity = self.runner.run(["runtime", "activity", rid], workspace_id=ws["id"])
-                entry["hourly_activity"] = clean_hourly(activity.data)
+                entry["hourly_activity"] = clean_hourly(activity.data, workspace_id=ws["id"])
             except CliError as exc:
                 entry["activity_error"] = str(exc)
             except Exception as exc:
@@ -971,4 +980,8 @@ class UsageCollector:
             if entry.get("activity_error"):
                 errors.append(f"{entry['runtime_id']} activity: {entry['activity_error']}")
             stored.append({key: value for key, value in entry.items() if key not in ("usage_error", "activity_error")})
+        current_keys = {(x.get("workspace_id"), x.get("runtime_id")) for x in stored}
+        for old in previous.get("token_by_runtime") or []:
+            if isinstance(old, dict) and (old.get("workspace_id"), old.get("runtime_id")) not in current_keys:
+                stored.append(old)
         return stored, len(selected), errors

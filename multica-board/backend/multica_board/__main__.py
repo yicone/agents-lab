@@ -111,7 +111,7 @@ def cmd_collect_usage(a: argparse.Namespace) -> int:
     finally:
         store.close()
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 0 if result.get("ok") else 2
 
 
 def cmd_serve(a: argparse.Namespace) -> int:
