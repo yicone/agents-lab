@@ -61,6 +61,8 @@ class FakeMultica:
             out = self.workspaces[ws].get("runtimes", [])
         elif key == ("agent", "list"):
             out = self.workspaces[ws].get("agents", [])
+        elif key == ("property", "list"):
+            out = self.workspaces[ws].get("properties", [])
         elif key == ("agent", "tasks"):
             tasks = self.workspaces[ws].get("tasks", {}).get(words[2], [])
             limit = int(flags["--limit"])

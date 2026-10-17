@@ -69,6 +69,22 @@ def _labels(raw: Any) -> list[str]:
     return [x for x in out if x]
 
 
+def norm_property(p: dict[str, Any]) -> dict[str, Any]:
+    """Keep id, name, type, and option id/name. Descriptions and colors stay out of the cache."""
+    options = []
+    config = p.get("config") if isinstance(p.get("config"), dict) else {}
+    for opt in config.get("options") or []:
+        if isinstance(opt, dict) and opt.get("id"):
+            options.append({"id": opt["id"], "name": opt.get("name") or ""})
+    return {
+        "id": p["id"],
+        "name": p.get("name"),
+        "type": p.get("type"),
+        "archived": int(bool(p.get("archived"))),
+        "options_json": json.dumps(options, ensure_ascii=False),
+    }
+
+
 def norm_issue(i: dict[str, Any]) -> dict[str, Any]:
     keep = [
         "id", "identifier", "number", "title", "status", "status_category", "status_name",
@@ -215,6 +231,7 @@ class Collector:
             "members": self._members,
             "runtimes": self._runtimes,
             "agents": self._agents,
+            "property_defs": self._property_defs,
         }
         agents: list[dict[str, Any]] | None = None
 
@@ -329,6 +346,15 @@ class Collector:
         rows = [norm_agent(a) for a in items if a.get("id")]
         self.store.replace_snapshot(self.server, ws, "agents", rows)
         return len(rows), True, rows
+
+    def _property_defs(self, ws: str):
+        """Option names are required to parse 主层 / 涉及层 by the L1–L5 prefix."""
+        res = self.runner.run(["property", "list"], workspace_id=ws)
+        items = _as_list(res.data, "properties")
+        self._check_scope(ws, items)
+        rows = [norm_property(p) for p in items if p.get("id")]
+        self.store.replace_snapshot(self.server, ws, "property_defs", rows)
+        return len(rows), True, None
 
     def _tasks(self, ws: str, agents: list[dict[str, Any]]):
         cutoff = iso(utcnow() - timedelta(days=self.opts.run_days))

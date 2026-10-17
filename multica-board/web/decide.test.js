@@ -8,6 +8,7 @@ import {
   compareWait,
   decideQueue,
   filterDecide,
+  readStatusChanges,
   formatSince,
   formatWait,
   latestStatusEntry,
@@ -175,4 +176,26 @@ test("changes since stays inside the seven-day horizon", () => {
   assert.ok(since > NOW - 7 * DAY_MS);
   assert.ok(since < NOW - 6 * DAY_MS);
   assert.match(changesSince(NOW), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+});
+
+test("status changes are requested with kind=status and runs do not fill the page", async () => {
+  const calls = [];
+  const status = entry("ACM-1", 2, "in_review");
+  const payload = await readStatusChanges(async (path) => {
+    calls.push(path);
+    const since = new URL(path, "http://board.local").searchParams.get("since");
+    assert.equal(new URL(path, "http://board.local").searchParams.get("kind"), "status");
+    if (since === changesSince(NOW)) {
+      return {
+        items: [{ kind: "run", at: status.at }, status],
+        cursor: "v1:2",
+        has_more: true,
+        reset: false,
+      };
+    }
+    return { items: [entry("ACM-2", 1, "blocked")], cursor: "v1:3", has_more: false, reset: false };
+  }, NOW);
+  assert.equal(calls.length, 2);
+  assert.equal(payload.incomplete, false);
+  assert.deepEqual(payload.items.map((item) => item.id), ["ACM-1", "ACM-2"]);
 });

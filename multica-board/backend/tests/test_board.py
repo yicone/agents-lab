@@ -122,6 +122,8 @@ class RunnerTests(unittest.TestCase):
             ["issue", "assign", "x"],
             ["agent", "update", "x", "--runtime-id", "y"],
             ["runtime", "delete", "x"],
+            ["property", "create", "--name", "主层"],
+            ["issue", "property", "set", "x", "主层", "L1"],
             ["workspace", "member", "invite", "a@b"],
             ["workspace", "switch", "x"],
             ["daemon", "stop"],
@@ -131,6 +133,7 @@ class RunnerTests(unittest.TestCase):
                 assert_read_only(args)
         with self.assertRaises(CommandNotAllowed):
             assert_read_only(["issue", "list", "--server-url", "http://evil"])
+        assert_read_only(["property", "list"])
 
     def test_refused_before_spawn(self):
         fake = FakeMultica({})
@@ -334,6 +337,29 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual({r["id"] for r in store.query("SELECT id FROM workspaces")}, {WS_B})
         self.assertFalse(any(WS_A in c for c in fake.calls))
 
+    def test_property_catalog_cached_without_descriptions(self):
+        data = {
+            WS_A: {
+                "meta": {"id": WS_A, "name": "Alpha", "slug": "alpha"},
+                "issues": [issue(WS_A, 1, properties={"p": "o"})],
+                "properties": [{
+                    "id": "p", "name": "主层", "type": "select", "archived": False,
+                    "description": f"secret body {FAKE_TOKEN}",
+                    "config": {"options": [{"id": "o", "name": "L3 能力", "color": "#0f8f8a"}]},
+                }],
+                "agents": [], "runtimes": [], "tasks": {},
+            }
+        }
+        store, col = make(FakeMultica(data), self.db)
+        self.assertTrue(col.collect()["ok"])
+        row = store.query("SELECT name, type, options_json FROM property_defs WHERE id='p'")[0]
+        self.assertEqual((row["name"], row["type"]), ("主层", "select"))
+        self.assertEqual(json.loads(row["options_json"]), [{"id": "o", "name": "L3 能力"}])
+        cached = json.loads(store.query("SELECT properties_json FROM issues WHERE identifier='T-1'")[0]["properties_json"])
+        self.assertEqual(cached, {"p": "o"})
+        store.close()
+        self.assertNotIn(FAKE_TOKEN.encode(), self.db.read_bytes())
+
 
 class CollectorHealthTests(unittest.TestCase):
     """/api/meta must explain an empty or silently stale board when the CLI itself is unusable."""
@@ -467,7 +493,7 @@ class ViewTests(unittest.TestCase):
         return {i["id"]: i for i in self.v.issues()["items"]}
 
     def test_generated_at_is_collect_finish(self):
-        for body in (self.v.meta(), self.v.issues(), self.v.agents(), self.v.runtimes(), self.v.attention(), self.v.changes(None), self.v.failure_stats()):
+        for body in (self.v.meta(), self.v.issues(), self.v.layers(), self.v.agents(), self.v.runtimes(), self.v.attention(), self.v.changes(None), self.v.failure_stats()):
             self.assertEqual(body["generated_at"], "2026-10-14T09:00:00Z")
 
     def test_meta(self):
@@ -501,8 +527,10 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(it["member"]["latest_run"]["status"], "running")
         expected = {"key", "workspace_id", "id", "identifier", "title", "status", "status_category", "priority",
                     "assignee", "project", "parent_identifier", "due_date", "created_at", "last_activity_at", "url",
-                    "latest_run", "last_failed_run"}
+                    "latest_run", "last_failed_run", "layer"}
         self.assertEqual(set(child), expected)
+        self.assertEqual(child["layer"]["primary"], None)
+        self.assertEqual(child["layer"]["source"], {"primary": None, "involved": None, "governance": None})
 
     def test_agents(self):
         body = self.v.agents()
@@ -675,7 +703,7 @@ class ServerTests(unittest.TestCase):
                 assert_loopback(host)
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):
+        for path in ("/api/meta", "/api/issues", "/api/layers", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")
@@ -748,6 +776,14 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["items"], [])
 
         r, body = self.req("GET", "/api/changes?since=a&since=b")
+        self.assertEqual(r.status, 400)
+        r, body = self.req("GET", "/api/changes?kind=status")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(json.loads(body)["items"], [])
+        r, body = self.req("GET", "/api/changes?kind=nope")
+        self.assertEqual(r.status, 400)
+        self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
+        r, body = self.req("GET", "/api/changes?kind=status&kind=run")
         self.assertEqual(r.status, 400)
         self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
 
@@ -1001,6 +1037,52 @@ class ChangeFeedTests(unittest.TestCase):
 
         self.col.collect()
         self.assertEqual(_nchanges(self.store), 6)
+
+    def test_kind_status_skips_runs(self):
+        self.assertTrue(self.col.collect()["ok"])
+        issue1 = self.data[WS_A]["issues"][0]
+        issue1["status"] = "in_review"
+        issue1["status_category"] = "in_review"
+        self.assertTrue(self.col.collect()["ok"])
+        stamp = ago(0.01)
+        self.store.append_changes(SERVER, WS_A, [
+            {
+                "at": stamp, "kind": "run", "resource_id": f"run-pad-{n}",
+                "payload": {
+                    "issue_id": f"{WS_A}-issue-0001", "agent_id": "ag1", "runtime_id": "rt1",
+                    "status": "running", "started_at": stamp, "completed_at": None,
+                    "error_kind": None, "error_summary": None,
+                },
+            }
+            for n in range(3)
+        ] + [{
+            "at": stamp, "kind": "issue_status", "resource_id": f"{WS_A}-issue-0002",
+            "payload": {
+                "identifier": "T-2", "status": "blocked", "status_category": "blocked",
+                "previous_status": "in_progress", "previous_status_category": "in_progress",
+            },
+        }])
+        unfiltered = self.views.changes("v1:0", limit=1)
+        self.assertEqual(unfiltered["items"][0]["kind"], "issue_status")
+        self.assertTrue(unfiltered["has_more"])
+        first_status = self.views.changes("v1:0", "status", limit=1)
+        self.assertEqual([i["id"] for i in first_status["items"]], [f"{WS_A}-issue-0001"])
+        self.assertEqual(first_status["items"][0]["previous_status"], "todo")
+        self.assertTrue(first_status["has_more"])
+        second_status = self.views.changes(first_status["cursor"], "status", limit=1)
+        self.assertEqual([i["status"] for i in second_status["items"]], ["blocked"])
+        self.assertFalse(second_status["has_more"])
+        self.assertEqual(
+            self.views.changes("v1:0", "issue_status")["items"],
+            self.views.changes("v1:0", "status")["items"],
+        )
+        self.assertGreater(len(self.views.changes("v1:0")["items"]), len(self.views.changes("v1:0", "status")["items"]))
+        with self.assertRaises(BadRequest):
+            self.views.changes("v1:0", "nope")
+        self.assertEqual(self.views.changes(None, "status")["items"], [])
+        names = {row["name"] for row in self.store.query("PRAGMA index_list(changes)")}
+        self.assertIn("changes_server_kind_seq", names)
+        self.assertIn("changes_server_kind_at", names)
 
     def test_purge_rebaseline_does_not_replay(self):
         self.col.collect()

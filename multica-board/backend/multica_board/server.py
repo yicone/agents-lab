@@ -1,4 +1,4 @@
-"""Loopback-only, GET-only JSON API (contract v0.2) plus the static web/ frontend."""
+"""Loopback-only, GET-only JSON API (contract v0.5) plus the static web/ frontend."""
 
 from __future__ import annotations
 
@@ -59,6 +59,7 @@ class BoardServer(ThreadingHTTPServer):
 STATIC_ROUTES: dict[str, Callable[[Views], Any]] = {
     "/api/meta": lambda v: v.meta(),
     "/api/issues": lambda v: v.issues(),
+    "/api/layers": lambda v: v.layers(),
     "/api/agents": lambda v: v.agents(),
     "/api/runtimes": lambda v: v.runtimes(),
     "/api/stats/failures": lambda v: v.failure_stats(),
@@ -138,7 +139,8 @@ class Handler(BaseHTTPRequestHandler):
             if path in STATIC_ROUTES:
                 body = STATIC_ROUTES[path](views)
             elif path == "/api/changes":
-                body = views.changes(self._since_arg())
+                since, kind = self._changes_args()
+                body = views.changes(since, kind)
             elif m := ISSUE_RUNS.match(path):
                 body = views.issue_runs(m.group(1), m.group(2))
             else:
@@ -164,17 +166,20 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(HTTPStatus.OK, views.attention())
 
-    def _since_arg(self) -> str | None:
+    def _changes_args(self) -> tuple[str | None, str | None]:
         query = urlsplit(self.path).query
         if len(query) > 256:
             raise BadRequest("query string is too long")
         parsed = parse_qs(query, keep_blank_values=True)
-        if "since" not in parsed:
-            return None
-        vals = parsed["since"]
-        if len(vals) != 1:
+        since_vals = parsed.get("since", [])
+        if len(since_vals) > 1:
             raise BadRequest("since must be a single value")
-        return vals[0]
+        kind_vals = parsed.get("kind", [])
+        if len(kind_vals) > 1:
+            raise BadRequest("kind must be a single value")
+        since = since_vals[0] if since_vals else None
+        kind = kind_vals[0] if kind_vals else None
+        return since, kind
 
     def _static(self, raw_path: str) -> None:
         root = self.server.static_dir

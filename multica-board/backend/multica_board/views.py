@@ -1,4 +1,4 @@
-"""Read models for API contract v0.2 (multica-board/docs/api-contract.md). Pure cache reads."""
+"""Read models for API contract v0.5 (multica-board/docs/api-contract.md). Pure cache reads."""
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ from typing import Any
 from urllib.parse import quote
 
 from .agent_delivery import decide_delivery
-from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_since
+from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_kind, parse_since
 from .collector import COLLECTOR, WORKSPACE
+from .layers import ATLAS_SLUG, build_report, catalog_from_rows, empty_layer, resolve_issues
 from .store import Store
 
 CLOSED_CATEGORIES = {"done", "cancelled", "canceled"}
@@ -286,6 +287,7 @@ class Views:
         projects = self._names("projects", "id", "title")
         identifiers = self._names("issues", "id", "identifier")
 
+        layers = self._layer_index()
         latest: dict[tuple[str, str], dict[str, Any]] = {}
         last_failed: dict[tuple[str, str], dict[str, Any]] = {}
         failed_cutoff = _iso(_now() - LAST_FAILED_WINDOW)
@@ -334,9 +336,71 @@ class Views:
                     "last_failed_run": (
                         {"task_id": lf["id"], "completed_at": lf["completed_at"], "error_kind": lf["error_kind"]} if lf else None
                     ),
+                    "layer": layers.get(k) or empty_layer(),
                 }
             )
         return {"generated_at": self.generated_at(), "items": items}
+
+    def _layer_index(self) -> dict[tuple[str, str], dict[str, Any]]:
+        rows = self.store.query("SELECT * FROM issues WHERE server=?", (self.server,))
+        defs = self.store.query("SELECT * FROM property_defs WHERE server=?", (self.server,))
+        by_ws: dict[str, list[dict[str, Any]]] = {}
+        defs_by: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            by_ws.setdefault(row["workspace_id"], []).append(row)
+        for row in defs:
+            defs_by.setdefault(row["workspace_id"], []).append(row)
+        index: dict[tuple[str, str], dict[str, Any]] = {}
+        for ws, issues in by_ws.items():
+            resolved = resolve_issues(issues, catalog_from_rows(defs_by.get(ws, [])))
+            for iid, layer in resolved.items():
+                index[(ws, iid)] = layer
+        return index
+
+    def _status_events(self, workspace_id: str) -> dict[str, list[dict[str, Any]]]:
+        found: dict[str, list[dict[str, Any]]] = {}
+        for row in self.store.query(
+            "SELECT resource_id, at, payload_json FROM changes WHERE server=? AND workspace_id=? AND kind='issue_status'",
+            (self.server, workspace_id),
+        ):
+            try:
+                payload = json.loads(row["payload_json"] or "{}")
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            found.setdefault(row["resource_id"], []).append({"at": row["at"], "status": payload.get("status")})
+        return found
+
+    def layers(self) -> dict[str, Any]:
+        """ACM Lab map counts. Other workspaces stay on `/api/issues` only."""
+        found = self.store.query(
+            "SELECT id, slug, name FROM workspaces WHERE server=? AND lower(coalesce(slug, ''))=?",
+            (self.server, ATLAS_SLUG),
+        )
+        generated = self.generated_at()
+        if not found:
+            body = build_report([], {}, {}, ready=False)
+            body["generated_at"] = generated
+            body["workspace"] = None
+            return body
+        ws = found[0]
+        rows = self.store.query("SELECT * FROM issues WHERE server=? AND workspace_id=?", (self.server, ws["id"]))
+        defs = self.store.query(
+            "SELECT * FROM property_defs WHERE server=? AND workspace_id=?", (self.server, ws["id"])
+        )
+        catalog = catalog_from_rows(defs)
+        resolved = resolve_issues(rows, catalog)
+        body = build_report(
+            rows,
+            resolved,
+            self._status_events(ws["id"]),
+            ready=catalog.ready,
+            url_for=lambda iid: self._url(ws["slug"], "issues", iid),
+        )
+        body["generated_at"] = generated
+        body["workspace"] = {"id": ws["id"], "slug": ws["slug"], "name": ws["name"]}
+        return body
 
     def issue_runs(self, workspace_id: str, issue_id: str) -> dict[str, Any]:
         found = self.store.query(
@@ -626,10 +690,14 @@ class Views:
 
     # --- /api/changes -------------------------------------------------------
 
-    def changes(self, since: str | None, *, limit: int = CHANGES_PAGE) -> dict[str, Any]:
-        """Deltas after `since` (ISO time or a previous cursor). Omitted `since` only issues a cursor."""
+    def changes(self, since: str | None, kind: str | None = None, *, limit: int = CHANGES_PAGE) -> dict[str, Any]:
+        """Deltas after `since` (ISO time or a previous cursor). Omitted `since` only issues a cursor.
+
+        `kind` limits the page (`status` is the alias for `issue_status`). Omitted returns every kind.
+        """
         if limit < 1 or limit > CHANGES_PAGE:
             raise BadRequest("limit out of range")
+        stored_kind = parse_kind(kind)
         mode, value = parse_since(since)
         horizon = _iso(_now() - timedelta(days=CHANGE_RETENTION_DAYS))
         self.store.prune_changes(self.server, horizon)
@@ -652,9 +720,13 @@ class Views:
             return envelope([], tip, True, False)
 
         if mode == "time":
-            snap = self.store.fetch_changes(self.server, after_seq=None, after_at=value, limit=limit + 1)
+            snap = self.store.fetch_changes(
+                self.server, after_seq=None, after_at=value, limit=limit + 1, kind=stored_kind
+            )
         else:
-            snap = self.store.fetch_changes(self.server, after_seq=value, after_at=None, limit=limit + 1)
+            snap = self.store.fetch_changes(
+                self.server, after_seq=value, after_at=None, limit=limit + 1, kind=stored_kind
+            )
             oldest = snap["oldest"]
             if value > snap["tip"] or (oldest is not None and oldest > value + 1):
                 return envelope([], snap["tip"], True, False)

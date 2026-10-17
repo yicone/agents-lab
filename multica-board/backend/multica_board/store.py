@@ -10,12 +10,15 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 TABLES = (
     "workspaces", "sync_status", "issues", "projects", "members", "agents", "runtimes", "tasks",
-    "changes", "change_baseline", "meta",
+    "property_defs", "changes", "change_baseline", "meta",
 )
-DATA_TABLES = ("issues", "projects", "members", "agents", "runtimes", "tasks", "changes", "change_baseline")
+DATA_TABLES = (
+    "issues", "projects", "members", "agents", "runtimes", "tasks", "property_defs",
+    "changes", "change_baseline",
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
@@ -76,6 +79,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS tasks_issue ON tasks (server, workspace_id, issue_id, created_at);
 CREATE INDEX IF NOT EXISTS tasks_agent ON tasks (server, workspace_id, agent_id, created_at);
+CREATE TABLE IF NOT EXISTS property_defs (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+  name TEXT, type TEXT, archived INTEGER, options_json TEXT,
+  PRIMARY KEY (server, workspace_id, id)
+);
 CREATE TABLE IF NOT EXISTS changes (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   server TEXT NOT NULL, workspace_id TEXT NOT NULL,
@@ -84,6 +92,8 @@ CREATE TABLE IF NOT EXISTS changes (
 );
 CREATE INDEX IF NOT EXISTS changes_server_seq ON changes (server, seq);
 CREATE INDEX IF NOT EXISTS changes_server_at ON changes (server, at, seq);
+CREATE INDEX IF NOT EXISTS changes_server_kind_seq ON changes (server, kind, seq);
+CREATE INDEX IF NOT EXISTS changes_server_kind_at ON changes (server, kind, at, seq);
 CREATE TABLE IF NOT EXISTS change_baseline (
   server TEXT NOT NULL, workspace_id TEXT NOT NULL, resource TEXT NOT NULL,
   PRIMARY KEY (server, workspace_id, resource)
@@ -261,17 +271,24 @@ class Store:
             return self._bounds(self._conn, server)
 
     def fetch_changes(
-        self, server: str, *, after_seq: int | None, after_at: str | None, limit: int
+        self, server: str, *, after_seq: int | None, after_at: str | None, limit: int,
+        kind: str | None = None,
     ) -> dict[str, Any]:
-        """Rows plus bounds from one locked snapshot. `after_at` filters by time; otherwise by seq."""
+        """Rows plus bounds from one locked snapshot. `after_at` filters by time; otherwise by seq.
+
+        `kind` limits the page to one stored kind. Bounds stay global so a cursor still
+        means the same position in the whole log.
+        """
         with self._lock:
             tip, oldest = self._bounds(self._conn, server)
+            kind_sql = " AND kind=?" if kind else ""
             if after_at is not None:
-                sql = "SELECT * FROM changes WHERE server=? AND at>? ORDER BY seq LIMIT ?"
-                params: tuple[Any, ...] = (server, after_at, limit)
+                sql = f"SELECT * FROM changes WHERE server=?{kind_sql} AND at>? ORDER BY seq LIMIT ?"
+                params: tuple[Any, ...] = (server, kind, after_at, limit) if kind else (server, after_at, limit)
             else:
-                sql = "SELECT * FROM changes WHERE server=? AND seq>? ORDER BY seq LIMIT ?"
-                params = (server, -1 if after_seq is None else after_seq, limit)
+                sql = f"SELECT * FROM changes WHERE server=?{kind_sql} AND seq>? ORDER BY seq LIMIT ?"
+                seq = -1 if after_seq is None else after_seq
+                params = (server, kind, seq, limit) if kind else (server, seq, limit)
             rows = [dict(r) for r in self._conn.execute(sql, params)]
             return {"rows": rows, "tip": tip, "oldest": oldest}
 
