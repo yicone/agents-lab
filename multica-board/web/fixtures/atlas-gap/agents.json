@@ -1,0 +1,56 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "recent_window_h": 24,
+ "items": [
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:agent-builder",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "agent-builder",
+   "name": "Builder",
+   "status": "idle",
+   "archived": false,
+   "runtime_id": "rt-mini",
+   "model": null,
+   "thinking_level": null,
+   "service_tier": null,
+   "max_concurrent_tasks": 4,
+   "tasks": {
+    "running": 0,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 3,
+    "failed": 1,
+    "last_failed_at": "2026-10-14T06:00:00Z",
+    "last_error_kind": "quota",
+    "last_failed_issue_identifier": "ACM-542"
+   },
+   "url": "https://multica.example/acm-lab/agents/agent-builder"
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:agent-vega",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "agent-vega",
+   "name": "Vega",
+   "status": "working",
+   "archived": false,
+   "runtime_id": "rt-mini",
+   "model": "gpt-5.5-medium",
+   "thinking_level": "medium",
+   "service_tier": null,
+   "max_concurrent_tasks": 2,
+   "tasks": {
+    "running": 1,
+    "queued": 0
+   },
+   "recent": {
+    "completed": 2,
+    "failed": 0,
+    "last_failed_at": null,
+    "last_error_kind": null,
+    "last_failed_issue_identifier": null
+   },
+   "url": "https://multica.example/acm-lab/agents/agent-vega"
+  }
+ ]
+}

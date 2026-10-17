@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Multica Board" shape-rendering="crispEdges">
-  <title>Multica Board</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Agent Atlas" shape-rendering="crispEdges">
+  <title>Agent Atlas</title>
   <!-- Scheme B at 16px: stacked boards, star simplified to a bold 8-spoke grid so the diagonals survive. -->
   <rect width="16" height="16" rx="4" fill="#1A2330"/>
   <rect x="2.5" y="3.5" width="12" height="10" rx="1.6" fill="none" stroke="#F4F1EA" stroke-width="1"/>

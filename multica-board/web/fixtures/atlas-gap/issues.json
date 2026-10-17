@@ -1,0 +1,851 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "items": [
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-510",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-510",
+   "identifier": "ACM-510",
+   "title": "监督页的空态说明",
+   "status": "done",
+   "status_category": "done",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-design",
+    "name": "前端设计师"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-510",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l5",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-511",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-511",
+   "identifier": "ACM-511",
+   "title": "每日清单只读预览",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-design",
+    "name": "前端设计师"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-511",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l5",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-514",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-514",
+   "identifier": "ACM-514",
+   "title": "状态桥接改成持久 outbox",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-vega",
+    "name": "Vega"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-12T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-514",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l5",
+    "involved": [],
+    "governance": true,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": "own"
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-515",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-515",
+   "identifier": "ACM-515",
+   "title": "评估：状态桥接改为脚本直发",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-vega",
+    "name": "Vega"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": "ACM-500",
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-09-20T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-515",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l5",
+    "involved": [
+     "l3"
+    ],
+    "governance": false,
+    "source": {
+     "primary": "inherited:ACM-500",
+     "involved": "inherited:ACM-500",
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-520",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-520",
+   "identifier": "ACM-520",
+   "title": "派活交接草稿",
+   "status": "done",
+   "status_category": "done",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-520",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l4",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-521",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-521",
+   "identifier": "ACM-521",
+   "title": "跨 workspace 全量迁移",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-521",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l4",
+    "involved": [
+     "l3",
+     "l5"
+    ],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": "own",
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-522",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-522",
+   "identifier": "ACM-522",
+   "title": "Backlog triage：每周三条",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-10T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-522",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l4",
+    "involved": [],
+    "governance": true,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": "own"
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-530",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-530",
+   "identifier": "ACM-530",
+   "title": "skills 抽屉信息架构",
+   "status": "done",
+   "status_category": "done",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-design",
+    "name": "前端设计师"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-530",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l3",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-531",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-531",
+   "identifier": "ACM-531",
+   "title": "把 ColGrep 写成 Coding agent skill",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-531",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l3",
+    "involved": [
+     "l1"
+    ],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": "own",
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-532",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-532",
+   "identifier": "ACM-532",
+   "title": "冲突检测扩到职责重叠",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-design",
+    "name": "前端设计师"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": "ACM-122",
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-06T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-532",
+   "latest_run": {
+    "task_id": "task-532",
+    "status": "completed",
+    "agent_name": "前端设计师",
+    "runtime_id": "rt-mini",
+    "started_at": "2026-10-13T08:00:00Z",
+    "completed_at": "2026-10-13T09:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l3",
+    "involved": [],
+    "governance": true,
+    "source": {
+     "primary": "inherited:ACM-122",
+     "involved": null,
+     "governance": "inherited:ACM-122"
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-533",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-533",
+   "identifier": "ACM-533",
+   "title": "Instructions 草稿不进层视图工具栏",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-533",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l3",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-540",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-540",
+   "identifier": "ACM-540",
+   "title": "daemon 在线点",
+   "status": "done",
+   "status_category": "done",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-540",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l2",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-541",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-541",
+   "identifier": "ACM-541",
+   "title": "Agent 矩阵保留失败列",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-541",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l2",
+    "involved": [],
+    "governance": true,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": "own"
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-542",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-542",
+   "identifier": "ACM-542",
+   "title": "Orca 本机存储占用",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-vega",
+    "name": "Vega"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-542",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l2",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-550",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-550",
+   "identifier": "ACM-550",
+   "title": "额度信号借用矩阵",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-550",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l1",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-551",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-551",
+   "identifier": "ACM-551",
+   "title": "用量采集调查",
+   "status": "done",
+   "status_category": "done",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-551",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l1",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-560",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-560",
+   "identifier": "ACM-560",
+   "title": "存储清理",
+   "status": "done",
+   "status_category": "done",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-560",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "outside",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-561",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-561",
+   "identifier": "ACM-561",
+   "title": "英语学习打卡",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-561",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "outside",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-562",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-562",
+   "identifier": "ACM-562",
+   "title": "Clip 收藏整理",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T21:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-562",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "outside",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-570",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-570",
+   "identifier": "ACM-570",
+   "title": "还没标层的根 issue",
+   "status": "todo",
+   "status_category": "todo",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-570",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": null,
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": null,
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-571",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-571",
+   "identifier": "ACM-571",
+   "title": "子 issue 只填了涉及层",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": "ACM-570",
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-09-01T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-571",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": null,
+    "involved": [
+     "l2"
+    ],
+    "governance": false,
+    "source": {
+     "primary": null,
+     "involved": "own",
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-580",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-580",
+   "identifier": "ACM-580",
+   "title": "已取消的能力层试验",
+   "status": "cancelled",
+   "status_category": "cancelled",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/acm-580",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l3",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  },
+  {
+   "key": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb:bet-1",
+   "workspace_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+   "id": "bet-1",
+   "identifier": "BET-1",
+   "title": "别的 workspace 待验收",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-01T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/bet-1",
+   "latest_run": null,
+   "last_failed_run": null,
+   "layer": {
+    "primary": "l4",
+    "involved": [],
+    "governance": false,
+    "source": {
+     "primary": "own",
+     "involved": null,
+     "governance": null
+    }
+   }
+  }
+ ]
+}

@@ -1,5 +1,7 @@
 # Multica Board 前端设计（第一阶段）
 
+页面显示名是 **Agent Atlas**（`<title>`、顶栏、favicon 的 `alt` / `<title>`）。目录和包名仍是 `multica-board`，改名收尾不在这一版。
+
 目标：一个本地页面回答两个问题。
 
 1. 哪些 issue 现在需要我看？（待验收、受阻、运行失败、停滞）
@@ -17,7 +19,7 @@
 ## 页面结构
 
 ```
-┌ Multica Board  [Issues 关注 1] [Agent 矩阵 2]  ● 快照 42 秒前        [搜索 /] ┐
+┌ Agent Atlas  [地图 1] [待你决定 2] [Issues 3] [Agents 4] [Skills 5]  ● 快照     [搜索 /] ┐
 │ ┌ 采集失败：鉴权 ──────────────────────────────────────────────────────┐ │  ← 仅在全局采集失败时出现
 │ │ 401 unauthorized …                                                   │ │
 │ │ CLI 认证失败。在你自己的终端确认 multica 已登录 …                     │ │
@@ -110,7 +112,7 @@
 
 ## 交互细节
 
-- 快捷键：`/` 聚焦搜索，`1` / `2` 切换视图，`Esc` 先关抽屉，再清空搜索。`1` 仍是 Issues、`2` 仍是 Agent 矩阵。待你决定这次只加 Tab，不占数字键；整栏改成地图 / 待你决定 / Issues / Agents / Skills 是后续 D2，不在这一页里做。
+- 快捷键按顶栏位置编号，不再按层号：`1` 地图、`2` 待你决定、`3` Issues、`4` Agents、`5` Skills。`[` / `]` 只在某一层的层视图里切到上一层 / 下一层（往 L5 / 往 L1，L1 与 L5 循环）。`/` 聚焦搜索，`Esc` 先关抽屉，再清空搜索。v1 的 `1` = Issues、`2` = Agents 已废弃。
 - 搜索匹配 identifier、标题、负责人、agent 名、项目、父 issue、模型、runtime、workspace。
 - 每 15 秒轮询一次 `/api/meta`，`generated_at` 变化时才重新拉列表；顶栏状态每 5 秒重算一次。
 - 前端请求失败时保留上一次已渲染的数据，不清空页面。
@@ -129,17 +131,26 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 | `?mock=1` | 正常数据：5 个 workspace，其中一个超时、一个从未成功 |
 | `?mock=cli-down` | 首次启动，CLI 找不到，没有任何数据 |
 | `?mock=cli-stale` | 曾经成功过，现在 CLI 鉴权失败，显示 40 分钟前的旧数据 |
+| `?mock=atlas` | 五层地图：自设、继承、跨层、治理线、未归层、不在地图。打开 `#/map` |
+| `?mock=atlas-empty` | issue 上没有 `layer`。地图是引导，不是五层全 0 |
+| `?mock=atlas-unfilled` | `layer` 在，但主层全空。同样是引导 |
+| `?mock=atlas-quiet` | 已归层，待你决定为 0，角标隐藏 |
+| `?mock=atlas-gap` | 和 atlas 同一批 issue，状态迁移 `reset`，等待时长带 `≥` |
+
+真实地图读 `GET /api/layers`。`ready` 为 false（三个属性还没建）时显示引导，不画五层全 0。属性在、但已归层为 0（主层还没回填）时也是引导。已经回填的部分按接口计数，没回填的落在未归层。`?mock=` 没有这份响应，仍用 fixture 里的 `issue.layer` 在浏览器汇总。Issues 页在层数据就绪后增加「层」和「按主层 / 按涉及层」，卡片头部加五格条；非 ACM Lab 的卡片不画条，选了层之后这些卡片被滤掉。Agents 页内容不变。Skills 只有导航位置，角标为 0 时隐藏。只看治理线时，未完成和待你决定用接口的 `governance_open` / `governance_decide`；接口没有单独的治理线总数，所以这一档的「总数」等于未完成。
+
+旧地址用 `location.replace` 跳到新地址：`#/l5/attention` → `#/issues`，`#/l2/agents` → `#/agents`，`#/l3/skills` → `#/skills`，`#/lN` 与 `#/lN/issues` → `#/map/lN`（保留 `scope`），其他 `#/lN/…` → `#/map/lN`，`#/gov` → `#/map/all?gov=1`，空地址或不认识的地址 → `#/map`。`#/issues`、`#/agents`、`#/skills` 保持原样。刷新停在替换后的地址上，后退不会回到旧地址。
 
 - mock 模式以 `meta.collector.last_attempt_at`（没有则用 `generated_at`）作为“现在”，所以相对时间保持稳定。
 - 各场景覆盖哪些响应，记录在 `fixtures/scenarios.json`。
 - `runs.json` 不对应任何接口，是 mock 模式下 `/runs` 的数据来源。
-- fixtures 是虚构数据，修改后运行 `python3 multica-board/web/fixtures/generate.py` 重新生成。
+- fixtures 是虚构数据。主场景修改后运行 `python3 multica-board/web/fixtures/generate.py`。地图场景修改 `web/fixtures/atlas-data.js` 后运行 `node multica-board/web/fixtures/write-atlas.js`。
 
 ## 待你决定（ACM-191）
 
 回答「现在有哪些事等我拍板」。范围只有 ACM Lab（`slug=acm-lab`，否则名称正好是 `ACM Lab`）里 `in_review` 和 `blocked` 的 issue，等待最久的在最前。其他 workspace 的同类 issue 只在页脚计数，并链到 Issues。
 
-- 路由 `#/decide`，类型筛选 `?type=review` 或 `?type=blocked`。顶栏在现有两个 Tab 后面加「待你决定」，黄色角标等于这一页未筛选的条数，0 时隐藏。
+- 路由 `#/decide`，参数 `type=review|blocked`、`layer`、`match=primary|involved`、`gov=1`、`group=layer`。顶栏第 2 项是「待你决定」，黄色角标等于这一页未筛选的条数，0 时隐藏。层数据还没就绪时，层筛选保持灰色占位。
 - 已等待取 `/api/changes?kind=status` 里进入当前状态的最近一次 `issue_status`。`kind=status` 只返回状态迁移，run 不再占用这 500 条分页。日志里没有这条迁移、或者这次拉取 `reset` / 失败 / 没有读完时，改用 `last_activity_at`（再退 `updated_at`、`created_at`），数字前加 `≥`。超过 7 天标黄，超过 14 天标红；刚好 7 天、刚好 14 天不算超过。状态迁移仍最多翻 16 页；读不完就整页退回，不用读到一半的迁移。
 - 页头：合计、待验收、受阻、超过 7 天、最久等待。层分布、层筛选、按涉及层、只看治理线、按主层分组在层属性还没建时是灰色占位，不发请求。
 - 点行打开现有运行记录抽屉，点标题在 Multica 打开。最近动静用 `latest_run` 的状态；没有 run 时写「最后活动」。评论类型不在现有接口里。

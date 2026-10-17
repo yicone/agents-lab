@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>Multica Board</title>
+  <title>Agent Atlas</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
   <link rel="stylesheet" href="styles.css">
@@ -13,11 +13,13 @@
 <body>
   <header class="topbar">
     <div class="topbar-row">
-      <h1 class="brand"><img class="brand-mark" src="favicon.svg" width="16" height="16" alt="">Multica Board</h1>
+      <h1 class="brand"><img class="brand-mark" src="favicon.svg" width="16" height="16" alt="Agent Atlas">Agent Atlas</h1>
       <nav class="tabs" aria-label="视图">
-        <a class="tab" data-view="issues" href="#/issues">Issues 关注 <kbd>1</kbd></a>
-        <a class="tab" data-view="agents" href="#/agents">Agent 矩阵 <kbd>2</kbd></a>
-        <a class="tab" data-view="decide" href="#/decide">待你决定 <span id="decide-badge" class="tab-badge" hidden></span></a>
+        <a class="tab" data-view="map" href="#/map">地图 <kbd>1</kbd></a>
+        <a class="tab" data-view="decide" href="#/decide">待你决定 <span id="decide-badge" class="tab-badge" hidden></span> <kbd>2</kbd></a>
+        <a class="tab" data-view="issues" href="#/issues">Issues <kbd>3</kbd></a>
+        <a class="tab" data-view="agents" href="#/agents">Agents <kbd>4</kbd></a>
+        <a class="tab" data-view="skills" href="#/skills">Skills <span id="skills-badge" class="tab-badge skills" hidden></span> <kbd>5</kbd></a>
       </nav>
       <span id="snapshot" class="snapshot" aria-live="polite"></span>
       <label class="search">
@@ -30,6 +32,6 @@
     <div id="health" class="health" aria-label="Workspace 采集状态"></div>
   </header>
   <main id="main" class="main"></main>
-  <aside id="drawer" class="drawer" aria-label="运行历史" hidden></aside>
+  <aside id="drawer" class="drawer" aria-label="issue 详情" hidden></aside>
 </body>
 </html>

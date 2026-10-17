@@ -1,0 +1,93 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "cursor": "v1:7",
+ "reset": false,
+ "retained_days": 7,
+ "has_more": false,
+ "items": [
+  {
+   "kind": "issue_status",
+   "at": "2026-10-12T09:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-514",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-514",
+   "identifier": "ACM-514",
+   "status": "in_review",
+   "status_category": "in_review",
+   "previous_status": "in_progress",
+   "previous_status_category": "in_progress"
+  },
+  {
+   "kind": "issue_status",
+   "at": "2026-09-20T09:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-515",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-515",
+   "identifier": "ACM-515",
+   "status": "blocked",
+   "status_category": "blocked",
+   "previous_status": "in_progress",
+   "previous_status_category": "in_progress"
+  },
+  {
+   "kind": "issue_status",
+   "at": "2026-10-10T09:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-522",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-522",
+   "identifier": "ACM-522",
+   "status": "blocked",
+   "status_category": "blocked",
+   "previous_status": "todo",
+   "previous_status_category": "todo"
+  },
+  {
+   "kind": "issue_status",
+   "at": "2026-10-06T09:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-532",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-532",
+   "identifier": "ACM-532",
+   "status": "in_review",
+   "status_category": "in_review",
+   "previous_status": "in_progress",
+   "previous_status_category": "in_progress"
+  },
+  {
+   "kind": "issue_status",
+   "at": "2026-10-13T09:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-542",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-542",
+   "identifier": "ACM-542",
+   "status": "in_review",
+   "status_category": "in_review",
+   "previous_status": "in_progress",
+   "previous_status_category": "in_progress"
+  },
+  {
+   "kind": "issue_status",
+   "at": "2026-10-13T21:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-562",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-562",
+   "identifier": "ACM-562",
+   "status": "in_review",
+   "status_category": "in_review",
+   "previous_status": "todo",
+   "previous_status_category": "todo"
+  },
+  {
+   "kind": "issue_status",
+   "at": "2026-09-01T09:00:00Z",
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-571",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "acm-571",
+   "identifier": "ACM-571",
+   "status": "in_review",
+   "status_category": "in_review",
+   "previous_status": "in_progress",
+   "previous_status_category": "in_progress"
+  }
+ ]
+}

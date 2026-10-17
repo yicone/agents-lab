@@ -1,18 +1,22 @@
+import { QUEUED_RUN, classifyIssue } from "./attention.js";
 import {
   decideQueue,
   filterDecide,
   formatSince,
   formatWait,
+  pickAcmLab,
   readStatusChanges,
   recentMotion,
 } from "./decide.js";
+import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
+import { applyPatch, formatHash, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
+import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap, renderSkills } from "./view-atlas.js";
 
 const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
 const MOCK = MOCK_PARAM !== null;
 const MOCK_SCENARIO = MOCK && /^[a-z][a-z-]*$/.test(MOCK_PARAM) ? MOCK_PARAM : "";
 const META_POLL_MS = 15_000;
 const STALE_DAY_OPTIONS = [1, 3, 7, 14];
-const QUEUED_RUN = new Set(["queued", "dispatched", "waiting_local_directory"]);
 const QUOTA_KINDS = new Set(["quota", "rate_limit"]);
 const CLOSED_CATEGORIES = new Set(["done", "cancelled", "canceled"]);
 const LANE_LIMIT = 30;
@@ -74,12 +78,14 @@ const state = {
   runtimes: [],
   recentWindowH: 24,
   fetchError: null,
-  route: parseRoute(),
+  route: parseHash(location.hash),
   staleDays: Number(localStorage.getItem("mb.staleDays")) || 3,
   drawer: null,
   expandedLanes: new Set(),
   changes: null,
   changesNote: null,
+  layerReport: null,
+  layerError: null,
 };
 
 // ---------- data ----------
@@ -120,6 +126,12 @@ async function getRuns(it) {
   if (!MOCK) {
     const path = `/api/issues/${encodeURIComponent(it.workspace_id)}/${encodeURIComponent(it.id)}/runs`;
     return fetchJSON(path, "runs");
+  }
+  if (MOCK_SCENARIO) {
+    try {
+      const local = await fetchJSON(`fixtures/${MOCK_SCENARIO}/runs.json`, "runs");
+      if (local.by_issue?.[it.key]) return { generated_at: local.generated_at, items: local.by_issue[it.key] };
+    } catch {}
   }
   const all = await fetchJSON("fixtures/runs.json", "runs");
   const items = all.by_issue?.[it.key];
@@ -173,18 +185,29 @@ async function refresh(force = false) {
     if (changed) {
       const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
-      const [issues, agents, runtimes, changes] = await Promise.all(jobs);
+      else jobs.push(getJSON("layers").catch((err) => ({ error: String(err.message || err) })));
+      const [issues, agents, runtimes, extra] = await Promise.all(jobs);
       state.issues = issues.items ?? [];
       state.agents = agents.items ?? [];
       state.recentWindowH = agents.recent_window_h ?? 24;
       state.runtimes = runtimes.items ?? [];
-      if (MOCK) applyChanges(changes);
-      else {
+      if (MOCK) {
+        applyChanges(extra);
+        state.layerReport = null;
+        state.layerError = null;
+      } else {
         state.changes = null;
         state.changesNote = null;
         state.changesLoadedFor = null;
         state.changesLoadingFor = null;
         changesToken += 1;
+        if (extra?.error) {
+          state.layerReport = null;
+          state.layerError = extra.error;
+        } else {
+          state.layerReport = extra;
+          state.layerError = null;
+        }
       }
     }
     state.meta = meta;
@@ -208,49 +231,31 @@ function now() {
 
 // ---------- routing ----------
 
-function parseRoute() {
-  const raw = location.hash.replace(/^#\/?/, "");
-  const [view, query = ""] = raw.split("?");
-  const params = new URLSearchParams(query);
-  const type = params.get("type");
-  return {
-    view: view === "agents" || view === "decide" ? view : "issues",
-    ws: params.get("ws") || "",
-    q: params.get("q") || "",
-    group: params.get("group") === "provider" ? "provider" : "workspace",
-    provider: params.get("provider") || "",
-    failedOnly: params.get("failed") === "1",
-    offlineOnly: params.get("offline") === "1",
-    archived: params.get("archived") === "1",
-    type: type === "review" || type === "blocked" ? type : "",
-  };
-}
-
 function setRoute(patch) {
-  const r = { ...state.route, ...patch };
-  const p = new URLSearchParams();
-  if (r.ws) p.set("ws", r.ws);
-  if (r.q) p.set("q", r.q);
-  if (r.view === "agents") {
-    if (r.group !== "workspace") p.set("group", r.group);
-    if (r.provider) p.set("provider", r.provider);
-    if (r.failedOnly) p.set("failed", "1");
-    if (r.offlineOnly) p.set("offline", "1");
-    if (r.archived) p.set("archived", "1");
-  } else if (r.view === "decide" && r.type) {
-    p.set("type", r.type);
-  }
-  const qs = p.toString();
-  const hash = `#/${r.view}${qs ? `?${qs}` : ""}`;
+  const r = applyPatch(state.route, patch);
+  const hash = formatHash(r);
   if (hash !== location.hash) history.replaceState(null, "", hash);
   state.route = r;
   render();
 }
 
-window.addEventListener("hashchange", () => {
-  state.route = parseRoute();
+function follow(event, patch) {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button) return;
+  event.preventDefault();
+  setRoute(patch);
+}
+
+function syncFromLocation() {
+  const next = redirectHash(location.hash);
+  if (next) {
+    location.replace(locationHash(next));
+    return;
+  }
+  state.route = parseHash(location.hash);
   render();
-});
+}
+
+window.addEventListener("hashchange", syncFromLocation);
 
 // ---------- helpers ----------
 
@@ -417,6 +422,11 @@ function renderChrome() {
     badge.textContent = total ? String(total) : "";
     badge.title = total ? `ACM Lab 待验收和受阻 ${total} 条` : "";
   }
+  const skillsBadge = document.getElementById("skills-badge");
+  if (skillsBadge) {
+    skillsBadge.hidden = true;
+    skillsBadge.textContent = "";
+  }
 
   const hs = health();
   const snap = document.getElementById("snapshot");
@@ -439,7 +449,16 @@ function renderChrome() {
     );
   }
 
-  document.getElementById("health").replaceChildren(
+  const healthEl = document.getElementById("health");
+  if (state.route.view === "skills") {
+    healthEl.hidden = false;
+    healthEl.replaceChildren(h("span", { class: "skills-source" }, "Skills 清单和扫描时间还没接到这一版。"));
+  } else if (state.route.view !== "issues") {
+    healthEl.hidden = true;
+    healthEl.replaceChildren();
+  } else {
+    healthEl.hidden = false;
+  healthEl.replaceChildren(
     ...(state.meta?.workspaces ?? []).map((ws) => {
       const active = state.route.ws === ws.slug;
       const st = wsState(ws);
@@ -470,29 +489,24 @@ function renderChrome() {
       );
     }),
   );
+  }
 }
 
 // ---------- issues view ----------
 
-function classifyIssue(it, staleMs) {
-  const run = it.latest_run;
-  const activeRun = run && (run.status === "running" || QUEUED_RUN.has(run.status));
-  const tags = [];
-  const failed = run?.status === "failed";
-  const blocked = it.status === "blocked";
-  const review = it.status === "in_review";
-  const idle = (it.status === "todo" || it.status === "in_progress") && !activeRun;
-  const stale = idle && it.last_activity_at && now() - Date.parse(it.last_activity_at) > staleMs;
-  const lane = failed ? "failed" : blocked ? "blocked" : review ? "review" : stale ? "stale" : null;
+function acmWorkspace() {
+  return pickAcmLab(state.meta?.workspaces ?? []) || state.layerReport?.workspace || null;
+}
 
-  if (failed && lane !== "failed") tags.push(["bad", "运行失败"]);
-  if (blocked && lane !== "blocked") tags.push(["warn", "受阻"]);
-  if (review && lane !== "review") tags.push(["info", "待验收"]);
-  if (activeRun) tags.push(["run", run.status === "running" ? "运行中" : "排队中"]);
-  if (!failed && it.last_failed_run) tags.push(["muted", "曾失败·已恢复"]);
-  if (it.due_date && Date.parse(`${it.due_date}T23:59:59Z`) < now() && it.status_category !== "done") tags.push(["bad", "逾期"]);
-  if (it.priority === "urgent" || it.priority === "high") tags.push(["prio", it.priority === "urgent" ? "紧急" : "高优"]);
-  return { lane, tags };
+function layersReady() {
+  if (MOCK) return layerAvailability(state.issues, acmWorkspace()?.id) === "ready";
+  return availabilityFromReport(state.layerReport) === "ready";
+}
+
+function layerCounts() {
+  if (!layersReady()) return null;
+  if (MOCK) return aggregateLayers(state.issues, acmWorkspace().id);
+  return modelFromReport(state.layerReport);
 }
 
 function issueCard(it, ws, cls) {
@@ -504,15 +518,26 @@ function issueCard(it, ws, cls) {
       : null;
   const context = [it.project?.title, it.parent_identifier ? `↑ ${it.parent_identifier}` : null].filter(Boolean).join(" · ");
 
+  const acm = acmWorkspace();
+  const layer = issueLayer(it);
+  const showBar = Boolean(acm && it.workspace_id === acm.id && layer);
   return h(
     "article",
-    { class: `card${degraded ? " is-stale" : ""}` },
+    {
+      class: `card${degraded ? " is-stale" : ""}`,
+      tabindex: "0",
+      onclick: (e) => {
+        if (e.target.closest("a, button")) return;
+        openDrawer(it, e.currentTarget);
+      },
+    },
     h(
       "div",
       { class: "card-head" },
       wsTag(ws),
       h("span", { class: "ident" }, it.identifier),
       h("span", { class: "status" }, STATUS_LABEL[it.status] ?? it.status),
+      showBar ? layerBar(h, layer) : null,
     ),
     extLink(it.url, { class: "card-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title),
     context ? h("div", { class: "card-context" }, context) : null,
@@ -522,7 +547,7 @@ function issueCard(it, ws, cls) {
       { class: "card-foot" },
       h("span", { class: "who" }, assigneeName(it.assignee)),
       run
-        ? h("button", { type: "button", class: "runs-btn", title: "查看运行历史", onclick: () => openDrawer(it) }, "运行记录")
+        ? h("button", { type: "button", class: "runs-btn", title: "查看运行历史", onclick: (e) => openDrawer(it, e.currentTarget) }, "运行记录")
         : h("span", { class: "runs-none", title: "后端只缓存最近 14 天的 run" }, "14 天无 run"),
       h(
         "span",
@@ -567,6 +592,50 @@ function laneBody(id, entries) {
   );
 }
 
+function layerField(ready) {
+  const pending = "层属性还没建或还没回填";
+  const options = [
+    ["", "全部"],
+    ["l5", "L5 感知与决策"],
+    ["l4", "L4 协作"],
+    ["l3", "L3 能力"],
+    ["l2", "L2 执行"],
+    ["l1", "L1 资源"],
+    ["outside", "不在地图"],
+    ["unassigned", "未归层"],
+  ];
+  return h(
+    "label",
+    { class: `field${ready ? "" : " is-pending"}`, title: ready ? "按层筛选 ACM Lab" : pending },
+    "层",
+    h(
+      "select",
+      {
+        disabled: !ready,
+        onchange: (e) => setRoute({ layer: e.target.value }),
+      },
+      options.map(([value, label]) => h("option", { value, selected: state.route.layer === value }, label)),
+    ),
+  );
+}
+
+function matchField(ready) {
+  const pending = "层属性还没建或还没回填";
+  const btn = (match, label) =>
+    h("button", {
+      type: "button",
+      disabled: !ready,
+      class: state.route.match === match ? "active" : "",
+      onclick: () => ready && setRoute({ match }),
+    }, label);
+  return h(
+    "div",
+    { class: `seg${ready ? "" : " is-pending"}`, role: "group", "aria-label": "层匹配", title: ready ? "按涉及层时，主层或涉及层命中都算" : pending },
+    btn("primary", "按主层"),
+    btn("involved", "按涉及层"),
+  );
+}
+
 function renderIssues() {
   const wsMap = wsById();
   const { ws: wsSlug, q } = state.route;
@@ -574,11 +643,18 @@ function renderIssues() {
   const lanes = Object.fromEntries(LANES.map((l) => [l.id, []]));
   const others = new Map();
 
+  const ready = layersReady();
+  const layerOn = ready && state.route.layer;
+  const acm = acmWorkspace();
   for (const it of state.issues) {
     const ws = wsMap.get(it.workspace_id);
     if (wsSlug && ws?.slug !== wsSlug) continue;
+    if (layerOn) {
+      if (it.workspace_id !== acm?.id) continue;
+      if (!matchesLayer(it, state.route.layer, state.route.match)) continue;
+    }
     if (!matchesQuery(q, it.identifier, it.title, it.assignee?.name, it.latest_run?.agent_name, ws?.name, it.project?.title, it.parent_identifier)) continue;
-    const cls = classifyIssue(it, staleMs);
+    const cls = classifyIssue(it, now(), staleMs);
     if (cls.lane) lanes[cls.lane].push({ it, ws, cls });
     else if (!CLOSED_CATEGORIES.has(it.status_category)) others.set(it.status, (others.get(it.status) ?? 0) + 1);
   }
@@ -614,6 +690,8 @@ function renderIssues() {
       { class: "muted", title: "不在四栏里的打开 issue：有近期活动或有运行中的 run，以及 backlog" },
       othersTotal ? `其余 ${othersTotal} 条打开 issue 不在关注范围（${othersDetail}）` : "所有打开 issue 都在关注范围内",
     ),
+    layerField(ready),
+    matchField(ready),
   );
 
   const board = h(
@@ -639,9 +717,9 @@ function renderIssues() {
 
 // ---------- runs drawer ----------
 
-async function openDrawer(it) {
+async function openDrawer(it, opener) {
   const token = {};
-  state.drawer = { it, token, loading: true, items: null, error: null, notFound: false };
+  state.drawer = { it, token, loading: true, items: null, error: null, notFound: false, opener: opener || document.activeElement };
   renderDrawer();
   try {
     const res = await getRuns(it);
@@ -685,6 +763,7 @@ function renderDrawer() {
   const el = document.getElementById("drawer");
   const d = state.drawer;
   el.hidden = !d;
+  el.setAttribute("aria-label", "issue 详情");
   document.body.classList.toggle("drawer-open", !!d);
   if (!d) {
     el.replaceChildren();
@@ -692,6 +771,7 @@ function renderDrawer() {
   }
   if (!d.opener) d.opener = document.activeElement;
   const ws = wsById().get(d.it.workspace_id);
+  const layer = issueLayer(d.it);
   let body;
   if (d.loading) body = h("div", { class: "empty loading", "aria-busy": "true" }, "加载中…");
   else if (d.error) body = h("div", { class: "empty bad-n" }, `加载失败：${d.error}`);
@@ -704,13 +784,27 @@ function renderDrawer() {
       h(
         "header",
         { class: "drawer-head" },
-        h("div", { class: "card-head" }, wsTag(ws), h("span", { class: "ident" }, d.it.identifier)),
+        h(
+          "div",
+          { class: "card-head" },
+          wsTag(ws),
+          h("span", { class: "ident" }, d.it.identifier),
+          h("span", { class: "status" }, STATUS_LABEL[d.it.status] ?? d.it.status),
+          layer?.governance ? h("span", { class: "tag warn" }, "治理") : null,
+        ),
         close,
       ),
       h("h2", { class: "drawer-title" }, d.it.title),
       d.it.url ? extLink(d.it.url, { class: "drawer-link" }, "在 Multica 打开 ↗") : null,
-      h("div", { class: "drawer-sub" }, "运行历史（缓存只保留最近 14 天，最多 20 次）"),
+      h(
+        "p",
+        { class: "muted" },
+        `${assigneeName(d.it.assignee)}${d.it.parent_identifier ? ` · 父 ${d.it.parent_identifier}` : ""} · 最后活动 ${ago(d.it.last_activity_at)}`,
+      ),
+      ...drawerLayer(atlasCtx(), d.it),
+      h("div", { class: "drawer-sub" }, "运行记录（缓存只保留最近 14 天，最多 20 次）"),
       body,
+      drawerCommands(atlasCtx(), d.it),
     ].filter(Boolean),
   );
   close.focus();
@@ -970,9 +1064,12 @@ function decideNote() {
 
 function renderDecide() {
   const model = currentDecide();
+  const ready = layersReady();
   const visible = filterDecide(
     model.rows.map((row) => ({ ...row, assignee: assigneeName(row.issue.assignee) })),
-    { type: state.route.type, query: state.route.q },
+    ready
+      ? { type: state.route.type, query: state.route.q, layer: state.route.layer, match: state.route.match, gov: state.route.gov }
+      : { type: state.route.type, query: state.route.q },
   );
   const { summary } = model;
   const longest = summary.longest;
@@ -999,8 +1096,23 @@ function renderDecide() {
       `${label} ${count}`,
     );
 
-  const layerNames = ["L5", "L4", "L3", "L2", "L1", "不在地图", "未归层"];
-  const pendingTitle = "层属性还没建，这一项先占位";
+  const pendingTitle = "层属性还没建或还没回填";
+  const chipIds = [
+    ["l5", "L5"],
+    ["l4", "L4"],
+    ["l3", "L3"],
+    ["l2", "L2"],
+    ["l1", "L1"],
+    ["outside", "不在地图"],
+    ["unassigned", "未归层"],
+  ];
+  const counts = ready ? layerCounts() : null;
+  const chipCount = (id) => {
+    if (!counts) return 0;
+    if (id === "outside") return counts.outside.decide;
+    if (id === "unassigned") return counts.unassigned.decide;
+    return counts.layers.find((layer) => layer.id === id)?.decide ?? 0;
+  };
 
   const head = h(
     "div",
@@ -1032,9 +1144,21 @@ function renderDecide() {
     ),
     h(
       "div",
-      { class: "decide-layers", title: pendingTitle },
+      { class: `decide-layers${ready ? " is-live" : ""}`, title: ready ? "点击按该层筛选" : pendingTitle },
       h("div", { class: "decide-layers-label" }, "按主层"),
-      ...layerNames.map((name) => h("button", { type: "button", class: "decide-layer", disabled: true, title: pendingTitle }, name)),
+      ...chipIds.map(([id, name]) =>
+        h(
+          "button",
+          {
+            type: "button",
+            class: `decide-layer${state.route.layer === id ? " active" : ""}`,
+            disabled: !ready,
+            title: ready ? "" : pendingTitle,
+            onclick: () => ready && setRoute({ layer: state.route.layer === id ? "" : id }),
+          },
+          ready ? `${name} ${chipCount(id)}` : name,
+        ),
+      ),
     ),
   );
 
@@ -1042,24 +1166,19 @@ function renderDecide() {
     "div",
     { class: "toolbar decide-toolbar" },
     h("div", { class: "seg", role: "group", "aria-label": "类型" }, typeBtn("", "全部", summary.total), typeBtn("review", "待验收", summary.review), typeBtn("blocked", "受阻", summary.blocked)),
+    layerField(ready),
+    matchField(ready),
     h(
       "label",
-      { class: "field is-pending", title: pendingTitle },
-      "层",
-      h("select", { disabled: true, "aria-disabled": "true" }, h("option", null, "全部")),
+      { class: `check${ready ? "" : " is-pending"}`, title: ready ? "" : pendingTitle },
+      h("input", { type: "checkbox", disabled: !ready, checked: state.route.gov, onchange: (e) => setRoute({ gov: e.target.checked }) }),
+      "只看治理线",
     ),
-    h(
-      "div",
-      { class: "seg is-pending", title: pendingTitle },
-      h("button", { type: "button", disabled: true }, "按主层"),
-      h("button", { type: "button", disabled: true }, "按涉及层"),
-    ),
-    h("label", { class: "check is-pending", title: pendingTitle }, h("input", { type: "checkbox", disabled: true }), "只看治理线"),
     h(
       "div",
       { class: "seg", role: "group", "aria-label": "分组" },
-      h("button", { type: "button", class: "active", "aria-pressed": "true" }, "不分组"),
-      h("button", { type: "button", disabled: true, title: pendingTitle }, "按主层"),
+      h("button", { type: "button", class: state.route.group === "layer" ? "" : "active", "aria-pressed": state.route.group === "layer" ? "false" : "true", onclick: () => setRoute({ group: "" }) }, "不分组"),
+      h("button", { type: "button", disabled: !ready, class: state.route.group === "layer" ? "active" : "", title: ready ? "" : pendingTitle, onclick: () => ready && setRoute({ group: "layer" }) }, "按主层"),
     ),
     h("span", { class: "muted decide-hint" }, "点行打开运行记录，点标题在 Multica 打开"),
   );
@@ -1083,7 +1202,7 @@ function renderDecide() {
         "tbody",
         { "data-decide-rows": visible.length },
         visible.length
-          ? visible.map((row) => decideRow(row, degraded))
+          ? decideRows(visible, degraded, ready)
           : h(
               "tr",
               null,
@@ -1091,7 +1210,7 @@ function renderDecide() {
                 "td",
                 { colspan: "8", class: "empty" },
                 model.acm
-                  ? state.route.q || state.route.type
+                  ? state.route.q || state.route.type || state.route.layer || state.route.gov
                     ? "没有符合筛选的 issue"
                     : "ACM Lab 现在没有待验收或受阻的 issue"
                   : "快照里没有 ACM Lab",
@@ -1126,20 +1245,35 @@ function renderDecide() {
   ].filter(Boolean);
 }
 
-function decideRow(row, degraded) {
+function decideRows(rows, degraded, ready) {
+  if (!ready || state.route.group !== "layer") return rows.map((row) => decideRow(row, degraded, ready));
+  const order = ["l5", "l4", "l3", "l2", "l1", "outside", "unassigned"];
+  const out = [];
+  for (const id of order) {
+    const group = rows.filter((row) => (issueLayer(row.issue)?.primary || "unassigned") === id);
+    if (!group.length) continue;
+    out.push(h("tr", { class: "decide-group" }, h("th", { colspan: "8" }, layerLabel(id))));
+    out.push(...group.map((row) => decideRow(row, degraded, ready)));
+  }
+  return out;
+}
+
+function decideRow(row, degraded, ready) {
   const it = row.issue;
   const wait = row.wait;
   const motion = recentMotion(it);
   const typeClass = it.status === "blocked" ? "warn" : "info";
+  const layer = issueLayer(it);
   return h(
     "tr",
     {
       class: `decide-row${degraded ? " is-stale" : ""}`,
+      tabindex: "0",
       "data-level": wait.level,
       "data-approx": wait.approximate ? "1" : "0",
       onclick: (e) => {
         if (e.target.closest("a")) return;
-        openDrawer(it);
+        openDrawer(it, e.currentTarget);
       },
     },
     h(
@@ -1151,7 +1285,9 @@ function decideRow(row, degraded) {
     h("td", { class: "ident" }, it.identifier || it.id),
     h("td", null, extLink(it.url, { class: "decide-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title || "")),
     h("td", null, h("span", { class: `tag ${typeClass}` }, STATUS_LABEL[it.status] ?? it.status)),
-    h("td", { class: "decide-pending", title: "层属性还没建" }, h("span", { class: "layer-bar", "aria-hidden": "true" }), "未建"),
+    ready
+      ? h("td", null, layerBar(h, layer), " ", layerLabel(layer?.primary))
+      : h("td", { class: "decide-pending", title: "层属性还没建" }, h("span", { class: "layer-bar is-placeholder", "aria-hidden": "true" }), "未建"),
     h("td", null, row.assignee),
     h(
       "td",
@@ -1159,8 +1295,61 @@ function decideRow(row, degraded) {
       h("span", null, motion.label),
       h("span", { class: "muted" }, motion.at ? ` · ${ago(motion.at)}` : ""),
     ),
-    h("td", { class: "decide-pending", title: "层属性还没建" }, "—"),
+    ready
+      ? h("td", null, layer?.governance ? h("span", { class: "tag warn" }, "治理") : "—")
+      : h("td", { class: "decide-pending", title: "层属性还没建" }, "—"),
   );
+}
+
+function toolSignal(signal) {
+  if (signal === "issues") {
+    const summary = currentDecide().summary;
+    return `待验收 ${summary.review} · 受阻 ${summary.blocked}`;
+  }
+  if (signal === "workspaces") {
+    const list = state.meta?.workspaces ?? [];
+    const bad = list.find((ws) => ws.collect_state === "error" || ws.collect_state === "stale");
+    const detail = bad ? ` · ${bad.name} ${bad.collect_state === "error" ? errKind(bad.error?.kind) || "失败" : "过期"}` : "";
+    return `${list.length} 个${detail}`;
+  }
+  if (signal === "skills") return "待处理计数还没接入";
+  if (signal === "agents") return `${state.agents.filter((agent) => !agent.archived).length} 个 agent`;
+  if (signal === "daemon") {
+    const online = state.runtimes.filter((rt) => rt.status === "online").length;
+    return online ? `${online} 个在线` : "没有在线 runtime";
+  }
+  if (signal === "quota") {
+    const n = state.agents.filter((agent) => QUOTA_KINDS.has(agent.recent?.last_error_kind)).length;
+    return n ? `${n} 个最近额度或限流失败` : "最近没有额度失败";
+  }
+  return "";
+}
+
+function atlasCtx() {
+  return {
+    h,
+    extLink,
+    setRoute,
+    follow,
+    openDrawer,
+    route: state.route,
+    issues: state.issues,
+    meta: state.meta,
+    agents: state.agents,
+    runtimes: state.runtimes,
+    acm: acmWorkspace(),
+    nowMs: now(),
+    changes: state.changes?.items ?? [],
+    historyIncomplete: state.changesNote != null,
+    report: MOCK ? null : state.layerReport,
+    countsFromApi: !MOCK,
+    assigneeName,
+    ago,
+    absTime,
+    matchesQuery,
+    statusLabel: (status) => STATUS_LABEL[status] ?? status,
+    toolSignal,
+  };
 }
 
 function renderMain() {
@@ -1171,17 +1360,31 @@ function renderMain() {
     return;
   }
   const view = state.route.view;
-  const parts = view === "agents" ? renderAgents() : view === "decide" ? renderDecide() : renderIssues();
+  const ctx = atlasCtx();
+  const parts =
+    view === "agents"
+      ? renderAgents()
+      : view === "decide"
+        ? renderDecide()
+        : view === "skills"
+          ? renderSkills(ctx)
+          : view === "map" && state.route.layer
+            ? renderLayer(ctx)
+            : view === "map"
+              ? renderMap(ctx)
+              : renderIssues();
   main.replaceChildren(...parts);
 }
 
 function render() {
   const search = document.getElementById("search");
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
-  search.placeholder = state.route.view === "decide" ? "搜索待决定的 issue" : "搜索 identifier / 标题 / agent / 模型";
+  const view = state.route.view;
+  search.placeholder =
+    view === "decide" ? "搜索待决定的 issue" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
-  if (!MOCK && state.route.view === "decide") void ensureChanges();
+  if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
 }
 
 // ---------- boot ----------
@@ -1212,8 +1415,11 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     search.focus();
     search.select();
-  } else if (e.key === "1") setRoute({ view: "issues" });
-  else if (e.key === "2") setRoute({ view: "agents" });
+  } else if (viewForKey(e.key)) setRoute({ view: viewForKey(e.key) });
+  else if ((e.key === "[" || e.key === "]") && state.route.view === "map" && /^l[1-5]$/.test(state.route.layer)) {
+    const layer = stepLayer(state.route.layer, e.key === "]" ? "next" : "prev");
+    if (layer) setRoute({ layer });
+  }
 });
 
 document.querySelectorAll(".tab").forEach((t) =>
@@ -1223,7 +1429,7 @@ document.querySelectorAll(".tab").forEach((t) =>
   }),
 );
 
-render();
+syncFromLocation();
 refresh(true);
 if (!MOCK) setInterval(refresh, META_POLL_MS);
 setInterval(renderChrome, 5_000);
