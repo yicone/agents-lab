@@ -2,6 +2,10 @@
 
 Notes that do not belong in a new inventory field.
 
+## 2026-10-17
+
+- ACM-136 records routing precedence and Stop-and-Ask in `skills-governance/docs/routing-precedence.md`. Specific context wins: target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. The conflict report still does not select which skill runs. `SCOPE_RANK` stays a shadowing breadth rank. Same-name copies with different bytes are not settled by layer rank unless a recorded adapter or customization names the copy. The ego-browser routing note now points at that page and only covers shared sessions, Profiles, and Spaces. Open `conflict_status` values are unchanged.
+
 ## 2026-10-16
 
 - ACM-137 adds representative conflict fixtures in `skills-governance/tests/fixtures/conflicts/`. `logseq-acns-vault` / `logseq-acns-write` stays `responsibility_overlap` with `boundary_stated` yes: shared claims are `namespace choice` and `page ownership`, and the pair is not behavior divergence. `skills-governance-audit` / `skills-lifecycle-manager` is the governance-manager overlap: each skill names the other and states which first question it owns, and the report emits no finding for that pair. Pair routing stays with ACM-136. No inventory row changed.

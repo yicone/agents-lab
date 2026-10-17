@@ -23,7 +23,8 @@ REPORT_NAME = "skills-conflict/v1"
 EGO_BROWSER_ROUTING_NOTE = (
     "agent-browser 与 ego-browser 只算职责重叠，不算行为分歧。"
     "ego-browser 独有：人和 agent 共享浏览器 session，支持多个 Profile 和 Space，适合这些场景。"
-    "路由规则由 ACM-136 决定。"
+    "该说明只覆盖这些场景。其余重叠按 skills-governance/docs/routing-precedence.md 停下询问。"
+    "ACM-136。"
 )
 TYPES = (
     "name_collision",

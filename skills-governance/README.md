@@ -28,11 +28,13 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 2. Record the source authority and current install shape.
 3. Capture a baseline, then place the candidate in staging instead of the live runtime path.
 4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes. The gate calls SkilLock for capability drift when `skil-lock` is on PATH, and records a risk-signal fallback when it is not.
-5. Check conflicts with `python3 skills-governance/scripts/conflict_report.py --format text`. The report separates name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity. It does not select which skill runs.
+5. Check conflicts with `python3 skills-governance/scripts/conflict_report.py --format text`. The report separates name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity. It does not select which skill runs. Which skill runs is [docs/routing-precedence.md](docs/routing-precedence.md): target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. Same-layer overlap and the stop conditions on that page are Stop-and-Ask.
 6. Decide whether to update, customize, fork, quarantine, or keep the current version.
 7. Update `config/skills-inventory.json` and the Multica backlog (ACM-122). Project the Logseq status page from that file when a human view is needed. Do not mistake runtime visibility for canonical ownership.
 
 ## Routing
+
+Precedence and Stop-and-Ask rules: [docs/routing-precedence.md](docs/routing-precedence.md).
 
 - `skills-governance-audit`: read-only inventory, provenance, conflict, naming, and drift scan
 - `skills-lifecycle-manager`: reuse/install/fork/build choice across all source classes

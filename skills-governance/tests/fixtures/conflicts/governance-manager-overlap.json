@@ -1,7 +1,7 @@
 {
   "id": "governance-manager-overlap",
   "skills": ["skills-governance-audit", "skills-lifecycle-manager"],
-  "summary": "skills-lifecycle-manager and skills-governance-audit are the two governance entry points. Each names the other and states which first question it owns. They do not share a distinctive responsibility phrase, so the conflict report emits no finding for the pair. That stated handoff is the overlap. Which skill runs stays with ACM-136.",
+  "summary": "skills-lifecycle-manager and skills-governance-audit are the two governance entry points. Each names the other and states which first question it owns. They do not share a distinctive responsibility phrase, so the conflict report emits no finding for the pair. That stated handoff is the overlap. Which skill runs follows skills-governance/docs/routing-precedence.md (ACM-136).",
   "boundary": "Use skills-lifecycle-manager when the first question is whether to reuse, install, fork, or build. Use skills-governance-audit when the first question is what is going on in the skill set.",
   "sources": {
     "skills-governance/skills/skills-governance-audit/SKILL.md": [
