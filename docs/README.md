@@ -23,6 +23,7 @@ The rules here should stay tool-agnostic by default so they remain usable across
 - Skills source and scope policy: [../skills-governance/docs/skills.md](../skills-governance/docs/skills.md)
 - Skills versioning: [../skills-governance/docs/skills-versioning.md](../skills-governance/docs/skills-versioning.md)
 - Skills governance release checklist: [../skills-governance/docs/release-checklist.md](../skills-governance/docs/release-checklist.md)
+- Skills upgrade diff review: [../skills-governance/docs/upgrade-diff-review.md](../skills-governance/docs/upgrade-diff-review.md)
 - Skills governance case prompt: [../skills-governance/docs/case-prompt.md](../skills-governance/docs/case-prompt.md)
 - Multi-repo AGENTS.md governance research: [research/agents-md-multi-repo-governance.md](research/agents-md-multi-repo-governance.md)
 - CLI-Anything adaptation design and accepted decisions: [research/cli-anything-agent-native-cli-design.md](research/cli-anything-agent-native-cli-design.md)

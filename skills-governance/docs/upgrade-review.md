@@ -97,7 +97,7 @@
 - `2`：门禁阻断，必须先审查结果，不应直接激活或发布；
 - `1`：参数、快照或文件系统错误，不代表升级安全。
 
-重点审查 `unexpected_instructions`、`unexpected_files`、`scripts`、`network_behavior`、`secret_access`、`trigger_changes` 和 `adapter_paths`。门禁是保守信号，不是自动判定恶意；即使退出码为 `0`，也不能替代对重要 Skill 的人工审查。
+重点审查 `unexpected_instructions`、`unexpected_files`、`scripts`、`network_behavior`、`secret_access`、`trigger_changes`、`adapter_paths` 和 `conflict_markers`。逐条判定和放行决定见 [upgrade-diff-review.md](upgrade-diff-review.md)。门禁是保守信号，不是自动判定恶意；即使退出码为 `0`，也不能替代对重要 Skill 的人工审查。
 
 ### 能力漂移后端
 

@@ -29,7 +29,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 - If the user explicitly wants broader reuse/global availability -> use `skills-promote-global`
 - If the first question is “what is going on in this skill set?” -> use `skills-governance-audit`
 - If more than one visible skill could run -> apply [routing-precedence.md](routing-precedence.md). Do not pick from load order or from `SCOPE_RANK`
-- If a non-local Skill is about to be upgraded -> snapshot the live tree, stage the candidate, review the diff/gate, then activate; do not let the runtime load the new version first
+- If a non-local Skill is about to be upgraded -> snapshot the live tree, stage the candidate, review the diff/gate using [upgrade-diff-review.md](upgrade-diff-review.md), then activate; do not let the runtime load the new version first
 - If a non-local Skill needs a local change -> pick a mode and record a delta per [customization.md](customization.md); never edit a third-party install in place without a record. Overlay deltas are `ops` (whole-file) or `patch` (`local.patch` via `skill_patch.py`, three-way replayed on upgrades)
 - If the question is whether branch or worktree rules fit a repository, conflict across AGENTS.md/skills/docs, or belong at another scope -> use `worktree-branch-governance-audit`
 
