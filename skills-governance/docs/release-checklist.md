@@ -36,7 +36,7 @@ Applies to:
 - Source class and update authority are explicit for every reviewed Skill
 - Non-local upgrades have a baseline and diff review when technically possible
 - Local customization is recorded instead of silently overwriting upstream content
-- Run `python3 skills-governance/scripts/doctor.py` and confirm every repo, user-global, and target-scoped adapter has no broken symlink. If a recorded target is available, `doctor.py --repair` may restore it; rerun the check afterward.
+- Run `python3 skills-governance/scripts/doctor.py` and require exit code 0. It checks recorded repo/user-global adapters and scans every adapter parent directory for orphan broken symlinks. `declared_target` entries are checked only when a concrete target is bound; null targets are reported as unchecked placeholders, not validated target-scoped installations. Before release, bind and verify any target-scoped installation required for that release. `--repair` only repairs broken symlinks with an existing recorded target; remaining failures return nonzero. Use `--format text` for readable output.
 
 ## Current Release Notes
 
