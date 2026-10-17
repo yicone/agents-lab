@@ -45,7 +45,7 @@ Do not edit a third-party or runtime-provided Skill in place and then call it up
 ## Routing
 
 - Need to understand what is installed, who owns it, or what conflicts: `skills-governance-audit`, then `python3 skills-governance/scripts/conflict_report.py --format text`
-- Representative conflict cases are checked in at `skills-governance/tests/fixtures/conflicts/`: `logseq-acns-vault` vs `logseq-acns-write`, and the governance-manager pair `skills-governance-audit` vs `skills-lifecycle-manager`. Those fixtures lock the current report. They do not choose which skill runs.
+- Representative conflict cases are checked in at `skills-governance/tests/fixtures/conflicts/`: `logseq-acns-vault` vs `logseq-acns-write`, and the governance-manager pair `skills-governance-audit` vs `skills-lifecycle-manager`. Those fixtures lock the current report. They do not choose which skill runs. Apply [routing-precedence.md](routing-precedence.md): target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. Stop and ask on the conditions that page lists.
 - Need to choose reuse, install, fork, or build: `skills-lifecycle-manager`
 - Need to restore a confirmed third-party Skill to Skills CLI: `skills-cli-reconcile`
 - Need to bring a self-authored Skill into canonical Git: `skills-intake-local`

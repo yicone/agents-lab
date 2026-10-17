@@ -178,7 +178,7 @@ Run the read-only report before classifying by hand:
 python3 skills-governance/scripts/conflict_report.py --format text
 ```
 
-The command does not write `conflict_status` and does not select which skill runs. Use its type names as the finding types:
+The command does not write `conflict_status` and does not select which skill runs. Apply `skills-governance/docs/routing-precedence.md` before naming a winner. Specific context wins: target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. Same-layer overlap, behavior divergence, unresolved name collision, dependency conflict, trigger ambiguity without a boundary fact, and an `unknown` source are Stop-and-Ask. Do not use runtime load order or `SCOPE_RANK` as the winner. Use its type names as the finding types:
 
 - `name_collision`: one skill name, two different `SKILL.md` hashes
 - `responsibility_overlap`: two skills claim the same responsibility phrase
@@ -210,6 +210,8 @@ Flag a naming issue only when:
 - a rename would materially reduce routing confusion
 
 ### 7. Route Findings To The Right Workflow
+
+For a finding about which skill should run, apply `skills-governance/docs/routing-precedence.md`. Put `stop-and-ask` in `Recommended Winner Or Boundary` when that page says to stop. Do not invent a winner.
 
 For each finding, recommend the next step:
 
@@ -284,7 +286,7 @@ Conflict Findings:
 - Type: <name_collision / responsibility_overlap / behavior_divergence / scope_shadowing / dependency_conflict / trigger_ambiguity>
   Skills: <skill-a>, <skill-b>
   Why It Matters: <...>
-  Recommended Winner Or Boundary: <...>
+  Recommended Winner Or Boundary: <skill / stated boundary / stop-and-ask>
 Naming Findings:
 - Status: <consistent / taxonomy_mixed_but_explained / naming_taxonomy_drift / rename_candidate>
   Evidence: <...>

@@ -1,7 +1,7 @@
 {
   "id": "logseq-acns-vault-vs-write",
   "skills": ["logseq-acns-vault", "logseq-acns-write"],
-  "summary": "Both skills claim page ownership and namespace choice. Each names the other and says when to hand off, so the overlap has a boundary and is not behavior divergence. Which skill runs stays with ACM-136.",
+  "summary": "Both skills claim page ownership and namespace choice. Each names the other and says when to hand off, so the overlap has a boundary and is not behavior divergence. Which skill runs follows skills-governance/docs/routing-precedence.md (ACM-136).",
   "boundary": "Load both when the task needs Logseq semantic placement and an ACNS write plan. Prefer logseq-acns-vault while page ownership or namespace choice is still open. Prefer logseq-acns-write when the destination is known and the next step is a write plan.",
   "sources": {
     "skills/logseq-acns-vault/SKILL.md": [
