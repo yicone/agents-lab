@@ -103,6 +103,12 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 
 _COLUMNS: dict[str, list[str]] = {}
 
+# Columns added after the original cache schema was released. Keep these
+# migrations additive and idempotent so existing caches remain readable.
+_ADDITIVE_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
+    "tasks": (("failure_reason", "TEXT"),),
+}
+
 
 def _cols(conn: sqlite3.Connection, table: str) -> list[str]:
     if table not in _COLUMNS:
@@ -127,6 +133,17 @@ class Store:
                 self._conn.execute(f"DROP TABLE IF EXISTS {t}")
             self._conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         self._conn.executescript(SCHEMA)
+        self._migrate_additive_columns()
+
+    def _migrate_additive_columns(self) -> None:
+        """Add columns introduced without a cache version bump."""
+        with self._lock:
+            for table, columns in _ADDITIVE_COLUMNS.items():
+                existing = {row[1] for row in self._conn.execute(f"PRAGMA table_info({table})")}
+                for name, definition in columns:
+                    if name not in existing:
+                        self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+            _COLUMNS.clear()
 
     def close(self) -> None:
         with self._lock:
