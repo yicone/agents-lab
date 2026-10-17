@@ -137,8 +137,20 @@ button, select, input { font: inherit; color: inherit; }
 .banner-hint { font-size: 12px; }
 .banner-facts { font-size: 11px; color: var(--muted); }
 
-.health { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.health { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
 .health[hidden] { display: none; }
+.scope-current { font-size: 12px; font-weight: 650; }
+.scope-note { flex: 1 0 100%; margin: 0; font-size: 12px; color: var(--muted); }
+.ws-clear {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 999px;
+  padding: 1px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.ws-clear:hover:not(:disabled) { background: var(--panel-2); }
+.ws-clear:disabled { color: var(--faint); cursor: default; }
 .skills-source { color: var(--muted); font-size: 12px; }
 .tab-badge.skills { background: var(--bad); color: #fff; }
 .ws-chip {
