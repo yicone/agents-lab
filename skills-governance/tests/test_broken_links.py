@@ -23,7 +23,7 @@ class BrokenLinksTests(unittest.TestCase):
         self.inventory = self.root / 'inventory.json'
 
     def run_doctor(self, adapters, *options):
-        self.inventory.write_text(json.dumps({'skills': [{'name': 'one', 'adapters': adapters}]}))
+        self.inventory.write_text(json.dumps({'skills': [{'name': 'one', 'status': 'active', 'adapters': adapters}]}))
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             status = doctor.main(['--inventory', str(self.inventory), '--repo-root',

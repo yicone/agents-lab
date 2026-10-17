@@ -21,6 +21,10 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 - `worktree-branch-governance-audit`
   - for read-only reconciliation of branch and worktree guidance against project-specific evidence, including global-default fit, upstream topology, deployment coupling, and rule placement
 
+## Adapter Health
+
+Run `python3 skills-governance/scripts/skill_guard.py doctor` for automatic user/project adapter discovery and readable findings. Add `--format json` for automation or `--repair` to repair active/staged links and remove retired links. Unknown and quarantined entries remain unresolved. See [release-checklist.md](release-checklist.md) for the release check.
+
 ## Decision Shortcut
 
 - If the user first needs to decide reuse vs install vs build -> use `skills-lifecycle-manager`

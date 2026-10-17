@@ -48,3 +48,25 @@ Precedence and Stop-and-Ask rules: [docs/routing-precedence.md](docs/routing-pre
 The current package is a governance control plane, not a replacement for runtime package managers or Skills CLI. It records and reviews changes before they become active where the underlying tool allows that.
 
 See [docs/upgrade-review.md](docs/upgrade-review.md) for the P0 command workflow and community implementation comparison. See [docs/upgrade-diff-review.md](docs/upgrade-diff-review.md) for how to read a diff report and decide whether to activate.
+
+### Adapter doctor
+
+Run `python3 skills-governance/scripts/skill_guard.py doctor` from the repository
+for a readable adapter health report. Add `--format json` for the shared doctor
+contract (`broken`, unresolved `count`, and `repaired`). Exit status is 1 while
+problems remain, otherwise 0. The entry point reuses `doctor.py` and
+`broken_links.py` scanning and repair.
+
+Discovery includes user `~/.agents/skills` and `~/.codex/skills`, the canonical
+repository, and `.agents/skills` / `.codex/skills` in the current directory and
+its ancestors. Inventory-recorded adapter parents also cover external projects.
+`--adapter-root` replaces discovery roots; recorded adapters remain included.
+Use `--inventory`, `--repo-root`, and an isolated HOME for fixture validation.
+
+`--repair` prefers the current inventory canonical directory with `SKILL.md`;
+if unavailable or missing `SKILL.md`, it falls back to an existing recorded adapter target.
+Discovered names must match exactly one inventory entry. Broken links belonging
+to explicitly retired entries are removed. Only active/staged skills may be relinked; quarantined/unknown entries and orphan
+links remain reported for manual review. Directory aliases are resolved before
+deduplication, and name matching applies only to top-level adapters. Healthy links
+are preserved; an individual repair failure does not stop other repairs.
