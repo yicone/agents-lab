@@ -19,6 +19,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `customizations/`: records of local deltas on non-local Skills (`<skill>/customization.json` plus overlay payloads under `<skill>/delta/`); upstream baselines are never stored here
 - `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, the read-only token footprint report, customization record check and overlay apply, plus snapshot, stage, diff, gate, activate, and rollback commands
 - `tests/`: focused tests for the safety commands. Representative conflict cases live in `tests/fixtures/conflicts/`.
+- `changelog/`: append-only per-skill JSONL entries written by `activate`; the drift report flags changes it cannot match here
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 
 Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. The nested `skills/` here is intentionally limited to the governance workflow itself.
@@ -28,7 +29,7 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 1. Inventory what the runtime can see and identify the source class.
 2. Record the source authority and current install shape.
 3. Capture a baseline, then place the candidate in staging instead of the live runtime path.
-4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes. The gate calls SkilLock for capability drift when `skil-lock` is on PATH, and records a risk-signal fallback when it is not.
+4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes. The gate calls SkilLock for capability drift when `skil-lock` is on PATH, and records a risk-signal fallback when it is not. Activation appends a per-skill entry to `changelog/<skill>.jsonl` recording the actual old-to-new change.
 5. Estimate context cost with `python3 skills-governance/scripts/token_footprint.py --format text`. The report uses `ceil(utf-8 bytes / 4)`. `token_over_budget` means the eager `SKILL.md` is over 2,000 static tokens, or a globally injected copy plus its referenced docs is over 2,000. `size_over_budget` means `SKILL.md` is over 16,384 bytes. Downgrade suggestions are `references_subdirectory` (on-demand `references/`) and `target_scoped` (install on the target instead of the global catalog). `--check` exits 2 when the gate fails. The command does not modify skills or inventory.
 6. Check conflicts with `python3 skills-governance/scripts/conflict_report.py --format text`. The report separates name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity. It does not select which skill runs. Which skill runs is [docs/routing-precedence.md](docs/routing-precedence.md): target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. Same-layer overlap and the stop conditions on that page are Stop-and-Ask.
 7. Decide whether to update, customize, fork, quarantine, or keep the current version. Customizing a non-local Skill means choosing one of the five recorded modes and storing a delta record; see [docs/customization.md](docs/customization.md).

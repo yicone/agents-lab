@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import plistlib
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,6 +52,33 @@ UNVERIFIED = frozenset(
     }
 )
 STATUSES = ("missing", "modified", "stale", "unverified", "aligned")
+DEFAULT_CHANGELOG_DIR = Path(__file__).resolve().parents[1] / "changelog"
+UNRECORDED_CHECK = frozenset(
+    {"content_hash_mismatch", "lock_hash_mismatch", "version_mismatch"}
+)
+
+
+def changelog_file_name(name: object) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", str(name)) + ".jsonl"
+
+
+def changelog_entries(changelog_dir: Path, name: object) -> list[dict]:
+    try:
+        text = (changelog_dir / changelog_file_name(name)).read_text(encoding="utf-8")
+    except OSError:
+        return []
+    result: list[dict] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(item, dict):
+            result.append(item)
+    return result
 
 
 def metadata_version(text: str) -> str | None:
@@ -386,7 +414,12 @@ def consider_review(skill: dict, findings: set[str], lock_updated: datetime | No
         findings.add("review_older_than_lock")
 
 
-def reconcile_skill(skill: dict, repo_root: Path, lock_skills: dict) -> dict:
+def reconcile_skill(
+    skill: dict,
+    repo_root: Path,
+    lock_skills: dict,
+    changelog_dir: Path | None = None,
+) -> dict:
     findings: set[str] = set()
     details: list[str] = []
     baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
@@ -419,7 +452,7 @@ def reconcile_skill(skill: dict, repo_root: Path, lock_skills: dict) -> dict:
         if not path_present(inventory.locate_path(value, repo_root)):
             findings.add("path_missing")
     consider_review(skill, findings, lock_updated)
-    return {
+    row = {
         "name": skill.get("name"),
         "source_class": skill.get("source_class"),
         "reconciliation_status": reconciliation_status(findings),
@@ -431,6 +464,31 @@ def reconcile_skill(skill: dict, repo_root: Path, lock_skills: dict) -> dict:
         "findings": sorted(findings),
         "details": details,
     }
+    if changelog_dir is not None:
+        log = changelog_entries(changelog_dir, skill.get("name"))
+        row["changelog"] = {
+            "entries": len(log),
+            "last_date": log[-1].get("date") if log else None,
+        }
+        if findings & UNRECORDED_CHECK:
+            recorded = any(
+                value is not None
+                and value in {observed_baseline, observed_version}
+                for item in log
+                for value in (
+                    item.get("new_hash"),
+                    item.get("new_ref"),
+                    item.get("new_version"),
+                )
+            )
+            if not recorded:
+                findings.add("change_unrecorded")
+                row["findings"] = sorted(findings)
+                details.append(
+                    "有变更未记录: no changelog entry matches "
+                    f"{observed_baseline or observed_version}"
+                )
+    return row
 
 
 def is_bundle(skill: dict) -> bool:
@@ -545,6 +603,7 @@ def empty_summary() -> dict:
     summary = {status: 0 for status in STATUSES}
     summary["inventory_records"] = 0
     summary["unrecorded"] = 0
+    summary["change_unrecorded"] = 0
     return summary
 
 
@@ -555,16 +614,24 @@ def build_report(
     scan_roots: list[Path],
     inventory_path: Path | None = None,
     lock_path: Path | None = None,
+    changelog_dir: Path | None = None,
 ) -> dict:
     skills = document.get("skills") if isinstance(document.get("skills"), list) else []
-    rows = [reconcile_skill(skill, repo_root, lock_skills) for skill in skills if isinstance(skill, dict)]
+    rows = [
+        reconcile_skill(skill, repo_root, lock_skills, changelog_dir)
+        for skill in skills
+        if isinstance(skill, dict)
+    ]
     unrecorded = discover_unrecorded(skills, repo_root, scan_roots)
     summary = empty_summary()
     summary["inventory_records"] = len(rows)
     summary["unrecorded"] = len(unrecorded)
     for row in rows:
         summary[row["reconciliation_status"]] += 1
+        if "change_unrecorded" in row["findings"]:
+            summary["change_unrecorded"] += 1
     return {
+        "changelog_dir": str(changelog_dir) if changelog_dir else None,
         "report": REPORT_NAME,
         "read_only": True,
         "inventory": str(inventory_path) if inventory_path else None,
@@ -586,6 +653,11 @@ def render_text(report: dict) -> str:
         + " ".join(
             f"{key}={summary[key]}"
             for key in ("inventory_records", *STATUSES, "unrecorded")
+        )
+        + (
+            f" change_unrecorded={summary['change_unrecorded']}"
+            if report.get("changelog_dir")
+            else ""
         ),
         "Same name is not provenance.",
     ]
@@ -663,6 +735,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-default-roots", action="store_true")
     parser.add_argument("--format", choices=("text", "json"), default="text")
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--changelog-dir", type=Path, default=DEFAULT_CHANGELOG_DIR)
     args = parser.parse_args(argv)
     inventory_path = args.inventory.expanduser()
     repo_root = args.repo_root.expanduser().resolve()
@@ -693,7 +766,15 @@ def main(argv: list[str] | None = None) -> int:
         [path.expanduser() for path in args.scan_root],
         include_defaults=not args.no_default_roots,
     )
-    report = build_report(document, repo_root, lock_skills, roots, inventory_path, used_lock)
+    report = build_report(
+        document,
+        repo_root,
+        lock_skills,
+        roots,
+        inventory_path,
+        used_lock,
+        args.changelog_dir.expanduser() if args.changelog_dir else None,
+    )
     return emit(report, args.format, args.output)
 
 
