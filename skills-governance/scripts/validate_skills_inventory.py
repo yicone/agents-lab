@@ -80,6 +80,7 @@ MODE_BY_LOCAL_CUSTOMIZATION = {
 }
 CONFLICT = {"none", "open", "unreviewed", "unknown"}
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+AGENT_WORKTREE_PATH_RE = re.compile(r"/(?:acm|agent)-[^/]+/workdir/")
 TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 SHA_REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 CLASS_AUTHORITY_KEYS = ("ownership", "source_authority", "update_authority")
@@ -167,6 +168,21 @@ def is_relative_repo_path(value: str) -> bool:
 
 def is_external_path(value: str) -> bool:
     return value.startswith("~") or value.startswith("/") or Path(value).is_absolute()
+
+
+def is_machine_path(value: str) -> bool:
+    """Return whether a path belongs to a user's machine-local install.
+
+    Tilde paths are intentionally portable inventory coordinates. Their
+    existence and symlink targets depend on the runtime that is validating the
+    repository, so repository checks must not make them a prerequisite.
+    """
+    return value.startswith("~")
+
+
+def is_agent_worktree_path(value: str) -> bool:
+    """Reject absolute paths captured from a temporary agent worktree."""
+    return bool(AGENT_WORKTREE_PATH_RE.search(value))
 
 
 def locate_path(value: str, repo_root: Path) -> Path:
@@ -459,6 +475,8 @@ def validate_document(
                 target = adapter.get("target")
                 if "target" in adapter and target is not None and not isinstance(target, str):
                     errors.append({"path": f"{adapter_path}.target", "message": "must be a string or null"})
+                if isinstance(target, str) and is_agent_worktree_path(target):
+                    errors.append({"path": f"{adapter_path}.target", "message": "must not reference an agent worktree"})
                 if adapter.get("kind") == "symlink" and not (isinstance(target, str) and target):
                     errors.append({"path": f"{adapter_path}.target", "message": "required for symlink adapters"})
                 if adapter.get("kind") in {"symlink", "directory"} and isinstance(location, str):
@@ -562,6 +580,7 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
     baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
     if baseline.get("kind") == "content_hash" and isinstance(skill.get("baseline_ref"), str):
         skill_md = None
+        has_machine_only_source = False
         if isinstance(canonical, str):
             candidate = repo_root / canonical / "SKILL.md"
             skill_md = candidate if candidate.is_file() else None
@@ -569,12 +588,16 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
             for visible in skill.get("visible_paths") or []:
                 if not isinstance(visible, str):
                     continue
+                if is_machine_path(visible):
+                    has_machine_only_source = True
+                    continue
                 candidate = locate_path(visible, repo_root) / "SKILL.md"
                 if candidate.is_file():
                     skill_md = candidate
                     break
         if skill_md is None:
-            errors.append({"path": f"{path}.baseline_ref", "message": "SKILL.md for content_hash was not found"})
+            if not has_machine_only_source:
+                errors.append({"path": f"{path}.baseline_ref", "message": "SKILL.md for content_hash was not found"})
         else:
             actual = skill_name_from_markdown(skill_md.read_text(encoding="utf-8"))
             if actual and actual != skill.get("name") and not isinstance(canonical, str):
@@ -597,6 +620,9 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
         for visible_index, visible in enumerate(visible_paths):
             if not isinstance(visible, str):
                 continue
+            if is_agent_worktree_path(visible):
+                errors.append({"path": f"{path}.visible_paths[{visible_index}]", "message": "must not reference an agent worktree"})
+                continue
             if not is_relative_repo_path(visible) and not is_external_path(visible):
                 errors.append(
                     {
@@ -604,6 +630,8 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
                         "message": "use a repo-relative path, or an absolute/~ path",
                     }
                 )
+                continue
+            if is_machine_path(visible):
                 continue
             if not locate_path(visible, repo_root).exists():
                 errors.append(
@@ -622,6 +650,8 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
             if kind not in {"symlink", "directory"} or not isinstance(location, str):
                 continue
             if not is_relative_repo_path(location) and not is_external_path(location):
+                continue
+            if is_machine_path(location):
                 continue
             adapter_file = locate_path(location, repo_root)
             adapter_path = f"{path}.adapters[{adapter_index}]"
