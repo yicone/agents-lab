@@ -1,5 +1,7 @@
 /** Pure helpers for the「待你决定」queue. No DOM, so node:test can import them. */
 
+import { issueLayer, matchesLayer } from "./layers.js";
+
 export const DAY_MS = 86_400_000;
 export const WARN_AFTER_MS = 7 * DAY_MS;
 export const BAD_AFTER_MS = 14 * DAY_MS;
@@ -121,12 +123,14 @@ export function decideQueue({ issues, workspaces, changes, nowMs, historyIncompl
   };
 }
 
-export function filterDecide(rows, { type = "", query = "" } = {}) {
+export function filterDecide(rows, { type = "", query = "", layer = "", match = "primary", gov = false } = {}) {
   const q = String(query || "").trim().toLowerCase();
   return rows.filter((row) => {
     const status = statusOf(row.issue);
     if (type === "review" && status !== "in_review") return false;
     if (type === "blocked" && status !== "blocked") return false;
+    if (gov && !issueLayer(row.issue)?.governance) return false;
+    if (layer && !matchesLayer(row.issue, layer, match === "involved" ? "involved" : "primary")) return false;
     if (!q) return true;
     const blob = [row.issue?.identifier, row.issue?.title, row.assignee, row.issue?.status]
       .filter(Boolean)

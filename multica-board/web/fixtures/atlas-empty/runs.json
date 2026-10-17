@@ -1,0 +1,18 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "by_issue": {
+  "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:acm-532": [
+   {
+    "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:task-532",
+    "task_id": "task-532",
+    "status": "completed",
+    "agent_name": "前端设计师",
+    "runtime_id": "rt-mini",
+    "started_at": "2026-10-13T08:00:00Z",
+    "completed_at": "2026-10-13T09:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   }
+  ]
+ }
+}
