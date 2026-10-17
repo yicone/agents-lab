@@ -255,6 +255,22 @@ class ValidateSkillsInventoryTests(unittest.TestCase):
             result = self.run_validator(inventory, "--check-paths", "--repo-root", str(root))
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_agent_worktree_target_is_rejected(self):
+        record = skill(
+            adapters=[
+                {
+                    "path": "~/.agents/skills/demo-skill",
+                    "kind": "symlink",
+                    "target": "/Users/tr/multica_workspaces_desktop-api.multica.ai/acm-180-abcd/workdir/agents-lab/skills/demo-skill",
+                }
+            ],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = self.write_inventory(Path(directory), document([record]))
+            result = self.run_validator(inventory)
+        paths = {item["path"] for item in self.errors_of(result)}
+        self.assertIn("skills[0].adapters[0].target", paths)
+
     def test_repo_inventory_covers_canonical_skills(self):
         self.assertTrue(INVENTORY.is_file(), "skills-inventory.json is missing")
         payload = json.loads(INVENTORY.read_text(encoding="utf-8"))

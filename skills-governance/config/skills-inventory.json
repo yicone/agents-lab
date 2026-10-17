@@ -794,7 +794,7 @@
         {
           "path": "~/.agents/skills/colgrep-search",
           "kind": "symlink",
-          "target": "/Users/tr/multica_workspaces_desktop-api.multica.ai/acm-lab-24a04e64d3f5/acm-180-d8f3c9cd8886/workdir/agents-lab/skills/colgrep-search"
+          "target": "/Users/tr/Workspace/agents-lab/skills/colgrep-search"
         }
       ],
       "status": "active",

@@ -80,6 +80,7 @@ MODE_BY_LOCAL_CUSTOMIZATION = {
 }
 CONFLICT = {"none", "open", "unreviewed", "unknown"}
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+AGENT_WORKTREE_PATH_RE = re.compile(r"/(?:acm|agent)-[^/]+/workdir/")
 TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 SHA_REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 CLASS_AUTHORITY_KEYS = ("ownership", "source_authority", "update_authority")
@@ -177,6 +178,11 @@ def is_machine_path(value: str) -> bool:
     repository, so repository checks must not make them a prerequisite.
     """
     return value.startswith("~")
+
+
+def is_agent_worktree_path(value: str) -> bool:
+    """Reject absolute paths captured from a temporary agent worktree."""
+    return bool(AGENT_WORKTREE_PATH_RE.search(value))
 
 
 def locate_path(value: str, repo_root: Path) -> Path:
@@ -469,6 +475,8 @@ def validate_document(
                 target = adapter.get("target")
                 if "target" in adapter and target is not None and not isinstance(target, str):
                     errors.append({"path": f"{adapter_path}.target", "message": "must be a string or null"})
+                if isinstance(target, str) and is_agent_worktree_path(target):
+                    errors.append({"path": f"{adapter_path}.target", "message": "must not reference an agent worktree"})
                 if adapter.get("kind") == "symlink" and not (isinstance(target, str) and target):
                     errors.append({"path": f"{adapter_path}.target", "message": "required for symlink adapters"})
                 if adapter.get("kind") in {"symlink", "directory"} and isinstance(location, str):
@@ -611,6 +619,9 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
     if isinstance(visible_paths, list):
         for visible_index, visible in enumerate(visible_paths):
             if not isinstance(visible, str):
+                continue
+            if is_agent_worktree_path(visible):
+                errors.append({"path": f"{path}.visible_paths[{visible_index}]", "message": "must not reference an agent worktree"})
                 continue
             if not is_relative_repo_path(visible) and not is_external_path(visible):
                 errors.append(
