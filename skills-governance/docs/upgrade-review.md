@@ -70,7 +70,7 @@
 
 不要对生效目录直接运行会原地覆盖的升级命令。若来源管理器只能原地安装，先让它输出到独立目录，再 `stage`。
 
-对已记录定制的非本地 Skill（见 [customization.md](customization.md)），候选树不是裸的上游下载：先用 `python3 skills-governance/scripts/customization_check.py apply --skill <name> --upstream <候选目录> --output <输出>` 把本地 delta 套到上游候选上，再把套用结果作为 `--skill-root` 传给 `stage`。`apply` 退出码为 `2` 表示上游已漂移、需要重新审查 delta，不应继续 `stage`。
+对已记录定制的非本地 Skill（见 [customization.md](customization.md)），候选树不是裸的上游下载：先用 `python3 skills-governance/scripts/customization_check.py apply --skill <name> --upstream <候选目录> --output <输出>` 把本地 delta 套到上游候选上，再把套用结果作为 `--skill-root` 传给 `stage`。`apply` 退出码为 `2` 表示上游已漂移、需要重新审查 delta，不应继续 `stage`。`patch` 式记录改用 `python3 skills-governance/scripts/skill_patch.py rebase --skill <name> --old-baseline <旧基线> --upstream <候选目录> --output <输出>`，同样以退出码 `2` 表示存在合并冲突，且只产出 `<name>.conflicts/` 树供人工解决，不产生可 stage 的 `<name>/`。
 
 ### 3. 对比快照与暂存树并运行门禁
 

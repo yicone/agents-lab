@@ -17,7 +17,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `docs/`: durable governance rules, operating guides, and state-note conventions
 - `config/`: source classes, the machine-readable skills inventory (`skills-inventory.json`), and the customization record schema
 - `customizations/`: records of local deltas on non-local Skills (`<skill>/customization.json` plus overlay payloads under `<skill>/delta/`); upstream baselines are never stored here
-- `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, the read-only token footprint report, customization record check and overlay apply, plus snapshot, stage, diff, gate, activate, and rollback commands
+- `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, the read-only token footprint report, customization record check and overlay apply, local.patch create/rebase for patch-style overlays (`skill_patch.py`), plus snapshot, stage, diff, gate, activate, and rollback commands
 - `tests/`: focused tests for the safety commands. Representative conflict cases live in `tests/fixtures/conflicts/`.
 - `changelog/`: append-only per-skill JSONL entries written by `activate`; the drift report flags changes it cannot match here
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status

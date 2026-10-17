@@ -25,6 +25,7 @@ RECORD_KEYS = {
     *COMMON_REQUIRED,
     "retire_when",
     "ops",
+    "patch",
     "path",
     "policy",
 }
@@ -40,13 +41,14 @@ OP_FORBIDDEN = {
     "delete": {"source", "sha256"},
 }
 MODE_FIELDS = {
-    "overlay": {"ops"},
+    "overlay": {"ops", "patch"},
     "wrapper": {"path"},
     "fork": {"path"},
     "local_replacement": {"path"},
     "policy_exclusion": {"policy"},
 }
-MODE_EXTRA_FIELDS = {"ops", "path", "policy"}
+MODE_EXTRA_FIELDS = {"ops", "patch", "path", "policy"}
+PATCH_KEYS = {"sha256", "files"}
 TIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -154,6 +156,53 @@ def check_op(op_value: object, op_index: int, path: str, delta_dir: Path, errors
                 )
 
 
+def check_patch(patch_value: object, path: str, record_dir: Path, errors: list) -> None:
+    patch_path = f"{path}.patch"
+    expect_keys(patch_value, PATCH_KEYS, ("sha256", "files"), patch_path, errors)
+    if not isinstance(patch_value, dict):
+        return
+    digest = patch_value.get("sha256")
+    if "sha256" in patch_value and not (
+        isinstance(digest, str) and SHA256_RE.fullmatch(digest)
+    ):
+        errors.append({"path": f"{patch_path}.sha256", "message": "must be 64 lowercase hex"})
+    files = patch_value.get("files")
+    if "files" in patch_value:
+        if not isinstance(files, dict) or not files:
+            errors.append({"path": f"{patch_path}.files", "message": "must be a non-empty object"})
+        else:
+            for rel, base_sha in files.items():
+                if not is_safe_relative(rel):
+                    errors.append(
+                        {
+                            "path": f"{patch_path}.files",
+                            "message": f"unsafe path: {rel}",
+                        }
+                    )
+                if base_sha is not None and not (
+                    isinstance(base_sha, str) and SHA256_RE.fullmatch(base_sha)
+                ):
+                    errors.append(
+                        {
+                            "path": f"{patch_path}.files.{rel}",
+                            "message": "must be 64 lowercase hex or null",
+                        }
+                    )
+    local_patch = record_dir / "local.patch"
+    if local_patch.is_symlink() or not local_patch.is_file():
+        errors.append(
+            {"path": patch_path, "message": "local.patch not found as a regular non-symlink file"}
+        )
+    elif (
+        isinstance(digest, str)
+        and SHA256_RE.fullmatch(digest)
+        and sha256_file(local_patch) != digest
+    ):
+        errors.append(
+            {"path": f"{patch_path}.sha256", "message": "does not match local.patch sha256"}
+        )
+
+
 def check_record(record: object, name: str, skill: dict | None, record_dir: Path, repo_root: Path, errors: list) -> None:
     path = f"customizations/{name}/customization.json"
     expect_keys(record, RECORD_KEYS, COMMON_REQUIRED, path, errors)
@@ -204,12 +253,18 @@ def check_record(record: object, name: str, skill: dict | None, record_dir: Path
     for field in sorted(MODE_EXTRA_FIELDS - MODE_FIELDS[mode]):
         if field in record:
             errors.append({"path": f"{path}.{field}", "message": f"not allowed for {mode}"})
-    for field in sorted(MODE_FIELDS[mode]):
-        if field not in record:
-            errors.append({"path": f"{path}.{field}", "message": "required"})
+    if mode == "overlay":
+        if ("ops" in record) == ("patch" in record):
+            errors.append({"path": path, "message": "overlay requires exactly one of ops or patch"})
+    else:
+        for field in sorted(MODE_FIELDS[mode]):
+            if field not in record:
+                errors.append({"path": f"{path}.{field}", "message": "required"})
 
     if mode == "overlay":
         ops = record.get("ops")
+        if "patch" in record:
+            check_patch(record["patch"], path, record_dir, errors)
         if "ops" in record:
             if not isinstance(ops, list) or not ops:
                 errors.append({"path": f"{path}.ops", "message": "must be a non-empty array"})
@@ -363,6 +418,21 @@ def apply_overlay(args: argparse.Namespace) -> int:
     check_record(record, args.skill, None, record_dir, DEFAULT_REPO_ROOT, record_errors)
     if record_errors:
         print(json.dumps({"ok": False, "errors": record_errors}, indent=2))
+        return 1
+    if "patch" in record:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "errors": [
+                        {
+                            "path": "patch",
+                            "message": "patch-style record: use skill_patch.py rebase",
+                        }
+                    ],
+                }
+            )
+        )
         return 1
     ops = record["ops"]
     delta_dir = record_dir / "delta"

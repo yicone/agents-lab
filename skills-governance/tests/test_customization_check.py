@@ -398,6 +398,85 @@ class CustomizationCheckTests(unittest.TestCase):
         self.assertIn(("added", "demo/extra/notes.md"), changes)
         self.assertIn(("removed", "demo/old.txt"), changes)
 
+    def write_patch_record(self, name="demo", patch_bytes=b"diff --git a/x b/x\n", files=None):
+        directory = self.record(
+            name,
+            patch={
+                "sha256": sha256_bytes(patch_bytes),
+                "files": files if files is not None else {"SKILL.md": "a" * 64},
+            },
+        )
+        (directory / "local.patch").write_bytes(patch_bytes)
+        return directory
+
+    def test_overlay_requires_exactly_one_of_ops_or_patch(self):
+        self.add_skill("demo", "overlay")
+        self.record("demo")
+        self.write_inventory()
+        self.assertIn("exactly one of ops or patch", self.messages(self.run_check()))
+
+        directory = self.customizations / "demo"
+        (directory / "local.patch").write_bytes(b"patch\n")
+        record = json.loads((directory / "customization.json").read_text())
+        record["ops"] = [{"op": "delete", "path": "x", "base_sha256": "a" * 64}]
+        record["patch"] = {"sha256": "b" * 64, "files": {"x": "a" * 64}}
+        (directory / "customization.json").write_text(json.dumps(record), encoding="utf-8")
+        self.assertIn("exactly one of ops or patch", self.messages(self.run_check()))
+
+    def test_patch_not_allowed_for_non_overlay(self):
+        self.add_skill("demo", "wrapper")
+        (self.repo / "skills/demo").mkdir(parents=True)
+        (self.repo / "skills/demo/SKILL.md").write_text("---\nname: demo\n---\n", encoding="utf-8")
+        self.record(
+            "demo",
+            mode="wrapper",
+            path="skills/demo",
+            patch={"sha256": "b" * 64, "files": {"x": None}},
+        )
+        self.write_inventory()
+        self.assertIn("not allowed for wrapper", self.messages(self.run_check()))
+
+    def test_patch_sha_and_files_validation(self):
+        self.add_skill("demo", "overlay")
+        directory = self.write_patch_record()
+        self.write_inventory()
+        self.assertEqual(self.run_check().returncode, 0, self.run_check().stdout)
+
+        patch_file = directory / "local.patch"
+        patch_file.write_bytes(b"tampered\n")
+        self.assertIn("does not match local.patch sha256", self.messages(self.run_check()))
+
+        record = json.loads((directory / "customization.json").read_text())
+        record["patch"] = {
+            "sha256": "b" * 64,
+            "files": {"../escape": "a" * 64, "ok.md": "nothex", "also.md": None},
+        }
+        (directory / "customization.json").write_text(json.dumps(record), encoding="utf-8")
+        messages = self.messages(self.run_check())
+        self.assertIn("unsafe path", messages)
+        self.assertIn("64 lowercase hex or null", messages)
+
+        record["patch"]["files"] = {}
+        (directory / "customization.json").write_text(json.dumps(record), encoding="utf-8")
+        self.assertIn("non-empty object", self.messages(self.run_check()))
+
+    def test_patch_requires_local_patch_file(self):
+        self.add_skill("demo", "overlay")
+        directory = self.write_patch_record()
+        (directory / "local.patch").unlink()
+        self.write_inventory()
+        self.assertIn("local.patch not found", self.messages(self.run_check()))
+
+    def test_apply_refuses_patch_record(self):
+        self.add_skill("demo", "overlay")
+        self.write_patch_record()
+        upstream = self.make_upstream()
+        result = self.run_apply(
+            "--skill", "demo", "--upstream", str(upstream), "--output", str(self.base / "out")
+        )
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("patch-style record: use skill_patch.py rebase", result.stdout)
+
     def test_real_repo_state_passes(self):
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "check"],
