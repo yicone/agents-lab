@@ -177,6 +177,52 @@ class DoctorTests(unittest.TestCase):
         self.assertIn('repair failed', failed['reason'])
         self.assertEqual(second.resolve(), self.canonical)
 
+    def test_registered_nested_parent_does_not_enable_name_matching(self):
+        nested = self.roots[0] / 'pkg'
+        nested.mkdir()
+        registered = nested / 'registered'
+        registered.symlink_to(self.canonical)
+        self.skills.append({
+            'name': 'registered', 'status': 'active',
+            'adapters': [{'kind': 'symlink', 'path': str(registered),
+                          'target': str(self.canonical)}],
+        })
+        orphan = self.broken(nested)
+        original_target = os.readlink(orphan)
+        result = self.run_doctor('--repair', '--format', 'json')
+        self.assertEqual(result.returncode, 1, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report['count'], 1)
+        self.assertEqual(report['repaired'], 0)
+        self.assertEqual(report['broken'][0]['kind'], 'orphan_broken_symlink')
+        self.assertEqual(report['broken'][0]['reason'], 'orphan')
+        self.assertEqual(os.readlink(orphan), original_target)
+        self.assertFalse(orphan.exists())
+
+    def test_missing_adapter_and_declared_target_have_reasons(self):
+        self.skills[0]['adapters'] = [
+            {'kind': 'symlink', 'path': str(self.roots[0] / 'demo'),
+             'target': str(self.canonical)},
+            {'kind': 'declared_target', 'path': 'placeholder/demo',
+             'target': 'missing-target'},
+        ]
+        expected = {
+            'adapter_missing': 'adapter path does not exist',
+            'declared_target_missing': 'declared target does not exist',
+        }
+        for script in ('skill_guard.py', 'doctor.py'):
+            with self.subTest(script=script):
+                result = self.run_doctor('--format', 'json', script=script)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                report = json.loads(result.stdout)
+                self.assertEqual(report['count'], 2)
+                self.assertEqual({item['kind']: item.get('reason')
+                                  for item in report['broken']}, expected)
+                text = self.run_doctor('--format', 'text', script=script)
+                self.assertEqual(text.returncode, 1, text.stderr)
+                for reason in expected.values():
+                    self.assertIn(f'[unresolved] ({reason})', text.stdout)
+
     @staticmethod
     def state(root):
         if not root.exists():

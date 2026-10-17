@@ -19,8 +19,11 @@ def locate(value: str, root: Path) -> Path:
     return candidate if candidate.is_absolute() else root / candidate
 
 
-def finding(kind, skill, path, target=None):
-    return dict(kind=kind, skill=skill, path=str(path), target=target, repaired=False)
+def finding(kind, skill, path, target=None, reason=None):
+    item = dict(kind=kind, skill=skill, path=str(path), target=target, repaired=False)
+    if reason is not None:
+        item['reason'] = reason
+    return item
 
 
 def adapter_path(path: Path) -> Path:
@@ -33,7 +36,11 @@ def inspect(inventory: dict, root: Path, do_repair: bool = False,
     """Inspect unique adapter paths and isolate failures to individual links."""
     root = root.resolve()
     adapters = {}
-    roots = {directory.expanduser().resolve() for directory in adapter_roots or []}
+    # Recorded parents broaden scanning, never name-based repair authority.
+    top_level_roots = {
+        directory.expanduser().resolve() for directory in adapter_roots or []
+    }
+    scan_roots = set(top_level_roots)
     findings = []
     for skill in inventory.get('skills', []):
         for adapter in skill.get('adapters', []):
@@ -42,20 +49,24 @@ def inspect(inventory: dict, root: Path, do_repair: bool = False,
                 continue
             path = adapter_path(locate(location, root))
             adapters[path] = (skill.get('name'), adapter, skill)
-            roots.add(path.parent)
+            scan_roots.add(path.parent)
             target = adapter.get('target')
             if adapter.get('kind') == 'declared_target':
                 if target is None:
                     findings.append(finding('declared_target_unchecked', skill.get('name'), path))
                 elif not locate(target, root).exists():
-                    findings.append(finding('declared_target_missing', skill.get('name'), path, target))
+                    findings.append(finding(
+                        'declared_target_missing', skill.get('name'), path, target,
+                        reason='declared target does not exist'))
             elif not path.exists() and not path.is_symlink():
-                findings.append(finding('adapter_missing', skill.get('name'), path, target))
+                findings.append(finding(
+                    'adapter_missing', skill.get('name'), path, target,
+                    reason='adapter path does not exist'))
 
-    broken = {adapter_path(link) for directory in roots for link in scan(directory)}
+    broken = {adapter_path(link) for directory in scan_roots for link in scan(directory)}
     for path in sorted(broken):
         skill_name, adapter, skill = adapters.get(path, (None, None, None))
-        if adapter is None and adapter_roots is not None and path.parent in roots:
+        if adapter is None and adapter_roots is not None and path.parent in top_level_roots:
             matches = [entry for entry in inventory.get('skills', [])
                        if entry.get('name') == path.name]
             if len(matches) == 1:
