@@ -1,0 +1,296 @@
+{
+ "generated_at": "2026-10-14T09:00:00Z",
+ "items": [
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-301",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-301",
+   "identifier": "ACM-301",
+   "title": "目录历史会列出 clipy 但会话没有出来",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Vega",
+    "name": "Vega"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-09-28T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-301",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-302",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-302",
+   "identifier": "ACM-302",
+   "title": "本机存储占用与分散落盘",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-13T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-302",
+   "latest_run": {
+    "task_id": "task-completed-2026-10-13T09:00:00Z",
+    "status": "completed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-10-13T09:00:00Z",
+    "completed_at": "2026-10-13T09:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   "last_failed_run": null
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-303",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-303",
+   "identifier": "ACM-303",
+   "title": "书签自建检索小试",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-04T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-303",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-304",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-304",
+   "identifier": "ACM-304",
+   "title": "OpenSpec 全量迁移",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Vega",
+    "name": "Vega"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-14T07:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-304",
+   "latest_run": {
+    "task_id": "task-failed-2026-10-14T07:00:00Z",
+    "status": "failed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-10-14T07:00:00Z",
+    "completed_at": "2026-10-14T07:00:00Z",
+    "error_kind": "timeout",
+    "error_summary": "task exceeded 45m wall clock"
+   },
+   "last_failed_run": {
+    "task_id": "task-failed-2026-10-14T07:00:00Z",
+    "completed_at": "2026-10-14T07:00:00Z",
+    "error_kind": "timeout"
+   }
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-305",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-305",
+   "identifier": "ACM-305",
+   "title": "跨 Workspace 全量迁移调研",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Vega",
+    "name": "Vega"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-07T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-305",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-306",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-306",
+   "identifier": "ACM-306",
+   "title": "mini 腾空间以重装 Fusion",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-存储",
+    "name": "存储"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-12T09:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-306",
+   "latest_run": {
+    "task_id": "task-completed-2026-10-12T09:00:00Z",
+    "status": "completed",
+    "agent_name": "Builder",
+    "runtime_id": null,
+    "started_at": "2026-10-12T09:00:00Z",
+    "completed_at": "2026-10-12T09:00:00Z",
+    "error_kind": null,
+    "error_summary": null
+   },
+   "last_failed_run": null
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-307",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-307",
+   "identifier": "ACM-307",
+   "title": "状态桥接改为持久 outbox",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-14T06:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-307",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:decide-acm-399",
+   "workspace_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "id": "decide-acm-399",
+   "identifier": "ACM-399",
+   "title": "进行中，不应出现在待你决定",
+   "status": "in_progress",
+   "status_category": "in_progress",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Builder",
+    "name": "Builder"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-14T08:00:00Z",
+   "url": "https://multica.example/acm-lab/issues/decide-acm-399",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb:decide-bet-11",
+   "workspace_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+   "id": "decide-bet-11",
+   "identifier": "BET-11",
+   "title": "其他 workspace 的待验收",
+   "status": "in_review",
+   "status_category": "in_review",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Reviewer",
+    "name": "Reviewer"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-11T09:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/decide-bet-11",
+   "latest_run": null,
+   "last_failed_run": null
+  },
+  {
+   "key": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb:decide-bet-12",
+   "workspace_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+   "id": "decide-bet-12",
+   "identifier": "BET-12",
+   "title": "其他 workspace 的受阻",
+   "status": "blocked",
+   "status_category": "blocked",
+   "priority": "none",
+   "assignee": {
+    "type": "agent",
+    "id": "agent-Reviewer",
+    "name": "Reviewer"
+   },
+   "project": {
+    "id": "proj-atlas",
+    "title": "Agent Atlas"
+   },
+   "parent_identifier": null,
+   "due_date": null,
+   "created_at": "2026-09-04T09:00:00Z",
+   "last_activity_at": "2026-10-10T09:00:00Z",
+   "url": "https://multica.example/beta-coach/issues/decide-bet-12",
+   "latest_run": null,
+   "last_failed_run": null
+  }
+ ]
+}
