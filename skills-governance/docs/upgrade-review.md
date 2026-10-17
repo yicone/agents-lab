@@ -120,6 +120,21 @@
 
 `activate` 默认对绑定的快照再跑一次门禁：阻断时退出码为 `2`，并且不改 live 目录。只有审查确认后才加 `--force`。没有快照时也必须显式 `--force`，避免未审查就替换生效树。
 
+#### 激活变更日志
+
+每次成功激活后，`activate` 会为发生变化的每个 Skill 追加一条记录到 `skills-governance/changelog/<skill>.jsonl`（文件名中的 Skill 名经过字符清洗，非法字符替换为 `_`）。每条记录是一行 JSON（`schema: skill-governance-changelog/v1`），包含：
+
+- `date` / `skill` / `staging` / `snapshot`：本次激活的时间、Skill 名和来源目录；
+- `old_hash` / `new_hash`：激活前后 `SKILL.md` 的 `sha256:` 摘要（缺失时为 `null`）；
+- `old_tree_hash` / `new_tree_hash` / `old_version` / `new_version`：激活前后的整树哈希和 `metadata.version`；
+- `files`：相对 Skill 目录的 `added` / `removed` / `modified` 文件清单（各最多 50 条）；
+- `signals`：本次变化文件的风险信号并集；
+- `summary`：变更摘要；`forced`：是否走了 `--force`；`new_ref`：上游 ref 或锁文件哈希。
+
+可用 `--changelog-dir <dir>` 改写到其他目录，用 `--change-summary <text>` 记录人工审查结论（自动摘要会保留在 `auto_summary`），用 `--new-ref <ref>` 记录上游版本。整树哈希未变化的 Skill 不写记录；门禁阻断（退出码 `2`）时不写任何记录。
+
+`drift_report.py` 默认读取同一目录。若某个 Skill 出现 `content_hash_mismatch`、`lock_hash_mismatch` 或 `version_mismatch`，而 changelog 中没有 `new_hash` / `new_ref` / `new_version` 与观测值匹配的条目，报告会增加 `change_unrecorded`（有变更未记录）这一 finding，提示升级发生了但没有留档。可用 `--changelog-dir` 指定其他目录。
+
 ### 5. 回滚
 
 只有在确认快照包含正确目录并且希望恢复时，才执行：

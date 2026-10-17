@@ -416,6 +416,86 @@ class DriftReportTests(unittest.TestCase):
         self.assertEqual(row["reconciliation_status"], "missing")
         self.assertIn("source_missing", row["findings"])
 
+    def report_with_changelog(self, skills, changelog_dir):
+        document = {"schema": "skills-inventory/v1", "skills": skills}
+        return self.module.build_report(
+            document,
+            self.root,
+            {},
+            [],
+            changelog_dir=changelog_dir,
+        )
+
+    def mismatched_record(self):
+        record = self.content_record()
+        record["baseline_ref"] = "sha256:" + ("a" * 64)
+        return record
+
+    def observed_hash(self):
+        return "sha256:" + self.module.inventory.sha256_file(
+            self.root / "skills/demo-skill/SKILL.md"
+        )
+
+    def test_unrecorded_change_is_flagged(self):
+        changelog_dir = self.root / "changelog"
+        record = self.mismatched_record()
+        row = self.skill_row(
+            self.report_with_changelog([record], changelog_dir), "demo-skill"
+        )
+        self.assertEqual(row["reconciliation_status"], "modified")
+        self.assertIn("change_unrecorded", row["findings"])
+        self.assertTrue(
+            any("有变更未记录" in detail for detail in row["details"])
+        )
+        self.assertEqual(row["changelog"], {"entries": 0, "last_date": None})
+
+    def test_matching_changelog_entry_is_not_flagged(self):
+        changelog_dir = self.root / "changelog"
+        changelog_dir.mkdir()
+        record = self.mismatched_record()
+        entry = {"new_hash": self.observed_hash(), "date": "2026-10-17T00:00:00Z"}
+        (changelog_dir / "demo-skill.jsonl").write_text(
+            json.dumps(entry) + "\n", encoding="utf-8"
+        )
+        row = self.skill_row(
+            self.report_with_changelog([record], changelog_dir), "demo-skill"
+        )
+        self.assertEqual(row["reconciliation_status"], "modified")
+        self.assertNotIn("change_unrecorded", row["findings"])
+        self.assertEqual(row["changelog"]["entries"], 1)
+        self.assertEqual(row["changelog"]["last_date"], "2026-10-17T00:00:00Z")
+
+    def test_changelog_dir_none_never_flags(self):
+        record = self.mismatched_record()
+        row = self.skill_row(self.report([record]), "demo-skill")
+        self.assertEqual(row["reconciliation_status"], "modified")
+        self.assertNotIn("change_unrecorded", row["findings"])
+        self.assertNotIn("changelog", row)
+
+    def test_aligned_skill_is_not_flagged(self):
+        changelog_dir = self.root / "changelog"
+        record = self.content_record()
+        record["review_time"] = "2026-10-16T00:00:00Z"
+        row = self.skill_row(
+            self.report_with_changelog([record], changelog_dir), "demo-skill"
+        )
+        self.assertEqual(row["reconciliation_status"], "aligned")
+        self.assertNotIn("change_unrecorded", row["findings"])
+
+    def test_malformed_changelog_line_is_ignored(self):
+        changelog_dir = self.root / "changelog"
+        changelog_dir.mkdir()
+        (changelog_dir / "demo-skill.jsonl").write_text(
+            "not json\n\n" + json.dumps({"new_hash": "sha256:" + "0" * 64}) + "\n",
+            encoding="utf-8",
+        )
+        record = self.mismatched_record()
+        row = self.skill_row(
+            self.report_with_changelog([record], changelog_dir), "demo-skill"
+        )
+        self.assertIn("change_unrecorded", row["findings"])
+        self.assertEqual(row["changelog"]["entries"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

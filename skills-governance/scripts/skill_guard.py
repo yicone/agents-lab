@@ -11,10 +11,12 @@ import re
 import shutil
 import stat
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import capability_gate  # noqa: E402
+import drift_report  # noqa: E402
 
 
 GATE_SIGNALS = {
@@ -42,6 +44,8 @@ TRIGGER_RE = re.compile(
 
 SNAPSHOT_SCHEMA = "skill-governance-snapshot/v1"
 STAGING_SCHEMA = "skill-governance-staging/v1"
+CHANGELOG_SCHEMA = "skill-governance-changelog/v1"
+DEFAULT_CHANGELOG_DIR = Path(__file__).resolve().parents[1] / "changelog"
 
 
 def sha256(path: Path) -> str:
@@ -461,6 +465,145 @@ def activate_targets(args: argparse.Namespace, staging_manifest: dict) -> list[P
     return targets
 
 
+def changelog_file_name(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", name) + ".jsonl"
+
+
+def unit_name(unit: Path) -> str:
+    skill_md = unit / "SKILL.md"
+    if skill_md.is_file():
+        try:
+            name = drift_report.inventory.skill_name_from_markdown(
+                skill_md.read_text(encoding="utf-8")
+            )
+        except OSError:
+            name = None
+        if name:
+            return name
+    return unit.name
+
+
+def skill_units(root: Path) -> dict[str, Path]:
+    units: dict[str, Path] = {}
+    if (root / "SKILL.md").is_file():
+        units[unit_name(root)] = root
+        return units
+    if not root.is_dir():
+        return units
+    for dirpath, dirnames, filenames in os.walk(root):
+        if "SKILL.md" in filenames:
+            unit = Path(dirpath)
+            units[unit_name(unit)] = unit
+            dirnames[:] = []
+    return units
+
+
+def unit_state(unit: Path | None) -> dict:
+    state = {"entries": [], "tree_hash": None, "skill_hash": None, "version": None}
+    if unit is None or not unit.is_dir():
+        return state
+    items = entries(unit)
+    state["entries"] = items
+    digest = hashlib.sha256(json.dumps(items, sort_keys=True).encode("utf-8")).hexdigest()
+    state["tree_hash"] = "sha256:" + digest
+    skill_md = unit / "SKILL.md"
+    if skill_md.is_file():
+        state["skill_hash"] = "sha256:" + sha256(skill_md)
+        state["version"] = drift_report.metadata_version(
+            skill_md.read_text(encoding="utf-8")
+        )
+    return state
+
+
+def file_changes(old_items: list[dict], new_items: list[dict]) -> dict:
+    old = {item["path"]: item for item in old_items if item.get("type") == "file"}
+    new = {item["path"]: item for item in new_items if item.get("type") == "file"}
+    added = sorted(path for path in new if path not in old)
+    removed = sorted(path for path in old if path not in new)
+    modified = sorted(path for path in old.keys() & new.keys() if old[path] != new[path])
+    return {
+        "added": added[:50],
+        "removed": removed[:50],
+        "modified": modified[:50],
+    }
+
+
+def change_signals(files: dict, old_unit: Path | None, new_unit: Path | None) -> list[str]:
+    signals: set[str] = set()
+    for change_kind, paths in (
+        ("added", files["added"]),
+        ("removed", files["removed"]),
+        ("modified", files["modified"]),
+    ):
+        for relative in paths:
+            old_bytes = read_bytes(old_unit, relative) if old_unit else b""
+            new_bytes = read_bytes(new_unit, relative) if new_unit else b""
+            signals.update(
+                risk_signals(relative, old_bytes, new_bytes, change_kind, "skill")
+            )
+    return sorted(signals)
+
+
+def changelog_records(
+    staging_root: Path,
+    target: Path,
+    staging_dir: Path,
+    snapshot_dir: Path | None,
+    changelog_dir: Path,
+    args: argparse.Namespace,
+) -> list[tuple[Path, dict]]:
+    old_units = skill_units(target)
+    new_units = skill_units(staging_root)
+    records: list[tuple[Path, dict]] = []
+    for name in sorted(set(old_units) | set(new_units)):
+        old_unit = old_units.get(name)
+        new_unit = new_units.get(name)
+        old = unit_state(old_unit)
+        new = unit_state(new_unit)
+        if old["tree_hash"] == new["tree_hash"]:
+            continue
+        files = file_changes(old["entries"], new["entries"])
+        signals = change_signals(files, old_unit, new_unit)
+        auto = (
+            f"modified {len(files['modified'])}, added {len(files['added'])}, "
+            f"removed {len(files['removed'])}"
+        )
+        if signals:
+            auto += "; signals: " + ", ".join(signals)
+        record = {
+            "schema": CHANGELOG_SCHEMA,
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "skill": name,
+            "old_hash": old["skill_hash"],
+            "new_hash": new["skill_hash"],
+            "old_tree_hash": old["tree_hash"],
+            "new_tree_hash": new["tree_hash"],
+            "old_version": old["version"],
+            "new_version": new["version"],
+            "files": files,
+            "signals": signals,
+            "summary": args.change_summary or auto,
+            "new_ref": args.new_ref,
+            "forced": bool(args.force),
+            "snapshot": str(snapshot_dir) if snapshot_dir else None,
+            "staging": str(staging_dir),
+        }
+        if args.change_summary:
+            record["auto_summary"] = auto
+        records.append((changelog_dir / changelog_file_name(name), record))
+    return records
+
+
+def write_changelog(records: list[tuple[Path, dict]]) -> list[str]:
+    written: list[str] = []
+    for path, record in records:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        written.append(str(path))
+    return written
+
+
 def activate(args: argparse.Namespace) -> int:
     staging_dir = Path(args.staging).expanduser().resolve()
     staging_manifest = load_staging_manifest(staging_dir)
@@ -496,6 +639,25 @@ def activate(args: argparse.Namespace) -> int:
             )
             return 2
     targets = activate_targets(args, staging_manifest)
+    changelog_dir = (
+        Path(args.changelog_dir).expanduser().resolve()
+        if args.changelog_dir
+        else DEFAULT_CHANGELOG_DIR
+    )
+    pending: list[tuple[Path, dict]] = []
+    for index, root_info in enumerate(staging_manifest["roots"]):
+        if root_info.get("kind") != "skill":
+            continue
+        pending.extend(
+            changelog_records(
+                staging_dir / root_info["staging_path"],
+                targets[index],
+                staging_dir,
+                snapshot_dir,
+                changelog_dir,
+                args,
+            )
+        )
     activated = []
     for index, root_info in enumerate(staging_manifest["roots"]):
         source = staging_dir / root_info["staging_path"]
@@ -506,6 +668,12 @@ def activate(args: argparse.Namespace) -> int:
         activated.append(str(target))
     staging_manifest["status"] = "activated"
     write_json(staging_dir / "manifest.json", staging_manifest)
+    changelog_error = None
+    written: list[str] = []
+    try:
+        written = write_changelog(pending)
+    except OSError as exc:
+        changelog_error = exc
     print(
         json.dumps(
             {
@@ -517,9 +685,16 @@ def activate(args: argparse.Namespace) -> int:
                 if args.force
                 else (report or {}).get("capability_gate", {}).get("backend"),
                 "snapshot": str(snapshot_dir) if snapshot_dir else None,
+                "changelog": written,
             }
         )
     )
+    if changelog_error is not None:
+        print(
+            f"error: activation already applied; changelog write failed: {changelog_error}",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -593,6 +768,18 @@ def parser() -> argparse.ArgumentParser:
     apply.add_argument(
         "--skil-lock",
         help="skil-lock binary, or 'fallback' to keep skill_guard risk signals",
+    )
+    apply.add_argument(
+        "--changelog-dir",
+        help="per-skill changelog directory (default: skills-governance/changelog)",
+    )
+    apply.add_argument(
+        "--change-summary",
+        help="human summary of the behavior change, stored on every entry of this activation",
+    )
+    apply.add_argument(
+        "--new-ref",
+        help="upstream ref or lock folder hash for the staged tree, stored as new_ref",
     )
     apply.set_defaults(func=activate)
     restore = sub.add_parser("rollback", help="restore trees from a snapshot")
