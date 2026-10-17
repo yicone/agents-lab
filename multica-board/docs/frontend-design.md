@@ -140,7 +140,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 回答「现在有哪些事等我拍板」。范围只有 ACM Lab（`slug=acm-lab`，否则名称正好是 `ACM Lab`）里 `in_review` 和 `blocked` 的 issue，等待最久的在最前。其他 workspace 的同类 issue 只在页脚计数，并链到 Issues。
 
 - 路由 `#/decide`，类型筛选 `?type=review` 或 `?type=blocked`。顶栏在现有两个 Tab 后面加「待你决定」，黄色角标等于这一页未筛选的条数，0 时隐藏。
-- 已等待取 `/api/changes` 里进入当前状态的最近一次 `issue_status`。日志里没有这条迁移、或者这次拉取 `reset` / 失败 / 没有读完时，改用 `last_activity_at`（再退 `updated_at`、`created_at`），数字前加 `≥`。超过 7 天标黄，超过 14 天标红；刚好 7 天、刚好 14 天不算超过。接口不能按类型过滤，run 事件会把日志撑到几十万条，所以页面最多翻 16 页；读不完就整页退回，不用读到一半的迁移。
+- 已等待取 `/api/changes?kind=status` 里进入当前状态的最近一次 `issue_status`。`kind=status` 只返回状态迁移，run 不再占用这 500 条分页。日志里没有这条迁移、或者这次拉取 `reset` / 失败 / 没有读完时，改用 `last_activity_at`（再退 `updated_at`、`created_at`），数字前加 `≥`。超过 7 天标黄，超过 14 天标红；刚好 7 天、刚好 14 天不算超过。状态迁移仍最多翻 16 页；读不完就整页退回，不用读到一半的迁移。
 - 页头：合计、待验收、受阻、超过 7 天、最久等待。层分布、层筛选、按涉及层、只看治理线、按主层分组在层属性还没建时是灰色占位，不发请求。
 - 点行打开现有运行记录抽屉，点标题在 Multica 打开。最近动静用 `latest_run` 的状态；没有 run 时写「最后活动」。评论类型不在现有接口里。
 - mock：`?mock=decide` 正常队列，`?mock=decide-gap` 状态迁移被重置，`?mock=decide-down` 状态迁移 404。打开时加上 `#/decide`。

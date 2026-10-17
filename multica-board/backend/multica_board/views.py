@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import quote
 
 from .agent_delivery import decide_delivery
-from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_since
+from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_kind, parse_since
 from .collector import COLLECTOR, WORKSPACE
 from .layers import ATLAS_SLUG, build_report, catalog_from_rows, empty_layer, resolve_issues
 from .store import Store
@@ -690,10 +690,14 @@ class Views:
 
     # --- /api/changes -------------------------------------------------------
 
-    def changes(self, since: str | None, *, limit: int = CHANGES_PAGE) -> dict[str, Any]:
-        """Deltas after `since` (ISO time or a previous cursor). Omitted `since` only issues a cursor."""
+    def changes(self, since: str | None, kind: str | None = None, *, limit: int = CHANGES_PAGE) -> dict[str, Any]:
+        """Deltas after `since` (ISO time or a previous cursor). Omitted `since` only issues a cursor.
+
+        `kind` limits the page (`status` is the alias for `issue_status`). Omitted returns every kind.
+        """
         if limit < 1 or limit > CHANGES_PAGE:
             raise BadRequest("limit out of range")
+        stored_kind = parse_kind(kind)
         mode, value = parse_since(since)
         horizon = _iso(_now() - timedelta(days=CHANGE_RETENTION_DAYS))
         self.store.prune_changes(self.server, horizon)
@@ -716,9 +720,13 @@ class Views:
             return envelope([], tip, True, False)
 
         if mode == "time":
-            snap = self.store.fetch_changes(self.server, after_seq=None, after_at=value, limit=limit + 1)
+            snap = self.store.fetch_changes(
+                self.server, after_seq=None, after_at=value, limit=limit + 1, kind=stored_kind
+            )
         else:
-            snap = self.store.fetch_changes(self.server, after_seq=value, after_at=None, limit=limit + 1)
+            snap = self.store.fetch_changes(
+                self.server, after_seq=value, after_at=None, limit=limit + 1, kind=stored_kind
+            )
             oldest = snap["oldest"]
             if value > snap["tip"] or (oldest is not None and oldest > value + 1):
                 return envelope([], snap["tip"], True, False)

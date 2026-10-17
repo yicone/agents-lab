@@ -1,9 +1,9 @@
 import {
-  changesSince,
   decideQueue,
   filterDecide,
   formatSince,
   formatWait,
+  readStatusChanges,
   recentMotion,
 } from "./decide.js";
 
@@ -130,31 +130,10 @@ async function getRuns(it) {
 async function loadChanges() {
   try {
     if (MOCK) return await getJSON("changes");
-    return await fetchChangeWindow(Date.now());
+    return await readStatusChanges((path) => fetchJSON(path, "changes"), Date.now());
   } catch (err) {
     return { error: String(err.message || err) };
   }
-}
-
-// Run events dominate the log. Keep only status transitions, and stop if the
-// window cannot be read in a few local requests. An unfinished read is not a
-// partial answer: older transitions may sit past the pages we saw.
-const CHANGE_PAGE_CAP = 16;
-
-async function fetchChangeWindow(nowMs) {
-  let cursor = changesSince(nowMs);
-  const items = [];
-  for (let page = 0; page < CHANGE_PAGE_CAP; page++) {
-    const data = await fetchJSON(`/api/changes?since=${encodeURIComponent(cursor)}`, "changes");
-    if (data.reset) return { ...data, items: [], incomplete: false };
-    for (const item of data.items ?? []) {
-      if (item.kind === "issue_status") items.push(item);
-    }
-    if (!data.has_more) return { ...data, items, incomplete: false };
-    if (!data.cursor || data.cursor === cursor) return { ...data, items, incomplete: true };
-    cursor = data.cursor;
-  }
-  return { items, reset: false, retained_days: 7, incomplete: true };
 }
 
 function applyChanges(payload) {

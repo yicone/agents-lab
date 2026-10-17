@@ -777,6 +777,14 @@ class ServerTests(unittest.TestCase):
 
         r, body = self.req("GET", "/api/changes?since=a&since=b")
         self.assertEqual(r.status, 400)
+        r, body = self.req("GET", "/api/changes?kind=status")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(json.loads(body)["items"], [])
+        r, body = self.req("GET", "/api/changes?kind=nope")
+        self.assertEqual(r.status, 400)
+        self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
+        r, body = self.req("GET", "/api/changes?kind=status&kind=run")
+        self.assertEqual(r.status, 400)
         self.assertEqual(json.loads(body)["error"]["code"], "bad_request")
 
 
@@ -1029,6 +1037,52 @@ class ChangeFeedTests(unittest.TestCase):
 
         self.col.collect()
         self.assertEqual(_nchanges(self.store), 6)
+
+    def test_kind_status_skips_runs(self):
+        self.assertTrue(self.col.collect()["ok"])
+        issue1 = self.data[WS_A]["issues"][0]
+        issue1["status"] = "in_review"
+        issue1["status_category"] = "in_review"
+        self.assertTrue(self.col.collect()["ok"])
+        stamp = ago(0.01)
+        self.store.append_changes(SERVER, WS_A, [
+            {
+                "at": stamp, "kind": "run", "resource_id": f"run-pad-{n}",
+                "payload": {
+                    "issue_id": f"{WS_A}-issue-0001", "agent_id": "ag1", "runtime_id": "rt1",
+                    "status": "running", "started_at": stamp, "completed_at": None,
+                    "error_kind": None, "error_summary": None,
+                },
+            }
+            for n in range(3)
+        ] + [{
+            "at": stamp, "kind": "issue_status", "resource_id": f"{WS_A}-issue-0002",
+            "payload": {
+                "identifier": "T-2", "status": "blocked", "status_category": "blocked",
+                "previous_status": "in_progress", "previous_status_category": "in_progress",
+            },
+        }])
+        unfiltered = self.views.changes("v1:0", limit=1)
+        self.assertEqual(unfiltered["items"][0]["kind"], "issue_status")
+        self.assertTrue(unfiltered["has_more"])
+        first_status = self.views.changes("v1:0", "status", limit=1)
+        self.assertEqual([i["id"] for i in first_status["items"]], [f"{WS_A}-issue-0001"])
+        self.assertEqual(first_status["items"][0]["previous_status"], "todo")
+        self.assertTrue(first_status["has_more"])
+        second_status = self.views.changes(first_status["cursor"], "status", limit=1)
+        self.assertEqual([i["status"] for i in second_status["items"]], ["blocked"])
+        self.assertFalse(second_status["has_more"])
+        self.assertEqual(
+            self.views.changes("v1:0", "issue_status")["items"],
+            self.views.changes("v1:0", "status")["items"],
+        )
+        self.assertGreater(len(self.views.changes("v1:0")["items"]), len(self.views.changes("v1:0", "status")["items"]))
+        with self.assertRaises(BadRequest):
+            self.views.changes("v1:0", "nope")
+        self.assertEqual(self.views.changes(None, "status")["items"], [])
+        names = {row["name"] for row in self.store.query("PRAGMA index_list(changes)")}
+        self.assertIn("changes_server_kind_seq", names)
+        self.assertIn("changes_server_kind_at", names)
 
     def test_purge_rebaseline_does_not_replay(self):
         self.col.collect()

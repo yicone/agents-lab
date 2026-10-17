@@ -1,6 +1,6 @@
 # Multica Board 只读 API 契约（v0.5）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，并新增 `GET /api/layers`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -381,7 +381,7 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 
 ## `GET /api/changes`
 
-增量，用来避免每次采集都重拉 `/api/issues`、`/api/runtimes` 和 run 列表。`?since=` 省略时只签发 cursor、不返回历史。`since` 为 ISO 8601 UTC 时间，或上一次响应里的 `cursor`。
+增量，用来避免每次采集都重拉 `/api/issues`、`/api/runtimes` 和 run 列表。`?since=` 省略时只签发 cursor、不返回历史。`since` 为 ISO 8601 UTC 时间，或上一次响应里的 `cursor`。`?kind=` 可选，省略时仍返回全部类型。
 
 ```json
 {
@@ -475,7 +475,8 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 - `at` 是采集器**观察到**变化的时间（秒），不是 issue 的 `updated_at`。比较按秒截断，`since` 为开区间（`at > since`）。同一秒里的事件用返回的 cursor 续拉，不要用事件自己的 `at`。
 - `cursor` 形如 `v1:<序号>`，不透明，只回传响应里的值。`v1:0` 表示从日志开头重放；若开头已被裁掉则 `reset: true`。序号比当前末端还大（例如换过缓存库）同样 `reset`。
 - 不带 `since`：`items` 为空，`cursor` 为当前末端。接入时先拉全量，再立刻取一次 cursor，之后只传 cursor。
-- 单次最多 500 条，按发生顺序。`has_more: true` 时把返回的 `cursor` 当作下一次 `since`。
+- 单次最多 500 条，按发生顺序。`has_more: true` 时把返回的 `cursor` 当作下一次 `since`。带了 `kind` 时，下一页要原样带上同一个 `kind`：cursor 仍是整份日志里的序号，过滤发生在取页时，所以翻页不会再被其它类型占满。
+- `kind`（**v0.5**）：`status`（`issue_status` 的别名）、`issue_status`、`assignee`（`issue_assignee` 的别名）、`issue_assignee`、`run`、`run_failed`、`runtime`。省略表示不过滤。未知值、空值或重复的 `kind` 为 `400`。不带 `since` 时 `kind` 不改变「只签发 cursor」的行为。待你决定页用 `?kind=status` 读取进入当前状态的时间。
 - 保留 7 天（`retained_days`）。更早的 `since`，或 cursor 前面有被裁掉的序号，返回 `reset: true`，不把残缺窗口伪装成完整增量。
 - 每个 workspace、每种资源的**第一次成功快照只建基线，不产生事件**（issues、runtimes，以及每个 agent 的 tasks 各自一份）。基线之后才记录：
   - `issue_status` / `issue_assignee`：已在快照里的 issue，状态或指派变了。新建 issue、标题、优先级、从列表消失都不记。
@@ -547,7 +548,7 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 
 ## 变更记录
 
-- v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。
+- v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。同日给 `GET /api/changes` 增加 `?kind=`，`status` 只返回 issue 状态迁移，避免 run 事件占满分页后等待时长全部退回 `≥`。
 - v0.4（2026-10-16）：ACM-179 在 `GET /api/attention` 增加 `agent_updates`，列出近 24 小时内负责人 agent 已完成、但没有被同期 `in_review` / `blocked` 迁移覆盖的 run。
 - v0.3（2026-10-16）：ACM-174 在 `GET /api/attention` 增加 `missing_hermes_async_delegation`，列出未启用 skill `hermes-async-delegation` 的 Hermes agent。
 - v0.2（2026-10-15）：ACM-165 新增 `GET /api/attention`，按 workspace 汇总 in_review、blocked、近 24 小时失败 run、仍绑着 agent 的离线 runtime。`?format=text` 输出不超过 2048 字节的纯文本。

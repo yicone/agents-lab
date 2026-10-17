@@ -13,6 +13,17 @@ from typing import Any
 CHANGE_RETENTION_DAYS = 7
 CHANGES_PAGE = 500
 SINCE_ERROR = "since must be an ISO-8601 UTC timestamp or a cursor"
+KIND_ERROR = "kind must be status, issue_status, assignee, issue_assignee, run, run_failed, or runtime"
+# `status` / `assignee` are the short names the decide page uses. The stored kinds stay explicit.
+KIND_FILTERS = {
+    "status": "issue_status",
+    "issue_status": "issue_status",
+    "assignee": "issue_assignee",
+    "issue_assignee": "issue_assignee",
+    "run": "run",
+    "run_failed": "run_failed",
+    "runtime": "runtime",
+}
 _CURSOR = re.compile(r"^v1:(0|[1-9][0-9]{0,17})$")
 
 
@@ -22,6 +33,16 @@ class BadRequest(Exception):
 
 def format_cursor(seq: int) -> str:
     return f"v1:{seq}"
+
+
+def parse_kind(raw: str | None) -> str | None:
+    """Map `?kind=` onto a stored change kind. Omitted means every kind."""
+    if raw is None:
+        return None
+    stored = KIND_FILTERS.get(raw)
+    if stored is None:
+        raise BadRequest(KIND_ERROR)
+    return stored
 
 
 def parse_since(raw: str | None) -> tuple[str, Any]:

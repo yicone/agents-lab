@@ -194,3 +194,31 @@ export function changesSince(nowMs, retainedDays = 7) {
   const ms = nowMs - retainedDays * DAY_MS + 60_000;
   return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
+
+/** Status transitions only. `kind=status` is the alias for stored `issue_status`. */
+export function changesPath(since) {
+  return `/api/changes?${new URLSearchParams({ since, kind: "status" })}`;
+}
+
+const CHANGE_PAGE_CAP = 16;
+
+/**
+ * Read the status-change window. Run events are not part of this request, so a
+ * full page of runs can no longer hide the transition into the current status.
+ * An unfinished read is still not a partial answer.
+ */
+export async function readStatusChanges(fetchPage, nowMs) {
+  let cursor = changesSince(nowMs);
+  const items = [];
+  for (let page = 0; page < CHANGE_PAGE_CAP; page++) {
+    const data = await fetchPage(changesPath(cursor));
+    if (data.reset) return { ...data, items: [], incomplete: false };
+    for (const item of data.items ?? []) {
+      if (item.kind === "issue_status") items.push(item);
+    }
+    if (!data.has_more) return { ...data, items, incomplete: false };
+    if (!data.cursor || data.cursor === cursor) return { ...data, items, incomplete: true };
+    cursor = data.cursor;
+  }
+  return { items, reset: false, retained_days: 7, incomplete: true };
+}
