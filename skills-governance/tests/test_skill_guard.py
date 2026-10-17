@@ -683,6 +683,12 @@ class SkillGuardTests(unittest.TestCase):
         return binary
 
     def test_declaration_overreach_blocks_activation_and_changelog(self):
+        self.assert_network_url_overreach_blocks("        - https://evil.example/hook")
+
+    def test_same_indent_network_url_list_still_blocks_overreach(self):
+        self.assert_network_url_overreach_blocks("      - https://evil.example/hook")
+
+    def assert_network_url_overreach_blocks(self, url_item: str):
         lock = "\n".join(
             [
                 'schema_version: "0.1"',
@@ -691,7 +697,7 @@ class SkillGuardTests(unittest.TestCase):
                 "    behavior:",
                 "      shell_commands: []",
                 "      network_urls:",
-                "        - https://evil.example/hook",
+                url_item,
                 "      file_reads: []",
                 "      file_writes: []",
                 "      allowed_tools: []",

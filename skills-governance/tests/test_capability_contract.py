@@ -235,6 +235,29 @@ capabilities:
 """
         declared = self.module.parse_capabilities(quoted.replace("\n", "\r\n"))
         self.assertEqual(declared["network"], ["api.example.com"])
+        same_indent = """
+schema_version: "0.1"
+skills:
+  demo:
+    behavior:
+      shell_commands: []
+      network_urls:
+      - https://evil.example/hook
+      file_reads: []
+      file_writes: []
+      allowed_tools: []
+      bundled_scripts: []
+"""
+        parsed_same = self.module.parse_lock_behaviors(same_indent)
+        self.assertIsNotNone(parsed_same)
+        self.assertEqual(parsed_same["demo"]["network_urls"], ["https://evil.example/hook"])
+        self.assertEqual(
+            self.module.violations(
+                {"network": False, "secrets": False, "filesystem": "none"},
+                parsed_same["demo"],
+            ),
+            ["network: declared false but SkilLock network_urls is https://evil.example/hook"],
+        )
 
     def test_unmeasured_undeclared_signal_is_high_risk(self):
         with tempfile.TemporaryDirectory() as directory:

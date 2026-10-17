@@ -282,7 +282,10 @@ def parse_behavior_lists(
             break
         if indent != 6 or ":" not in line:
             return {}, index, "malformed behavior list"
-        key, raw = line.strip().split(":", 1)
+        text = line.strip()
+        if text.startswith("-"):
+            return {}, index, "malformed behavior list"
+        key, raw = text.split(":", 1)
         if key not in BEHAVIOR_FIELDS:
             index += 1
             continue
@@ -298,20 +301,49 @@ def parse_behavior_lists(
             continue
         if value:
             return {}, index, "malformed behavior list"
-        items: list[str] = []
-        index += 1
-        while index < len(lines):
-            item = lines[index]
-            item_indent = len(item) - len(item.lstrip(" "))
-            if item_indent < 8:
-                break
-            item_text = item.strip()
-            if not item_text.startswith("- "):
-                return {}, index, "malformed behavior list"
-            items.append(unquote(item_text[2:]))
-            index += 1
+        items, index, error = read_block_sequence(lines, index + 1, indent)
+        if error:
+            return {}, index, error
         parsed[key] = items
     return parsed, index, None
+
+
+def read_block_sequence(
+    lines: list[str], index: int, key_indent: int
+) -> tuple[list[str], int, str | None]:
+    """Read a block sequence under a behavior key.
+
+    `index` is the first line after the key. Items may sit deeper than the
+    key, or at the same indent (`network_urls:` then `- https://...`). A
+    same-indent URL is legal YAML. Leaving it unread and storing `[]` reports
+    a measurement that dropped the observation.
+    """
+    if index >= len(lines):
+        return [], index, None
+    peek = lines[index]
+    peek_indent = len(peek) - len(peek.lstrip(" "))
+    peek_text = peek.strip()
+    if peek_indent < key_indent:
+        return [], index, None
+    if peek_indent == key_indent and not peek_text.startswith("- "):
+        return [], index, None
+    if not peek_text.startswith("- "):
+        return [], index, "malformed behavior list"
+    item_indent = peek_indent
+    items: list[str] = []
+    while index < len(lines):
+        item = lines[index]
+        item_indent_now = len(item) - len(item.lstrip(" "))
+        item_text = item.strip()
+        if item_indent_now < item_indent:
+            break
+        if item_indent_now == key_indent and not item_text.startswith("- "):
+            break
+        if item_indent_now != item_indent or not item_text.startswith("- "):
+            return [], index, "malformed behavior list"
+        items.append(unquote(item_text[2:]))
+        index += 1
+    return items, index, None
 
 
 def normalize_path(value: str) -> str:
