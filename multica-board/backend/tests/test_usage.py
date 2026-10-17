@@ -135,6 +135,7 @@ class _FakeCli:
         elif "usage" in argv:
             rid = argv[argv.index("usage") + 1]
             data = [{
+                "workspace_id": "ws-a",
                 "runtime_id": rid,
                 "date": "2026-10-16",
                 "provider": "hermes",
@@ -146,7 +147,7 @@ class _FakeCli:
                 "cost_usd_ticks": 0,
             }]
         elif "activity" in argv:
-            data = [{"hour": 1, "count": 4}, {"hour": 99, "count": 1}]
+            data = [{"workspace_id": "ws-a", "hour": 1, "count": 4}, {"workspace_id": "ws-a", "hour": 99, "count": 1}]
         else:
             return subprocess.CompletedProcess(argv, 1, stdout="", stderr="unexpected")
         return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(data), stderr="")
@@ -246,7 +247,7 @@ class CollectTests(unittest.TestCase):
             ).collect()
             store.close()
 
-            self.assertTrue(result["ok"])
+            self.assertFalse(result["ok"])
             self.assertEqual(result["providers"]["cursor"], "ok")
             self.assertEqual(result["providers"]["grok"], "error")
             self.assertEqual(result["providers"]["codex"], "ok")
@@ -479,7 +480,7 @@ class CliTests(unittest.TestCase):
                 "if 'workspace' in args and 'list' in args:\n"
                 "    data = [{'id': 'ws-a', 'slug': 'alpha', 'name': 'Alpha'}]\n"
                 "elif 'usage' in args:\n"
-                f"    data = [{{'runtime_id': 'rt1', 'date': '{today}', 'provider': 'hermes', 'input_tokens': 3, 'output_tokens': 1, 'cache_read_tokens': 0, 'cache_write_tokens': 0, 'cost_usd_ticks': 0}}]\n"
+                f"    data = [{{'workspace_id': 'ws-a', 'runtime_id': 'rt1', 'date': '{today}', 'provider': 'hermes', 'input_tokens': 3, 'output_tokens': 1, 'cache_read_tokens': 0, 'cache_write_tokens': 0, 'cost_usd_ticks': 0}}]\n"
                 "elif 'activity' in args:\n"
                 "    data = [{'hour': 2, 'count': 1}]\n"
                 "else:\n"
