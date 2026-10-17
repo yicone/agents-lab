@@ -17,7 +17,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
   - for read-only scanning of source authority, ownership drift, conflict signals, provenance gaps, update drift, and naming-taxonomy issues before choosing another workflow
   - run `skills-governance/scripts/drift_report.py` for the inventory drift report (`review_time`, `baseline_ref`, `current_version`)
   - run `skills-governance/scripts/conflict_report.py` for name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity
-  - run `skills-governance/scripts/token_footprint.py` for static token and file-size budget warnings, including referenced docs and downgrade suggestions
+  - run `skills-governance/scripts/token_footprint.py` for eager-token budget warnings; referenced docs are quantified separately and report-only
 - `worktree-branch-governance-audit`
   - for read-only reconciliation of branch and worktree guidance against project-specific evidence, including global-default fit, upstream topology, deployment coupling, and rule placement
 

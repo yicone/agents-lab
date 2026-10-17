@@ -181,17 +181,15 @@ Run the read-only report before judging context cost. `focus: footprint` still r
 python3 skills-governance/scripts/token_footprint.py --format text
 ```
 
-The command does not modify skills, inventory, or lock files. Static tokens use `bytes_div_4`: `ceil(utf-8 bytes / 4)`. The report lists each skill's eager `SKILL.md` and the text files it references, including everything under `references/`.
+The command does not modify skills, inventory, or lock files. Static tokens use `bytes_div_4`: `ceil(utf-8 bytes / 4)`. The report lists each skill's eager `SKILL.md` and the text files it references, including everything under `references/`; each referenced file row carries `linked` (`true` when SKILL.md links or names it, `false` when it was only found by scanning `references/`).
 
 Thresholds:
 
-- `token_over_budget`: eager `SKILL.md` is over 2,000 static tokens, or a globally injected skill's `SKILL.md` plus referenced docs are over 2,000
-- `size_over_budget`: `SKILL.md` is over 16,384 bytes
+- `token_over_budget`: eager `SKILL.md` is over 5,000 static tokens, at every scope. Referenced docs are quantified for visibility but never gate the skill.
 
 For each warning, recommend a downgrade and stop there. Do not rewrite the skill inside the audit:
 
 - `references_subdirectory`: move supporting material into `references/` and load it only when a task needs it
-- `target_scoped`: install the skill on the target project instead of the global catalog
 
 A repository skill that is already split into `references/` can stay under the eager token gate while its referenced docs are still quantified. `--check` exits 2 when the gate fails. Do not promote a warned skill to global scope.
 
@@ -318,8 +316,8 @@ Naming Findings:
 Token Footprint:
 - Command: `python3 skills-governance/scripts/token_footprint.py --format text`
 - Estimator: bytes_div_4
-- <skill> -> eager_tokens=<...> referenced_tokens=<...> static_tokens=<...> warnings=<none / token_over_budget / size_over_budget>
-- suggestion: <references_subdirectory / target_scoped> — <move supporting text into references/ or install only on the target>
+- <skill> -> eager_tokens=<...> referenced_tokens=<...> package_tokens=<...> warnings=<none / token_over_budget>
+- suggestion: <references_subdirectory> — <move supporting text into references/>
 Routing Recommendations:
 - <skill or finding> -> <skills-intake-local / skills-cli-reconcile / skills-promote-global / runtime/plugin review / manual clarification only>
 State Update Suggestions:
