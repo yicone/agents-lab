@@ -23,18 +23,24 @@ def finding(kind, skill, path, target=None):
     return dict(kind=kind, skill=skill, path=str(path), target=target, repaired=False)
 
 
+def adapter_path(path: Path) -> Path:
+    """Resolve directory aliases without dereferencing the adapter itself."""
+    return path.parent.resolve() / path.name
+
+
 def inspect(inventory: dict, root: Path, do_repair: bool = False,
             adapter_roots: list[Path] | None = None) -> list[dict]:
-    """Scan every adapter parent; null declared targets remain informational."""
+    """Inspect unique adapter paths and isolate failures to individual links."""
+    root = root.resolve()
     adapters = {}
-    roots = set(adapter_roots or [])
+    roots = {directory.expanduser().resolve() for directory in adapter_roots or []}
     findings = []
     for skill in inventory.get('skills', []):
         for adapter in skill.get('adapters', []):
             location = adapter.get('path')
             if not isinstance(location, str):
                 continue
-            path = locate(location, root)
+            path = adapter_path(locate(location, root))
             adapters[path] = (skill.get('name'), adapter, skill)
             roots.add(path.parent)
             target = adapter.get('target')
@@ -46,10 +52,10 @@ def inspect(inventory: dict, root: Path, do_repair: bool = False,
             elif not path.exists() and not path.is_symlink():
                 findings.append(finding('adapter_missing', skill.get('name'), path, target))
 
-    broken = {link for directory in roots for link in scan(directory)}
+    broken = {adapter_path(link) for directory in roots for link in scan(directory)}
     for path in sorted(broken):
         skill_name, adapter, skill = adapters.get(path, (None, None, None))
-        if adapter is None and adapter_roots is not None:
+        if adapter is None and adapter_roots is not None and path.parent in roots:
             matches = [entry for entry in inventory.get('skills', [])
                        if entry.get('name') == path.name]
             if len(matches) == 1:
@@ -58,25 +64,51 @@ def inspect(inventory: dict, root: Path, do_repair: bool = False,
                 adapter = {'kind': 'symlink', 'target': None}
         item = finding('broken_symlink' if adapter else 'orphan_broken_symlink',
                        skill_name, path, resolved_target(path))
-        if do_repair and adapter and adapter.get('kind') == 'symlink':
+        if adapter is None or adapter.get('kind') != 'symlink':
+            item['reason'] = 'orphan'
+        else:
+            status = skill.get('status', 'unknown')
             canonical = (skill.get('authority') or {}).get('canonical_path')
-            if skill.get('status') in {'retired', 'deprecated', 'archived'}:
-                path.unlink()
-                item['repaired'] = True
-                item['action'] = 'removed'
-                findings.append(item)
-                continue
             target = adapter.get('target')
             if canonical:
                 destination = locate(canonical, root)
-                target = str(destination) if (destination / 'SKILL.md').is_file() else None
-            if isinstance(target, str):
-                destination = locate(target, path.parent)
-                if destination.exists():
-                    repair(path, str(Path(target).expanduser()))
-                    item['repaired'] = path.exists()
+                if (destination / 'SKILL.md').is_file():
+                    target = str(destination)
+            if status == 'retired':
+                item['reason'] = 'retired'
+            elif status not in {'active', 'staged'}:
+                item['reason'] = f'non active status: {status}'
+            elif not isinstance(target, str) or not locate(target, path.parent).exists():
+                item['reason'] = 'no canonical directory or existing recorded target'
+            else:
+                item['reason'] = 'repairable'
+            if do_repair:
+                try:
+                    if status == 'retired':
+                        if not path.is_symlink() or path.exists():
+                            raise ValueError(f'not a broken symlink: {path}')
+                        path.unlink()
+                        item.update(repaired=True, action='removed')
+                    elif item['reason'] == 'repairable':
+                        repair(path, str(Path(target).expanduser()))
+                        item['repaired'] = path.exists()
+                        item['target'] = resolved_target(path)
+                        if not item['repaired']:
+                            item['reason'] = 'target unavailable after repair'
+                except (OSError, ValueError) as error:
+                    item['repaired'] = False
+                    item['reason'] = f'repair failed: {error}'
         findings.append(item)
     return findings
+
+
+def text_finding(item: dict) -> str:
+    action = item.get('action', 'repaired' if item['repaired'] else 'unresolved')
+    if item['kind'] == 'declared_target_unchecked':
+        action = 'unchecked'
+    target = item['target'] if item['target'] is not None else '(not bound; unchecked)'
+    reason = f" ({item['reason']})" if not item['repaired'] and item.get('reason') else ''
+    return f"{item['kind']}: {item['path']} -> {target} [{action}]{reason}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -94,9 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         if not findings:
             print('No adapter link problems found.')
         for item in findings:
-            suffix = ' [repaired]' if item['repaired'] else ''
-            target = item['target'] if item['target'] is not None else '(not bound; unchecked)'
-            print(f"{item['kind']}: {item['path']} -> {target}{suffix}")
+            print(text_finding(item))
     else:
         print(json.dumps(dict(broken=findings, count=len(remaining),
                               repaired=sum(item['repaired'] for item in findings)), indent=2))

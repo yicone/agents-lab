@@ -748,10 +748,7 @@ def doctor(args: argparse.Namespace) -> int:
         if not findings:
             print("No adapter link problems found.")
         for item in findings:
-            action = item.get("action", "repaired" if item["repaired"] else "unresolved")
-            if item["kind"] == "declared_target_unchecked":
-                action = "unchecked"
-            print(f"- {item['kind']}: {item['path']} -> {item['target']} [{action}]")
+            print("- " + adapter_doctor.text_finding(item))
     return 1 if remaining else 0
 
 

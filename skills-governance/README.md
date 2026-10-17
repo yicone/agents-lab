@@ -64,7 +64,9 @@ its ancestors. Inventory-recorded adapter parents also cover external projects.
 Use `--inventory`, `--repo-root`, and an isolated HOME for fixture validation.
 
 `--repair` prefers the current inventory canonical directory with `SKILL.md`;
-only skills without a canonical path fall back to recorded adapter targets.
+if unavailable or missing `SKILL.md`, it falls back to an existing recorded adapter target.
 Discovered names must match exactly one inventory entry. Broken links belonging
-to explicitly retired/deprecated/archived entries are removed. Unknown broken
-links remain reported for manual review; healthy links are preserved.
+to explicitly retired entries are removed. Only active/staged skills may be relinked; quarantined/unknown entries and orphan
+links remain reported for manual review. Directory aliases are resolved before
+deduplication, and name matching applies only to top-level adapters. Healthy links
+are preserved; an individual repair failure does not stop other repairs.
