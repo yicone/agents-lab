@@ -216,13 +216,19 @@ def plan_rows(issues: list[dict[str, Any]], projects: dict[str, str]) -> tuple[l
         confidence = "高" if basis == "继承" and suggestion.confidence == "高" else suggestion.confidence
         if basis == "继承" and not suggestion.primary:
             confidence = "低"
+        # A child that differs should not copy the parent's checkbox. "—" means leave it unset so it still inherits.
+        parent = parent_of(issue)
+        if basis == "继承" or parent is None or _cancelled(parent):
+            governance = "是" if suggestion.governance else "否"
+        else:
+            governance = "是" if own[iid].governance else "—"
         rows.append(
             {
                 "identifier": issue.get("identifier") or "",
                 "title": _flatten(issue.get("title")),
                 "primary": _label(suggestion.primary),
                 "involved": _involved_label(suggestion.involved),
-                "governance": "是" if suggestion.governance else "否",
+                "governance": governance,
                 "basis": basis,
                 "confidence": confidence,
                 "number": _number(issue.get("identifier") or ""),
@@ -256,7 +262,7 @@ def render_markdown(rows: list[dict[str, Any]], stats: dict[str, int]) -> str:
         "",
         "只列出需要亲手写值的 issue：根 issue、建议与父 issue 不同的子 issue、以及父 issue 被取消或不在列表里所以无法继承的子 issue。其余靠继承，表里不出现。",
         "",
-        "低置信度在前。建议主层为 — 表示没有关键词或项目信号，需要人工指定。同一标题打到多层时置信度为低：主层按 L5、L3、L4、L2、L1、不在地图的顺序取胜出项，其余放进涉及层。",
+        "低置信度在前。建议主层为 — 表示没有关键词或项目信号，需要人工指定。同一标题打到多层时置信度为低：主层按 L5、L3、L4、L2、L1、不在地图的顺序取胜出项，其余放进涉及层。治理线为 — 表示这格不要写，继续沿父 issue 继承。",
         "",
         "| identifier | 标题 | 建议主层 | 建议涉及层 | 治理线 | 依据 | 置信度 |",
         "|---|---|---|---|---|---|---|",

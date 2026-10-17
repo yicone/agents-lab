@@ -255,6 +255,17 @@ class SuggestTests(unittest.TestCase):
         self.assertEqual(by_ident["ACM-55"]["confidence"], "高")
         self.assertEqual(idents, ["ACM-55", "ACM-59"])
 
+    def test_differing_child_does_not_copy_parent_governance(self):
+        issues = [
+            {"id": "p", "identifier": "ACM-1", "title": "skills 治理 backlog", "status": "todo"},
+            {"id": "c", "identifier": "ACM-2", "title": "Agent Atlas 设计", "parent_issue_id": "p", "status": "todo"},
+        ]
+        _idents, rows = self.ids(issues)
+        by_ident = {r["identifier"]: r for r in rows}
+        self.assertEqual(by_ident["ACM-1"]["governance"], "是")
+        self.assertEqual(by_ident["ACM-2"]["governance"], "—")
+        self.assertEqual(by_ident["ACM-2"]["primary"], "L5 感知与决策")
+
     def test_refuses_property_writes(self):
         with self.assertRaises(SystemExit):
             _multica(["issue", "property", "set", "ACM-1", "主层", "L1"])
