@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only. Do not copy this into ~/Library/LaunchAgents and do not
+  launchctl load it until Agent Steward approves the install.
+  Paths match the mini that runs Multica Board from ~/Workspace/agents-lab.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>one.yic.multica-usage-collector</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>-m</string>
+    <string>multica_board</string>
+    <string>collect-usage</string>
+    <string>--all-workspaces</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/tmp</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/tr/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>PYTHONPATH</key>
+    <string>/Users/tr/Workspace/agents-lab/multica-board/backend</string>
+    <key>GODEBUG</key>
+    <string>tlsmlkem=0</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/tr/Library/Logs/multica-usage-collector.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/tr/Library/Logs/multica-usage-collector.log</string>
+</dict>
+</plist>

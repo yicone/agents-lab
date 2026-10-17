@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -139,6 +140,19 @@ def norm_runtime(r: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+_REASON_CODE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
+
+
+def _failure_reason(raw: Any) -> str | None:
+    """Keep short reason codes only. Free-text reasons can carry account or token text."""
+    if not isinstance(raw, str):
+        return None
+    text = raw.strip()
+    if _REASON_CODE.fullmatch(text):
+        return text
+    return None
+
+
 def norm_task(t: dict[str, Any]) -> dict[str, Any]:
     keep = [
         "id", "agent_id", "runtime_id", "issue_id", "kind", "status", "attempt", "max_attempts",
@@ -149,8 +163,10 @@ def norm_task(t: dict[str, Any]) -> dict[str, Any]:
     if err is not None and not isinstance(err, str):
         err = json.dumps(err, ensure_ascii=False)
     err = err or None
+    reason = _failure_reason(t.get("failure_reason"))
     row["error_summary"] = redact(err)
-    row["error_kind"] = classify_error(err) if (err or t.get("status") == "failed") else None
+    row["failure_reason"] = reason
+    row["error_kind"] = classify_error(err, reason) if (err or reason or t.get("status") == "failed") else None
     if row["error_kind"] is None and t.get("status") == "failed":
         row["error_kind"] = "unknown"
     return row

@@ -12,6 +12,7 @@ from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cur
 from .collector import COLLECTOR, WORKSPACE
 from .layers import ATLAS_SLUG, build_report, catalog_from_rows, empty_layer, resolve_issues
 from .store import Store
+from .usage import build_usage_response, load_snapshot, quota_alerts_for, snapshot_path_for
 
 CLOSED_CATEGORIES = {"done", "cancelled", "canceled"}
 QUEUED_TASK = ("queued", "dispatched", "waiting_local_directory")
@@ -143,6 +144,18 @@ def render_attention_text(body: dict[str, Any]) -> str:
                         for field in ("identifier", "status", "time", "agent_name", "title")
                     )
                 )
+    alerts = body.get("quota_alerts") or []
+    if alerts:
+        lines.append("")
+        lines.append("# quota_alerts")
+        lines.append(f"quota_alerts {len(alerts)}")
+        for it in alerts:
+            lines.append(
+                "\t".join(
+                    _cell(it.get(field))
+                    for field in ("identifier", "status", "time", "agent_name", "title")
+                )
+            )
     return _fit_text(lines)
 
 
@@ -683,7 +696,35 @@ class Views:
                 }
             )
         workspaces.sort(key=lambda w: ((w.get("name") or "").casefold(), w["id"]))
-        return {"generated_at": self.generated_at(), "window_h": RECENT_WINDOW_H, "workspaces": workspaces}
+        return {
+            "generated_at": self.generated_at(),
+            "window_h": RECENT_WINDOW_H,
+            "quota_alerts": self._quota_alerts(),
+            "workspaces": workspaces,
+        }
+
+    def _usage_snapshot(self) -> dict[str, Any] | None:
+        return load_snapshot(snapshot_path_for(self.store.path))
+
+    def _quota_alerts(self) -> list[dict[str, Any]]:
+        return quota_alerts_for(self._usage_snapshot(), _now())
+
+    def usage(self) -> dict[str, Any]:
+        """CodexBar windows from the snapshot, run counts from the task cache. The two are not added."""
+        return build_usage_response(
+            self._usage_snapshot(),
+            self.store.query(
+                "SELECT workspace_id, runtime_id, status, error_kind, failure_reason, "
+                "completed_at, started_at, created_at FROM tasks WHERE server=?",
+                (self.server,),
+            ),
+            self.store.query(
+                "SELECT workspace_id, id, name, custom_name, provider FROM runtimes WHERE server=?",
+                (self.server,),
+            ),
+            self.store.query("SELECT id, slug, name FROM workspaces WHERE server=?", (self.server,)),
+            now=_now(),
+        )
 
     def attention_text(self) -> str:
         return render_attention_text(self.attention())
