@@ -49,14 +49,21 @@ JSON 里对应 `blocked`、`signals`、`changes[]`（`root`、`kind`、`path`、
 | `conflict_markers` | 暂存正文同时出现行首 `<<<<<<<` 和行首 `>>>>>>>`，且旧文件没有行首 `<<<<<<<` | `skill_patch.py rebase` 冲突未解决。回去处理 `<skill>.conflicts/`，不要 `--force` |
 | `capability_drift` | SkilLock 判定能力面相对快照有未批准漂移 | `skills.lock` 和能力差异已经审过，并且接受这次漂移 |
 | `capability_gate_error` | 指定的 `skil-lock` 无法执行，或 `init` / `ci` 失败、超时 | 先修好门禁。失败即关闭，不激活 |
+| `capability_overreach` | 候选的 SkilLock `behavior` 超出 `SKILL.md` 的 `capabilities` 声明，或声明本身无效 | 收紧 behavior，或先改声明并完成复核。这条信号只来自已读到的 lock behavior，不是正文正则命中。未测到 behavior 时不会出现 |
 
 `Capability gate: fallback` 表示本机没有可用的 `skil-lock`（或显式 `--skil-lock fallback`）。这时用上表的风险信号做决定。缺二进制不等于通过。`Capability gate: skil-lock BLOCK` 与 `capability_drift` 相同，按能力漂移审。`Capability gate: error` 与 `capability_gate_error` 相同，不激活。
+
+`Capability gate:` 之后还有一行声明结论：
+
+- `Capability declaration: BLOCK`，下一行起缩进写出每个 skill 的越权或声明无效原因
+- `Capability declaration: within declaration`：已经读到 behavior，且没有越权
+- `Capability declaration: unmeasured`：没有可用的 lock behavior，升级报告不做声明对照。这时不会把正则命中记成 `capability_overreach`。库存审计在「没有声明」时另用既有的 `network_behavior` / `secret_access` 模式，见 [capability-declaration.md](capability-declaration.md)
 
 ## 决定
 
 三选一。决定激活时，用 `--change-summary` 把人工结论写入 `skills-governance/changelog/<skill>.jsonl` 的 `summary`（自动摘要留在 `auto_summary`），需要上游坐标时加 `--new-ref`。不激活或门禁阻断不会写这条记录。字段见 [upgrade-review.md](upgrade-review.md) 的「激活变更日志」。
 
-1. **不激活。** 信号对不上预期的发行说明，截断 diff 看不懂，或出现 `conflict_markers`。冲突标记要回到 `<skill>.conflicts/` 解开，不要 `--force`。丢掉暂存目录即可，live 树不用回滚。
+1. **不激活。** 信号对不上预期的发行说明，截断 diff 看不懂，或出现 `conflict_markers`、`capability_overreach`。冲突标记要回到 `<skill>.conflicts/` 解开，不要 `--force`。越权要先改声明或收紧 behavior。丢掉暂存目录即可，live 树不用回滚。
 2. **记录理由后激活。** 每条阻断信号都能对上预期变更，且没有 `conflict_markers`。`activate` 不加 `--force` 会再跑一次门禁，阻断时退出码 `2` 并且不改 live 目录。审查确认后才加 `--force`，并带上 `--change-summary`。
 3. **停。** 退出码是 `1`，或出现 `capability_gate_error`。先修命令或门禁，不要把错误当成通过。`activate` 若已替换生效目录、只是 changelog 写入失败，退出码同样是 `1`，stderr 含 `activation already applied; changelog write failed`。这时 live 树已经是新版本。
 

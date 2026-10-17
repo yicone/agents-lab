@@ -97,7 +97,7 @@
 - `2`：门禁阻断，必须先审查结果，不应直接激活或发布；
 - `1`：参数、快照或文件系统错误，不代表升级安全。
 
-重点审查 `unexpected_instructions`、`unexpected_files`、`scripts`、`network_behavior`、`secret_access`、`trigger_changes`、`adapter_paths` 和 `conflict_markers`。逐条判定和放行决定见 [upgrade-diff-review.md](upgrade-diff-review.md)。门禁是保守信号，不是自动判定恶意；即使退出码为 `0`，也不能替代对重要 Skill 的人工审查。
+重点审查 `unexpected_instructions`、`unexpected_files`、`scripts`、`network_behavior`、`secret_access`、`trigger_changes`、`adapter_paths`、`conflict_markers` 和 `capability_overreach`。逐条判定和放行决定见 [upgrade-diff-review.md](upgrade-diff-review.md)。门禁是保守信号，不是自动判定恶意；即使退出码为 `0`，也不能替代对重要 Skill 的人工审查。
 
 ### 能力漂移后端
 
@@ -110,6 +110,8 @@
 - `error: true`：指定的二进制无法执行，或 `init` / `ci` 失败、超时。失败关闭，信号为 `capability_gate_error`，不激活。
 
 `--skil-lock <path>` 指向一个具体二进制。默认从 `PATH` 查找 `skil-lock`。
+
+同一轮 `init` 读到的候选 `behavior` 还要对照 `SKILL.md` 的 `capabilities` 声明。超出声明时信号是 `capability_overreach`，同样阻断激活。`capability_gate.blocked` 仍只表示漂移或调用失败；声明结果在 `capability_gate.declaration`。没有 lock behavior 时，升级报告的声明对照是 `unmeasured`，不把正则命中记成 `capability_overreach`。库存审计在无法测量且 `SKILL.md` 没有 `capabilities` 时，会用上面的 `network_behavior` / `secret_access` 模式把该 skill 标为高危。字段、隔离和提升规则见 [capability-declaration.md](capability-declaration.md)。
 
 如果门禁阻断，先保存 JSON 结果并检查具体文件。确认变化符合预期后，再用 `--force` 激活；如果不符合预期，丢弃暂存目录，live 树无需回滚。若采用 SkilLock，应同时审查其 `skills.lock` 和能力差异结果，将它作为更细粒度的行为门禁。
 

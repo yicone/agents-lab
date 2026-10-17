@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import capability_contract  # noqa: E402
 import capability_gate  # noqa: E402
 import drift_report  # noqa: E402
 import doctor as adapter_doctor  # noqa: E402
@@ -355,8 +356,24 @@ def attach_capability_gate(
     binary, preset = capability_gate.resolve_skil_lock(skil_lock)
     baseline, candidate = skill_root_pair(snapshot_dir, manifest, current_roots)
     gate = capability_gate.evaluate(binary, preset, baseline, candidate)
+    drift_blocked = bool(gate.get("blocked"))
+    findings = capability_contract.declaration_findings(
+        candidate,
+        gate.get("behaviors") or {},
+        bool(gate.get("behavior_measured")),
+    )
+    gate["declaration"] = {
+        "measured": findings["measured"],
+        "violations": findings["violations"],
+    }
     report["capability_gate"] = gate
-    if gate.get("blocked"):
+    if findings["violations"]:
+        signals = list(report.get("signals") or [])
+        if "capability_overreach" not in signals:
+            signals.append("capability_overreach")
+        report["signals"] = sorted(signals)
+        report["blocked"] = True
+    if drift_blocked:
         signal = "capability_gate_error" if gate.get("error") else "capability_drift"
         signals = list(report.get("signals") or [])
         if signal not in signals:
@@ -386,6 +403,15 @@ def print_diff_report(report: dict, fmt: str) -> None:
     elif gate.get("backend") == "skil-lock":
         verdict = "BLOCK" if gate.get("blocked") else "ALLOW"
         print(f"Capability gate: skil-lock {verdict}")
+    declaration = gate.get("declaration") or {}
+    if declaration.get("violations"):
+        print("Capability declaration: BLOCK")
+        for item in declaration["violations"]:
+            print(f"  {item['skill']}: " + "; ".join(item["messages"]))
+    elif declaration.get("measured"):
+        print("Capability declaration: within declaration")
+    elif gate:
+        print("Capability declaration: unmeasured")
     if blocked:
         print("Signals: " + ", ".join(report["signals"]))
     for change in report["changes"]:
