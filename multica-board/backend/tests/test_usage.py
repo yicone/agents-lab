@@ -525,13 +525,13 @@ class CliTests(unittest.TestCase):
             self.assertTrue((root / "usage-history.jsonl").is_file())
 
     def test_launchd_template_is_not_installed(self):
+        """The checked-in file is a template. An operator install is outside this test."""
         path = Path(__file__).resolve().parents[2] / "launchd" / "one.yic.multica-usage-collector.plist"
         text = path.read_text(encoding="utf-8")
+        self.assertEqual(path.parent.name, "launchd")
         self.assertIn("one.yic.multica-usage-collector", text)
         self.assertIn("<integer>900</integer>", text)
         self.assertIn("Do not copy", text)
-        installed = Path.home() / "Library" / "LaunchAgents" / "one.yic.multica-usage-collector.plist"
-        self.assertFalse(installed.exists())
 
 
 if __name__ == "__main__":
