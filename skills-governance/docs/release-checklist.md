@@ -36,6 +36,7 @@ Applies to:
 - Source class and update authority are explicit for every reviewed Skill
 - Non-local upgrades have a baseline and diff review when technically possible
 - Local customization is recorded instead of silently overwriting upstream content
+- Run `python3 skills-governance/scripts/doctor.py` and confirm every repo, user-global, and target-scoped adapter has no broken symlink. If a recorded target is available, `doctor.py --repair` may restore it; rerun the check afterward.
 
 ## Current Release Notes
 
