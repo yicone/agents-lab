@@ -169,6 +169,16 @@ def is_external_path(value: str) -> bool:
     return value.startswith("~") or value.startswith("/") or Path(value).is_absolute()
 
 
+def is_machine_path(value: str) -> bool:
+    """Return whether a path belongs to a user's machine-local install.
+
+    Tilde paths are intentionally portable inventory coordinates. Their
+    existence and symlink targets depend on the runtime that is validating the
+    repository, so repository checks must not make them a prerequisite.
+    """
+    return value.startswith("~")
+
+
 def locate_path(value: str, repo_root: Path) -> Path:
     if is_external_path(value):
         path = Path(value).expanduser()
@@ -562,6 +572,7 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
     baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
     if baseline.get("kind") == "content_hash" and isinstance(skill.get("baseline_ref"), str):
         skill_md = None
+        has_machine_only_source = False
         if isinstance(canonical, str):
             candidate = repo_root / canonical / "SKILL.md"
             skill_md = candidate if candidate.is_file() else None
@@ -569,12 +580,16 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
             for visible in skill.get("visible_paths") or []:
                 if not isinstance(visible, str):
                     continue
+                if is_machine_path(visible):
+                    has_machine_only_source = True
+                    continue
                 candidate = locate_path(visible, repo_root) / "SKILL.md"
                 if candidate.is_file():
                     skill_md = candidate
                     break
         if skill_md is None:
-            errors.append({"path": f"{path}.baseline_ref", "message": "SKILL.md for content_hash was not found"})
+            if not has_machine_only_source:
+                errors.append({"path": f"{path}.baseline_ref", "message": "SKILL.md for content_hash was not found"})
         else:
             actual = skill_name_from_markdown(skill_md.read_text(encoding="utf-8"))
             if actual and actual != skill.get("name") and not isinstance(canonical, str):
@@ -605,6 +620,8 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
                     }
                 )
                 continue
+            if is_machine_path(visible):
+                continue
             if not locate_path(visible, repo_root).exists():
                 errors.append(
                     {
@@ -622,6 +639,8 @@ def check_skill_paths(skill: dict, path: str, repo_root: Path) -> list[dict]:
             if kind not in {"symlink", "directory"} or not isinstance(location, str):
                 continue
             if not is_relative_repo_path(location) and not is_external_path(location):
+                continue
+            if is_machine_path(location):
                 continue
             adapter_file = locate_path(location, repo_root)
             adapter_path = f"{path}.adapters[{adapter_index}]"
