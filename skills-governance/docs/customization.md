@@ -32,6 +32,8 @@
 
 禁止在没有记录的情况下原地修改第三方安装目录。任何落地到 runtime 生效路径的非本地 Skill 内容，都须先有对应记录。
 
+高危且 `review_time` 为空的 Skill 不新增状态名：要么把库存 `status` 设为 `quarantined`，要么选择 `policy_exclusion`。两种状态都不能被提升为全局可用。判定和 `--promote` 检查见 [capability-declaration.md](capability-declaration.md)。
+
 ## 基线与 delta 分开审查
 
 - 审查 delta = 审查 `customizations/<skill>/` 下的记录和载荷文件；

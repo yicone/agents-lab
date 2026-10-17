@@ -295,7 +295,25 @@ class SkillGuardTests(unittest.TestCase):
                     "args = sys.argv[1:]",
                     "if args and args[0] == 'init':",
                     "    out = args[args.index('-o') + 1]",
-                    "    Path(out).write_text('skills.lock\\n', encoding='utf-8')",
+                    "    Path(out).write_text("
+                    + repr(
+                        "\n".join(
+                            [
+                                'schema_version: "0.1"',
+                                "skills:",
+                                "  demo:",
+                                "    behavior:",
+                                "      shell_commands: []",
+                                "      network_urls: []",
+                                "      file_reads: []",
+                                "      file_writes: []",
+                                "      allowed_tools: []",
+                                "      bundled_scripts: []",
+                                "",
+                            ]
+                        )
+                    )
+                    + ", encoding='utf-8')",
                     "    sys.exit(0)",
                     "if args and args[0] == 'ci':",
                     "    if mode == 'error':",
@@ -451,6 +469,7 @@ class SkillGuardTests(unittest.TestCase):
             self.assertIn("capability_gate_error", payload["signals"])
             self.assertTrue(payload["capability_gate"]["error"])
             self.assertTrue(payload["capability_gate"]["blocked"])
+
 
     def _stage_candidate(self, base: Path, live: Path, candidate: Path) -> Path:
         snapshot = base / "snapshot"
@@ -654,3 +673,185 @@ class SkillGuardTests(unittest.TestCase):
             )
             self.assertEqual(refused.returncode, 2, refused.stdout)
             self.assertFalse((changelog / "demo.jsonl").exists())
+
+    def write_behavior_skil_lock(self, directory: Path, lock_text: str) -> Path:
+        binary = directory / "skil-lock"
+        binary.write_text(
+            "\n".join(
+                [
+                    "#!/usr/bin/env python3",
+                    "import sys",
+                    "from pathlib import Path",
+                    "lock = " + repr(lock_text),
+                    "args = sys.argv[1:]",
+                    "if args and args[0] == 'init':",
+                    "    out = args[args.index('-o') + 1]",
+                    "    Path(out).write_text(lock, encoding='utf-8')",
+                    "    sys.exit(0)",
+                    "if args and args[0] == 'ci':",
+                    "    print('PASS: no capability deltas')",
+                    "    sys.exit(0)",
+                    "sys.exit(2)",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        binary.chmod(0o755)
+        return binary
+
+    def test_declaration_overreach_blocks_activation_and_changelog(self):
+        self.assert_network_url_overreach_blocks("        - https://evil.example/hook")
+
+    def test_same_indent_network_url_list_still_blocks_overreach(self):
+        self.assert_network_url_overreach_blocks("      - https://evil.example/hook")
+
+    def test_quoted_keys_and_urls_still_block_overreach(self):
+        self.assert_lock_gate(
+            "\n".join(
+                [
+                    'schema_version: "0.1"',
+                    "skills:",
+                    '  "demo":',
+                    '    "behavior":',
+                    '      "network_urls":',
+                    '        - "https://evil.example/hook"',
+                    "      shell_commands: []",
+                    "",
+                ]
+            ),
+            "overreach",
+        )
+
+    def test_inline_behavior_map_still_blocks_overreach(self):
+        self.assert_lock_gate(
+            "\n".join(
+                [
+                    'schema_version: "0.1"',
+                    "skills:",
+                    "  demo:",
+                    '    behavior: {"network_urls": ["https://evil.example/hook"], "shell_commands": []}',
+                    "",
+                ]
+            ),
+            "overreach",
+        )
+
+    def test_unreadable_behavior_lock_blocks_unlike_missing_tool(self):
+        self.assert_lock_gate(
+            "\n".join(
+                [
+                    'schema_version: "0.1"',
+                    "skills:",
+                    "  demo:",
+                    "    behavior:",
+                    "      network_urls: https://evil.example/hook",
+                    "",
+                ]
+            ),
+            "parse_error",
+        )
+
+    def assert_network_url_overreach_blocks(self, url_item: str):
+        lock = "\n".join(
+            [
+                'schema_version: "0.1"',
+                "skills:",
+                "  demo:",
+                "    behavior:",
+                "      shell_commands: []",
+                "      network_urls:",
+                url_item,
+                "      file_reads: []",
+                "      file_writes: []",
+                "      allowed_tools: []",
+                "      bundled_scripts: []",
+                "",
+            ]
+        )
+        self.assert_lock_gate(lock, "overreach")
+
+    def assert_lock_gate(self, lock: str, kind: str):
+        body = "\n".join(
+            [
+                "---",
+                "name: demo",
+                "capabilities:",
+                "  network: false",
+                "  secrets: false",
+                "  filesystem: none",
+                "---",
+                "Stable.",
+                "",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            binary = self.write_behavior_skil_lock(base, lock)
+            live = base / "live"
+            candidate = base / "candidate"
+            changelog = base / "changelog"
+            live.mkdir()
+            candidate.mkdir()
+            (live / "SKILL.md").write_text(body, encoding="utf-8")
+            (candidate / "SKILL.md").write_text(body, encoding="utf-8")
+            snapshot = base / "snapshot"
+            made = self.run_guard(
+                "snapshot",
+                "--skill-root",
+                str(live),
+                "--source-class",
+                "local_custom",
+                "--output",
+                str(snapshot),
+            )
+            self.assertEqual(made.returncode, 0, made.stderr)
+            report = self.run_guard(
+                "diff",
+                "--snapshot",
+                str(snapshot),
+                "--skil-lock",
+                str(binary),
+                "--gate",
+                "--format",
+                "json",
+            )
+            self.assertEqual(report.returncode, 2, report.stdout)
+            payload = json.loads(report.stdout)
+            if kind == "overreach":
+                self.assertEqual(payload["signals"], ["capability_overreach"])
+                self.assertFalse(payload["capability_gate"]["blocked"])
+                self.assertTrue(payload["capability_gate"]["behavior_measured"])
+                messages = payload["capability_gate"]["declaration"]["violations"][0]["messages"]
+                self.assertTrue(any("network_urls" in message for message in messages))
+            else:
+                self.assertEqual(payload["signals"], ["capability_gate_error"])
+                self.assertTrue(payload["capability_gate"]["blocked"])
+                self.assertTrue(payload["capability_gate"]["error"])
+                self.assertFalse(payload["capability_gate"]["behavior_measured"])
+                self.assertNotEqual(payload["capability_gate"]["backend"], "fallback")
+            staging = base / "staging"
+            staged = self.run_guard(
+                "stage",
+                "--skill-root",
+                str(candidate),
+                "--live-root",
+                str(live),
+                "--snapshot",
+                str(snapshot),
+                "--output",
+                str(staging),
+            )
+            self.assertEqual(staged.returncode, 0, staged.stderr)
+            refused = self.run_guard(
+                "activate",
+                "--staging",
+                str(staging),
+                "--skil-lock",
+                str(binary),
+                "--changelog-dir",
+                str(changelog),
+            )
+            self.assertEqual(refused.returncode, 2, refused.stdout + refused.stderr)
+            self.assertIn("Stable.", (live / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertFalse(changelog.exists())

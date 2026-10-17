@@ -4,6 +4,10 @@ description: Use when Logseq notes contain API tokens, secrets, passwords, recov
 metadata:
   owner: agents-lab
   scope: repo
+capabilities:
+  network: true
+  secrets: true
+  filesystem: write
 ---
 
 # Vaultwarden Secret Migration

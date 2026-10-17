@@ -150,6 +150,14 @@ If promotion is not immediate, identify the smallest change set needed:
 
 If the result is `promote_now`, the actual install/move step should happen only after the above review is complete.
 
+Before any global install, run:
+
+```bash
+python3 skills-governance/scripts/capability_contract.py --promote <skill_name> --check
+```
+
+Exit 2 means do not promote. A high-risk skill (`capabilities.network`, `capabilities.secrets`, or `capabilities.filesystem: write`, or the same surface in the SkilLock behavior map) with no `review_time` must stay `quarantined` or `policy_exclusion`. Those two existing states are not globally installable. The declaration spec is `skills-governance/docs/capability-declaration.md`.
+
 Promotion should not happen just because:
 
 - the skill was useful twice
@@ -180,6 +188,8 @@ Hard stop conditions:
 - the skill is actually third-party
 - the current name collides with an existing important global skill
 - promotion would create unresolved ambiguity across projects
+- `capability_contract.py --promote <skill_name> --check` exits 2
+- the skill is `quarantined` or `policy_exclusion`
 
 ## Output Template
 

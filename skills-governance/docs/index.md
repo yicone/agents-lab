@@ -18,6 +18,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
   - run `skills-governance/scripts/drift_report.py` for the inventory drift report (`review_time`, `baseline_ref`, `current_version`)
   - run `skills-governance/scripts/conflict_report.py` for name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity
   - run `skills-governance/scripts/token_footprint.py` for eager-token budget warnings; referenced docs are quantified separately and report-only
+  - run `skills-governance/scripts/capability_contract.py` for SKILL.md capability declarations checked against the SkilLock behavior map, plus quarantine / policy_exclusion promotion blocks; see [capability-declaration.md](capability-declaration.md)
 - `worktree-branch-governance-audit`
   - for read-only reconciliation of branch and worktree guidance against project-specific evidence, including global-default fit, upstream topology, deployment coupling, and rule placement
 

@@ -173,6 +173,16 @@ When a baseline or upstream version is available, also compare the current copy 
 
 If no baseline can be captured, report `unverified` rather than implying that the Skill is current.
 
+Also run the capability declaration check. It compares `capabilities` in `SKILL.md` frontmatter with the SkilLock behavior map. It does not add a second scanner.
+
+```bash
+python3 skills-governance/scripts/capability_contract.py --format text
+```
+
+Add `--skil-lock` when the `skil-lock` binary is available so overreach is measured. Without it, behavior stays `unmeasured`. `--check` exits 2 when a declaration is invalid, measured behavior exceeds the declaration, or a high-risk skill has no `review_time` and is neither `quarantined` nor `policy_exclusion`.
+
+Do not promote a skill that fails `--promote <name> --check`. Quarantine and policy exclusion are the existing isolation states; do not invent another one. See `skills-governance/docs/capability-declaration.md`.
+
 ### 5. Estimate Token Footprint
 
 Run the read-only report before judging context cost. `focus: footprint` still runs this step; a `full` audit runs it too.
@@ -278,6 +288,7 @@ Hard stop conditions:
 
 - the only way to answer is to mutate active skill layouts
 - audit scope is too vague to distinguish source from adapter layers
+- a high-risk skill would be promoted while `capability_contract.py --promote <name> --check` exits 2
 
 ## Output Template
 
@@ -318,6 +329,12 @@ Token Footprint:
 - Estimator: bytes_div_4
 - <skill> -> eager_tokens=<...> referenced_tokens=<...> package_tokens=<...> warnings=<none / token_over_budget>
 - suggestion: <references_subdirectory> — <move supporting text into references/>
+Capability Contract:
+- Command: `python3 skills-governance/scripts/capability_contract.py --format text`
+- Observation: <skil-lock / unmeasured>
+- <skill> -> high_risk=<true / false> isolation=<ok / required> promotion=<allowed / blocked>
+- signals: <network_behavior / secret_access when unmeasured and capabilities is absent>
+- violation: <SkilLock behavior field that exceeds capabilities.network / capabilities.secrets / capabilities.filesystem>
 Routing Recommendations:
 - <skill or finding> -> <skills-intake-local / skills-cli-reconcile / skills-promote-global / runtime/plugin review / manual clarification only>
 State Update Suggestions:
@@ -330,6 +347,7 @@ Follow-up:
 
 - See `examples/repo-scan-with-conflicts.md` for a repository-scope audit that surfaces responsibility overlap and naming-taxonomy questions without mutating any skill.
 - See `examples/token-footprint.md` for a context-budget audit that reports static tokens and downgrade suggestions without mutating any skill.
+- See `examples/capability-contract.md` for a declaration check that blocks promotion of an unreviewed high-risk skill.
 
 ## Success Criteria
 
@@ -339,4 +357,5 @@ This skill has succeeded when:
 - ownership, conflict, and naming problems are separated clearly
 - follow-up work is routed to the right governance workflow
 - over-budget skills are quantified and given a downgrade suggestion
+- high-risk skills without review are held at quarantine or policy exclusion and are not promoted
 - no accidental mutation happens during the audit
