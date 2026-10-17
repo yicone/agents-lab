@@ -9,6 +9,7 @@ import {
   recentMotion,
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
+import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
 import { applyPatch, formatHash, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
@@ -485,10 +486,42 @@ function focusSkill(name, opener) {
 
 // ---------- chrome (header) ----------
 
+function workspaceChip(ws) {
+  const active = state.route.ws === ws.slug;
+  const st = wsState(ws);
+  let detail = "";
+  if (st === "never") detail = ws.error ? `未加载 · ${errKind(ws.error.kind)}` : "未加载";
+  else if (st === "error") detail = `${errKind(ws.error?.kind) || "失败"} · ${ago(ws.last_success_at)}`;
+  else if (st === "stale") detail = `过期 · ${ago(ws.last_success_at)}`;
+  const title = [
+    `${ws.name}（${ws.slug}）`,
+    `最近成功：${absTime(ws.last_success_at) || "从未"}`,
+    ws.error ? `错误：${ws.error.message}` : "",
+    ws.counts ? `打开 issue ${ws.counts.open_issues} · agent ${ws.counts.agents} · runtime ${ws.counts.runtimes}` : "",
+    active ? "点击取消筛选" : "点击只看此 workspace",
+  ].filter(Boolean).join("\n");
+  return h(
+    "button",
+    {
+      type: "button",
+      class: `ws-chip state-${st}${active ? " active" : ""}`,
+      style: { "--ws-hue": hueOf(ws.slug) },
+      title,
+      "aria-pressed": active ? "true" : "false",
+      onclick: () => setRoute({ ws: active ? "" : ws.slug }),
+    },
+    h("span", { class: "dot" }),
+    ws.name,
+    detail ? h("span", { class: "chip-detail" }, detail) : null,
+  );
+}
+
 function renderChrome() {
   document.querySelectorAll(".tab").forEach((t) => {
-    t.classList.toggle("active", t.dataset.view === state.route.view);
-    t.setAttribute("aria-current", t.dataset.view === state.route.view ? "page" : "false");
+    const active = t.dataset.view === state.route.view;
+    t.classList.toggle("active", active);
+    t.setAttribute("aria-current", active ? "page" : "false");
+    t.href = formatHash(applyPatch(state.route, { view: t.dataset.view }));
   });
   const badge = document.getElementById("decide-badge");
   if (badge) {
@@ -528,45 +561,31 @@ function renderChrome() {
   }
 
   const healthEl = document.getElementById("health");
-  if (state.route.view === "skills") {
+  const chrome = filterChrome(state.route.view);
+  healthEl.dataset.filterChrome = chrome;
+  if (chrome === "skills") {
     healthEl.hidden = false;
-    healthEl.replaceChildren(...skillSources());
-  } else if (state.route.view !== "issues") {
+    healthEl.setAttribute("aria-label", "Skills 清单范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("skills")), ...skillSources());
+  } else if (chrome === "decide") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "待你决定范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("decide")));
+  } else if (chrome === "shared") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "Workspace 筛选");
+    const slug = state.route.ws;
+    healthEl.replaceChildren(
+      ...workspaceFilterBar(h, {
+        workspaces: state.meta?.workspaces ?? [],
+        activeSlug: slug,
+        chip: workspaceChip,
+        onClear: () => setRoute({ ws: "" }),
+      }),
+    );
+  } else {
     healthEl.hidden = true;
     healthEl.replaceChildren();
-  } else {
-    healthEl.hidden = false;
-  healthEl.replaceChildren(
-    ...(state.meta?.workspaces ?? []).map((ws) => {
-      const active = state.route.ws === ws.slug;
-      const st = wsState(ws);
-      let detail = "";
-      if (st === "never") detail = ws.error ? `未加载 · ${errKind(ws.error.kind)}` : "未加载";
-      else if (st === "error") detail = `${errKind(ws.error?.kind) || "失败"} · ${ago(ws.last_success_at)}`;
-      else if (st === "stale") detail = `过期 · ${ago(ws.last_success_at)}`;
-      const title = [
-        `${ws.name}（${ws.slug}）`,
-        `最近成功：${absTime(ws.last_success_at) || "从未"}`,
-        ws.error ? `错误：${ws.error.message}` : "",
-        ws.counts ? `打开 issue ${ws.counts.open_issues} · agent ${ws.counts.agents} · runtime ${ws.counts.runtimes}` : "",
-        active ? "点击取消筛选" : "点击只看此 workspace",
-      ].filter(Boolean).join("\n");
-      return h(
-        "button",
-        {
-          type: "button",
-          class: `ws-chip state-${st}${active ? " active" : ""}`,
-          style: { "--ws-hue": hueOf(ws.slug) },
-          title,
-          "aria-pressed": active ? "true" : "false",
-          onclick: () => setRoute({ ws: active ? "" : ws.slug }),
-        },
-        h("span", { class: "dot" }),
-        ws.name,
-        detail ? h("span", { class: "chip-detail" }, detail) : null,
-      );
-    }),
-  );
   }
 }
 
@@ -1209,8 +1228,8 @@ function renderDecide() {
         "p",
         { class: "decide-sub" },
         model.acm
-          ? `${model.acm.name} · 待验收和受阻，等待最久的排在最前`
-          : "快照里没有 ACM Lab。这一页只列出该 workspace 的待验收和受阻。",
+          ? `范围：${model.acm.name}。待验收和受阻，等待最久的排在最前`
+          : "范围：ACM Lab。快照里没有这个 workspace，所以这一页是空的。",
       ),
       h(
         "div",
