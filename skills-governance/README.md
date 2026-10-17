@@ -47,4 +47,4 @@ Precedence and Stop-and-Ask rules: [docs/routing-precedence.md](docs/routing-pre
 
 The current package is a governance control plane, not a replacement for runtime package managers or Skills CLI. It records and reviews changes before they become active where the underlying tool allows that.
 
-See [docs/upgrade-review.md](docs/upgrade-review.md) for the P0 command workflow and community implementation comparison.
+See [docs/upgrade-review.md](docs/upgrade-review.md) for the P0 command workflow and community implementation comparison. See [docs/upgrade-diff-review.md](docs/upgrade-diff-review.md) for how to read a diff report and decide whether to activate.
