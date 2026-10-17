@@ -4,6 +4,7 @@ Notes that do not belong in a new inventory field.
 
 ## 2026-10-17
 
+- ACM-131 adds the non-local skill customization framework: delta records at `customizations/<skill>/customization.json` (`skills-customization/v1`), overlay payloads under `delta/`, `scripts/customization_check.py` with `check` (cross-checks records against `customization_mode`, `baseline_ref`, hashes, path safety) and `apply` (replays overlay ops onto an upstream candidate, exit 2 on conflicts for later three-way merge by ACM-156), `config/skills-customization.schema.json`, and the mode-selection and upgrade workflow in `docs/customization.md`. No inventory rows changed; all current `customization_mode` values stay `none`.
 - ACM-136 records routing precedence and Stop-and-Ask in `skills-governance/docs/routing-precedence.md`. Specific context wins: target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. The conflict report still does not select which skill runs. `SCOPE_RANK` stays a shadowing breadth rank. Same-name copies with different bytes are not settled by layer rank unless a recorded adapter or customization names the copy. The ego-browser routing note now points at that page and only covers shared sessions, Profiles, and Spaces. Open `conflict_status` values are unchanged.
 
 ## 2026-10-16

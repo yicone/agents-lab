@@ -72,6 +72,7 @@ Always report:
 - `source_classification`
 - `update_authority`
 - `customization_options`
+  - mode details and the selection order live in `../docs/customization.md`; this skill only records the choice
 - `baseline_and_diff_requirement`
 - `recommended_path`
 - `why_not_the_other_paths`

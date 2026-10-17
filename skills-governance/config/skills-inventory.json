@@ -1950,7 +1950,7 @@
       ],
       "status": "active",
       "review_time": null,
-      "baseline_ref": "sha256:18b05db0bef5289f16ad98d37b5dfbfa4cb043940e878eb9117f2987c8945a0d",
+      "baseline_ref": "sha256:04154e45381111dbe83c27a397d9e676829c75f9487179f988d98a9aff228e35",
       "current_version": null,
       "scope": "repo",
       "install_shape": "symlink_adapters",

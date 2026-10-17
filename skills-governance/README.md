@@ -15,8 +15,9 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 
 - `skills/`: governance-specific agent entrypoints
 - `docs/`: durable governance rules, operating guides, and state-note conventions
-- `config/`: source classes and the machine-readable skills inventory (`skills-inventory.json`)
-- `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, plus snapshot, stage, diff, gate, activate, and rollback commands
+- `config/`: source classes, the machine-readable skills inventory (`skills-inventory.json`), and the customization record schema
+- `customizations/`: records of local deltas on non-local Skills (`<skill>/customization.json` plus overlay payloads under `<skill>/delta/`); upstream baselines are never stored here
+- `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, customization record check and overlay apply, plus snapshot, stage, diff, gate, activate, and rollback commands
 - `tests/`: focused tests for the safety commands. Representative conflict cases live in `tests/fixtures/conflicts/`.
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
 
@@ -29,7 +30,7 @@ Ordinary Skills remain under the repository's top-level `skills/<skill-name>/`. 
 3. Capture a baseline, then place the candidate in staging instead of the live runtime path.
 4. Review the snapshot-vs-staging diff and security signals; activate only after the gate passes. The gate calls SkilLock for capability drift when `skil-lock` is on PATH, and records a risk-signal fallback when it is not.
 5. Check conflicts with `python3 skills-governance/scripts/conflict_report.py --format text`. The report separates name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity. It does not select which skill runs. Which skill runs is [docs/routing-precedence.md](docs/routing-precedence.md): target adapter, then project, then canonical local, then runtime plugin, then runtime builtin, then global. Same-layer overlap and the stop conditions on that page are Stop-and-Ask.
-6. Decide whether to update, customize, fork, quarantine, or keep the current version.
+6. Decide whether to update, customize, fork, quarantine, or keep the current version. Customizing a non-local Skill means choosing one of the five recorded modes and storing a delta record; see [docs/customization.md](docs/customization.md).
 7. Update `config/skills-inventory.json` and the Multica backlog (ACM-122). Project the Logseq status page from that file when a human view is needed. Do not mistake runtime visibility for canonical ownership.
 
 ## Routing

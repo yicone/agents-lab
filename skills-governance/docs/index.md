@@ -6,6 +6,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 
 - `skills-lifecycle-manager`
   - for user-facing skill discovery, build-vs-install decisions, and lightweight preinstall screening
+  - for recording a customization on a non-local Skill (wrapper / overlay / fork / policy_exclusion / local_replacement), follow [customization.md](customization.md) and `customization_check.py`
 - `skills-cli-reconcile`
   - for third-party skills that should be brought back under `npx skills` management
 - `skills-intake-local`
@@ -28,6 +29,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 - If the first question is “what is going on in this skill set?” -> use `skills-governance-audit`
 - If more than one visible skill could run -> apply [routing-precedence.md](routing-precedence.md). Do not pick from load order or from `SCOPE_RANK`
 - If a non-local Skill is about to be upgraded -> snapshot the live tree, stage the candidate, review the diff/gate, then activate; do not let the runtime load the new version first
+- If a non-local Skill needs a local change -> pick a mode and record a delta per [customization.md](customization.md); never edit a third-party install in place without a record
 - If the question is whether branch or worktree rules fit a repository, conflict across AGENTS.md/skills/docs, or belong at another scope -> use `worktree-branch-governance-audit`
 
 ## Related Principles
