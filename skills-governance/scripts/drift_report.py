@@ -51,7 +51,8 @@ UNVERIFIED = frozenset(
         "provider_version_unreadable",
     }
 )
-STATUSES = ("missing", "modified", "stale", "unverified", "aligned")
+STATUSES = ("missing", "version_changed", "modified", "stale", "unverified", "aligned")
+CACHE_HASH_SEGMENT = re.compile(r"^[0-9a-f]{8,64}$")
 DEFAULT_CHANGELOG_DIR = Path(__file__).resolve().parents[1] / "changelog"
 UNRECORDED_CHECK = frozenset(
     {"content_hash_mismatch", "lock_hash_mismatch", "version_mismatch"}
@@ -142,7 +143,56 @@ def read_text(path: Path) -> str | None:
     return None
 
 
+def version_sort_key(value: str) -> tuple:
+    parts = []
+    for chunk in re.split(r"[^0-9A-Za-z]+", value):
+        if not chunk:
+            continue
+        if chunk.isdigit():
+            parts.append((0, int(chunk)))
+        else:
+            parts.append((1, chunk))
+    return tuple(parts)
+
+
+def sibling_plugin_version(version_file: Path, recorded: object) -> str | None:
+    """Recorded Codex-style version directory is gone, and a sibling has a new version.
+
+    Layout: ``<plugin>/<version>/.codex-plugin/plugin.json``. A content-hash
+    directory is not a version sibling. The recorded version itself is skipped.
+    """
+    if version_file.name != "plugin.json" or version_file.parent.name != ".codex-plugin":
+        return None
+    version_dir = version_file.parent.parent
+    plugin_dir = version_dir.parent
+    if version_dir.exists() or not plugin_dir.is_dir():
+        return None
+    found: list[tuple[tuple, str]] = []
+    try:
+        children = list(plugin_dir.iterdir())
+    except OSError:
+        return None
+    for child in children:
+        if not child.is_dir() or child.name.startswith("."):
+            continue
+        manifest = child / ".codex-plugin" / "plugin.json"
+        if not manifest.is_file():
+            continue
+        observed = read_provider_version(manifest)
+        if observed is None and not CACHE_HASH_SEGMENT.fullmatch(child.name):
+            observed = child.name
+        if not observed or observed == recorded:
+            continue
+        found.append((version_sort_key(observed), observed))
+    if not found:
+        return None
+    found.sort()
+    return found[-1][1]
+
+
 def reconciliation_status(findings: set[str]) -> str:
+    if "version_changed" in findings:
+        return "version_changed"
     if findings & HARD_MISSING:
         return "missing"
     if findings & MODIFIED:
@@ -289,16 +339,26 @@ def consider_provider(
     baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
     subject = baseline.get("subject")
     primary = first_visible(skill, repo_root)
-    if primary is not None and not path_present(primary):
-        findings.add("source_missing")
     if not isinstance(subject, str) or not subject.strip():
+        if primary is not None and not path_present(primary):
+            findings.add("source_missing")
         findings.add("baseline_absent")
         return None, None
     version_file = inventory.locate_path(subject, repo_root)
     if not version_file.is_file():
+        sibling = sibling_plugin_version(version_file, skill.get("current_version"))
+        if sibling:
+            findings.add("version_changed")
+            details.append(
+                f"recorded version directory missing; sibling version {sibling} "
+                f"(recorded {skill.get('current_version')})"
+            )
+            return sibling, skill.get("baseline_ref")
         findings.add("source_missing")
         details.append(f"provider version file missing: {subject}")
         return None, None
+    if primary is not None and not path_present(primary):
+        findings.add("source_missing")
     observed = read_provider_version(version_file)
     if observed is None:
         findings.add("provider_version_unreadable")

@@ -1,0 +1,5108 @@
+{
+  "ok": true,
+  "error": null,
+  "generated_at": "2026-10-16T08:28:00Z",
+  "items": [
+    {
+      "name": "codex-plugin-nowledge-mem",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "codex/nowledge-mem@openai-bundled",
+      "current_version": "0.1.40",
+      "observed_version": "0.1.41",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "version_changed",
+      "status_label": "版本已变",
+      "findings": [
+        {
+          "code": "version_changed",
+          "label": "版本目录已换成同级新版本"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": null,
+        "codex": "missing",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.codex/plugins/cache/openai-bundled/codex-plugin-nowledge-mem/0.1.40/skills",
+          "present": false,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "codex"
+          ],
+          "mark": "missing"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": "version_changed",
+      "tags": [],
+      "baseline_debt": false,
+      "reason": "0.1.40 → 0.1.41",
+      "quiet": false,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "codex-plugin-record-and-replay",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "codex/record-and-replay@openai-bundled",
+      "current_version": "1.0.1001425",
+      "observed_version": "1.0.1001501",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "version_changed",
+      "status_label": "版本已变",
+      "findings": [
+        {
+          "code": "version_changed",
+          "label": "版本目录已换成同级新版本"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": null,
+        "codex": "missing",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.codex/plugins/cache/openai-bundled/codex-plugin-record-and-replay/1.0.1001425/skills",
+          "present": false,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "codex"
+          ],
+          "mark": "missing"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": "version_changed",
+      "tags": [],
+      "baseline_debt": false,
+      "reason": "1.0.1001425 → 1.0.1001501",
+      "quiet": false,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "codex-plugin-visualize",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "codex/visualize@openai-bundled",
+      "current_version": "1.0.49",
+      "observed_version": "1.0.50",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "version_changed",
+      "status_label": "版本已变",
+      "findings": [
+        {
+          "code": "version_changed",
+          "label": "版本目录已换成同级新版本"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": null,
+        "codex": "missing",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.codex/plugins/cache/openai-bundled/codex-plugin-visualize/1.0.49/skills",
+          "present": false,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "codex"
+          ],
+          "mark": "missing"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": "version_changed",
+      "tags": [],
+      "baseline_debt": false,
+      "reason": "1.0.49 → 1.0.50",
+      "quiet": false,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "colgrep-search",
+      "origin": "unrecorded",
+      "source_class": "unrecorded",
+      "source_label": "未登记",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "未登记",
+      "channel_detail": "~/.agents/skills/colgrep-search",
+      "current_version": null,
+      "observed_version": null,
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "missing",
+      "status_label": "未登记",
+      "findings": [
+        {
+          "code": "unrecorded",
+          "label": "清单里没有这条安装"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": "~/.agents/skills/colgrep-search",
+      "capability_gate": null,
+      "bucket": "unrecorded",
+      "tags": [],
+      "baseline_debt": false,
+      "reason": "~/.agents/skills/colgrep-search",
+      "quiet": false,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-01",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-1",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-02",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-2",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-03",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-3",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-04",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-4",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-05",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-5",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-06",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-6",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-07",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-7",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-08",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-8",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-09",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-9",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-10",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-10",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-11",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-11",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-12",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-12",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-13",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-13",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-14",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-14",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-15",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-15",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-16",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-16",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-17",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-17",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-18",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-18",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-19",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-19",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-20",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-20",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-21",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-21",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-22",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-22",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-23",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-23",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-24",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-24",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-25",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-25",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-26",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-26",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-27",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-27",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-28",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-28",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-29",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-29",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-30",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-30",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-31",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-31",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-32",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-32",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-33",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-33",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-34",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-34",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-35",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-35",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-36",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-36",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-37",
+      "origin": "inventory",
+      "source_class": "skills_cli_managed",
+      "source_label": "Skills CLI",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "Skills CLI",
+      "channel_detail": "github:example/baseline-37",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-38",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-38",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-39",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-39",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-40",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-40",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-41",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-41",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-42",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-42",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-43",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-43",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-44",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-44",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-45",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-45",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-46",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-46",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-47",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-47",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-48",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-48",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-49",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-49",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-50",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-50",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-51",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-51",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-52",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-52",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-53",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-53",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-54",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-54",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-55",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-55",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-56",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/baseline-56",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-57",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-57",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-58",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-58",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-59",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-59",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-60",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-60",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-61",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-61",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-62",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-62",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-63",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-63",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-64",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-64",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-65",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-65",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-66",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-66",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-67",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-67",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-68",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-68",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-69",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "scope": "plugin-managed",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时插件",
+      "channel_detail": "github:example/baseline-69",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-70",
+      "origin": "inventory",
+      "source_class": "runtime_builtin",
+      "source_label": "运行时内置",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时内置",
+      "channel_detail": "github:example/baseline-70",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-71",
+      "origin": "inventory",
+      "source_class": "runtime_builtin",
+      "source_label": "运行时内置",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时内置",
+      "channel_detail": "github:example/baseline-71",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-72",
+      "origin": "inventory",
+      "source_class": "runtime_builtin",
+      "source_label": "运行时内置",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时内置",
+      "channel_detail": "github:example/baseline-72",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-73",
+      "origin": "inventory",
+      "source_class": "runtime_builtin",
+      "source_label": "运行时内置",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "运行时内置",
+      "channel_detail": "github:example/baseline-73",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-74",
+      "origin": "inventory",
+      "source_class": "third_party_unmanaged",
+      "source_label": "第三方未托管",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "第三方未托管",
+      "channel_detail": "github:example/baseline-74",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-75",
+      "origin": "inventory",
+      "source_class": "third_party_unmanaged",
+      "source_label": "第三方未托管",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "第三方未托管",
+      "channel_detail": "github:example/baseline-75",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    },
+    {
+      "name": "baseline-76",
+      "origin": "inventory",
+      "source_class": "third_party_unmanaged",
+      "source_label": "第三方未托管",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "第三方未托管",
+      "channel_detail": "github:example/baseline-76",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "findings": [
+        {
+          "code": "review_time_missing",
+          "label": "还没有复核时间"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": "shared",
+        "codex": "shared",
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": null
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": null,
+      "tags": [],
+      "baseline_debt": true,
+      "reason": "",
+      "quiet": true,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    }
+  ],
+  "summary": [
+    {
+      "id": "all",
+      "label": "全部",
+      "count": 80,
+      "statuses": {
+        "version_changed": 3,
+        "missing": 1,
+        "stale": 76
+      }
+    },
+    {
+      "id": "skills_cli_managed",
+      "label": "Skills CLI",
+      "count": 37,
+      "statuses": {
+        "stale": 37
+      }
+    },
+    {
+      "id": "local_custom",
+      "label": "自建",
+      "count": 19,
+      "statuses": {
+        "stale": 19
+      }
+    },
+    {
+      "id": "runtime_plugin",
+      "label": "运行时插件",
+      "count": 16,
+      "statuses": {
+        "version_changed": 3,
+        "stale": 13
+      }
+    },
+    {
+      "id": "runtime_builtin",
+      "label": "运行时内置",
+      "count": 4,
+      "statuses": {
+        "stale": 4
+      }
+    },
+    {
+      "id": "third_party_unmanaged",
+      "label": "第三方未托管",
+      "count": 3,
+      "statuses": {
+        "stale": 3
+      }
+    },
+    {
+      "id": "unrecorded",
+      "label": "未登记",
+      "count": 1,
+      "statuses": {
+        "missing": 1
+      }
+    }
+  ],
+  "tools": [
+    {
+      "id": "cursor",
+      "label": "Cursor"
+    },
+    {
+      "id": "codex",
+      "label": "Codex"
+    },
+    {
+      "id": "claude",
+      "label": "Claude"
+    },
+    {
+      "id": "hermes",
+      "label": "Hermes"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini"
+    },
+    {
+      "id": "project",
+      "label": "项目"
+    }
+  ],
+  "attention": {
+    "generated_at": "2026-10-16T08:28:00Z",
+    "inventory_updated_at": "2026-10-16T03:50:00Z",
+    "inventory_sha": "abc1234",
+    "baseline_debt": 76,
+    "review_days": 90,
+    "badge": 4,
+    "counts": {
+      "missing": 0,
+      "version_changed": 3,
+      "unrecorded": 1,
+      "capability_pending": 0,
+      "modified": 0,
+      "upgradable": 0,
+      "overlap": 0
+    },
+    "buckets": {
+      "missing": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "version_changed": {
+        "connected": true,
+        "reason": "",
+        "items": [
+          {
+            "identifier": "codex-plugin-nowledge-mem",
+            "title": "0.1.40 → 0.1.41",
+            "status": "version_changed",
+            "time": "2026-10-16T08:28:00Z",
+            "source_class": "runtime_plugin",
+            "tags": []
+          },
+          {
+            "identifier": "codex-plugin-record-and-replay",
+            "title": "1.0.1001425 → 1.0.1001501",
+            "status": "version_changed",
+            "time": "2026-10-16T08:28:00Z",
+            "source_class": "runtime_plugin",
+            "tags": []
+          },
+          {
+            "identifier": "codex-plugin-visualize",
+            "title": "1.0.49 → 1.0.50",
+            "status": "version_changed",
+            "time": "2026-10-16T08:28:00Z",
+            "source_class": "runtime_plugin",
+            "tags": []
+          }
+        ]
+      },
+      "unrecorded": {
+        "connected": true,
+        "reason": "",
+        "items": [
+          {
+            "identifier": "colgrep-search",
+            "title": "~/.agents/skills/colgrep-search",
+            "status": "unrecorded",
+            "time": "2026-10-16T08:28:00Z",
+            "source_class": "unrecorded",
+            "tags": []
+          }
+        ]
+      },
+      "capability_pending": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "modified": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "upgradable": {
+        "connected": false,
+        "reason": "升级检查还没有数据源",
+        "items": []
+      },
+      "overlap": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      }
+    }
+  },
+  "meta": {
+    "inventory_updated_at": "2026-10-16T03:50:00Z",
+    "inventory_sha": "abc1234",
+    "drift_scanned_at": "2026-10-16T08:28:00Z",
+    "review_days": 90,
+    "sources": [
+      {
+        "id": "inventory",
+        "label": "清单",
+        "state": "ok",
+        "detail": "abc1234"
+      },
+      {
+        "id": "drift",
+        "label": "漂移扫描",
+        "state": "ok",
+        "detail": "刚刚"
+      },
+      {
+        "id": "skill_lock",
+        "label": "SkilLock",
+        "state": "fallback",
+        "detail": "本机未安装，门禁回退到风险信号"
+      },
+      {
+        "id": "staging",
+        "label": "暂存区",
+        "state": "ok",
+        "detail": "未激活 0"
+      },
+      {
+        "id": "upgrade",
+        "label": "升级检查",
+        "state": "absent",
+        "detail": "未接入"
+      },
+      {
+        "id": "overlap",
+        "label": "重叠检测",
+        "state": "absent",
+        "detail": "未接入，只读 conflict_status"
+      }
+    ],
+    "staging": {
+      "state": "ok",
+      "detail": "未激活 0",
+      "pending": 0
+    }
+  }
+}

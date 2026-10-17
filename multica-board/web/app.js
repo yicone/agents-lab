@@ -10,7 +10,8 @@ import {
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { applyPatch, formatHash, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
-import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap, renderSkills } from "./view-atlas.js";
+import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
+import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
 const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
 const MOCK = MOCK_PARAM !== null;
@@ -86,6 +87,9 @@ const state = {
   changesNote: null,
   layerReport: null,
   layerError: null,
+  skills: null,
+  reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
+  expandedSkills: new Set(),
 };
 
 // ---------- data ----------
@@ -139,6 +143,15 @@ async function getRuns(it) {
   return { generated_at: all.generated_at, items };
 }
 
+async function loadSkills() {
+  try {
+    if (MOCK) return await getJSON("skills");
+    return await fetchJSON(`/api/skills?review_days=${state.reviewDays}`, "skills");
+  } catch (err) {
+    return { ok: false, error: { code: "skills_unavailable", message: String(err.message || err) }, items: [], attention: { badge: 0, baseline_debt: 0, counts: {}, buckets: {} } };
+  }
+}
+
 async function loadChanges() {
   try {
     if (MOCK) return await getJSON("changes");
@@ -182,6 +195,9 @@ async function refresh(force = false) {
   try {
     const meta = await getJSON("meta");
     const changed = force || !state.meta || meta.generated_at !== state.meta.generated_at;
+    const previousSkills = skillsRefreshKey(state.skills);
+    // Skills live on this machine, so they reload even when the Multica snapshot is unchanged.
+    const skillsPromise = loadSkills();
     if (changed) {
       const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
@@ -210,9 +226,11 @@ async function refresh(force = false) {
         }
       }
     }
+    state.skills = await skillsPromise;
+    const skillsChanged = skillsRefreshKey(state.skills) !== previousSkills;
     state.meta = meta;
     state.fetchError = null;
-    if (changed) render();
+    if (changed || skillsChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -408,6 +426,63 @@ function bannerInfo() {
   return null;
 }
 
+function skillsSnapshot() {
+  const payload = state.skills;
+  if (!payload) return { level: "idle", text: "Skills …", title: "" };
+  if (payload.ok === false) return { level: "bad", text: "清单无效", title: payload.error?.message || "" };
+  const meta = payload.meta || {};
+  const sha = meta.inventory_sha ? ` ${meta.inventory_sha}` : "";
+  return {
+    level: "ok",
+    text: `清单 ${ago(meta.inventory_updated_at) || "—"}${sha} · 扫描 ${ago(meta.drift_scanned_at) || "刚刚"}`,
+    title: `清单 ${absTime(meta.inventory_updated_at) || "—"} · 扫描 ${absTime(meta.drift_scanned_at) || "—"}`,
+  };
+}
+
+function skillSources() {
+  const sources = state.skills?.meta?.sources || [];
+  if (!sources.length) return [h("span", { class: "muted" }, state.skills?.ok === false ? "清单无效" : "数据源还没有返回")];
+  return sources.map((source) =>
+    h(
+      "span",
+      { class: `src-chip state-${source.state}`, title: source.detail || "" },
+      h("span", { class: "dot" }),
+      source.label,
+      source.detail ? h("span", { class: "chip-detail" }, source.detail) : null,
+    ),
+  );
+}
+
+async function setReviewDays(days) {
+  state.reviewDays = days;
+  localStorage.setItem("aa.skillReviewDays", String(days));
+  state.skills = await loadSkills();
+  render();
+}
+
+function toggleSkillGroup(id) {
+  if (state.expandedSkills.has(id)) state.expandedSkills.delete(id);
+  else state.expandedSkills.add(id);
+  render();
+}
+
+function openSkill(item, opener) {
+  state.drawer = { kind: "skill", skill: item, opener: opener || document.activeElement };
+  render();
+  renderDrawer();
+  document.querySelector("#drawer .drawer-close")?.focus();
+}
+
+function focusSkill(name, opener) {
+  const item = (state.skills?.items || []).find((row) => row.name === name);
+  if (!item) return;
+  state.expandedSkills.add(item.source_class || "unknown");
+  setRoute({ view: "skills", source: "", skillStatus: "", tool: "", custom: false, debt: false, q: "" });
+  const row = document.getElementById(`skill-${name}`);
+  if (row) row.scrollIntoView({ block: "center" });
+  openSkill(item, opener || row);
+}
+
 // ---------- chrome (header) ----------
 
 function renderChrome() {
@@ -424,15 +499,18 @@ function renderChrome() {
   }
   const skillsBadge = document.getElementById("skills-badge");
   if (skillsBadge) {
-    skillsBadge.hidden = true;
-    skillsBadge.textContent = "";
+    const total = badgeOf(state.skills);
+    skillsBadge.hidden = total === 0;
+    skillsBadge.textContent = total ? String(total) : "";
+    skillsBadge.title = total ? `Skills 待处理 ${total} 条，基线债不计入` : "";
   }
 
   const hs = health();
   const snap = document.getElementById("snapshot");
-  snap.className = `snapshot ${hs.level}`;
-  snap.title = hs.title ?? "";
-  snap.replaceChildren(h("span", { class: "dot" }), hs.text);
+  const skillsHead = state.route.view === "skills" ? skillsSnapshot() : null;
+  snap.className = `snapshot ${skillsHead?.level || hs.level}`;
+  snap.title = skillsHead?.title || hs.title || "";
+  snap.replaceChildren(h("span", { class: "dot" }), skillsHead?.text || hs.text);
   if (MOCK) snap.append(h("span", { class: "mock" }, MOCK_SCENARIO ? `mock:${MOCK_SCENARIO}` : "mock"));
 
   const b = bannerInfo();
@@ -452,7 +530,7 @@ function renderChrome() {
   const healthEl = document.getElementById("health");
   if (state.route.view === "skills") {
     healthEl.hidden = false;
-    healthEl.replaceChildren(h("span", { class: "skills-source" }, "Skills 清单和扫描时间还没接到这一版。"));
+    healthEl.replaceChildren(...skillSources());
   } else if (state.route.view !== "issues") {
     healthEl.hidden = true;
     healthEl.replaceChildren();
@@ -735,8 +813,10 @@ async function openDrawer(it, opener) {
 function closeDrawer() {
   if (!state.drawer) return;
   const opener = state.drawer.opener;
+  const skill = state.drawer.kind === "skill";
   state.drawer = null;
   renderDrawer();
+  if (skill) renderMain();
   opener?.focus();
 }
 
@@ -763,10 +843,14 @@ function renderDrawer() {
   const el = document.getElementById("drawer");
   const d = state.drawer;
   el.hidden = !d;
-  el.setAttribute("aria-label", "issue 详情");
+  el.setAttribute("aria-label", d?.kind === "skill" ? "skill 详情" : "issue 详情");
   document.body.classList.toggle("drawer-open", !!d);
   if (!d) {
     el.replaceChildren();
+    return;
+  }
+  if (d.kind === "skill") {
+    el.replaceChildren(...renderSkillDrawer({ ...atlasCtx(), closeDrawer }, d.skill));
     return;
   }
   if (!d.opener) d.opener = document.activeElement;
@@ -1301,6 +1385,11 @@ function decideRow(row, degraded, ready) {
   );
 }
 
+function skillAlert() {
+  const counts = state.skills?.attention?.counts || {};
+  return (counts.missing || 0) + (counts.modified || 0) + (counts.version_changed || 0) > 0;
+}
+
 function toolSignal(signal) {
   if (signal === "issues") {
     const summary = currentDecide().summary;
@@ -1312,7 +1401,14 @@ function toolSignal(signal) {
     const detail = bad ? ` · ${bad.name} ${bad.collect_state === "error" ? errKind(bad.error?.kind) || "失败" : "过期"}` : "";
     return `${list.length} 个${detail}`;
   }
-  if (signal === "skills") return "待处理计数还没接入";
+  if (signal === "skills") {
+    const payload = state.skills;
+    if (!payload || payload.ok === false) return "清单还没接上";
+    const count = payload.items?.length ?? 0;
+    const badge = badgeOf(payload);
+    const debt = payload.attention?.baseline_debt ?? 0;
+    return `${count} 条 · 待处理 ${badge} · 基线债 ${debt}`;
+  }
   if (signal === "agents") return `${state.agents.filter((agent) => !agent.archived).length} 个 agent`;
   if (signal === "daemon") {
     const online = state.runtimes.filter((rt) => rt.status === "online").length;
@@ -1349,6 +1445,16 @@ function atlasCtx() {
     matchesQuery,
     statusLabel: (status) => STATUS_LABEL[status] ?? status,
     toolSignal,
+    skillsAlert: skillAlert(),
+    skills: state.skills,
+    reviewDays: state.reviewDays,
+    expandedSkills: state.expandedSkills,
+    drawerSkill: state.drawer?.kind === "skill" ? state.drawer.skill?.name : "",
+    openSkill,
+    focusSkill,
+    toggleSkillGroup,
+    setReviewDays,
+    closeDrawer,
   };
 }
 

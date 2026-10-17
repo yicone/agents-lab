@@ -416,6 +416,34 @@ class DriftReportTests(unittest.TestCase):
         self.assertEqual(row["reconciliation_status"], "missing")
         self.assertIn("source_missing", row["findings"])
 
+    def test_replaced_plugin_version_directory_is_version_changed(self):
+        recorded = self.root / "cache" / "demo" / "1.0.49" / ".codex-plugin" / "plugin.json"
+        sibling = self.root / "cache" / "demo" / "1.0.50" / ".codex-plugin"
+        sibling.mkdir(parents=True)
+        (sibling / "plugin.json").write_text(json.dumps({"version": "1.0.50"}), encoding="utf-8")
+        record = self.provider_record(
+            current_version="1.0.49",
+            baseline={"kind": "upstream_ref", "subject": str(recorded)},
+            visible_paths=[str(self.root / "cache" / "demo" / "1.0.49" / "skills")],
+        )
+        row = self.skill_row(self.report([record]), "cursor-plugin-x")
+        self.assertEqual(row["reconciliation_status"], "version_changed")
+        self.assertEqual(row["observed_version"], "1.0.50")
+        self.assertEqual(row["current_version"], "1.0.49")
+        self.assertIn("version_changed", row["findings"])
+        self.assertNotIn("source_missing", row["findings"])
+
+    def test_missing_plugin_without_sibling_stays_missing(self):
+        recorded = self.root / "cache" / "alone" / "1.0.49" / ".codex-plugin" / "plugin.json"
+        (self.root / "cache" / "alone").mkdir(parents=True)
+        record = self.provider_record(
+            baseline={"kind": "upstream_ref", "subject": str(recorded)},
+        )
+        row = self.skill_row(self.report([record]), "cursor-plugin-x")
+        self.assertEqual(row["reconciliation_status"], "missing")
+        self.assertIn("source_missing", row["findings"])
+        self.assertIsNone(row["observed_version"])
+
     def report_with_changelog(self, skills, changelog_dir):
         document = {"schema": "skills-inventory/v1", "skills": skills}
         return self.module.build_report(

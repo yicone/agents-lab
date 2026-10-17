@@ -1,0 +1,100 @@
+{
+  "ok": false,
+  "error": {
+    "code": "inventory_invalid",
+    "message": "skills inventory has no skills array"
+  },
+  "generated_at": "2026-10-16T08:28:00Z",
+  "items": [],
+  "summary": [],
+  "tools": [
+    {
+      "id": "cursor",
+      "label": "Cursor"
+    },
+    {
+      "id": "codex",
+      "label": "Codex"
+    },
+    {
+      "id": "claude",
+      "label": "Claude"
+    },
+    {
+      "id": "hermes",
+      "label": "Hermes"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini"
+    },
+    {
+      "id": "project",
+      "label": "项目"
+    }
+  ],
+  "attention": {
+    "generated_at": "2026-10-16T08:28:00Z",
+    "inventory_updated_at": "2026-10-16T03:50:00Z",
+    "inventory_sha": "abc1234",
+    "baseline_debt": 0,
+    "review_days": 90,
+    "badge": 0,
+    "counts": {
+      "missing": 0,
+      "version_changed": 0,
+      "unrecorded": 0,
+      "capability_pending": 0,
+      "modified": 0,
+      "upgradable": 0,
+      "overlap": 0
+    },
+    "buckets": {
+      "missing": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "version_changed": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "unrecorded": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "capability_pending": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "modified": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "upgradable": {
+        "connected": false,
+        "reason": "升级检查还没有数据源",
+        "items": []
+      },
+      "overlap": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      }
+    }
+  },
+  "meta": {
+    "sources": [
+      {
+        "id": "inventory",
+        "label": "清单",
+        "state": "bad",
+        "detail": "skills inventory has no skills array"
+      }
+    ]
+  }
+}

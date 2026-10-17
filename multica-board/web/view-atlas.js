@@ -1,4 +1,4 @@
-/** Map, layer list, skills placeholder, and the layer block inside the issue drawer. */
+/** Map, layer list, and the layer block inside the issue drawer. Skills live in skills.js. */
 
 import { formatWait, waitFor, waitLevel } from "./decide.js";
 import {
@@ -175,7 +175,7 @@ function toolLine(ctx, tool) {
   return h(
     "a",
     { class: "tool", href: tool.href },
-    h("i", { class: "dot live" }),
+    h("i", { class: tool.signal === "skills" && ctx.skillsAlert ? "dot bad" : "dot live" }),
     h("span", null, tool.label),
     h("span", { class: "muted" }, ctx.toolSignal(tool.signal)),
   );
@@ -500,19 +500,6 @@ export function renderLayer(ctx) {
     h("div", { class: "atlas-head" }, h("div", null, crumb, h("h2", null, layerTitle(route)), meta ? h("p", { class: "atlas-sub" }, meta.objects) : null, stats)),
     toolbar,
     h("div", { class: "layer-layout" }, h("div", { class: "layer-main" }, list), rail),
-  ];
-}
-
-export function renderSkills(ctx) {
-  const { h } = ctx;
-  return [
-    h(
-      "section",
-      { class: "atlas-guide" },
-      h("h2", null, "Skills"),
-      h("p", null, "Skills 治理视图还没接到这一版。导航位置和红色角标已经留好，待处理数为 0 时角标隐藏。"),
-      h("p", { class: "muted" }, "清单、待处理栏和详情在后续的 Skills 页里做。"),
-    ),
   ];
 }
 

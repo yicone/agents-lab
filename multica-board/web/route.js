@@ -5,6 +5,9 @@ export const VIEWS = ["map", "decide", "issues", "agents", "skills"];
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
 const FILTER_LAYERS = new Set([...LAYER_IDS, "outside", "unassigned"]);
+const SKILL_SOURCES = new Set(["skills_cli_managed", "local_custom", "runtime_plugin", "runtime_builtin", "third_party_unmanaged", "unrecorded"]);
+const SKILL_STATUSES = new Set(["aligned", "stale", "version_changed", "modified", "unverified", "missing"]);
+const SKILL_TOOLS = new Set(["cursor", "codex", "claude", "hermes", "gemini", "project"]);
 
 export function viewForKey(key) {
   return { 1: "map", 2: "decide", 3: "issues", 4: "agents", 5: "skills" }[key] || null;
@@ -84,6 +87,12 @@ export function emptyRoute() {
     failedOnly: false,
     offlineOnly: false,
     archived: false,
+    source: "",
+    skillStatus: "",
+    tool: "",
+    custom: false,
+    debt: false,
+    skillGroup: "source",
   };
 }
 
@@ -124,6 +133,17 @@ export function parseHash(hash) {
     const layer = params.get("layer");
     route.layer = FILTER_LAYERS.has(layer) ? layer : "";
     route.match = params.get("match") === "involved" ? "involved" : "primary";
+  } else if (route.view === "skills") {
+    const source = params.get("source");
+    route.source = SKILL_SOURCES.has(source) ? source : "";
+    const status = params.get("status");
+    route.skillStatus = SKILL_STATUSES.has(status) ? status : "";
+    const tool = params.get("tool");
+    route.tool = SKILL_TOOLS.has(tool) ? tool : "";
+    route.custom = flag(params, "custom");
+    route.debt = flag(params, "debt");
+    const group = params.get("group");
+    route.skillGroup = group === "tool" || group === "flat" ? group : "source";
   } else if (route.view === "agents") {
     route.group = params.get("group") === "provider" ? "provider" : "workspace";
     route.provider = params.get("provider") || "";
@@ -161,6 +181,13 @@ export function formatHash(route) {
     if (r.failedOnly) p.set("failed", "1");
     if (r.offlineOnly) p.set("offline", "1");
     if (r.archived) p.set("archived", "1");
+  } else if (path === "skills") {
+    if (r.source) p.set("source", r.source);
+    if (r.skillStatus) p.set("status", r.skillStatus);
+    if (r.tool) p.set("tool", r.tool);
+    if (r.custom) p.set("custom", "1");
+    if (r.debt) p.set("debt", "1");
+    if (r.skillGroup === "tool" || r.skillGroup === "flat") p.set("group", r.skillGroup);
   }
   return withQuery(path, p);
 }
@@ -177,6 +204,14 @@ export function applyPatch(route, patch) {
     next.type = "";
     if (patch.view !== "decide") next.group = patch.view === "agents" ? route.group || "workspace" : route.group;
     if (patch.view === "decide") next.group = "";
+    if (patch.view !== "skills") {
+      next.source = "";
+      next.skillStatus = "";
+      next.tool = "";
+      next.custom = false;
+      next.debt = false;
+      next.skillGroup = "source";
+    }
   }
   if (!VIEWS.includes(next.view)) next.view = "map";
   return next;

@@ -137,7 +137,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 | `?mock=atlas-quiet` | 已归层，待你决定为 0，角标隐藏 |
 | `?mock=atlas-gap` | 和 atlas 同一批 issue，状态迁移 `reset`，等待时长带 `≥` |
 
-真实地图读 `GET /api/layers`。`ready` 为 false（三个属性还没建）时显示引导，不画五层全 0。属性在、但已归层为 0（主层还没回填）时也是引导。已经回填的部分按接口计数，没回填的落在未归层。`?mock=` 没有这份响应，仍用 fixture 里的 `issue.layer` 在浏览器汇总。Issues 页在层数据就绪后增加「层」和「按主层 / 按涉及层」，卡片头部加五格条；非 ACM Lab 的卡片不画条，选了层之后这些卡片被滤掉。Agents 页内容不变。Skills 只有导航位置，角标为 0 时隐藏。只看治理线时，未完成和待你决定用接口的 `governance_open` / `governance_decide`；接口没有单独的治理线总数，所以这一档的「总数」等于未完成。
+真实地图读 `GET /api/layers`。`ready` 为 false（三个属性还没建）时显示引导，不画五层全 0。属性在、但已归层为 0（主层还没回填）时也是引导。已经回填的部分按接口计数，没回填的落在未归层。`?mock=` 没有这份响应，仍用 fixture 里的 `issue.layer` 在浏览器汇总。Issues 页在层数据就绪后增加「层」和「按主层 / 按涉及层」，卡片头部加五格条；非 ACM Lab 的卡片不画条，选了层之后这些卡片被滤掉。Agents 页内容不变。Skills 页读 `GET /api/skills`（见下方）。角标是待处理条数，基线债不计入，0 时隐藏。只看治理线时，未完成和待你决定用接口的 `governance_open` / `governance_decide`；接口没有单独的治理线总数，所以这一档的「总数」等于未完成。
 
 旧地址用 `location.replace` 跳到新地址：`#/l5/attention` → `#/issues`，`#/l2/agents` → `#/agents`，`#/l3/skills` → `#/skills`，`#/lN` 与 `#/lN/issues` → `#/map/lN`（保留 `scope`），其他 `#/lN/…` → `#/map/lN`，`#/gov` → `#/map/all?gov=1`，空地址或不认识的地址 → `#/map`。`#/issues`、`#/agents`、`#/skills` 保持原样。刷新停在替换后的地址上，后退不会回到旧地址。
 
@@ -155,3 +155,15 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 - 页头：合计、待验收、受阻、超过 7 天、最久等待。层分布、层筛选、按涉及层、只看治理线、按主层分组在层属性还没建时是灰色占位，不发请求。
 - 点行打开现有运行记录抽屉，点标题在 Multica 打开。最近动静用 `latest_run` 的状态；没有 run 时写「最后活动」。评论类型不在现有接口里。
 - mock：`?mock=decide` 正常队列，`?mock=decide-gap` 状态迁移被重置，`?mock=decide-down` 状态迁移 404。打开时加上 `#/decide`。
+
+## Skills（ACM-182）
+
+回答「这些 skill 现在装在哪、哪些要处理」。数据是这台机器的清单和 drift，不跟 workspace 健康条混在一起。页面只读，没有批准 / 拒绝。
+
+- 路由 `#/skills`。参数：`source`、`status`、`tool`、`custom=1`、`debt=1`、`group=source|tool|flat`。搜索框匹配名字、路径、来源、版本和发现代码。
+- 顶栏状态换成清单写入时间和 Git 短 SHA，加上漂移扫描年龄。下一行是数据源健康条：没接入或 SkilLock 回退用虚线灰点。
+- 来源汇总可点。一览表默认按来源分组，组内有待处理的在前，未复核且没有别的问题的行降低不透明度。每组先显示 8 行。工具列：`●` 直接入口，`○` 经共享目录可见，`✕` 入口不在。
+- 待处理栏和 `/api/skills/attention` 是同一份分桶。空桶写「无」。升级检查写「—」和原因。基线债在最底下，只计数，点一下在表里筛出这些行。复核阈值 30 / 90 / 180 存在 `localStorage` 键 `aa.skillReviewDays`，默认 90；真实接口会带上 `review_days`。
+- 点行打开右侧详情。`Esc` 关闭后焦点回到原来的行。详情里给可复制的命令，不在页面里改 skill。
+- 屏宽小于 1200px 时，待处理栏移到表格上方，收成一行桶计数。
+- mock：默认 `fixtures/skills.json` 是设计稿里的分布（版本已变 3、未登记 1、基线债 76）。`?mock=skills-missing`、`skills-drift`、`skills-gate`、`skills-fallback`、`skills-invalid` 覆盖这一份。打开时加上 `#/skills`。生成：`node multica-board/web/fixtures/write-skills.js`。
