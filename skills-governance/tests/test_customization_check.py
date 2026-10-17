@@ -323,6 +323,18 @@ class CustomizationCheckTests(unittest.TestCase):
         self.assertEqual(reasons, {"upstream_changed", "upstream_missing", "upstream_added"})
         self.assertFalse((output / "demo").exists())
 
+    def test_apply_rejects_invalid_record_without_writing(self):
+        upstream = self.make_upstream()
+        self.record(
+            "demo",
+            ops=[{"op": "delete", "path": "../escape.txt", "base_sha256": sha256_bytes(b"x")}],
+        )
+        output = self.base / "out"
+        result = self.run_apply("--skill", "demo", "--upstream", str(upstream), "--output", str(output))
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("relative path inside the skill directory", result.stdout)
+        self.assertFalse(output.exists())
+
     def test_apply_refuses_non_overlay_and_existing_output(self):
         self.add_skill("demo", "fork")
         (self.repo / "skills/demo").mkdir(parents=True)

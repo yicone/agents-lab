@@ -359,10 +359,12 @@ def apply_overlay(args: argparse.Namespace) -> int:
     if not (upstream / "SKILL.md").is_file():
         print(json.dumps({"ok": False, "errors": [{"path": "upstream", "message": "no SKILL.md in upstream dir"}]}))
         return 1
-    ops = record.get("ops")
-    if not isinstance(ops, list) or not ops:
-        print(json.dumps({"ok": False, "errors": [{"path": "ops", "message": "must be a non-empty array"}]}))
+    record_errors: list[dict] = []
+    check_record(record, args.skill, None, record_dir, DEFAULT_REPO_ROOT, record_errors)
+    if record_errors:
+        print(json.dumps({"ok": False, "errors": record_errors}, indent=2))
         return 1
+    ops = record["ops"]
     delta_dir = record_dir / "delta"
 
     conflicts: list[dict] = []
