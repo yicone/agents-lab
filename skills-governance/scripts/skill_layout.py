@@ -59,22 +59,28 @@ def run(command: list[str]) -> subprocess.CompletedProcess[str] | None:
         return None
 
 
-def read_behavior(binary: str, view: Path, lock_path: Path) -> tuple[dict, bool]:
-    """Read the candidate behavior map from `skil-lock init`, not from a second scanner."""
+def read_behavior(binary: str, view: Path, lock_path: Path) -> tuple[dict, bool, str | None]:
+    """Read the candidate behavior map from `skil-lock init`.
+
+    Returns `(behaviors, measured, error)`. `error` is set only after the
+    binary ran and the lock could not be read without dropping observations.
+    A missing binary is not this function's job; callers record that as fallback.
+    """
     import capability_contract  # local import: this module must not import it at load time
 
     init = run([binary, "init", "--baseline", str(view), "-o", str(lock_path)])
     if init is None or init.returncode != 0 or not lock_path.is_file():
-        return {}, False
+        return {}, False, None
     try:
-        parsed = capability_contract.parse_lock_behaviors(
-            lock_path.read_text(encoding="utf-8", errors="replace")
-        )
-    except OSError:
-        return {}, False
+        text = lock_path.read_text(encoding="utf-8", errors="replace")
+        parsed = capability_contract.parse_lock_behaviors(text)
+    except capability_contract.LockParseError as exc:
+        return {}, False, str(exc)
+    except OSError as exc:
+        return {}, False, f"skills.lock could not be read: {exc}"
     if parsed is None:
-        return {}, False
-    return parsed, True
+        return {}, False, "skills.lock is not a behavior map"
+    return parsed, True, None
 
 
 def project_skills(roots: list[Path], view: Path) -> int:

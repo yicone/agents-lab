@@ -107,13 +107,83 @@ def skill_name(text: str, fallback: str) -> str:
     return fallback
 
 
+class LockParseError(ValueError):
+    """A skills.lock was recognized, but reading it would drop observations."""
+
+
 def parse_inline_list(value: str) -> list[str] | None:
     if not (value.startswith("[") and value.endswith("]")):
         return None
     inner = value[1:-1].strip()
     if not inner:
         return []
-    return [unquote(part) for part in inner.split(",")]
+    parts = split_flow(inner)
+    if parts is None:
+        return None
+    return [unquote(part) for part in parts]
+
+
+def split_flow(text: str) -> list[str] | None:
+    """Split a flow collection on commas that are outside quotes and nesting."""
+    items: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    quote = ""
+    for char in text:
+        if quote:
+            buf.append(char)
+            if char == quote:
+                quote = ""
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            buf.append(char)
+            continue
+        if char in "[{":
+            depth += 1
+        elif char in "]}":
+            if depth == 0:
+                return None
+            depth -= 1
+        if char == "," and depth == 0:
+            items.append("".join(buf).strip())
+            buf = []
+            continue
+        buf.append(char)
+    if quote or depth:
+        return None
+    tail = "".join(buf).strip()
+    if tail:
+        items.append(tail)
+    return items
+
+
+def parse_inline_behavior_map(value: str) -> tuple[dict[str, list[str]], str | None]:
+    if not (value.startswith("{") and value.endswith("}")):
+        return {}, "malformed behavior map"
+    inner = value[1:-1].strip()
+    if not inner:
+        return {}, None
+    parts = split_flow(inner)
+    if parts is None:
+        return {}, "malformed behavior map"
+    parsed: dict[str, list[str]] = {}
+    for part in parts:
+        if ":" not in part:
+            return {}, "malformed behavior map"
+        token, raw = part.split(":", 1)
+        key = unquote(token.strip())
+        if key not in BEHAVIOR_FIELDS:
+            return {}, f"behavior map dropped unrecognized field {key}"
+        raw = raw.strip()
+        if raw == "[]":
+            parsed[key] = []
+            continue
+        items = parse_inline_list(raw) if raw.startswith("[") else None
+        if items is None:
+            return {}, "malformed behavior map"
+        parsed[key] = items
+    return parsed, None
 
 
 def parse_capabilities(text: str) -> dict | None:
@@ -244,9 +314,12 @@ def parse_lock_behaviors(text: str) -> dict[str, dict[str, list[str]]] | None:
         indent = len(line) - len(line.lstrip(" "))
         if indent == 0:
             break
-        if indent != 2 or not line.endswith(":") or line.lstrip().startswith("-"):
-            return None
-        name = line.strip()[:-1]
+        if indent != 2 or ":" not in line or line.lstrip().startswith("-"):
+            raise LockParseError("skills.lock skill entry is not a map key")
+        token, remainder = line.strip().split(":", 1)
+        name = unquote(token.strip())
+        if not name or remainder.strip():
+            raise LockParseError("skills.lock skill entry must be a nested map")
         index += 1
         behavior = empty_behavior()
         found = False
@@ -255,16 +328,29 @@ def parse_lock_behaviors(text: str) -> dict[str, dict[str, list[str]]] | None:
             nested_indent = len(nested) - len(nested.lstrip(" "))
             if nested_indent <= 2:
                 break
-            key = nested.strip()
-            if key == "behavior:" or key.startswith("behavior:"):
-                found = True
+            stripped = nested.strip()
+            if ":" not in stripped or stripped.startswith("-"):
+                raise LockParseError("skills.lock skill entry is malformed")
+            field_token, raw_value = stripped.split(":", 1)
+            if unquote(field_token.strip()) != "behavior":
                 index += 1
-                parsed, index, error = parse_behavior_lists(lines, index)
-                if error:
-                    return None
-                behavior.update(parsed)
                 continue
+            found = True
+            value = raw_value.strip()
+            if value.startswith("{") and value.endswith("}"):
+                parsed, error = parse_inline_behavior_map(value)
+                if error:
+                    raise LockParseError(error)
+                behavior.update(parsed)
+                index += 1
+                continue
+            if value:
+                raise LockParseError("unsupported behavior value")
             index += 1
+            parsed, index, error = parse_behavior_lists(lines, index)
+            if error:
+                raise LockParseError(error)
+            behavior.update(parsed)
         if not found:
             return None
         behaviors[name] = behavior
@@ -286,6 +372,7 @@ def parse_behavior_lists(
         if text.startswith("-"):
             return {}, index, "malformed behavior list"
         key, raw = text.split(":", 1)
+        key = unquote(key.strip())
         if key not in BEHAVIOR_FIELDS:
             index += 1
             continue
@@ -537,9 +624,15 @@ def declaration_findings(roots: list[Path], behaviors: dict, measured: bool) -> 
             declared = parse_capabilities(text)
             malformed = isinstance(declared, dict) and "error" in declared
             grant = None if declared is None or malformed else declared
-            behavior = (behaviors.get(name) or empty_behavior()) if measured else None
-            messages = [declared["error"]] if malformed else []
-            if measured and not malformed:
+            if measured and name not in behaviors:
+                behavior = None
+                messages = ["SkilLock behavior map has no entry for this skill"]
+            else:
+                behavior = behaviors[name] if measured else None
+                if measured and not behavior:
+                    behavior = empty_behavior()
+                messages = [declared["error"]] if malformed else []
+            if measured and not malformed and name in behaviors:
                 messages.extend(violations(grant, behavior or empty_behavior()))
             signals = (
                 legacy_risk_signals(directory)
@@ -582,7 +675,9 @@ def evaluate_record(
         messages = [declared["error"]]
         declared = None
         malformed = True
-    if measured and not malformed:
+    if measured and behavior is None and not malformed:
+        messages.append("SkilLock behavior map has no entry for this skill")
+    elif measured and not malformed:
         messages.extend(violations(declared, behavior or empty_behavior()))
     signal_hits = [
         item for item in (signals or []) if item in {"network_behavior", "secret_access"}
@@ -714,7 +809,10 @@ def row_from_text(
     malformed = isinstance(declared, dict) and "error" in declared
     status = record.get("status") if isinstance(record.get("status"), str) else "active"
     mode = record.get("customization_mode") if isinstance(record.get("customization_mode"), str) else "none"
-    behavior = (behaviors.get(name) or empty_behavior()) if measured else None
+    behavior = None
+    if measured:
+        if name in behaviors:
+            behavior = behaviors[name] or empty_behavior()
     signals: list[str] = []
     if directory is not None and not measured and not malformed and declared is None:
         signals = legacy_risk_signals(directory)
@@ -767,9 +865,9 @@ def render_text(report: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def measure(binary: str | None, roots: list[Path]) -> tuple[dict, bool]:
+def measure(binary: str | None, roots: list[Path]) -> tuple[dict, bool, str | None]:
     if not binary or not roots:
-        return {}, False
+        return {}, False, None
     import tempfile
 
     try:
@@ -777,8 +875,8 @@ def measure(binary: str | None, roots: list[Path]) -> tuple[dict, bool]:
             view = Path(directory) / "view"
             skill_layout.project_skills(roots, view)
             return skill_layout.read_behavior(binary, view, Path(directory) / "skills.lock")
-    except OSError:
-        return {}, False
+    except OSError as exc:
+        return {}, False, f"capability measurement failed: {exc}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -816,7 +914,10 @@ def main(argv: list[str] | None = None) -> int:
             for skill in inventory_skills(document)
             if (directory := canonical_dir(skill, repo_root)) is not None
         ]
-        behaviors, measured = measure(binary, scan_roots)
+        behaviors, measured, observe_error = measure(binary, scan_roots)
+        if observe_error:
+            print(f"capability contract failed: {observe_error}", file=sys.stderr)
+            return 1
     report = build_report(document, repo_root, behaviors, measured, roots or None)
     text = json.dumps(report, indent=2, ensure_ascii=False) + "\n" if args.format == "json" else render_text(report)
     sys.stdout.write(text)

@@ -258,6 +258,34 @@ skills:
             ),
             ["network: declared false but SkilLock network_urls is https://evil.example/hook"],
         )
+        quoted = """
+schema_version: "0.1"
+skills:
+  "demo":
+    "behavior":
+      "network_urls":
+        - "https://evil.example/hook"
+      shell_commands: []
+"""
+        parsed_quoted = self.module.parse_lock_behaviors(quoted)
+        self.assertEqual(parsed_quoted["demo"]["network_urls"], ["https://evil.example/hook"])
+        inline = """
+schema_version: "0.1"
+skills:
+  demo:
+    behavior: {"network_urls": ["https://evil.example/hook"], "shell_commands": []}
+"""
+        parsed_inline = self.module.parse_lock_behaviors(inline)
+        self.assertEqual(parsed_inline["demo"]["network_urls"], ["https://evil.example/hook"])
+        dropped = """
+schema_version: "0.1"
+skills:
+  demo:
+    behavior:
+      network_urls: https://evil.example/hook
+"""
+        with self.assertRaises(self.module.LockParseError):
+            self.module.parse_lock_behaviors(dropped)
 
     def test_unmeasured_undeclared_signal_is_high_risk(self):
         with tempfile.TemporaryDirectory() as directory:

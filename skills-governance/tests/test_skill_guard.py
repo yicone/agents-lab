@@ -295,7 +295,25 @@ class SkillGuardTests(unittest.TestCase):
                     "args = sys.argv[1:]",
                     "if args and args[0] == 'init':",
                     "    out = args[args.index('-o') + 1]",
-                    "    Path(out).write_text('skills.lock\\n', encoding='utf-8')",
+                    "    Path(out).write_text("
+                    + repr(
+                        "\n".join(
+                            [
+                                'schema_version: "0.1"',
+                                "skills:",
+                                "  demo:",
+                                "    behavior:",
+                                "      shell_commands: []",
+                                "      network_urls: []",
+                                "      file_reads: []",
+                                "      file_writes: []",
+                                "      allowed_tools: []",
+                                "      bundled_scripts: []",
+                                "",
+                            ]
+                        )
+                    )
+                    + ", encoding='utf-8')",
                     "    sys.exit(0)",
                     "if args and args[0] == 'ci':",
                     "    if mode == 'error':",
@@ -688,6 +706,52 @@ class SkillGuardTests(unittest.TestCase):
     def test_same_indent_network_url_list_still_blocks_overreach(self):
         self.assert_network_url_overreach_blocks("      - https://evil.example/hook")
 
+    def test_quoted_keys_and_urls_still_block_overreach(self):
+        self.assert_lock_gate(
+            "\n".join(
+                [
+                    'schema_version: "0.1"',
+                    "skills:",
+                    '  "demo":',
+                    '    "behavior":',
+                    '      "network_urls":',
+                    '        - "https://evil.example/hook"',
+                    "      shell_commands: []",
+                    "",
+                ]
+            ),
+            "overreach",
+        )
+
+    def test_inline_behavior_map_still_blocks_overreach(self):
+        self.assert_lock_gate(
+            "\n".join(
+                [
+                    'schema_version: "0.1"',
+                    "skills:",
+                    "  demo:",
+                    '    behavior: {"network_urls": ["https://evil.example/hook"], "shell_commands": []}',
+                    "",
+                ]
+            ),
+            "overreach",
+        )
+
+    def test_unreadable_behavior_lock_blocks_unlike_missing_tool(self):
+        self.assert_lock_gate(
+            "\n".join(
+                [
+                    'schema_version: "0.1"',
+                    "skills:",
+                    "  demo:",
+                    "    behavior:",
+                    "      network_urls: https://evil.example/hook",
+                    "",
+                ]
+            ),
+            "parse_error",
+        )
+
     def assert_network_url_overreach_blocks(self, url_item: str):
         lock = "\n".join(
             [
@@ -705,6 +769,9 @@ class SkillGuardTests(unittest.TestCase):
                 "",
             ]
         )
+        self.assert_lock_gate(lock, "overreach")
+
+    def assert_lock_gate(self, lock: str, kind: str):
         body = "\n".join(
             [
                 "---",
@@ -751,11 +818,18 @@ class SkillGuardTests(unittest.TestCase):
             )
             self.assertEqual(report.returncode, 2, report.stdout)
             payload = json.loads(report.stdout)
-            self.assertEqual(payload["signals"], ["capability_overreach"])
-            self.assertFalse(payload["capability_gate"]["blocked"])
-            self.assertTrue(payload["capability_gate"]["behavior_measured"])
-            messages = payload["capability_gate"]["declaration"]["violations"][0]["messages"]
-            self.assertTrue(any("network_urls" in message for message in messages))
+            if kind == "overreach":
+                self.assertEqual(payload["signals"], ["capability_overreach"])
+                self.assertFalse(payload["capability_gate"]["blocked"])
+                self.assertTrue(payload["capability_gate"]["behavior_measured"])
+                messages = payload["capability_gate"]["declaration"]["violations"][0]["messages"]
+                self.assertTrue(any("network_urls" in message for message in messages))
+            else:
+                self.assertEqual(payload["signals"], ["capability_gate_error"])
+                self.assertTrue(payload["capability_gate"]["blocked"])
+                self.assertTrue(payload["capability_gate"]["error"])
+                self.assertFalse(payload["capability_gate"]["behavior_measured"])
+                self.assertNotEqual(payload["capability_gate"]["backend"], "fallback")
             staging = base / "staging"
             staged = self.run_guard(
                 "stage",

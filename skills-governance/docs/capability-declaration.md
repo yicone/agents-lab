@@ -34,7 +34,7 @@ capabilities:
 
 `skill_guard diff --gate` 和未加 `--force` 的 `activate` 在 SkilLock 漂移检查之外，再读候选树的 `skil-lock init` 产物。观测超出声明时信号为 `capability_overreach`，退出码 `2`，不激活。`capability_gate.blocked` 仍只表示相对快照的漂移或调用失败；声明结果在 `capability_gate.declaration`。
 
-没有可用的 `skills.lock` behavior 时，升级门禁把声明对照记为 `unmeasured`，不把缺二进制当成通过，也不把正文正则命中记成 `capability_overreach`。
+没有可用的 `skills.lock` behavior 时，升级门禁把声明对照记为 `unmeasured`，不把缺二进制当成通过，也不把正文正则命中记成 `capability_overreach`。二进制已经写出 lock、但这份 lock 读不下来（不是 behavior map，或再读就会丢掉观测）时，门禁是 `capability_gate_error`，`diff --gate` 和未加 `--force` 的 `activate` 都阻断。这和本机没有 `skil-lock` 的 fallback 不是一回事。
 
 库存审计多一条：无法测量且 `SKILL.md` 没有 `capabilities` 时，用 `skill_guard` 既有的 `network_behavior` / `secret_access` 模式扫描该 skill 的 `SKILL.md` 和 `scripts/`。命中则记为高危。这仍不是越权。已经写了 `capabilities`（包括显式拒绝）的 skill 不走这条路径。误报用声明收口，不另加例外词表。
 

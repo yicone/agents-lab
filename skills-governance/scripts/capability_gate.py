@@ -50,30 +50,44 @@ def evaluate(
                 candidate_view = root / "candidate"
                 projected = project_skills(baseline_roots, baseline_view)
                 project_skills(candidate_roots, candidate_view)
-                behaviors, measured = read_behavior(binary, candidate_view, root / "observed.lock")
-                (candidate_view / ".skil-lock.yaml").write_text(BLOCK_POLICY, encoding="utf-8")
-                lock_path = candidate_view / "skills.lock"
-                init = run([binary, "init", "--baseline", str(baseline_view), "-o", str(lock_path)])
-                check = None if init is None or init.returncode != 0 else run(
-                    [binary, "ci", str(candidate_view)]
+                behaviors, measured, observe_error = read_behavior(
+                    binary, candidate_view, root / "observed.lock"
                 )
-                if init is None or init.returncode != 0:
-                    payload = invocation_error("skil-lock init --baseline failed", init, projected)
-                elif check is None:
-                    payload = invocation_error("skil-lock ci failed", check, projected)
+                if observe_error:
+                    payload = {
+                        "backend": "skil-lock",
+                        "tool": "skil-lock",
+                        "blocked": True,
+                        "error": True,
+                        "projected_skills": projected,
+                        "reason": observe_error,
+                    }
                 else:
-                    summary = summary_line(check.stdout, check.stderr)
-                    drift_blocked = check.returncode == 1 and "BLOCK:" in (check.stdout + check.stderr)
-                    if check.returncode == 0 or drift_blocked:
-                        payload = {
-                            "backend": "skil-lock",
-                            "tool": "skil-lock",
-                            "blocked": drift_blocked,
-                            "projected_skills": projected,
-                            "summary": summary,
-                        }
-                    else:
+                    (candidate_view / ".skil-lock.yaml").write_text(BLOCK_POLICY, encoding="utf-8")
+                    lock_path = candidate_view / "skills.lock"
+                    init = run(
+                        [binary, "init", "--baseline", str(baseline_view), "-o", str(lock_path)]
+                    )
+                    check = None if init is None or init.returncode != 0 else run(
+                        [binary, "ci", str(candidate_view)]
+                    )
+                    if init is None or init.returncode != 0:
+                        payload = invocation_error("skil-lock init --baseline failed", init, projected)
+                    elif check is None:
                         payload = invocation_error("skil-lock ci failed", check, projected)
+                    else:
+                        summary = summary_line(check.stdout, check.stderr)
+                        drift_blocked = check.returncode == 1 and "BLOCK:" in (check.stdout + check.stderr)
+                        if check.returncode == 0 or drift_blocked:
+                            payload = {
+                                "backend": "skil-lock",
+                                "tool": "skil-lock",
+                                "blocked": drift_blocked,
+                                "projected_skills": projected,
+                                "summary": summary,
+                            }
+                        else:
+                            payload = invocation_error("skil-lock ci failed", check, projected)
         except OSError as exc:
             behaviors = {}
             measured = False

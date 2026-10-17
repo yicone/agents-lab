@@ -48,7 +48,7 @@ JSON 里对应 `blocked`、`signals`、`changes[]`（`root`、`kind`、`path`、
 | `adapter_paths` | 变化落在适配器根目录 | 只是适配器指针变了，还是把 runtime 入口当成源码改了 |
 | `conflict_markers` | 暂存正文同时出现行首 `<<<<<<<` 和行首 `>>>>>>>`，且旧文件没有行首 `<<<<<<<` | `skill_patch.py rebase` 冲突未解决。回去处理 `<skill>.conflicts/`，不要 `--force` |
 | `capability_drift` | SkilLock 判定能力面相对快照有未批准漂移 | `skills.lock` 和能力差异已经审过，并且接受这次漂移 |
-| `capability_gate_error` | 指定的 `skil-lock` 无法执行，或 `init` / `ci` 失败、超时 | 先修好门禁。失败即关闭，不激活 |
+| `capability_gate_error` | 指定的 `skil-lock` 无法执行，`init` / `ci` 失败或超时，或写出的 `skills.lock` 不能读成 behavior map | 先修好门禁。失败即关闭，不激活。这不是「没装 skil-lock」的 fallback |
 | `capability_overreach` | 候选的 SkilLock `behavior` 超出 `SKILL.md` 的 `capabilities` 声明，或声明本身无效 | 收紧 behavior，或先改声明并完成复核。这条信号只来自已读到的 lock behavior，不是正文正则命中。未测到 behavior 时不会出现 |
 
 `Capability gate: fallback` 表示本机没有可用的 `skil-lock`（或显式 `--skil-lock fallback`）。这时用上表的风险信号做决定。缺二进制不等于通过。`Capability gate: skil-lock BLOCK` 与 `capability_drift` 相同，按能力漂移审。`Capability gate: error` 与 `capability_gate_error` 相同，不激活。
