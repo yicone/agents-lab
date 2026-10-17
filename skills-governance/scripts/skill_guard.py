@@ -27,6 +27,7 @@ GATE_SIGNALS = {
     "secret_access",
     "trigger_changes",
     "adapter_paths",
+    "conflict_markers",
 }
 
 NETWORK_RE = re.compile(
@@ -41,6 +42,8 @@ TRIGGER_RE = re.compile(
     r"(?:^description:|^name:|trigger|activation|when to use|use when)",
     re.IGNORECASE,
 )
+CONFLICT_OPEN_RE = re.compile(r"^<{7}(?: |$)", re.MULTILINE)
+CONFLICT_CLOSE_RE = re.compile(r"^>{7}(?: |$)", re.MULTILINE)
 
 SNAPSHOT_SCHEMA = "skill-governance-snapshot/v1"
 STAGING_SCHEMA = "skill-governance-staging/v1"
@@ -234,6 +237,12 @@ def risk_signals(
         and text_old != text_new
     ):
         signals.add("unexpected_instructions")
+    if (
+        CONFLICT_OPEN_RE.search(text_new)
+        and CONFLICT_CLOSE_RE.search(text_new)
+        and not CONFLICT_OPEN_RE.search(text_old)
+    ):
+        signals.add("conflict_markers")
     return sorted(signals)
 
 

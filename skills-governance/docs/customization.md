@@ -71,13 +71,86 @@
       --snapshot <snapshot-dir> --staging <staging-dir> --gate
     python3 skills-governance/scripts/skill_guard.py activate --staging <staging-dir>
 
-`apply` 退出码：
+`apply` 退出码（仅适用于 `ops` 式记录；`patch` 式记录用 `skill_patch.py rebase`，见下节）：
 
 - `0`：无冲突，已生成 `<output>/<name>/`；
-- `2`：上游已漂移，`base_sha256` 不再匹配或文件缺失/已存在 → 输出 `conflicts` 列表，什么都不写。这是“需要三方合并/重新审查”的信号：逐条审查冲突，调整 delta 后更新 `baseline_ref` 与 `reviewed_at`；
-- `1`：非 overlay 模式、记录无效或输出目录已存在（可用 `--force` 覆盖）。
+- `2`：上游已漂移，`base_sha256` 不再匹配或文件缺失/已存在 → 输出 `conflicts` 列表，什么都不写。这是“需要重新审查 delta”的信号：逐条审查冲突，调整 delta 后更新 `baseline_ref` 与 `reviewed_at`；
+- `1`：非 overlay 模式、`patch` 式记录（报 `patch-style record: use skill_patch.py rebase`）、记录无效或输出目录已存在（可用 `--force` 覆盖）。
 
-ACM-156 将在 `apply` 之上提供自动重放与三方合并（base=基线时的上游文件、ours=delta 载荷、theirs=新上游），并在成功重放后自动更新 `baseline_ref` 与 `reviewed_at`。当前版本只做冲突检测，不合并。
+## local.patch 规范与补丁重放（ACM-156）
+
+overlay 有两种 delta 形态，记录里 `ops` 与 `patch` 二选一：
+
+- `ops`：少量整文件增/改/删，载荷在 `delta/`。上游变化只检测冲突，不合并；
+- `patch`：对上游文件的行级修改，delta 是整个树的 unified diff，存在 `customizations/<skill>/local.patch`。升级时对它做真正的三方合并，能自动合并的就不惊动人。改动是行级、且应与上游演进自动合并时，选 `patch`；改动接近整文件替换时，选 `ops` 更直观。
+
+### local.patch 格式
+
+`local.patch` 是对“基线上游树 → 本地实现树”跑 `git diff --no-index --binary --full-index` 得到的补丁，路径带 `a/` `b/` 前缀，支持二进制。它只能由 `skill_patch.py create` 生成，绝不手工编辑——记录的 `patch.sha256` 与文件内容绑定，手改即校验失败。
+
+记录在 `patch` 字段：
+
+```json
+"patch": {
+  "sha256": "<64 hex of customizations/<skill>/local.patch>",
+  "files": {
+    "SKILL.md": "<64 hex of upstream SKILL.md at baseline_ref>",
+    "notes.md": null,
+    "old.txt": "<64 hex>"
+  }
+}
+```
+
+`files` 列出补丁触及的每个文件：修改或删除 → 基线时上游文件的 sha256；补丁新增 → `null`。校验仍走 `customization_check.py check`（`patch.sha256` 必须等于 local.patch 的实际哈希，`files` 键必须是安全相对路径、非空）。
+
+### 生成与重放
+
+    # 首次登记：基线上游树 + 本地实现树 → local.patch + 记录
+    python3 skills-governance/scripts/skill_patch.py create \
+      --skill <name> --baseline <baseline-dir> --local <local-dir> \
+      --baseline-ref <ref> --reason "<why>"
+
+    # 升级：把 local.patch 重放到新上游树上（真正的三方合并）
+    python3 skills-governance/scripts/skill_patch.py rebase \
+      --skill <name> --old-baseline <baseline-dir> \
+      --upstream <new-upstream-dir> --output <output-dir>
+
+`create` 对已存在的记录只更新 `patch`（`--baseline-ref` / `--reviewed-at` 给才更新）；记录含 `ops` 时报错，要求人工转换。两棵树都必须含 SKILL.md，且不允许符号链接或非普通文件。
+
+`rebase` 对每个清单路径做三方合并（base=旧基线、ours=套完补丁的树、theirs=新上游）：上游没动 → 取本地（`replayed`）；上游改成了和本地一样 → 取上游（`absorbed`）；两边都改但能干净合并 → `merged`；合并不净 → 带 diff3 标记的 `content` 冲突；一边改一边删 → `modify_delete`；含 NUL 的二进制 → `binary`。
+
+退出码：
+
+- `0`：无冲突，写入 `<output>/<name>/`，可直接进 `stage`；
+- `2`：有冲突，写 `<output>/<name>.conflicts/`（完整树，冲突文件含标记），且不写 `<output>/<name>/`；
+- `1`：记录缺失/无效、local.patch 哈希不符、旧基线与清单不符、补丁打不上、输出已存在（`--force` 覆盖）等。
+
+### 冲突标记与激活阻断
+
+`content` 冲突在冲突树里长这样：
+
+```
+<<<<<<< local
+本地版本
+||||||| base
+基线版本
+=======
+上游版本
+>>>>>>> upstream
+```
+
+阻断是双重的：`rebase` 冲突时不产出 `<output>/<name>/`，`stage` 没有干净候选可暂存；即便有人把含标记的树直接塞进 `stage`，`skill_guard` 的 `conflict_markers` 门禁信号也会让 `diff --gate` 和未 `--force` 的 `activate` 以退出码 2 阻断——本地定制不会被含冲突标记的内容静默覆盖。
+
+### 冲突解决流程
+
+1. 复制 `<output>/<name>.conflicts/` 为工作树，手工解掉每个 `<<<<<<<`/`>>>>>>>` 标记；
+2. 刷新补丁与记录：
+
+       python3 skills-governance/scripts/skill_patch.py create \
+         --skill <name> --baseline <new-upstream-dir> --local <resolved-tree> \
+         --baseline-ref <new-ref> --reviewed-at <ts>
+
+3. 按既有流程更新库存 `baseline_ref`，再跑 `customization_check.py check` 与 snapshot → `stage` → `diff --gate` → `activate`。
 
 ## overlay 记录示例
 

@@ -39,10 +39,14 @@
       "description": "Optional condition under which this customization should be dropped or downgraded."
     },
     "ops": {
-      "description": "overlay only. Non-empty list of file operations replayed onto an upstream tree by customization_check.py apply.",
+      "description": "overlay only. Non-empty list of file operations replayed onto an upstream tree by customization_check.py apply. An overlay record takes exactly one of ops or patch.",
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/op" }
+    },
+    "patch": {
+      "description": "overlay only. Manifest for customizations/<skill>/local.patch, replayed onto a new upstream tree by skill_patch.py rebase. An overlay record takes exactly one of ops or patch.",
+      "$ref": "#/$defs/patch"
     },
     "path": {
       "description": "wrapper, fork, and local_replacement only. Repo-relative directory containing SKILL.md.",
@@ -83,6 +87,27 @@
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
           "description": "replace and delete only. sha256 of the upstream file the edit was authored against; the hook for ACM-156 patch replay and three-way merge."
+        }
+      }
+    },
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "files"],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the sibling local.patch file."
+        },
+        "files": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Every file local.patch touches. Key is a safe relative path; value is the sha256 of the upstream file at baseline_ref, or null when the patch adds the file.",
+          "additionalProperties": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          }
         }
       }
     }
