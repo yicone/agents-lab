@@ -23,10 +23,11 @@ def finding(kind, skill, path, target=None):
     return dict(kind=kind, skill=skill, path=str(path), target=target, repaired=False)
 
 
-def inspect(inventory: dict, root: Path, do_repair: bool = False) -> list[dict]:
+def inspect(inventory: dict, root: Path, do_repair: bool = False,
+            adapter_roots: list[Path] | None = None) -> list[dict]:
     """Scan every adapter parent; null declared targets remain informational."""
     adapters = {}
-    roots = set()
+    roots = set(adapter_roots or [])
     findings = []
     for skill in inventory.get('skills', []):
         for adapter in skill.get('adapters', []):
@@ -34,7 +35,7 @@ def inspect(inventory: dict, root: Path, do_repair: bool = False) -> list[dict]:
             if not isinstance(location, str):
                 continue
             path = locate(location, root)
-            adapters[path] = (skill.get('name'), adapter)
+            adapters[path] = (skill.get('name'), adapter, skill)
             roots.add(path.parent)
             target = adapter.get('target')
             if adapter.get('kind') == 'declared_target':
@@ -47,11 +48,28 @@ def inspect(inventory: dict, root: Path, do_repair: bool = False) -> list[dict]:
 
     broken = {link for directory in roots for link in scan(directory)}
     for path in sorted(broken):
-        skill_name, adapter = adapters.get(path, (None, None))
+        skill_name, adapter, skill = adapters.get(path, (None, None, None))
+        if adapter is None and adapter_roots is not None:
+            matches = [entry for entry in inventory.get('skills', [])
+                       if entry.get('name') == path.name]
+            if len(matches) == 1:
+                skill = matches[0]
+                skill_name = skill['name']
+                adapter = {'kind': 'symlink', 'target': None}
         item = finding('broken_symlink' if adapter else 'orphan_broken_symlink',
                        skill_name, path, resolved_target(path))
         if do_repair and adapter and adapter.get('kind') == 'symlink':
+            canonical = (skill.get('authority') or {}).get('canonical_path')
+            if skill.get('status') in {'retired', 'deprecated', 'archived'}:
+                path.unlink()
+                item['repaired'] = True
+                item['action'] = 'removed'
+                findings.append(item)
+                continue
             target = adapter.get('target')
+            if canonical:
+                destination = locate(canonical, root)
+                target = str(destination) if (destination / 'SKILL.md').is_file() else None
             if isinstance(target, str):
                 destination = locate(target, path.parent)
                 if destination.exists():

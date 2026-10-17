@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import capability_gate  # noqa: E402
 import drift_report  # noqa: E402
+import doctor as adapter_doctor  # noqa: E402
 
 
 GATE_SIGNALS = {
@@ -724,9 +725,46 @@ def rollback(args: argparse.Namespace) -> int:
     return 0
 
 
+def doctor(args: argparse.Namespace) -> int:
+    """Expose the shared adapter doctor with user and project discovery."""
+    repo_root = root_path(args.repo_root)
+    inventory = read_json(Path(args.inventory).expanduser())
+    if args.adapter_root:
+        roots = [Path(value).expanduser().absolute() for value in args.adapter_root]
+    else:
+        projects = {repo_root, Path.cwd(), *Path.cwd().parents}
+        roots = [Path.home() / runtime / "skills" for runtime in (".agents", ".codex")]
+        roots.extend(project / runtime / "skills" for project in projects
+                     for runtime in (".agents", ".codex"))
+    findings = adapter_doctor.inspect(inventory, repo_root, args.repair, roots)
+    remaining = [item for item in findings
+                 if not item["repaired"] and item["kind"] != "declared_target_unchecked"]
+    repaired = sum(item["repaired"] for item in findings)
+    if args.format == "json":
+        print(json.dumps({"broken": findings, "count": len(remaining),
+                          "repaired": repaired}, indent=2))
+    else:
+        print(f"Adapter doctor: {len(remaining)} unresolved, {repaired} repaired")
+        if not findings:
+            print("No adapter link problems found.")
+        for item in findings:
+            action = item.get("action", "repaired" if item["repaired"] else "unresolved")
+            if item["kind"] == "declared_target_unchecked":
+                action = "unchecked"
+            print(f"- {item['kind']}: {item['path']} -> {item['target']} [{action}]")
+    return 1 if remaining else 0
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     sub = root.add_subparsers(dest="command", required=True)
+    check = sub.add_parser("doctor", help="check and repair user/project adapter links")
+    check.add_argument("--inventory", default=str(adapter_doctor.DEFAULT_INVENTORY))
+    check.add_argument("--repo-root", default=str(adapter_doctor.DEFAULT_REPO_ROOT))
+    check.add_argument("--adapter-root", action="append", help="override discovered scan roots")
+    check.add_argument("--repair", action="store_true")
+    check.add_argument("--format", choices=("text", "json"), default="text")
+    check.set_defaults(func=doctor)
     snap = sub.add_parser("snapshot", help="capture Skill trees and adapter metadata")
     snap.add_argument("--skill-root", action="append")
     snap.add_argument("--adapter-root", action="append")
