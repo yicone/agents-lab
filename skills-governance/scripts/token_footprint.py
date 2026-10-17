@@ -5,12 +5,11 @@ Estimates the context cost of each skill's SKILL.md and the text documents
 it references. Uses ceil(utf-8 bytes / 4), named bytes_div_4. Does not call
 a model tokenizer and does not modify skills, inventory, or lock files.
 
-A skill warns at token_over_budget when its eager SKILL.md exceeds 2,000
-static tokens, or when a globally injected copy's SKILL.md plus referenced
-docs exceed 2,000. It warns at size_over_budget when SKILL.md exceeds
-16,384 bytes. Over-budget skills get downgrade suggestions: move supporting
-text into references/ for on-demand loading, and install a global skill on
-the target project instead of the global catalog.
+A skill warns at token_over_budget when its eager tokens (SKILL.md, the
+bytes_div_4 estimate) exceed 5,000. Referenced documents are
+quantified for visibility but never gate the skill. Over-budget skills get
+a downgrade suggestion: move supporting text into references/ for
+on-demand loading.
 """
 from __future__ import annotations
 
@@ -24,10 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import validate_skills_inventory as inventory  # noqa: E402
 
 
-REPORT_NAME = "skills-token-footprint/v1"
+REPORT_NAME = "skills-token-footprint/v2"
 ESTIMATOR = "bytes_div_4"
-TOKEN_WARN = 2000
-SKILL_BYTES_WARN = 16384
+EAGER_TOKENS_WARN = 5000
 TEXT_SUFFIXES = {".md", ".txt", ".yml", ".yaml", ".json"}
 SKIP_DIRS = {
     "assets",
@@ -40,8 +38,6 @@ SKIP_DIRS = {
     "tests",
     "__pycache__",
 }
-GLOBAL_SCOPES = {"app-bundled", "global", "machine", "plugin-managed", "user", "vendor-managed"}
-TARGET_SCOPES = {"cross-repo", "project", "repo", "target"}
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 CODE_RE = re.compile(r"`([^`\n]+)`")
 SCHEME_RE = re.compile(r"^[a-z][a-z0-9+.-]*://", re.IGNORECASE)
@@ -61,10 +57,6 @@ REFERENCES_KEEP = (
     "Keep supporting documents in references/ and load them on demand. "
     "Do not inline them into SKILL.md."
 )
-TARGET_SCOPED = (
-    "Stop injecting this skill from the global catalog. "
-    "Install it as a target-scoped skill that loads only in the project that needs it."
-)
 
 
 def static_tokens(size: int) -> int:
@@ -77,27 +69,6 @@ def is_concrete(value: object) -> bool:
     return isinstance(value, str) and "<" not in value and ">" not in value and (
         inventory.is_relative_repo_path(value) or inventory.is_external_path(value)
     )
-
-
-def default_global_roots() -> list[Path]:
-    return [path.expanduser() for path in DEFAULT_MACHINE_ROOTS]
-
-
-def globally_injected(scope: str, skill_dir: Path, global_roots: list[Path]) -> bool:
-    resolved = skill_dir.resolve()
-    for root in global_roots:
-        try:
-            base = root.expanduser().resolve()
-        except OSError:
-            continue
-        try:
-            resolved.relative_to(base)
-        except ValueError:
-            continue
-        return True
-    if scope in TARGET_SCOPES:
-        return False
-    return scope in GLOBAL_SCOPES
 
 
 def clean_relative(raw: str) -> Path | None:
@@ -126,13 +97,12 @@ def read_bytes(path: Path) -> bytes:
         return b""
 
 
-def referenced_files(skill_dir: Path, skill_text: str) -> list[Path]:
+def referenced_files(skill_dir: Path, skill_text: str) -> list[tuple[Path, bool]]:
     root = skill_dir.resolve()
     eager = (root / "SKILL.md").resolve()
-    found: list[Path] = []
-    seen: set[Path] = set()
+    found: dict[Path, bool] = {}
 
-    def add(path: Path) -> None:
+    def add(path: Path, linked: bool) -> None:
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             return
         try:
@@ -140,54 +110,50 @@ def referenced_files(skill_dir: Path, skill_text: str) -> list[Path]:
             resolved.relative_to(root)
         except (OSError, ValueError):
             return
-        if resolved == eager or resolved in seen:
+        if resolved == eager or resolved in found:
             return
-        seen.add(resolved)
-        found.append(resolved)
+        found[resolved] = linked
 
     for raw in reference_strings(skill_text):
         relative = clean_relative(raw)
         if relative is not None:
-            add(root / relative)
+            add(root / relative, True)
     references = root / "references"
     if references.is_dir():
         for path in sorted(references.rglob("*")):
             if path.is_file():
-                add(path)
-    return found
+                add(path, False)
+    return list(found.items())
 
 
-def file_row(skill_dir: Path, path: Path, role: str) -> dict:
+def file_row(skill_dir: Path, path: Path, role: str, linked: bool | None = None) -> dict:
     payload = read_bytes(path)
     relative = path.resolve().relative_to(skill_dir.resolve()).as_posix()
-    return {
+    row = {
         "path": relative,
         "role": role,
         "bytes": len(payload),
         "static_tokens": static_tokens(len(payload)),
     }
+    if linked is not None:
+        row["linked"] = linked
+    return row
 
 
 def suggestions_for(
     warnings: list[str],
     eager_tokens: int,
-    eager_bytes: int,
     referenced_tokens: int,
-    global_install: bool,
 ) -> list[dict]:
     if not warnings:
         return []
-    suggestions = []
-    eager_over = eager_tokens > TOKEN_WARN or eager_bytes > SKILL_BYTES_WARN or referenced_tokens == 0
-    suggestions.append(
+    eager_over = eager_tokens > EAGER_TOKENS_WARN or referenced_tokens == 0
+    return [
         {
             "id": "references_subdirectory",
             "summary": REFERENCES_MOVE if eager_over else REFERENCES_KEEP,
         }
-    )
-    if global_install:
-        suggestions.append({"id": "target_scoped", "summary": TARGET_SCOPED})
-    return suggestions
+    ]
 
 
 def measure_skill(
@@ -195,23 +161,21 @@ def measure_skill(
     name: str,
     scope: str,
     origin: str,
-    global_roots: list[Path],
 ) -> dict:
     skill_md = skill_dir / "SKILL.md"
     eager = read_bytes(skill_md)
     text = eager.decode("utf-8", errors="replace")
-    references = [file_row(skill_dir, path, "referenced") for path in referenced_files(skill_dir, text)]
+    references = [
+        file_row(skill_dir, path, "referenced", linked)
+        for path, linked in referenced_files(skill_dir, text)
+    ]
     eager_bytes = len(eager)
     eager_tokens = static_tokens(eager_bytes)
     referenced_bytes = sum(item["bytes"] for item in references)
     referenced_tokens = sum(item["static_tokens"] for item in references)
-    static = eager_tokens + referenced_tokens
-    global_install = globally_injected(scope, skill_dir, global_roots)
     warnings: list[str] = []
-    if eager_tokens > TOKEN_WARN or (global_install and static > TOKEN_WARN):
+    if eager_tokens > EAGER_TOKENS_WARN:
         warnings.append("token_over_budget")
-    if eager_bytes > SKILL_BYTES_WARN:
-        warnings.append("size_over_budget")
     return {
         "name": name,
         "scope": scope,
@@ -223,11 +187,11 @@ def measure_skill(
         "eager_tokens": eager_tokens,
         "referenced_bytes": referenced_bytes,
         "referenced_tokens": referenced_tokens,
-        "static_tokens": static,
+        "package_tokens": eager_tokens + referenced_tokens,
         "package_bytes": eager_bytes + referenced_bytes,
         "files": [file_row(skill_dir, skill_md, "eager"), *references],
         "warnings": warnings,
-        "suggestions": suggestions_for(warnings, eager_tokens, eager_bytes, referenced_tokens, global_install),
+        "suggestions": suggestions_for(warnings, eager_tokens, referenced_tokens),
     }
 
 
@@ -243,7 +207,7 @@ def unmeasured(name: str, scope: str, reason: str) -> dict:
         "eager_tokens": 0,
         "referenced_bytes": 0,
         "referenced_tokens": 0,
-        "static_tokens": 0,
+        "package_tokens": 0,
         "package_bytes": 0,
         "files": [],
         "warnings": [],
@@ -379,9 +343,7 @@ def build_report(
     repo_root: Path,
     scan_roots: list[Path],
     inventory_path: Path | None = None,
-    global_roots: list[Path] | None = None,
 ) -> dict:
-    roots = default_global_roots() if global_roots is None else global_roots
     exact, inherited, missing = inventory_bindings(document, repo_root)
     seen: set[Path] = set()
     measured: list[dict] = []
@@ -398,7 +360,7 @@ def build_report(
             return
         seen.add(resolved)
         name, scope, origin = metadata_for(directory, exact, inherited)
-        measured.append(measure_skill(directory, name, scope, origin, roots))
+        measured.append(measure_skill(directory, name, scope, origin))
 
     for directory in exact:
         add(directory)
@@ -414,28 +376,26 @@ def build_report(
         key=lambda item: (
             0 if item["warnings"] else 1,
             0 if item["status"] == "measured" else 1,
-            -item["static_tokens"],
+            -item["package_tokens"],
             item["name"],
             item["path"] or "",
         )
     )
     token_hits = sum("token_over_budget" in item["warnings"] for item in rows)
-    size_hits = sum("size_over_budget" in item["warnings"] for item in rows)
     return {
         "report": REPORT_NAME,
         "read_only": True,
         "estimator": ESTIMATOR,
-        "estimator_note": "static_tokens = ceil(utf-8 bytes / 4)",
-        "thresholds": {"skill_tokens": TOKEN_WARN, "skill_bytes": SKILL_BYTES_WARN},
+        "estimator_note": "package_tokens and static_tokens = ceil(utf-8 bytes / 4)",
+        "thresholds": {"eager_tokens": EAGER_TOKENS_WARN},
         "inventory": str(inventory_path) if inventory_path else None,
-        "gate": "fail" if token_hits or size_hits else "pass",
+        "gate": "fail" if token_hits else "pass",
         "summary": {
             "skills": len(rows),
             "measured": sum(item["status"] == "measured" for item in rows),
             "unmeasured": sum(item["status"] == "unmeasured" for item in rows),
             "token_over_budget": token_hits,
-            "size_over_budget": size_hits,
-            "warnings": token_hits + size_hits,
+            "warnings": token_hits,
         },
         "skills": rows,
     }
@@ -449,18 +409,13 @@ def render_text(report: dict) -> str:
         f"Inventory: {report['inventory']}",
         "Read-only: yes",
         f"Estimator: {report['estimator']} ({report['estimator_note']})",
-        (
-            "Thresholds: "
-            f"skill_tokens>{thresholds['skill_tokens']} "
-            f"skill_bytes>{thresholds['skill_bytes']}"
-        ),
+        f"Thresholds: eager_tokens>{thresholds['eager_tokens']}",
         f"Gate: {report['gate']}",
         (
             "Summary: "
             f"skills={summary['skills']} measured={summary['measured']} "
             f"unmeasured={summary['unmeasured']} "
-            f"token_over_budget={summary['token_over_budget']} "
-            f"size_over_budget={summary['size_over_budget']}"
+            f"token_over_budget={summary['token_over_budget']}"
         ),
     ]
     if not report["skills"]:
@@ -476,14 +431,17 @@ def render_text(report: dict) -> str:
         lines.append(f"  eager_bytes: {skill['eager_bytes']}")
         lines.append(f"  eager_tokens: {skill['eager_tokens']}")
         lines.append(f"  referenced_tokens: {skill['referenced_tokens']}")
-        lines.append(f"  static_tokens: {skill['static_tokens']}")
+        lines.append(f"  package_tokens: {skill['package_tokens']}")
         if skill["warnings"]:
             lines.append("  warnings: " + ", ".join(skill["warnings"]))
         else:
             lines.append("  warnings: none")
         for item in skill["files"]:
             if item["role"] == "referenced":
-                lines.append(f"  reference: {item['path']} tokens={item['static_tokens']} bytes={item['bytes']}")
+                lines.append(
+                    f"  reference: {item['path']} tokens={item['static_tokens']} "
+                    f"bytes={item['bytes']} linked={item['linked']}"
+                )
         for item in skill["suggestions"]:
             lines.append(f"  suggestion: {item['id']} — {item['summary']}")
     return "\n".join(lines) + "\n"

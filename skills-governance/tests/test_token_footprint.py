@@ -36,13 +36,12 @@ class TokenFootprintTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def report(self, skills, scan_roots=None, global_roots=None):
+    def report(self, skills, scan_roots=None):
         document = {"schema": "skills-inventory/v1", "skills": skills}
         return self.module.build_report(
             document,
             self.root,
             scan_roots or [],
-            global_roots=global_roots if global_roots is not None else [],
         )
 
     def row(self, name, relative, scope="repo"):
@@ -63,66 +62,51 @@ class TokenFootprintTests(unittest.TestCase):
         self.assertEqual(self.module.static_tokens(1), 1)
         self.assertEqual(self.module.static_tokens(4), 1)
         self.assertEqual(self.module.static_tokens(5), 2)
-        self.assertEqual(self.module.TOKEN_WARN, 2000)
-        self.assertEqual(self.module.SKILL_BYTES_WARN, 16384)
+        self.assertEqual(self.module.EAGER_TOKENS_WARN, 5000)
 
     def test_exact_token_budget_passes(self):
-        write_skill(self.root / "skills" / "small-skill", "small-skill", 8000)
+        write_skill(self.root / "skills" / "small-skill", "small-skill", 20000)
         report = self.report([self.row("small-skill", "skills/small-skill")])
         skill = self.skill(report, "small-skill")
-        self.assertEqual(skill["eager_tokens"], 2000)
-        self.assertEqual(skill["static_tokens"], 2000)
+        self.assertEqual(skill["eager_tokens"], 5000)
+        self.assertEqual(skill["package_tokens"], 5000)
         self.assertEqual(skill["warnings"], [])
         self.assertEqual(skill["suggestions"], [])
         self.assertEqual(report["gate"], "pass")
 
     def test_eager_token_overage_suggests_references_split(self):
-        write_skill(self.root / "skills" / "wide-skill", "wide-skill", 8001)
+        write_skill(self.root / "skills" / "wide-skill", "wide-skill", 20001)
         report = self.report([self.row("wide-skill", "skills/wide-skill", scope="repo")])
         skill = self.skill(report, "wide-skill")
-        self.assertEqual(skill["eager_tokens"], 2001)
+        self.assertEqual(skill["eager_tokens"], 5001)
         self.assertEqual(skill["warnings"], ["token_over_budget"])
         self.assertEqual([item["id"] for item in skill["suggestions"]], ["references_subdirectory"])
         self.assertIn("references/", skill["suggestions"][0]["summary"])
         self.assertNotIn("global catalog", skill["suggestions"][0]["summary"])
         self.assertEqual(report["gate"], "fail")
         self.assertEqual(report["summary"]["token_over_budget"], 1)
-        self.assertEqual(report["summary"]["size_over_budget"], 0)
 
-    def test_global_overage_also_suggests_target_scope(self):
-        write_skill(self.root / "skills" / "global-skill", "global-skill", 8001)
-        report = self.report([self.row("global-skill", "skills/global-skill", scope="machine")])
-        skill = self.skill(report, "global-skill")
-        self.assertEqual(
-            [item["id"] for item in skill["suggestions"]],
-            ["references_subdirectory", "target_scoped"],
-        )
-        self.assertIn("target-scoped", skill["suggestions"][1]["summary"])
-
-    def test_home_install_is_global_even_when_scope_is_repo(self):
-        global_root = self.root / "home-skills"
-        write_skill(global_root / "installed-skill", "installed-skill", 8001)
-        report = self.report(
-            [self.row("installed-skill", "home-skills/installed-skill", scope="repo")],
-            global_roots=[global_root],
-        )
-        skill = self.skill(report, "installed-skill")
-        self.assertIn("target_scoped", [item["id"] for item in skill["suggestions"]])
-
-    def test_size_threshold_is_independent_of_the_token_boundary(self):
-        write_skill(self.root / "skills" / "token-only", "token-only", 16384)
-        write_skill(self.root / "skills" / "bulky-skill", "bulky-skill", 16385)
+    def test_scope_does_not_affect_the_gate(self):
+        write_skill(self.root / "skills" / "machine-skill", "machine-skill", 20001)
+        write_skill(self.root / "skills" / "repo-skill", "repo-skill", 20001)
         report = self.report(
             [
-                self.row("token-only", "skills/token-only"),
-                self.row("bulky-skill", "skills/bulky-skill"),
+                self.row("machine-skill", "skills/machine-skill", scope="machine"),
+                self.row("repo-skill", "skills/repo-skill", scope="repo"),
             ]
         )
-        token_only = self.skill(report, "token-only")
-        bulky = self.skill(report, "bulky-skill")
-        self.assertEqual(token_only["warnings"], ["token_over_budget"])
-        self.assertEqual(bulky["warnings"], ["token_over_budget", "size_over_budget"])
-        self.assertGreater(bulky["eager_bytes"], self.module.SKILL_BYTES_WARN)
+        machine = self.skill(report, "machine-skill")
+        repo = self.skill(report, "repo-skill")
+        self.assertEqual(machine["warnings"], repo["warnings"])
+        self.assertEqual(machine["suggestions"], repo["suggestions"])
+
+    def test_oversized_bytes_under_token_budget_stay_quiet(self):
+        write_skill(self.root / "skills" / "dense-skill", "dense-skill", 17000)
+        report = self.report([self.row("dense-skill", "skills/dense-skill")])
+        skill = self.skill(report, "dense-skill")
+        self.assertGreater(skill["eager_bytes"], 16384)
+        self.assertEqual(skill["warnings"], [])
+        self.assertEqual(report["gate"], "pass")
 
     def test_referenced_docs_are_counted_once_and_do_not_escape(self):
         skill_dir = self.root / "skills" / "cited-skill"
@@ -141,23 +125,40 @@ class TokenFootprintTests(unittest.TestCase):
         references = [item for item in skill["files"] if item["role"] == "referenced"]
         self.assertEqual([item["path"] for item in references], ["references/guide.md"])
         self.assertEqual(references[0]["static_tokens"], 2000)
+        self.assertTrue(references[0]["linked"])
         self.assertEqual(skill["referenced_tokens"], 2000)
-        self.assertGreater(skill["static_tokens"], 2000)
+        self.assertGreater(skill["package_tokens"], 2000)
         self.assertEqual(skill["warnings"], [])
         self.assertEqual(report["gate"], "pass")
 
-    def test_global_package_over_budget_keeps_references_on_demand(self):
+    def test_unlinked_reference_files_are_flagged_but_still_counted(self):
+        skill_dir = self.root / "skills" / "mixed-skill"
+        write_skill(skill_dir, "mixed-skill", 200, extra="See [guide](references/guide.md).\n")
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(parents=True)
+        (references_dir / "guide.md").write_bytes(b"c" * 4000)
+        (references_dir / "extra.md").write_bytes(b"d" * 4000)
+        report = self.report([self.row("mixed-skill", "skills/mixed-skill")])
+        skill = self.skill(report, "mixed-skill")
+        references = {item["path"]: item for item in skill["files"] if item["role"] == "referenced"}
+        self.assertTrue(references["references/guide.md"]["linked"])
+        self.assertFalse(references["references/extra.md"]["linked"])
+        self.assertEqual(skill["referenced_tokens"], 2000)
+        self.assertEqual(skill["warnings"], [])
+        self.assertEqual(report["gate"], "pass")
+
+    def test_machine_scope_with_large_references_stays_on_demand(self):
         skill_dir = self.root / "skills" / "packaged-skill"
         write_skill(skill_dir, "packaged-skill", 200, extra="See [guide](references/guide.md).\n")
         guide = skill_dir / "references" / "guide.md"
         guide.parent.mkdir(parents=True)
-        guide.write_bytes(b"c" * 8000)
+        guide.write_bytes(b"c" * 80000)
         report = self.report([self.row("packaged-skill", "skills/packaged-skill", scope="machine")])
         skill = self.skill(report, "packaged-skill")
-        self.assertEqual(skill["warnings"], ["token_over_budget"])
-        self.assertEqual(skill["suggestions"][0]["id"], "references_subdirectory")
-        self.assertIn("Do not inline", skill["suggestions"][0]["summary"])
-        self.assertEqual(skill["suggestions"][1]["id"], "target_scoped")
+        self.assertEqual(skill["referenced_tokens"], 20000)
+        self.assertEqual(skill["warnings"], [])
+        self.assertEqual(skill["suggestions"], [])
+        self.assertEqual(report["gate"], "pass")
 
     def test_missing_skill_is_unmeasured_and_does_not_fail_the_gate(self):
         report = self.report([self.row("gone-skill", "skills/gone-skill")])
@@ -184,7 +185,7 @@ class TokenFootprintTests(unittest.TestCase):
 
     def test_command_is_read_only_and_check_returns_the_gate(self):
         skill_dir = self.root / "skills" / "checked-skill"
-        write_skill(skill_dir, "checked-skill", 8001)
+        write_skill(skill_dir, "checked-skill", 20001)
         inventory = self.root / "inventory.json"
         payload = {"schema": "skills-inventory/v1", "skills": [self.row("checked-skill", "skills/checked-skill")]}
         inventory.write_text(json.dumps(payload), encoding="utf-8")

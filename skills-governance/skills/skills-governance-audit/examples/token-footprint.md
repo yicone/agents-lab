@@ -2,7 +2,7 @@
 
 ## Goal
 
-Show a read-only context-budget audit that quantifies static tokens and recommends a downgrade for an oversized global skill.
+Show a read-only context-budget audit that quantifies static tokens and recommends a downgrade for an oversized eager `SKILL.md`.
 
 ## Case
 
@@ -22,15 +22,13 @@ Add `--check` when the audit should fail closed. The command exits 2 when the ga
 ## Expected Findings
 
 - `estimator`: `bytes_div_4` (`ceil(utf-8 bytes / 4)`)
-- `token_over_budget` when `SKILL.md` is over 2,000 static tokens
-- `token_over_budget` when a globally injected skill's `SKILL.md` plus referenced docs are over 2,000 static tokens
-- `size_over_budget` when `SKILL.md` is over 16,384 bytes
+- `token_over_budget` when the eager `SKILL.md` is over 5,000 static tokens, at any scope
+- referenced docs are quantified separately (`referenced_tokens`, per-file `linked` flag) and never gate the skill
 - a repository skill whose supporting text already lives in `references/` stays under the eager token gate
 
 ## Expected Downgrade
 
 - `references_subdirectory`: move supporting material out of `SKILL.md` into `references/` and load it on demand
-- `target_scoped`: install the skill on the target project instead of injecting it from the global catalog
 
 ## Expected Output Shape
 
@@ -39,16 +37,15 @@ Token Footprint
 Gate: fail
 - skill: morphism-mapper
   scope: machine
-  eager_tokens: 4200
+  eager_tokens: 5500
   referenced_tokens: 800
-  static_tokens: 5000
-  warnings: token_over_budget, size_over_budget
+  package_tokens: 6300
+  warnings: token_over_budget
   suggestion: references_subdirectory — Move supporting material out of SKILL.md into a references/ subdirectory and load those files only when a task needs them.
-  suggestion: target_scoped — Stop injecting this skill from the global catalog. Install it as a target-scoped skill that loads only in the project that needs it.
 ```
 
 ## What This Example Guards
 
 - the footprint report stays read-only
 - referenced documents are quantified separately from the eager `SKILL.md`
-- an over-budget global skill gets both downgrade paths
+- an over-budget skill gets the references/ downgrade path regardless of scope
