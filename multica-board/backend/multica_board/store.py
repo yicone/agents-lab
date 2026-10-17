@@ -10,12 +10,15 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 TABLES = (
     "workspaces", "sync_status", "issues", "projects", "members", "agents", "runtimes", "tasks",
-    "changes", "change_baseline", "meta",
+    "property_defs", "changes", "change_baseline", "meta",
 )
-DATA_TABLES = ("issues", "projects", "members", "agents", "runtimes", "tasks", "changes", "change_baseline")
+DATA_TABLES = (
+    "issues", "projects", "members", "agents", "runtimes", "tasks", "property_defs",
+    "changes", "change_baseline",
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
@@ -76,6 +79,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS tasks_issue ON tasks (server, workspace_id, issue_id, created_at);
 CREATE INDEX IF NOT EXISTS tasks_agent ON tasks (server, workspace_id, agent_id, created_at);
+CREATE TABLE IF NOT EXISTS property_defs (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+  name TEXT, type TEXT, archived INTEGER, options_json TEXT,
+  PRIMARY KEY (server, workspace_id, id)
+);
 CREATE TABLE IF NOT EXISTS changes (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   server TEXT NOT NULL, workspace_id TEXT NOT NULL,

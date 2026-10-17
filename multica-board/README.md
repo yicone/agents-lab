@@ -9,7 +9,7 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `backend/`：采集、缓存与只读 API（Python ≥ 3.10 标准库，无依赖；需要 `multica` CLI ≥ 0.6.2 在 `PATH` 上）。归 Builder（ACM-162）。
 - `web/`：前端静态页面（无构建、无依赖），由后端在 `/` 托管。归前端设计师（ACM-163）。
 - `web/fixtures/`：契约样例响应（虚构数据），`generate.py` 重新生成。
-- `docs/api-contract.md`：前后端只读 API 契约（v0.2）。改契约先在 ACM-163 说。
+- `docs/api-contract.md`：前后端只读 API 契约（v0.5）。改契约先在 ACM-163 说。
 - `docs/frontend-design.md`：信息架构与交互设计。
 
 ## 运行
@@ -35,6 +35,9 @@ python3 -m multica_board serve --all-workspaces --refresh 0
 
 # 测试
 python3 -m unittest discover -s tests -v
+
+# 层回填建议（只读，不写属性）
+python3 -m multica_board.suggest_layers --output layer-backfill.md
 ```
 
 只看前端（mock 数据，不需要后端）：
@@ -63,7 +66,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 
 ## API
 
-契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未被状态迁移覆盖的 agent 交付，以及未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
+契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`（每条带 `layer`）、`/api/layers`（ACM Lab 五层计数）、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未被状态迁移覆盖的 agent 交付，以及未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
 
 实现上需要知道的约定：
 
@@ -78,7 +81,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 ## 安全边界
 
 - **只监听回环地址**：只能绑定 `127.0.0.1` / `::1`。`Host` 只接受 `127.0.0.1:<port>`（绑 `::1` 时为 `[::1]:<port>`），其它返回 `421`。跨源 `Origin` 或 `Sec-Fetch-Site: cross-site` 返回 `403`。不发 CORS 头。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。
-- **没有写接口**：HTTP 只有 GET/HEAD。CLI 只能执行精确白名单（`workspace list`、`workspace member list`、`issue list`、`project list`、`agent list`、`agent tasks`、`runtime list`），白名单外的命令在启动进程前就被拒绝；调用方也不能注入 `--profile` / `--workspace-id` / `--server-url`。没有“立即刷新”接口。
+- **没有写接口**：HTTP 只有 GET/HEAD。CLI 只能执行精确白名单（`workspace list`、`workspace member list`、`issue list`、`project list`、`agent list`、`agent tasks`、`runtime list`、`property list`），白名单外的命令在启动进程前就被拒绝；调用方也不能注入 `--profile` / `--workspace-id` / `--server-url`。没有“立即刷新”接口。`suggest_layers` 另外只允许 `issue list`、`project list`、`property list`，用来出回填建议，不写属性。
 - **token 不外泄**：后端不读 CLI 配置或 token。子进程 env 去掉 `MULTICA_TOKEN`、`MULTICA_SERVER_URL`、`MULTICA_TASK_*`、`MULTICA_WORKSPACE_ID`，加 `GODEBUG=tlsmlkem=0`，每次调用都带 `--profile <p> --workspace-id <id>`。子进程 cwd 固定为一个空的私有临时目录：CLI 会从 cwd 向上查找 `.multica` 并覆盖 `--profile`，所以从哪个目录启动看板都不影响采集。不缓存：issue 正文、agent instructions、custom_env/args、mcp_config、runtime_config、launch_header、run 输出与 workdir、成员邮箱。错误文本脱敏（Bearer/PAT/`m??_` token、`sk-`、`ghp_`、JWT、`key=value`、长 hex/base64、home 路径）。缓存目录 `0700`，文件 `0600`。
 - **workspace 隔离**：返回行的 `workspace_id` 和请求的不一致时，整批丢弃，该 workspace 标 `collect_state=error`、`kind=auth`（"CLI identity scoped to another workspace"）。一个 workspace 失败不影响其他 workspace，旧缓存保留并标为过期，不会显示成 0 条。
 

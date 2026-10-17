@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.3）
+# Multica Board 只读 API 契约（v0.5）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，并新增 `GET /api/layers`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -116,6 +116,16 @@
         "task_id": "uuid",
         "completed_at": "...",
         "error_kind": "daemon_restart"
+      },
+      "layer": {
+        "primary": "L5",
+        "involved": ["L3"],
+        "governance": false,
+        "source": {
+          "primary": "own",
+          "involved": "inherited:ACM-181",
+          "governance": null
+        }
       }
     }
   ]
@@ -128,6 +138,66 @@
 - `latest_run`：按 `agent tasks` 的 `issue_id` 关联得到的最近一次 run。后端只缓存最近 14 天（`--run-days`）的 run，所以 `null` 表示“14 天内没有 run”，不代表从未运行。
 - `last_failed_run`：7 天内最近一次失败的 run，之后成功也保留，前端用它显示“曾失败、已恢复”。没有为 `null`。
 - `url`：`{multica_web_base}/{slug}/issues/{issue_uuid}`（路径用 UUID，不是 identifier）。无法拼接时为 `null`，前端退化为不带链接。
+- `layer`（**v0.5**）：这条 issue 归在哪一层。后端用缓存的 `properties` 和属性定义解析，前端不再判断选项文案。
+  - `primary`：`L1` | `L2` | `L3` | `L4` | `L5` | `outside` | `null`。`outside` 是选项「不在地图」。`null` 是未归层（继承之后仍然没有主层，包括只填了涉及层的）。
+  - `involved`：`L1`–`L5` 的数组，按 L1→L5 排。已经包含主层的会去掉。主层是 `outside` 时恒为 `[]`。
+  - `governance`：`true` | `false` | `null`。`null` 表示这个字段没人填过。只有 `true` 计入治理线。
+  - `source.primary` / `source.involved` / `source.governance`：各自独立，`own`、`inherited:<identifier>` 或 `null`。来源 identifier 是沿父 issue 向上最近一个自己填了该字段的祖先。父 issue 不在缓存里时停住，该字段保持空。
+  - 选项名以 `L1`–`L5` 加空格（或只有这一个代号）识别；「不在地图」按全名识别。以后改显示文字不影响代号。
+  - 没有这三个属性定义时，三个值都是空，`source` 全是 `null`。非 ACM Lab 的 issue 同样带这个对象，通常是空的。
+
+## `GET /api/layers`
+
+ACM Lab（workspace slug `acm-lab`）的地图计数。其它 workspace 不在这里，它们的层信息只在 `/api/issues` 的 `layer` 上。
+
+```json
+{
+  "generated_at": "2026-10-14T09:00:00Z",
+  "workspace": { "id": "uuid", "slug": "acm-lab", "name": "ACM Lab" },
+  "ready": true,
+  "header": { "total": 8, "assigned": 6, "open": 6, "decide": 4 },
+  "layers": [
+    {
+      "id": "L5",
+      "name": "感知与决策",
+      "total": 0,
+      "open": 0,
+      "decide": 0,
+      "involved_extra": 0,
+      "involved_from": [],
+      "governance_open": 0,
+      "governance_decide": 0,
+      "decide_items": []
+    }
+  ],
+  "outside": {
+    "total": 1,
+    "open": 1,
+    "decide": 0,
+    "governance_open": 0,
+    "governance_decide": 0,
+    "decide_items": []
+  },
+  "unassigned": {
+    "total": 1,
+    "open": 1,
+    "decide": 0,
+    "governance_open": 0,
+    "governance_decide": 0,
+    "decide_items": []
+  }
+}
+```
+
+- `layers` 固定 5 个，顺序是地图从上到下：L5、L4、L3、L2、L1。`name` 是短名，不含 `L` 编号。
+- `ready`：缓存里同时有「主层」（select）、「涉及层」（multi_select）、「治理线」（checkbox）时为 `true`。属性还没建时为 `false`，此时每条未取消的 issue 都算未归层，地图应显示引导而不是一屏 0。
+- `workspace`：slug 不是 `acm-lab` 的缓存里没有这个 workspace 时为 `null`，计数全是 0。
+- 计数都排除 `cancelled` / `canceled`。一条 issue 只进入一个格子：`layers[].total`、`outside.total` 或 `unassigned.total`。三者之和等于 `header.total`。
+- `total`：主层是该层。`open`：其中状态不是 `done` 的（含 backlog）。`decide`：`in_review` 或 `blocked`，是 `open` 的子集；`status` 是这两个值时优先于 `status_category`。
+- `header.assigned`：五个层的 `total` 之和（已归层）。`header.open` / `header.decide` 含「不在地图」和未归层。
+- `involved_extra`：涉及层包含本层、主层在另外一个 L1–L5、且未取消。不进任何 `total`。`involved_from` 是这些 issue 的主层代号，按 L1→L5。
+- `governance_open` / `governance_decide`：治理线为 `true` 且主层是该层（或「不在地图」）。未归层上的治理线不进任何格子。
+- `decide_items`：该格里待你决定的前 3 条，等待最久的在前。`waiting_since` 是进入当前状态的时间，取自 `/api/changes` 的 `issue_status`；7 天窗口里没有这条迁移时退回 `last_activity_at`，并把 `waiting_exact` 设为 `false`（前端在时长前加 `≥`）。字段还有 `key`、`id`、`identifier`、`title`、`status`、`governance`、`url`。
 
 ## `GET /api/issues/{workspace_id}/{issue_id}/runs`
 
@@ -477,6 +547,7 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 
 ## 变更记录
 
+- v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。
 - v0.4（2026-10-16）：ACM-179 在 `GET /api/attention` 增加 `agent_updates`，列出近 24 小时内负责人 agent 已完成、但没有被同期 `in_review` / `blocked` 迁移覆盖的 run。
 - v0.3（2026-10-16）：ACM-174 在 `GET /api/attention` 增加 `missing_hermes_async_delegation`，列出未启用 skill `hermes-async-delegation` 的 Hermes agent。
 - v0.2（2026-10-15）：ACM-165 新增 `GET /api/attention`，按 workspace 汇总 in_review、blocked、近 24 小时失败 run、仍绑着 agent 的离线 runtime。`?format=text` 输出不超过 2048 字节的纯文本。
