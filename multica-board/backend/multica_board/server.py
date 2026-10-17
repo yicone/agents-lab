@@ -1,4 +1,4 @@
-"""Loopback-only, GET-only JSON API (contract v0.5) plus the static web/ frontend."""
+"""Loopback-only, GET-only JSON API (contract v0.6) plus the static web/ frontend."""
 
 from __future__ import annotations
 
@@ -137,7 +137,14 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/attention":
                 self._attention(views)
                 return
-            if path in STATIC_ROUTES:
+            if path == "/api/skills/attention":
+                self._skills_attention(views)
+                return
+            if path == "/api/skills":
+                body = views.skills(self._review_days())
+            elif path == "/api/skills/meta":
+                body = views.skills_meta(self._review_days())
+            elif path in STATIC_ROUTES:
                 body = STATIC_ROUTES[path](views)
             elif path == "/api/changes":
                 since, kind = self._changes_args()
@@ -158,6 +165,34 @@ class Handler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal", "internal error")
             return
         self._json(HTTPStatus.OK, body)
+
+    def _review_days(self) -> int:
+        from .skills_view import parse_review_days
+
+        query = urlsplit(self.path).query
+        if len(query) > 256:
+            raise BadRequest("query string is too long")
+        try:
+            values = parse_qs(query, keep_blank_values=True, max_num_fields=32).get("review_days")
+        except ValueError as exc:
+            raise BadRequest("review_days must be 30, 90, or 180") from exc
+        if not values:
+            return 90
+        if len(values) != 1:
+            raise BadRequest("review_days must be a single value")
+        try:
+            return parse_review_days(values[0])
+        except ValueError as exc:
+            raise BadRequest(str(exc)) from exc
+
+    def _skills_attention(self, views: Views) -> None:
+        fmt = attention_format(urlsplit(self.path).query)
+        days = self._review_days()
+        if fmt == "text":
+            data = views.skills_attention_text(days).encode()
+            self._send(HTTPStatus.OK, data, "text/plain; charset=utf-8", {"Content-Security-Policy": API_CSP})
+            return
+        self._json(HTTPStatus.OK, views.skills_attention(days))
 
     def _attention(self, views: Views) -> None:
         fmt = attention_format(urlsplit(self.path).query)

@@ -27,5 +27,10 @@
  "atlas-empty": ["meta", "issues", "changes", "agents", "runtimes"],
  "atlas-unfilled": ["meta", "issues", "changes", "agents", "runtimes"],
  "atlas-quiet": ["meta", "issues", "changes", "agents", "runtimes"],
- "atlas-gap": ["meta", "issues", "changes", "agents", "runtimes"]
+ "atlas-gap": ["meta", "issues", "changes", "agents", "runtimes"],
+ "skills-missing": ["skills"],
+ "skills-drift": ["skills"],
+ "skills-gate": ["skills"],
+ "skills-fallback": ["skills"],
+ "skills-invalid": ["skills"]
 }

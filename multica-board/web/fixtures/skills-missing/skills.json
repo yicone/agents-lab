@@ -1,0 +1,254 @@
+{
+  "ok": true,
+  "error": null,
+  "generated_at": "2026-10-16T08:28:00Z",
+  "items": [
+    {
+      "name": "broken-link",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "third_party",
+      "source_authority": "upstream_repository",
+      "update_authority": "skills_cli",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "skills/broken-link",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "baseline_kind": "upstream_ref",
+      "baseline_subject": "SKILL.md",
+      "baseline_ref": "github:example/skill",
+      "review_time": null,
+      "reconciliation_status": "missing",
+      "status_label": "缺失",
+      "findings": [
+        {
+          "code": "source_missing",
+          "label": "源头文件不在"
+        }
+      ],
+      "customization_mode": "none",
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": "unreviewed",
+      "tools": {
+        "cursor": null,
+        "codex": null,
+        "claude": null,
+        "hermes": null,
+        "gemini": null,
+        "project": "missing"
+      },
+      "entries": [
+        {
+          "path": "~/.agents/skills/skill",
+          "present": true,
+          "symlink": false,
+          "target": null,
+          "tools": [
+            "cursor",
+            "codex"
+          ],
+          "mark": "shared"
+        }
+      ],
+      "install_path": null,
+      "capability_gate": null,
+      "bucket": "missing",
+      "tags": [],
+      "baseline_debt": false,
+      "reason": "记录的路径不在",
+      "quiet": false,
+      "command": "python3 skills-governance/scripts/drift_report.py --format text"
+    }
+  ],
+  "summary": [
+    {
+      "id": "all",
+      "label": "全部",
+      "count": 1,
+      "statuses": {
+        "missing": 1
+      }
+    },
+    {
+      "id": "skills_cli_managed",
+      "label": "Skills CLI",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "local_custom",
+      "label": "自建",
+      "count": 1,
+      "statuses": {
+        "missing": 1
+      }
+    },
+    {
+      "id": "runtime_plugin",
+      "label": "运行时插件",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "runtime_builtin",
+      "label": "运行时内置",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "third_party_unmanaged",
+      "label": "第三方未托管",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "unrecorded",
+      "label": "未登记",
+      "count": 0,
+      "statuses": {}
+    }
+  ],
+  "tools": [
+    {
+      "id": "cursor",
+      "label": "Cursor"
+    },
+    {
+      "id": "codex",
+      "label": "Codex"
+    },
+    {
+      "id": "claude",
+      "label": "Claude"
+    },
+    {
+      "id": "hermes",
+      "label": "Hermes"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini"
+    },
+    {
+      "id": "project",
+      "label": "项目"
+    }
+  ],
+  "attention": {
+    "generated_at": "2026-10-16T08:28:00Z",
+    "inventory_updated_at": "2026-10-16T03:50:00Z",
+    "inventory_sha": "abc1234",
+    "baseline_debt": 0,
+    "review_days": 90,
+    "badge": 1,
+    "counts": {
+      "missing": 1,
+      "version_changed": 0,
+      "unrecorded": 0,
+      "capability_pending": 0,
+      "modified": 0,
+      "upgradable": 0,
+      "overlap": 0
+    },
+    "buckets": {
+      "missing": {
+        "connected": true,
+        "reason": "",
+        "items": [
+          {
+            "identifier": "broken-link",
+            "title": "记录的路径不在",
+            "status": "missing",
+            "time": "2026-10-16T08:28:00Z",
+            "source_class": "local_custom",
+            "tags": []
+          }
+        ]
+      },
+      "version_changed": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "unrecorded": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "capability_pending": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "modified": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      },
+      "upgradable": {
+        "connected": false,
+        "reason": "升级检查还没有数据源",
+        "items": []
+      },
+      "overlap": {
+        "connected": true,
+        "reason": "",
+        "items": []
+      }
+    }
+  },
+  "meta": {
+    "inventory_updated_at": "2026-10-16T03:50:00Z",
+    "inventory_sha": "abc1234",
+    "drift_scanned_at": "2026-10-16T08:28:00Z",
+    "review_days": 90,
+    "sources": [
+      {
+        "id": "inventory",
+        "label": "清单",
+        "state": "ok",
+        "detail": "abc1234"
+      },
+      {
+        "id": "drift",
+        "label": "漂移扫描",
+        "state": "ok",
+        "detail": "刚刚"
+      },
+      {
+        "id": "skill_lock",
+        "label": "SkilLock",
+        "state": "fallback",
+        "detail": "本机未安装，门禁回退到风险信号"
+      },
+      {
+        "id": "staging",
+        "label": "暂存区",
+        "state": "ok",
+        "detail": "未激活 0"
+      },
+      {
+        "id": "upgrade",
+        "label": "升级检查",
+        "state": "absent",
+        "detail": "未接入"
+      },
+      {
+        "id": "overlap",
+        "label": "重叠检测",
+        "state": "absent",
+        "detail": "未接入，只读 conflict_status"
+      }
+    ],
+    "staging": {
+      "state": "ok",
+      "detail": "未激活 0",
+      "pending": 0
+    }
+  }
+}

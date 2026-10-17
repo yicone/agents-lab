@@ -981,3 +981,33 @@ class Views:
             "by_runtime": by_runtime,
             "by_agent": by_agent,
         }
+
+    # --- /api/skills --------------------------------------------------------
+
+    def skills(self, review_days: int = 90) -> dict[str, Any]:
+        from .skills_view import parse_review_days, skills_document
+
+        try:
+            days = parse_review_days(None if review_days == 90 else str(review_days))
+        except ValueError as exc:
+            raise BadRequest(str(exc)) from exc
+        return skills_document(days)
+
+    def skills_meta(self, review_days: int = 90) -> dict[str, Any]:
+        document = self.skills(review_days)
+        return {
+            "ok": document["ok"],
+            "error": document.get("error"),
+            "generated_at": document["generated_at"],
+            "meta": document.get("meta"),
+            "summary": document.get("summary"),
+            "tools": document.get("tools"),
+        }
+
+    def skills_attention(self, review_days: int = 90) -> dict[str, Any]:
+        return self.skills(review_days)["attention"]
+
+    def skills_attention_text(self, review_days: int = 90) -> str:
+        from .skills_view import render_skills_attention_text
+
+        return render_skills_attention_text(self.skills_attention(review_days))

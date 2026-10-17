@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.5）
+# Multica Board 只读 API 契约（v0.6）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。v0.6（ACM-182）新增 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -546,8 +546,19 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 - 7 天内没有失败的组不出现。缓存只保留 `--run-days`（默认 14）天的 run，所以 7 天窗口在默认配置下是完整的。
 - 排序：`failed.d7` 降序，其次 `failed.h24`，再按名称；名称为空的排在后面。
 
+## `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`
+
+Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。三个接口共用同一次合并（清单 + drift + 工具根配置 + 未激活暂存区）。`?review_days=` 只接受 `30`、`90`、`180`，省略是 `90`。
+
+- `GET /api/skills`：`items` 是清单和未登记安装按名字合并后的行，带 `tools`（`direct` / `shared` / `missing` / `null`）、`bucket`、`baseline_debt`。`attention` 与下面的 attention 接口相同。`ok: false` 表示清单读不出来，此时 `items` 为空，不把「没检查」显示成「没问题」。
+- `GET /api/skills/meta`：数据源健康（清单、漂移扫描、SkilLock、暂存区、升级检查、重叠检测）和来源汇总。`absent` / `fallback` 是未接入或回退，不是通过。
+- `GET /api/skills/attention`：`?format=json|text`。text 不超过 2048 字节，空桶不出现，基线债只有一行计数、不列条目。桶代码：`missing`、`version_changed`、`unrecorded`、`capability_pending`、`modified`、`upgradable`、`overlap`。`badge` 是这些桶的条数之和，不含 `baseline_debt`。
+
+每个 skill 只进一个桶，优先级是上面的桶代码顺序。`version_changed` 是记录的插件版本目录不在、同级有新版本。`modified` 同时收 `unverified`。升级检查第一期没有数据源，桶在 JSON 里 `connected: false`。
+
 ## 变更记录
 
+- v0.6（2026-10-17）：ACM-182 增加 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。drift 增加 `version_changed`。页面待处理栏和 attention 接口用同一个分桶函数。
 - v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。同日给 `GET /api/changes` 增加 `?kind=`，`status` 只返回 issue 状态迁移，避免 run 事件占满分页后等待时长全部退回 `≥`。
 - v0.4（2026-10-16）：ACM-179 在 `GET /api/attention` 增加 `agent_updates`，列出近 24 小时内负责人 agent 已完成、但没有被同期 `in_review` / `blocked` 迁移覆盖的 run。
 - v0.3（2026-10-16）：ACM-174 在 `GET /api/attention` 增加 `missing_hermes_async_delegation`，列出未启用 skill `hermes-async-delegation` 的 Hermes agent。

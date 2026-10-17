@@ -1,0 +1,40 @@
+{
+  "schema": "skills-tool-roots/v1",
+  "verified_at": "2026-10-17",
+  "note": "路径根到工具的映射。kind=shared 在工具列显示为空心圆（经共享目录可见）；kind=direct 显示为实心圆。前端不硬编码这张表。",
+  "tools": [
+    {"id": "cursor", "label": "Cursor"},
+    {"id": "codex", "label": "Codex"},
+    {"id": "claude", "label": "Claude"},
+    {"id": "hermes", "label": "Hermes"},
+    {"id": "gemini", "label": "Gemini"},
+    {"id": "project", "label": "项目"}
+  ],
+  "roots": [
+    {
+      "path": "~/.agents/skills",
+      "tools": ["cursor", "codex"],
+      "kind": "shared",
+      "evidence": "2026-10-17 核实：Codex 的 ~/.codex/config.toml 里 [[skills.config]] 指向 ~/.agents/skills 下的具体 SKILL.md，所以 Codex 会读这个共享目录。Cursor 的用户技能根是 ~/.cursor/skills（本机目录在，目前是空的）加上 Agent Skills 共享目录 ~/.agents/skills；本机没有证据表明 Claude、Hermes、Gemini 会把整个 ~/.agents/skills 当用户技能根。Hermes 只在项目里读 <repo>/.agents/skills（见下方 repo 根）。"
+    },
+    {"path": "~/.cursor/skills", "tools": ["cursor"], "kind": "direct"},
+    {"path": "~/.cursor/plugins", "tools": ["cursor"], "kind": "direct"},
+    {"path": "~/.codex/skills", "tools": ["codex"], "kind": "direct"},
+    {"path": "~/.codex/plugins", "tools": ["codex"], "kind": "direct"},
+    {"path": "~/.claude/skills", "tools": ["claude"], "kind": "direct"},
+    {"path": "~/.claude/plugins", "tools": ["claude"], "kind": "direct"},
+    {"path": "~/.hermes/skills", "tools": ["hermes"], "kind": "direct"},
+    {"path": "~/.gemini/config/skills", "tools": ["gemini"], "kind": "direct"},
+    {"path": "~/.gemini/antigravity/global_skills", "tools": ["gemini"], "kind": "direct"},
+    {"path": "~/.gemini/antigravity-cli/skills", "tools": ["gemini"], "kind": "direct"},
+    {
+      "path": ".agents/skills",
+      "tools": ["project", "hermes"],
+      "kind": "direct",
+      "repo": true,
+      "evidence": "Hermes skill_utils.PROJECT_SKILLS_SUBDIRS 包含 <repo>/.agents/skills。"
+    },
+    {"path": ".codex/skills", "tools": ["project", "codex"], "kind": "direct", "repo": true},
+    {"path": ".cursor/skills", "tools": ["project", "cursor"], "kind": "direct", "repo": true}
+  ]
+}

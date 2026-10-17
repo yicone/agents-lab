@@ -17,6 +17,18 @@ test("#/skills stays", () => {
   assert.equal(redirectHash("#/skills?q=guard"), null);
 });
 
+test("skills filters round-trip", () => {
+  const route = parseHash("#/skills?source=runtime_plugin&status=version_changed&tool=codex&custom=1&debt=1&group=tool&q=vis");
+  assert.equal(route.view, "skills");
+  assert.equal(route.source, "runtime_plugin");
+  assert.equal(route.skillStatus, "version_changed");
+  assert.equal(route.tool, "codex");
+  assert.equal(route.custom, true);
+  assert.equal(route.debt, true);
+  assert.equal(route.skillGroup, "tool");
+  assert.equal(formatHash(route), "#/skills?q=vis&source=runtime_plugin&status=version_changed&tool=codex&custom=1&debt=1&group=tool");
+});
+
 test("#/l5/attention goes to issues", () => {
   assert.equal(redirectHash("#/l5/attention"), "#/issues");
   assert.equal(redirectHash("#/l5/attention?q=1"), "#/issues");
