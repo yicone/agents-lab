@@ -1,3 +1,12 @@
+import {
+  changesSince,
+  decideQueue,
+  filterDecide,
+  formatSince,
+  formatWait,
+  recentMotion,
+} from "./decide.js";
+
 const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
 const MOCK = MOCK_PARAM !== null;
 const MOCK_SCENARIO = MOCK && /^[a-z][a-z-]*$/.test(MOCK_PARAM) ? MOCK_PARAM : "";
@@ -69,6 +78,8 @@ const state = {
   staleDays: Number(localStorage.getItem("mb.staleDays")) || 3,
   drawer: null,
   expandedLanes: new Set(),
+  changes: null,
+  changesNote: null,
 };
 
 // ---------- data ----------
@@ -116,20 +127,86 @@ async function getRuns(it) {
   return { generated_at: all.generated_at, items };
 }
 
+async function loadChanges() {
+  try {
+    if (MOCK) return await getJSON("changes");
+    return await fetchChangeWindow(Date.now());
+  } catch (err) {
+    return { error: String(err.message || err) };
+  }
+}
+
+// Run events dominate the log. Keep only status transitions, and stop if the
+// window cannot be read in a few local requests. An unfinished read is not a
+// partial answer: older transitions may sit past the pages we saw.
+const CHANGE_PAGE_CAP = 16;
+
+async function fetchChangeWindow(nowMs) {
+  let cursor = changesSince(nowMs);
+  const items = [];
+  for (let page = 0; page < CHANGE_PAGE_CAP; page++) {
+    const data = await fetchJSON(`/api/changes?since=${encodeURIComponent(cursor)}`, "changes");
+    if (data.reset) return { ...data, items: [], incomplete: false };
+    for (const item of data.items ?? []) {
+      if (item.kind === "issue_status") items.push(item);
+    }
+    if (!data.has_more) return { ...data, items, incomplete: false };
+    if (!data.cursor || data.cursor === cursor) return { ...data, items, incomplete: true };
+    cursor = data.cursor;
+  }
+  return { items, reset: false, retained_days: 7, incomplete: true };
+}
+
+function applyChanges(payload) {
+  if (!payload || payload.error) {
+    state.changes = null;
+    state.changesNote = payload?.error || "状态迁移不可用";
+    return;
+  }
+  state.changes = payload;
+  if (payload.reset) state.changesNote = "reset";
+  else if (payload.incomplete) state.changesNote = "incomplete";
+  else state.changesNote = null;
+}
+
+let changesToken = 0;
+
+async function ensureChanges() {
+  if (MOCK || !state.meta) return;
+  const gen = state.meta.generated_at ?? "";
+  if (state.changesLoadedFor === gen || state.changesLoadingFor === gen) return;
+  state.changesLoadingFor = gen;
+  const token = ++changesToken;
+  state.changesNote = "loading";
+  render();
+  const payload = await loadChanges();
+  if (token !== changesToken) return;
+  applyChanges(payload);
+  state.changesLoadedFor = gen;
+  state.changesLoadingFor = null;
+  render();
+}
+
 async function refresh(force = false) {
   try {
     const meta = await getJSON("meta");
     const changed = force || !state.meta || meta.generated_at !== state.meta.generated_at;
     if (changed) {
-      const [issues, agents, runtimes] = await Promise.all([
-        getJSON("issues"),
-        getJSON("agents"),
-        getJSON("runtimes"),
-      ]);
+      const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
+      if (MOCK) jobs.push(loadChanges());
+      const [issues, agents, runtimes, changes] = await Promise.all(jobs);
       state.issues = issues.items ?? [];
       state.agents = agents.items ?? [];
       state.recentWindowH = agents.recent_window_h ?? 24;
       state.runtimes = runtimes.items ?? [];
+      if (MOCK) applyChanges(changes);
+      else {
+        state.changes = null;
+        state.changesNote = null;
+        state.changesLoadedFor = null;
+        state.changesLoadingFor = null;
+        changesToken += 1;
+      }
     }
     state.meta = meta;
     state.fetchError = null;
@@ -156,8 +233,9 @@ function parseRoute() {
   const raw = location.hash.replace(/^#\/?/, "");
   const [view, query = ""] = raw.split("?");
   const params = new URLSearchParams(query);
+  const type = params.get("type");
   return {
-    view: view === "agents" ? "agents" : "issues",
+    view: view === "agents" || view === "decide" ? view : "issues",
     ws: params.get("ws") || "",
     q: params.get("q") || "",
     group: params.get("group") === "provider" ? "provider" : "workspace",
@@ -165,6 +243,7 @@ function parseRoute() {
     failedOnly: params.get("failed") === "1",
     offlineOnly: params.get("offline") === "1",
     archived: params.get("archived") === "1",
+    type: type === "review" || type === "blocked" ? type : "",
   };
 }
 
@@ -179,6 +258,8 @@ function setRoute(patch) {
     if (r.failedOnly) p.set("failed", "1");
     if (r.offlineOnly) p.set("offline", "1");
     if (r.archived) p.set("archived", "1");
+  } else if (r.view === "decide" && r.type) {
+    p.set("type", r.type);
   }
   const qs = p.toString();
   const hash = `#/${r.view}${qs ? `?${qs}` : ""}`;
@@ -350,6 +431,13 @@ function renderChrome() {
     t.classList.toggle("active", t.dataset.view === state.route.view);
     t.setAttribute("aria-current", t.dataset.view === state.route.view ? "page" : "false");
   });
+  const badge = document.getElementById("decide-badge");
+  if (badge) {
+    const total = state.meta ? currentDecide().summary.total : 0;
+    badge.hidden = total === 0;
+    badge.textContent = total ? String(total) : "";
+    badge.title = total ? `ACM Lab 待验收和受阻 ${total} 条` : "";
+  }
 
   const hs = health();
   const snap = document.getElementById("snapshot");
@@ -883,6 +971,219 @@ function emptyState() {
   return "首轮采集进行中，完成后自动显示。";
 }
 
+function currentDecide() {
+  return decideQueue({
+    issues: state.issues,
+    workspaces: state.meta?.workspaces ?? [],
+    changes: state.changes?.items ?? [],
+    nowMs: now(),
+    historyIncomplete: state.changesNote != null,
+  });
+}
+
+function decideNote() {
+  if (state.changesNote === "loading") return "正在读取状态迁移。读完前，等待时长按最后活动估算，并标 ≥。";
+  if (state.changesNote === "reset") return "状态迁移超出 7 天保留期，历史不完整。等待时长改按最后活动时间计算，并标 ≥。";
+  if (state.changesNote === "incomplete") return "状态迁移日志太长，这次没有读完。等待时长改按最后活动时间计算，并标 ≥。";
+  if (state.changesNote) return `状态迁移不可用（${state.changesNote}）。等待时长改按最后活动时间计算，并标 ≥。`;
+  return null;
+}
+
+function renderDecide() {
+  const model = currentDecide();
+  const visible = filterDecide(
+    model.rows.map((row) => ({ ...row, assignee: assigneeName(row.issue.assignee) })),
+    { type: state.route.type, query: state.route.q },
+  );
+  const { summary } = model;
+  const longest = summary.longest;
+  const note = decideNote();
+  const degraded = isWsDegraded(model.acm);
+
+  const stat = (n, label, level) =>
+    h(
+      "div",
+      { class: `decide-stat${level ? ` ${level}` : ""}` },
+      h("div", { class: "n" }, n),
+      h("div", { class: "l" }, label),
+    );
+
+  const typeBtn = (type, label, count) =>
+    h(
+      "button",
+      {
+        type: "button",
+        class: state.route.type === type ? "active" : "",
+        "aria-pressed": state.route.type === type ? "true" : "false",
+        onclick: () => setRoute({ type }),
+      },
+      `${label} ${count}`,
+    );
+
+  const layerNames = ["L5", "L4", "L3", "L2", "L1", "不在地图", "未归层"];
+  const pendingTitle = "层属性还没建，这一项先占位";
+
+  const head = h(
+    "div",
+    { class: "decide-head" },
+    h(
+      "div",
+      null,
+      h("h2", { class: "decide-title" }, "待你决定"),
+      h(
+        "p",
+        { class: "decide-sub" },
+        model.acm
+          ? `${model.acm.name} · 待验收和受阻，等待最久的排在最前`
+          : "快照里没有 ACM Lab。这一页只列出该 workspace 的待验收和受阻。",
+      ),
+      h(
+        "div",
+        { class: "decide-stats", "data-decide-total": summary.total },
+        stat(summary.total, "合计"),
+        stat(summary.review, "待验收"),
+        stat(summary.blocked, "受阻"),
+        stat(summary.over7, "等待超过 7 天", summary.over7 ? "warn" : ""),
+        stat(
+          longest ? formatWait(longest.ms, longest.approximate) : "—",
+          "最久",
+          longest?.level === "bad" || longest?.level === "warn" ? longest.level : "",
+        ),
+      ),
+    ),
+    h(
+      "div",
+      { class: "decide-layers", title: pendingTitle },
+      h("div", { class: "decide-layers-label" }, "按主层"),
+      ...layerNames.map((name) => h("button", { type: "button", class: "decide-layer", disabled: true, title: pendingTitle }, name)),
+    ),
+  );
+
+  const toolbar = h(
+    "div",
+    { class: "toolbar decide-toolbar" },
+    h("div", { class: "seg", role: "group", "aria-label": "类型" }, typeBtn("", "全部", summary.total), typeBtn("review", "待验收", summary.review), typeBtn("blocked", "受阻", summary.blocked)),
+    h(
+      "label",
+      { class: "field is-pending", title: pendingTitle },
+      "层",
+      h("select", { disabled: true, "aria-disabled": "true" }, h("option", null, "全部")),
+    ),
+    h(
+      "div",
+      { class: "seg is-pending", title: pendingTitle },
+      h("button", { type: "button", disabled: true }, "按主层"),
+      h("button", { type: "button", disabled: true }, "按涉及层"),
+    ),
+    h("label", { class: "check is-pending", title: pendingTitle }, h("input", { type: "checkbox", disabled: true }), "只看治理线"),
+    h(
+      "div",
+      { class: "seg", role: "group", "aria-label": "分组" },
+      h("button", { type: "button", class: "active", "aria-pressed": "true" }, "不分组"),
+      h("button", { type: "button", disabled: true, title: pendingTitle }, "按主层"),
+    ),
+    h("span", { class: "muted decide-hint" }, "点行打开运行记录，点标题在 Multica 打开"),
+  );
+
+  const table = h(
+    "div",
+    { class: "decide-wrap" },
+    h(
+      "table",
+      { class: "decide-table" },
+      h(
+        "thead",
+        null,
+        h(
+          "tr",
+          null,
+          ...["已等待", "Issue", "标题", "类型", "层", "负责人", "最近动静", "线"].map((name) => h("th", null, name)),
+        ),
+      ),
+      h(
+        "tbody",
+        { "data-decide-rows": visible.length },
+        visible.length
+          ? visible.map((row) => decideRow(row, degraded))
+          : h(
+              "tr",
+              null,
+              h(
+                "td",
+                { colspan: "8", class: "empty" },
+                model.acm
+                  ? state.route.q || state.route.type
+                    ? "没有符合筛选的 issue"
+                    : "ACM Lab 现在没有待验收或受阻的 issue"
+                  : "快照里没有 ACM Lab",
+              ),
+            ),
+      ),
+    ),
+  );
+
+  const foot = h(
+    "div",
+    { class: "decide-foot" },
+    h("span", null, "已等待 = 进入当前状态至今；超过 14 天标红，超过 7 天标黄。≥ 表示超出状态迁移保留期，改用最后活动时间。"),
+    h(
+      "span",
+      null,
+      model.outside
+        ? `其他 workspace 还有 ${model.outside} 条待验收 / 受阻，不在这一页。`
+        : "其他 workspace 没有待验收或受阻。",
+      " ",
+      h("a", { href: "#/issues" }, "在 Issues 中查看"),
+    ),
+  );
+
+  return [
+    head,
+    note ? h("div", { class: "decide-note", role: "status" }, note) : null,
+    degraded ? h("div", { class: "decide-note" }, "ACM Lab 这次快照是旧数据。") : null,
+    toolbar,
+    table,
+    foot,
+  ].filter(Boolean);
+}
+
+function decideRow(row, degraded) {
+  const it = row.issue;
+  const wait = row.wait;
+  const motion = recentMotion(it);
+  const typeClass = it.status === "blocked" ? "warn" : "info";
+  return h(
+    "tr",
+    {
+      class: `decide-row${degraded ? " is-stale" : ""}`,
+      "data-level": wait.level,
+      "data-approx": wait.approximate ? "1" : "0",
+      onclick: (e) => {
+        if (e.target.closest("a")) return;
+        openDrawer(it);
+      },
+    },
+    h(
+      "td",
+      { class: "decide-wait" },
+      h("span", { class: `wait-main ${wait.level}` }, formatWait(wait.ms, wait.approximate)),
+      h("span", { class: "wait-since" }, formatSince(wait.iso, now())),
+    ),
+    h("td", { class: "ident" }, it.identifier || it.id),
+    h("td", null, extLink(it.url, { class: "decide-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title || "")),
+    h("td", null, h("span", { class: `tag ${typeClass}` }, STATUS_LABEL[it.status] ?? it.status)),
+    h("td", { class: "decide-pending", title: "层属性还没建" }, h("span", { class: "layer-bar", "aria-hidden": "true" }), "未建"),
+    h("td", null, row.assignee),
+    h(
+      "td",
+      { class: "decide-motion", title: motion.at ? absTime(motion.at) : "" },
+      h("span", null, motion.label),
+      h("span", { class: "muted" }, motion.at ? ` · ${ago(motion.at)}` : ""),
+    ),
+    h("td", { class: "decide-pending", title: "层属性还没建" }, "—"),
+  );
+}
+
 function renderMain() {
   const main = document.getElementById("main");
   const empty = emptyState();
@@ -890,14 +1191,18 @@ function renderMain() {
     main.replaceChildren(h("div", { class: "empty big" }, empty));
     return;
   }
-  main.replaceChildren(...(state.route.view === "agents" ? renderAgents() : renderIssues()));
+  const view = state.route.view;
+  const parts = view === "agents" ? renderAgents() : view === "decide" ? renderDecide() : renderIssues();
+  main.replaceChildren(...parts);
 }
 
 function render() {
   const search = document.getElementById("search");
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
+  search.placeholder = state.route.view === "decide" ? "搜索待决定的 issue" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
+  if (!MOCK && state.route.view === "decide") void ensureChanges();
 }
 
 // ---------- boot ----------

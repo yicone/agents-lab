@@ -7,5 +7,20 @@
  ],
  "cli-stale": [
   "meta"
+ ],
+ "decide": [
+  "meta",
+  "issues",
+  "changes"
+ ],
+ "decide-gap": [
+  "meta",
+  "issues",
+  "changes"
+ ],
+ "decide-down": [
+  "meta",
+  "issues",
+  "changes"
  ]
 }

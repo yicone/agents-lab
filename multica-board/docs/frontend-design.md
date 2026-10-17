@@ -110,7 +110,7 @@
 
 ## 交互细节
 
-- 快捷键：`/` 聚焦搜索，`1` / `2` 切换视图，`Esc` 先关抽屉，再清空搜索。
+- 快捷键：`/` 聚焦搜索，`1` / `2` 切换视图，`Esc` 先关抽屉，再清空搜索。`1` 仍是 Issues、`2` 仍是 Agent 矩阵。待你决定这次只加 Tab，不占数字键；整栏改成地图 / 待你决定 / Issues / Agents / Skills 是后续 D2，不在这一页里做。
 - 搜索匹配 identifier、标题、负责人、agent 名、项目、父 issue、模型、runtime、workspace。
 - 每 15 秒轮询一次 `/api/meta`，`generated_at` 变化时才重新拉列表；顶栏状态每 5 秒重算一次。
 - 前端请求失败时保留上一次已渲染的数据，不清空页面。
@@ -134,3 +134,13 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 - 各场景覆盖哪些响应，记录在 `fixtures/scenarios.json`。
 - `runs.json` 不对应任何接口，是 mock 模式下 `/runs` 的数据来源。
 - fixtures 是虚构数据，修改后运行 `python3 multica-board/web/fixtures/generate.py` 重新生成。
+
+## 待你决定（ACM-191）
+
+回答「现在有哪些事等我拍板」。范围只有 ACM Lab（`slug=acm-lab`，否则名称正好是 `ACM Lab`）里 `in_review` 和 `blocked` 的 issue，等待最久的在最前。其他 workspace 的同类 issue 只在页脚计数，并链到 Issues。
+
+- 路由 `#/decide`，类型筛选 `?type=review` 或 `?type=blocked`。顶栏在现有两个 Tab 后面加「待你决定」，黄色角标等于这一页未筛选的条数，0 时隐藏。
+- 已等待取 `/api/changes` 里进入当前状态的最近一次 `issue_status`。日志里没有这条迁移、或者这次拉取 `reset` / 失败 / 没有读完时，改用 `last_activity_at`（再退 `updated_at`、`created_at`），数字前加 `≥`。超过 7 天标黄，超过 14 天标红；刚好 7 天、刚好 14 天不算超过。接口不能按类型过滤，run 事件会把日志撑到几十万条，所以页面最多翻 16 页；读不完就整页退回，不用读到一半的迁移。
+- 页头：合计、待验收、受阻、超过 7 天、最久等待。层分布、层筛选、按涉及层、只看治理线、按主层分组在层属性还没建时是灰色占位，不发请求。
+- 点行打开现有运行记录抽屉，点标题在 Multica 打开。最近动静用 `latest_run` 的状态；没有 run 时写「最后活动」。评论类型不在现有接口里。
+- mock：`?mock=decide` 正常队列，`?mock=decide-gap` 状态迁移被重置，`?mock=decide-down` 状态迁移 404。打开时加上 `#/decide`。
