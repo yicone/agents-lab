@@ -557,14 +557,20 @@ def tool_marks(
     tool_order = tool_order or {}
     entries = []
     evidence = []
-    for entry_index, raw in enumerate(paths):
+    seen_lexical: set[str] = set()
+    for raw in paths:
         if not isinstance(raw, str) or not raw.strip() or not drift_report.is_concrete(raw):
             continue
         located = drift_report.inventory.locate_path(raw, repo_root)
-        e_state, link_text, is_link = _classify_entry(located)
-        present = e_state == "present"
         # Hash-resolved plugin paths should match the root of the concrete file.
         lexical = str(located) if "*" in raw else _lexical(raw, repo_root)
+        # The same path can arrive via visible_paths, adapters and canonical_path.
+        if lexical in seen_lexical:
+            continue
+        seen_lexical.add(lexical)
+        entry_index = len(entries)
+        e_state, link_text, is_link = _classify_entry(located)
+        present = e_state == "present"
         expanded = _expand(raw, repo_root) if "*" not in raw else str(located)
         resolved = None
         if present:

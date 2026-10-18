@@ -416,10 +416,20 @@ function shortLocation(location) {
   return location.endsWith("/skills") ? location.slice(0, -"/skills".length) : location;
 }
 
+function dedupeEntries(entries) {
+  const seen = new Set();
+  return (entries || []).filter((entry) => {
+    const key = `${scopeOf(entry)}|${entry.repo_id || ""}|${entry.path || ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function repoCell(h, item, payload) {
   const reposById = new Map((payload?.repos || []).map((repo) => [repo.id, repo]));
   const groups = new Map();
-  for (const entry of item.entries || []) {
+  for (const entry of dedupeEntries(item.entries)) {
     if (!entry.repo_id) continue;
     if (!groups.has(entry.repo_id)) groups.set(entry.repo_id, []);
     groups.get(entry.repo_id).push(entry);
@@ -553,7 +563,7 @@ export function renderSkillDrawer(ctx, item) {
     ]),
     section(h, "共享入口", sharedSection(h, item, ctx)),
     ...SCOPE_GROUPS.map(([scope, title]) =>
-      section(h, title, entriesSection(h, item, (item.entries || []).map((entry, index) => ({ ...entry, _index: index })).filter((entry) => scopeOf(entry) === scope), ctx)),
+      section(h, title, entriesSection(h, item, dedupeEntries((item.entries || []).map((entry, index) => ({ ...entry, _index: index }))).filter((entry) => scopeOf(entry) === scope), ctx)),
     ),
     section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, h("code", { title: finding.label }, finding.code), " ", h("span", { class: "muted" }, finding.label))) : [h("p", { class: "muted" }, "没有额外发现")]),
     section(h, "定制与兼容约束", customSection(h, item)),

@@ -710,6 +710,99 @@ class HarnessAttributionTests(unittest.TestCase):
         self.assertIsNone(other_entry["mark"])
         self.assertEqual(item["tools"]["project"], "direct")
 
+    def test_overlapping_sources_dedupe_to_one_entry(self):
+        """visible_paths + adapters + canonical_path naming the same path ⇒ one entry."""
+        self.write_tools(
+            [
+                {"path": str(self.root / "shared"), "tools": ["codex"], "kind": "shared"},
+                {"path": ".agents/skills", "tools": ["project"], "kind": "direct", "repo": True},
+            ]
+        )
+        inside = self.repo / ".agents" / "skills" / "dup-src"
+        inside.mkdir(parents=True)
+        (inside / "SKILL.md").write_text("---\nname: dup-src\n---\n\n", encoding="utf-8")
+        authority = {
+            "ownership": "repo",
+            "source_authority": "repo",
+            "update_authority": "manual",
+            "canonical_path": ".agents/skills/dup-src",
+        }
+        body = self.payload(
+            [
+                skill(
+                    "dup-src",
+                    visible_paths=[".agents/skills/dup-src"],
+                    adapters=[{"path": ".agents/skills/dup-src"}],
+                    authority=authority,
+                )
+            ]
+        )
+        item = body["items"][0]
+        self.assertEqual(len(item["entries"]), 1)
+        keys = [(record["harness"], record["kind"], record["lexical"]) for record in item["evidence"]]
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual({record["entry_index"] for record in item["evidence"]}, {0})
+        single = self.payload([skill("dup-src", visible_paths=[".agents/skills/dup-src"], authority=authority)])
+        other = single["items"][0]
+        self.assertEqual(item["tools"], other["tools"])
+        self.assertEqual(item["repo_ids"], other["repo_ids"])
+        self.assertEqual(item["shared_entry"], other["shared_entry"])
+
+    def test_tilde_and_absolute_spellings_dedupe(self):
+        home = self.root / "home"
+        install = home / "skills" / "tilde-skill"
+        install.mkdir(parents=True)
+        (install / "SKILL.md").write_text("---\nname: tilde-skill\n---\n\n", encoding="utf-8")
+        self.write_tools([{"path": "~/skills", "tools": ["codex"], "kind": "direct"}])
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            body = self.payload([skill("tilde-skill", visible_paths=["~/skills/tilde-skill", str(install)])])
+        item = body["items"][0]
+        self.assertEqual(len(item["entries"]), 1)
+        self.assertEqual(item["tools"]["codex"], "direct")
+
+    def test_distinct_lexical_paths_stay_separate(self):
+        self.write_tools(
+            [
+                {"path": str(self.root / "a"), "tools": ["codex"], "kind": "direct"},
+                {"path": str(self.root / "b"), "tools": ["hermes"], "kind": "direct"},
+            ]
+        )
+        for parent in (self.root / "a", self.root / "b"):
+            (parent / "same-name").mkdir(parents=True)
+            (parent / "same-name" / "SKILL.md").write_text("---\nname: same-name\n---\n\n", encoding="utf-8")
+        body = self.payload([skill("same-name", visible_paths=[str(self.root / "a" / "same-name"), str(self.root / "b" / "same-name")])])
+        item = body["items"][0]
+        self.assertEqual(len(item["entries"]), 2)
+        self.assertEqual(item["tools"]["codex"], "direct")
+        self.assertEqual(item["tools"]["hermes"], "direct")
+
+    def test_user_and_repo_paths_with_same_name_stay_separate(self):
+        self.write_tools(
+            [
+                {"path": str(self.root / "userroot"), "tools": ["codex"], "kind": "direct"},
+                {"path": ".agents/skills", "tools": ["project"], "kind": "direct", "repo": True},
+            ]
+        )
+        user_dir = self.root / "userroot" / "dual"
+        user_dir.mkdir(parents=True)
+        repo_dir = self.repo / ".agents" / "skills" / "dual"
+        repo_dir.mkdir(parents=True)
+        body = self.payload([skill("dual", visible_paths=[str(user_dir), ".agents/skills/dual"])])
+        item = body["items"][0]
+        self.assertEqual(len(item["entries"]), 2)
+        self.assertEqual({entry["scope"] for entry in item["entries"]}, {"user", "repo_entry"})
+
+    def test_tool_marks_dedupes_repeated_raw_paths(self):
+        self.write_tools([{"path": str(self.root / "uroot"), "tools": ["codex"], "kind": "direct"}])
+        target = self.root / "uroot" / "one"
+        target.mkdir(parents=True)
+        roots, _ = skills_view._load_tool_roots(self.tools, self.repo)
+        marks, entries, evidence, repo_ids = skills_view.tool_marks([str(target), str(target)], roots, self.repo)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["entry_index"], 0)
+        self.assertEqual(marks["codex"], "direct")
+
 
 class SharedEntryStateMachineTests(unittest.TestCase):
     """Ordered-step probe: injected failures at each layer, real fixtures otherwise."""

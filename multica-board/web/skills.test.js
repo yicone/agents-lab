@@ -399,6 +399,42 @@ test("render does not throw on an old payload without the new fields", () => {
   assert.equal(findText(banner, "未扫描"), false);
 });
 
+test("duplicated entries render once in repoCell chips and drawer sections", () => {
+  const entry = { path: ".agents/skills/alpha", present: true, repo_id: "/repo", location: ".agents/skills", tools: ["project"], mark: "direct", scope: "repo_entry" };
+  const userEntry = { path: "~/.codex/skills/alpha", present: true, location: "~/.codex/skills", tools: ["codex"], mark: "direct", scope: "user" };
+  const item = simpleItem({ entries: [entry, { ...entry }, { ...entry }, userEntry, { ...userEntry }] });
+  const payload = basePayload([item]);
+  const tree = { children: renderSkills(renderCtx(payload)) };
+  const chips = findAll(tree, (n) => String(n.attrs?.class || "").includes("entry-chip"));
+  assert.equal(chips.length, 1);
+  const drawer = { children: renderSkillDrawer(renderCtx(payload), item) };
+  const rows = findAll(drawer, (n) => String(n.attrs?.class || "") === "skill-entry");
+  assert.equal(rows.length, 2);
+  assert.equal(rows.filter((n) => findText(n, ".agents/skills/alpha")).length, 1);
+  assert.equal(rows.filter((n) => findText(n, "~/.codex/skills/alpha")).length, 1);
+});
+
+test("same-name entries in two repos keep separate chips and drawer rows", () => {
+  const item = simpleItem({
+    entries: [
+      { path: ".agents/skills/alpha", present: true, repo_id: "/repo", location: ".agents/skills", tools: ["project"], mark: "direct", scope: "repo_entry" },
+      { path: ".agents/skills/alpha", present: true, repo_id: "/repo2", location: ".agents/skills", tools: ["project"], mark: "direct", scope: "repo_entry" },
+    ],
+  });
+  const payload = basePayload([item]);
+  payload.repos = [
+    { id: "/repo", label: "one", path: "/repo" },
+    { id: "/repo2", label: "two", path: "/repo2" },
+  ];
+  const tree = { children: renderSkills(renderCtx(payload)) };
+  const chips = findAll(tree, (n) => String(n.attrs?.class || "").includes("entry-chip"));
+  assert.equal(chips.length, 2);
+  assert.ok(findText(tree, "one"));
+  assert.ok(findText(tree, "two"));
+  const rows = findAll({ children: renderSkillDrawer(renderCtx(payload), item) }, (n) => String(n.attrs?.class || "") === "skill-entry");
+  assert.equal(rows.length, 2);
+});
+
 test("renderSkills and renderSkillDrawer never emit null members for replaceChildren", () => {
   const payloads = [
     basePayload([simpleItem({ shared_entry: { state: "dir", label: "目录" } })]), // healthy: no banner at all
