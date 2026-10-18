@@ -192,6 +192,25 @@ export function formatHash(route) {
   return withQuery(path, p);
 }
 
+/** Canonical hash, so reordered queries and legacy aliases compare equal. */
+export function canonicalHash(hash) {
+  return formatHash(parseHash(hash));
+}
+
+/**
+ * How an in-app route change is recorded.
+ * Workspace chips, clear, and view/tab changes push one step.
+ * Repeats and equivalent hashes do nothing, so they cannot loop or pile up.
+ * Search and other controls replace the current entry.
+ * Load, refresh, hashchange, and popstate do not call this; they only read the URL.
+ */
+export function historyWrite(currentHash, nextHash, patch) {
+  if (canonicalHash(currentHash) === canonicalHash(nextHash)) return "noop";
+  const keys = patch && typeof patch === "object" ? Object.keys(patch) : [];
+  if (keys.some((key) => key === "view" || key === "ws")) return "push";
+  return "replace";
+}
+
 export function applyPatch(route, patch) {
   const next = { ...emptyRoute(), ...route, ...patch };
   if (patch.view && patch.view !== route.view && !Object.prototype.hasOwnProperty.call(patch, "layer")) {

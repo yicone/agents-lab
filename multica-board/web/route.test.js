@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyPatch, formatHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, formatHash, historyWrite, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
 
 test("#/issues stays", () => {
   assert.equal(redirectHash("#/issues"), null);
@@ -116,6 +116,78 @@ test("switching views by number does not keep the previous layer filter", () => 
   assert.equal(map.layer, "");
   assert.equal(map.gov, false);
   assert.equal(formatHash(map), "#/map");
+});
+
+test("workspace chip, clear, and tab changes push one history step", () => {
+  assert.equal(historyWrite("#/issues", "#/issues?ws=acm-lab", { ws: "acm-lab" }), "push");
+  assert.equal(historyWrite("#/agents?ws=acm-lab", "#/agents", { ws: "" }), "push");
+  assert.equal(historyWrite("#/issues?ws=acm-lab", "#/agents?ws=acm-lab", { view: "agents" }), "push");
+  assert.equal(historyWrite("#/map", "#/skills", { view: "skills" }), "push");
+});
+
+test("repeat clicks, refreshes, and equivalent deep links do not add history", () => {
+  assert.equal(historyWrite("#/issues?ws=clipvibe", "#/issues?ws=clipvibe", { ws: "clipvibe" }), "noop");
+  assert.equal(historyWrite("#/skills", "#/skills", { view: "skills" }), "noop");
+  assert.equal(historyWrite("#/issues", "#/issues", { ws: "" }), "noop");
+  assert.equal(historyWrite("#/issues?q=a&ws=acm-lab", "#/issues?ws=acm-lab&q=a", { view: "issues" }), "noop");
+  assert.equal(historyWrite("#/l2/agents", "#/agents", { view: "agents" }), "noop");
+});
+
+test("search and other controls replace the current entry", () => {
+  assert.equal(historyWrite("#/issues?ws=acm-lab", "#/issues?ws=acm-lab&q=a", { q: "a" }), "replace");
+  assert.equal(historyWrite("#/issues", "#/issues?layer=l3", { layer: "l3" }), "replace");
+  assert.equal(historyWrite("#/agents", "#/agents?failed=1", { failedOnly: true }), "replace");
+});
+
+test("back and forward restore each chip, clear, and tab step", () => {
+  let route = parseHash("#/issues");
+  const stack = [formatHash(route)];
+  let index = 0;
+  const commit = (patch) => {
+    const nextRoute = applyPatch(route, patch);
+    const next = formatHash(nextRoute);
+    const action = historyWrite(stack[index], next, patch);
+    if (action === "push") {
+      stack.splice(index + 1);
+      stack.push(next);
+      index += 1;
+      route = nextRoute;
+    } else if (action === "replace") {
+      stack[index] = next;
+      route = nextRoute;
+    }
+    return action;
+  };
+  const back = () => {
+    index -= 1;
+    route = parseHash(stack[index]);
+  };
+  const forward = () => {
+    index += 1;
+    route = parseHash(stack[index]);
+  };
+
+  assert.equal(commit({ ws: "acm-lab" }), "push");
+  assert.equal(commit({ view: "agents" }), "push");
+  assert.equal(commit({ ws: "" }), "push");
+  assert.equal(commit({ view: "agents" }), "noop");
+  assert.equal(commit({ q: "桥" }), "replace");
+  assert.equal(stack[index], "#/agents?q=%E6%A1%A5");
+
+  back();
+  assert.equal(formatHash(route), "#/agents?ws=acm-lab");
+  back();
+  assert.equal(formatHash(route), "#/issues?ws=acm-lab");
+  back();
+  assert.equal(formatHash(route), "#/issues");
+  forward();
+  assert.equal(route.view, "issues");
+  assert.equal(route.ws, "acm-lab");
+
+  assert.equal(commit({ view: "skills" }), "push");
+  assert.equal(stack[index], "#/skills?ws=acm-lab");
+  assert.equal(stack.includes("#/agents?q=%E6%A1%A5"), false);
+  assert.equal(index, stack.length - 1);
 });
 
 test("number keys follow the top bar, and [ ] walk the layers", () => {
