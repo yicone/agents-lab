@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -359,6 +361,347 @@ class SkillsPayloadTests(unittest.TestCase):
         self.assertEqual(parse_review_days("30"), 30)
         with self.assertRaises(ValueError):
             parse_review_days("7")
+
+
+class SharedEntryTests(unittest.TestCase):
+    def setUp(self):
+        skills_view._CACHE.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        (self.repo / "skills").mkdir()
+        self.inventory = self.root / "skills-inventory.json"
+        self.tools = self.root / "tool-roots.json"
+        self.write_tools(
+            [
+                {"path": str(self.root / "shared"), "tools": ["codex", "cursor"], "kind": "shared"},
+                {"path": str(self.root / "hermes" / "skills"), "tools": ["hermes"], "kind": "direct"},
+                {"path": ".agents/skills", "tools": ["project", "hermes"], "kind": "direct", "repo": True},
+            ]
+        )
+        self.staging = self.root / "staging"
+        self.staging.mkdir()
+
+    def tearDown(self):
+        skills_view._CACHE.clear()
+        self.tmp.cleanup()
+
+    def write_tools(self, roots):
+        self.tools.write_text(
+            json.dumps(
+                {
+                    "tools": [
+                        {"id": "codex", "label": "Codex"},
+                        {"id": "cursor", "label": "Cursor"},
+                        {"id": "hermes", "label": "Hermes"},
+                        {"id": "project", "label": "仓库入口"},
+                    ],
+                    "roots": roots,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def payload(self, skills, *, extra_unrecorded=None):
+        self.inventory.write_text(json.dumps({"skills": skills}), encoding="utf-8")
+        return build_payload(
+            repo_root=self.repo,
+            inventory_path=self.inventory,
+            tool_roots_path=self.tools,
+            staging_root=self.staging,
+            lock_path=self.root / "missing.lock",
+            changelog_dir=None,
+            now=NOW,
+            scan_roots=list(extra_unrecorded or []),
+        )
+
+    def make_skill(self, name, **overrides):
+        return skill(name, **overrides)
+
+    def make_shared_dir(self, name, skill_md=True):
+        path = self.root / "shared" / name
+        path.mkdir(parents=True)
+        if skill_md:
+            (path / "SKILL.md").write_text(f"---\nname: {name}\n---\n\n", encoding="utf-8")
+        return path
+
+    def shared_state(self, name, **overrides):
+        body = self.payload([self.make_skill(name, **overrides)])
+        item = body["items"][0]
+        return body, item["shared_entry"]
+
+    def test_real_dir_with_skill_md_is_dir(self):
+        self.make_shared_dir("alpha")
+        body, entry = self.shared_state("alpha")
+        self.assertEqual(entry["state"], "dir")
+        self.assertEqual(entry["label"], "目录")
+        self.assertEqual(entry["path"], f"{self.root}/shared/alpha")
+        self.assertEqual(body["shared_root"]["state"], "ok")
+        self.assertEqual(body["repos"][0]["label"], "repo")
+
+    def test_valid_symlink_is_link(self):
+        real = self.root / "real-beta"
+        real.mkdir()
+        (real / "SKILL.md").write_text("---\nname: beta\n---\n\n", encoding="utf-8")
+        (self.root / "shared").mkdir()
+        os.symlink(real, self.root / "shared" / "beta")
+        _, entry = self.shared_state("beta")
+        self.assertEqual(entry["state"], "link")
+        self.assertEqual(entry["label"], "链接")
+        self.assertEqual(entry["target"], str(real))
+        self.assertTrue(entry["resolved"])
+
+    def test_dangling_symlink_is_broken_link(self):
+        (self.root / "shared").mkdir()
+        os.symlink(self.root / "no-such-dir", self.root / "shared" / "gamma")
+        _, entry = self.shared_state("gamma")
+        self.assertEqual(entry["state"], "broken_link")
+        self.assertEqual(entry["label"], "坏链")
+
+    def test_absent_entry_is_none(self):
+        (self.root / "shared").mkdir()
+        _, entry = self.shared_state("delta")
+        self.assertEqual(entry["state"], "none")
+        self.assertEqual(entry["label"], "无入口")
+
+    def test_dir_without_skill_md_is_content_missing(self):
+        self.make_shared_dir("epsilon", skill_md=False)
+        _, entry = self.shared_state("epsilon")
+        self.assertEqual(entry["state"], "content_missing")
+
+    def test_link_to_dir_without_skill_md_is_content_missing(self):
+        real = self.root / "real-zeta"
+        real.mkdir()
+        (self.root / "shared").mkdir()
+        os.symlink(real, self.root / "shared" / "zeta")
+        _, entry = self.shared_state("zeta")
+        self.assertEqual(entry["state"], "content_missing")
+
+    def test_no_shared_root_is_unscanned(self):
+        self.write_tools([{"path": str(self.root / "codex"), "tools": ["codex"], "kind": "direct"}])
+        body, entry = self.shared_state("eta")
+        self.assertEqual(entry["state"], "unscanned")
+        self.assertEqual(entry["label"], "未扫描")
+        self.assertIsNone(entry["path"])
+        self.assertEqual(body["shared_root"]["state"], "unscanned")
+        self.assertIsNone(body["shared_root"]["path"])
+
+    def test_permission_error_is_denied_not_none(self):
+        self.make_shared_dir("theta")
+        with mock.patch.object(skills_view, "_lstat", side_effect=PermissionError("denied")):
+            _, entry = self.shared_state("theta")
+        self.assertEqual(entry["state"], "denied")
+        self.assertEqual(entry["label"], "无权限")
+        with mock.patch.object(skills_view, "_stat", side_effect=PermissionError("denied")):
+            _, entry = self.shared_state("theta")
+        self.assertEqual(entry["state"], "denied")
+
+    def test_other_oserror_is_unknown(self):
+        self.make_shared_dir("iota")
+        with mock.patch.object(skills_view, "_lstat", side_effect=OSError(errno.EIO, "io error")):
+            _, entry = self.shared_state("iota")
+        self.assertEqual(entry["state"], "unknown")
+        self.assertEqual(entry["label"], "无法确定")
+
+    def test_illegal_name_is_unknown(self):
+        (self.root / "shared").mkdir()
+        _, entry = self.shared_state("a/b")
+        self.assertEqual(entry["state"], "unknown")
+
+    def test_missing_shared_root_is_none_with_detail(self):
+        _, entry = self.shared_state("kappa")
+        self.assertEqual(entry["state"], "none")
+        self.assertEqual(entry["detail"], "共享根目录不存在")
+
+    def test_denied_and_unknown_never_collapse_to_none(self):
+        # Priority: a permission or IO failure must not read as "no entry".
+        (self.root / "shared").mkdir()
+        with mock.patch.object(skills_view, "_lstat", side_effect=PermissionError("denied")):
+            _, denied = self.shared_state("ghost")
+        self.assertEqual(denied["state"], "denied")
+        with mock.patch.object(skills_view, "_lstat", side_effect=OSError(errno.EIO, "io")):
+            _, unknown = self.shared_state("ghost")
+        self.assertEqual(unknown["state"], "unknown")
+
+    def test_unrecorded_and_staging_items_carry_shared_entry(self):
+        install = self.make_shared_dir("colgrep-search")
+        staged = self.staging / "candidate"
+        unit = staged / "roots" / "skill-0"
+        unit.mkdir(parents=True)
+        (unit / "SKILL.md").write_text("---\nname: staged-skill\n---\n\n", encoding="utf-8")
+        (staged / "manifest.json").write_text(
+            json.dumps({"status": "staged", "roots": [{"kind": "skill", "staging_path": "roots/skill-0", "live_path": str(install)}]}),
+            encoding="utf-8",
+        )
+        (staged / "capability-gate.json").write_text(json.dumps({"backend": "skil-lock", "blocked": False}), encoding="utf-8")
+        body = self.payload([], extra_unrecorded=[self.root / "shared"])
+        by_name = {item["name"]: item for item in body["items"]}
+        self.assertEqual(by_name["colgrep-search"]["shared_entry"]["state"], "dir")
+        self.assertIn("shared_entry", by_name["staged-skill"])
+        self.assertEqual(by_name["staged-skill"]["shared_entry"]["state"], "none")
+
+
+class HarnessAttributionTests(unittest.TestCase):
+    def setUp(self):
+        skills_view._CACHE.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.inventory = self.root / "skills-inventory.json"
+        self.tools = self.root / "tool-roots.json"
+        self.staging = self.root / "staging"
+        self.staging.mkdir()
+
+    def tearDown(self):
+        skills_view._CACHE.clear()
+        self.tmp.cleanup()
+
+    def write_tools(self, roots):
+        self.tools.write_text(
+            json.dumps(
+                {
+                    "tools": [
+                        {"id": "codex", "label": "Codex"},
+                        {"id": "cursor", "label": "Cursor"},
+                        {"id": "hermes", "label": "Hermes"},
+                        {"id": "project", "label": "仓库入口"},
+                    ],
+                    "roots": roots,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def payload(self, skills):
+        self.inventory.write_text(json.dumps({"skills": skills}), encoding="utf-8")
+        return build_payload(
+            repo_root=self.repo,
+            inventory_path=self.inventory,
+            tool_roots_path=self.tools,
+            staging_root=self.staging,
+            lock_path=self.root / "missing.lock",
+            changelog_dir=None,
+            now=NOW,
+            scan_roots=[],
+        )
+
+    def make_shared(self, name):
+        path = self.root / "shared" / name
+        path.mkdir(parents=True)
+        (path / "SKILL.md").write_text(f"---\nname: {name}\n---\n\n", encoding="utf-8")
+        return path
+
+    def test_symlinked_entry_gives_direct_and_target_shared(self):
+        self.write_tools(
+            [
+                {"path": str(self.root / "shared"), "tools": ["codex", "cursor"], "kind": "shared"},
+                {"path": str(self.root / "hermes" / "skills"), "tools": ["hermes"], "kind": "direct"},
+            ]
+        )
+        self.make_shared("archify")
+        link = self.root / "hermes" / "skills" / "archify"
+        link.parent.mkdir(parents=True)
+        os.symlink(self.root / "shared" / "archify", link)
+        body = self.payload([skill("archify", visible_paths=[str(link)])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["hermes"], "direct")
+        self.assertEqual(item["tools"]["codex"], "shared")
+        self.assertEqual(item["tools"]["cursor"], "shared")
+        entry = item["entries"][0]
+        self.assertEqual(entry["tools"], ["hermes"])
+        self.assertEqual(entry["location"], str(self.root / "hermes" / "skills"))
+        self.assertTrue(entry["resolved"])
+        self.assertEqual(sorted(entry["target_tools"]), ["codex", "cursor"])
+        self.assertEqual(entry["target_mark"], "shared")
+        self.assertEqual(item["shared_entry"]["state"], "dir")
+
+    def test_broken_link_marks_missing_without_target_evidence(self):
+        self.write_tools(
+            [
+                {"path": str(self.root / "shared"), "tools": ["codex", "cursor"], "kind": "shared"},
+                {"path": str(self.root / "hermes" / "skills"), "tools": ["hermes"], "kind": "direct"},
+            ]
+        )
+        link = self.root / "hermes" / "skills" / "broken"
+        link.parent.mkdir(parents=True)
+        os.symlink(self.root / "shared" / "broken", link)
+        body = self.payload([skill("broken", visible_paths=[str(link)])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["hermes"], "missing")
+        self.assertIsNone(item["tools"]["codex"])
+        self.assertIsNone(item["tools"]["cursor"])
+        entry = item["entries"][0]
+        self.assertEqual(entry["mark"], "missing")
+        self.assertEqual(entry["target_tools"], [])
+        self.assertIsNone(entry["resolved"])
+
+    def test_one_skill_linked_from_two_direct_roots_is_direct_for_both(self):
+        self.write_tools(
+            [
+                {"path": str(self.root / "shared"), "tools": ["cursor"], "kind": "shared"},
+                {"path": str(self.root / "hermes" / "skills"), "tools": ["hermes"], "kind": "direct"},
+                {"path": str(self.root / "codexroot" / "skills"), "tools": ["codex"], "kind": "direct"},
+            ]
+        )
+        self.make_shared("dual")
+        for parent in (self.root / "hermes" / "skills", self.root / "codexroot" / "skills"):
+            parent.mkdir(parents=True)
+            os.symlink(self.root / "shared" / "dual", parent / "dual")
+        body = self.payload([skill("dual", visible_paths=[str(self.root / "hermes" / "skills" / "dual"), str(self.root / "codexroot" / "skills" / "dual")])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["hermes"], "direct")
+        self.assertEqual(item["tools"]["codex"], "direct")
+        self.assertEqual(item["tools"]["cursor"], "shared")
+
+    def test_root_under_symlinked_parent_still_matches_lexically(self):
+        real_home = self.root / "realhome"
+        (real_home / "hermes" / "skills").mkdir(parents=True)
+        link_home = self.root / "linkhome"
+        os.symlink(real_home, link_home)
+        self.write_tools(
+            [
+                {"path": str(link_home / "hermes" / "skills"), "tools": ["hermes"], "kind": "direct"},
+            ]
+        )
+        install = link_home / "hermes" / "skills" / "linked-root"
+        install.mkdir()
+        (install / "SKILL.md").write_text("---\nname: linked-root\n---\n\n", encoding="utf-8")
+        body = self.payload([skill("linked-root", visible_paths=[str(install)])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["hermes"], "direct")
+        self.assertEqual(item["entries"][0]["location"], str(link_home / "hermes" / "skills"))
+        self.assertEqual(item["shared_entry"]["state"], "unscanned")
+
+    def test_repo_entries_carry_repo_id_and_stay_separate(self):
+        self.write_tools(
+            [
+                {"path": str(self.root / "shared"), "tools": ["codex"], "kind": "shared"},
+                {"path": ".agents/skills", "tools": ["project", "hermes"], "kind": "direct", "repo": True},
+            ]
+        )
+        inside = self.repo / ".agents" / "skills" / "dup"
+        inside.mkdir(parents=True)
+        (inside / "SKILL.md").write_text("---\nname: dup\n---\n\n", encoding="utf-8")
+        outside = self.root / "otherrepo" / ".agents" / "skills" / "dup"
+        outside.mkdir(parents=True)
+        (outside / "SKILL.md").write_text("---\nname: dup\n---\n\n", encoding="utf-8")
+        body = self.payload([skill("dup", visible_paths=[".agents/skills/dup", str(outside)])])
+        item = body["items"][0]
+        repo_id = body["repos"][0]["id"]
+        self.assertEqual(body["repos"][0]["label"], "repo")
+        self.assertEqual(item["repo_id"], repo_id)
+        by_path = {entry["path"]: entry for entry in item["entries"]}
+        repo_entry = by_path[".agents/skills/dup"]
+        self.assertEqual(repo_entry["repo_id"], repo_id)
+        self.assertEqual(repo_entry["location"], ".agents/skills")
+        self.assertEqual(sorted(repo_entry["tools"]), ["hermes", "project"])
+        other_entry = by_path[str(outside)]
+        self.assertIsNone(other_entry["repo_id"])
+        self.assertEqual(other_entry["tools"], [])
+        self.assertIsNone(other_entry["mark"])
+        self.assertEqual(item["tools"]["project"], "direct")
 
 
 if __name__ == "__main__":

@@ -551,6 +551,9 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。三个接口共用同一次合并（清单 + drift + 工具根配置 + 未激活暂存区）。`?review_days=` 只接受 `30`、`90`、`180`，省略是 `90`。
 
 - `GET /api/skills`：`items` 是清单和未登记安装按名字合并后的行，带 `tools`（`direct` / `shared` / `missing` / `null`）、`bucket`、`baseline_debt`。`attention` 与下面的 attention 接口相同。`ok: false` 表示清单读不出来，此时 `items` 为空，不把「没检查」显示成「没问题」。
+- `shared_root`：共享目录根的探测结果 `{path, state, detail}`；未配置共享根时 `path: null`、`state: "unscanned"`。`repos` 是 `[{id, label, path}]`（`id` 为仓库根解析后的绝对路径），每条 item 带 `repo_id`。
+- 每条 item 带 `shared_entry`：`{state, label, path, target, resolved, detail, root}`，探测共享根下同名入口。`state` 按优先级取：`unscanned`（无共享根）→ `denied`（权限拒绝或 SKILL.md 不可读）→ `unknown`（其它读错或名字非法）→ `none`（根或入口不存在）→ `broken_link`（链接目标不在/循环）→ `content_missing`（入口不是目录或缺普通文件 SKILL.md）→ `link` / `dir`（有效入口）。label 为中文短标签（未扫描/无权限/无法确定/无入口/坏链/缺 SKILL.md/链接/目录）。
+- `entries` 每条除 `path/present/symlink/target/tools/mark` 外还带：`location`（命中根的配置路径）、`repo_id`（命中 repo 根时）、`resolved`（解析后路径，仅在与原路径不同且存在时）、`target_location` / `target_tools` / `target_mark`（符号链接目标落在另一个根时追加的证据，不会产生 `missing`）。归属以入口原路径的词法匹配优先，匹配不到才回退到解析后路径。`project` 工具列在页面显示为「仓库入口」。
 - `GET /api/skills/meta`：数据源健康（清单、漂移扫描、SkilLock、暂存区、升级检查、重叠检测）和来源汇总。`absent` / `fallback` 是未接入或回退，不是通过。
 - `GET /api/skills/attention`：`?format=json|text`。text 不超过 2048 字节，空桶不出现，基线债只有一行计数、不列条目。桶代码：`missing`、`version_changed`、`unrecorded`、`capability_pending`、`modified`、`upgradable`、`overlap`。`badge` 是这些桶的条数之和，不含 `baseline_debt`。
 

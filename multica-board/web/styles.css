@@ -729,6 +729,35 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .filter select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
 .skill-entry { margin: 4px 0; }
 .tag.info { background: var(--info-bg); color: var(--info); }
+.skills-legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0 0 10px; font-size: 11px; color: var(--muted); max-width: 100%; }
+.skills-legend .legend-group { min-width: 0; }
+.skills-legend strong { color: var(--text); font-weight: 600; }
+.skills-anomaly {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.shared-entry .tag { white-space: nowrap; }
+.tool-mark sup { font-size: 9px; color: var(--info); margin-left: 1px; }
+.tool-mark.via-target { color: var(--info); }
+.repo-entries { min-width: 88px; }
+.repo-group { margin-bottom: 2px; }
+.repo-name { font-size: 10px; }
+.entry-chip {
+  display: inline-block;
+  margin: 1px 4px 1px 0;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.entry-chip.missing { color: var(--bad); border-color: var(--bad); }
 @media (max-width: 1199px) {
   .source-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .skills-layout { grid-template-columns: 1fr; }
