@@ -762,7 +762,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .entry-chip.unknown { color: var(--warn); border-color: var(--warn); }
 @media (max-width: 1199px) {
   .source-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .skills-layout { grid-template-columns: 1fr; }
+  .skills-layout { grid-template-columns: minmax(0, 1fr); }
   .skills-queue { order: -1; }
   .skills-compact { display: flex; flex-wrap: wrap; gap: 8px 12px; color: var(--muted); font-size: 12px; }
   .skills-queue h2, .skill-bucket ul, .skill-bucket p { display: none; }
