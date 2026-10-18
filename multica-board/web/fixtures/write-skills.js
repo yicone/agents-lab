@@ -11,7 +11,7 @@ const tools = [
   { id: "claude", label: "Claude" },
   { id: "hermes", label: "Hermes" },
   { id: "gemini", label: "Gemini" },
-  { id: "project", label: "项目" },
+  { id: "project", label: "仓库入口" },
 ];
 
 function marks(partial) {

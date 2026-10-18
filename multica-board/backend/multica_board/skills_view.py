@@ -6,6 +6,7 @@ The page and ``GET /api/skills/attention`` both use :func:`assign_buckets`.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import shutil
@@ -85,7 +86,34 @@ FINDING_LABEL = {
     "provider_version_unreadable": "读不出提供者版本",
     "change_unrecorded": "有变更但 changelog 没有对应记录",
 }
-MARK_RANK = {None: 0, "shared": 1, "missing": 2, "direct": 3}
+MARK_RANK = {None: 0, "shared": 1, "missing": 2, "unknown": 3, "direct": 4}
+SHARED_LABEL = {
+    "unscanned": "未扫描",
+    "denied": "无权限",
+    "unknown": "无法确定",
+    "none": "无入口",
+    "broken_link": "坏链",
+    "content_missing": "缺 SKILL.md",
+    "link": "链接",
+    "dir": "目录",
+}
+SKILLS_SCHEMA = 2
+_DENIED_ERRNOS = frozenset({errno.EACCES, errno.EPERM})
+
+
+def _denied(exc: OSError) -> bool:
+    """EACCES/EPERM or a PermissionError raised without an explicit errno."""
+    return isinstance(exc, PermissionError) or exc.errno in _DENIED_ERRNOS
+# Indirections so tests can inject PermissionError / OSError into the probe.
+_lstat = os.lstat
+_stat = os.stat
+_readlink = os.readlink
+_realpath = lambda p: os.path.realpath(p, strict=True)
+
+
+def _read_head(path):
+    with open(path, "rb") as handle:
+        return handle.read(1)
 SUMMARY_SOURCES = (
     ("", "全部"),
     ("skills_cli_managed", "Skills CLI"),
@@ -138,7 +166,7 @@ def _stat_token(path: Path) -> tuple:
         st = path.lstat()
     except OSError:
         return (str(path), "missing")
-    token: tuple = (str(path), st.st_mtime_ns, st.st_size, stat.S_ISLNK(st.st_mode))
+    token: tuple = (str(path), st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_mode, st.st_ino, stat.S_ISLNK(st.st_mode))
     if stat.S_ISLNK(st.st_mode):
         try:
             link = os.readlink(path)
@@ -227,7 +255,29 @@ def _install_stamp(inventory_path: Path, tool_roots_path: Path, repo_root: Path,
         document = json.loads(inventory_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeError):
         document = None
+    # Shared-root probe dependencies: the root itself, its canonical form,
+    # and each inventory name's entry + SKILL.md inside it.
+    try:
+        probe_roots, _ = _load_tool_roots(tool_roots_path, repo_root)
+    except (OSError, json.JSONDecodeError, UnicodeError, ValueError, KeyError, TypeError, AttributeError):
+        probe_roots = []
+    shared = _shared_root(probe_roots)
     skills = document.get("skills") if isinstance(document, dict) else None
+    if shared is not None:
+        shared_dir = Path(shared["expanded"])
+        stamps.append(_stat_token(shared_dir))
+        stamps.append(("shared_realpath", os.path.realpath(shared_dir)))
+        if isinstance(skills, list):
+            for skill in skills:
+                if not isinstance(skill, dict):
+                    continue
+                name = skill.get("name")
+                if isinstance(name, str) and name.strip() and "/" not in name and name not in (".", ".."):
+                    stamps.append(_stat_token(shared_dir / name))
+                    stamps.append(_stat_token(shared_dir / name / "SKILL.md"))
+    stamps.append(_stat_token(repo_root))
+    stamps.append(("repo_realpath", os.path.realpath(repo_root)))
+    stamps.append(("repo_root", str(repo_root)))
     if isinstance(skills, list):
         for skill in skills:
             if not isinstance(skill, dict):
@@ -383,18 +433,23 @@ def _load_tool_roots(path: Path, repo_root: Path) -> tuple[list[dict[str, Any]],
         if isinstance(item, dict) and item.get("id") and item.get("label")
     ]
     roots = []
-    for item in document.get("roots") or []:
+    for order, item in enumerate(document.get("roots") or []):
         if not isinstance(item, dict) or not item.get("path"):
             continue
         raw = str(item["path"])
         if item.get("repo"):
+            lexical = os.path.abspath(repo_root / raw)
             expanded = str((repo_root / raw).resolve())
         else:
+            lexical = os.path.abspath(Path(raw).expanduser())
             expanded = str(Path(raw).expanduser().resolve())
         roots.append(
             {
                 "path": raw,
+                "lexical": lexical.rstrip("/"),
                 "expanded": expanded.rstrip("/"),
+                "repo": bool(item.get("repo")),
+                "order": order,
                 "tools": [tool for tool in item.get("tools") or [] if isinstance(tool, str)],
                 "kind": "shared" if item.get("kind") == "shared" else "direct",
             }
@@ -403,9 +458,9 @@ def _load_tool_roots(path: Path, repo_root: Path) -> tuple[list[dict[str, Any]],
     return roots, tools
 
 
-def _match_root(expanded: str, roots: list[dict[str, Any]]) -> dict[str, Any] | None:
-    for root in roots:
-        base = root["expanded"]
+def _match_root(expanded: str, roots: list[dict[str, Any]], key: str = "expanded") -> dict[str, Any] | None:
+    for root in sorted(roots, key=lambda item: len(item[key]), reverse=True):
+        base = root[key]
         if expanded == base or expanded.startswith(base + "/"):
             return root
     return None
@@ -417,53 +472,349 @@ def _expand(raw: str, repo_root: Path) -> str:
     return str((repo_root / raw).resolve())
 
 
+def _lexical(raw: str, repo_root: Path) -> str:
+    """Absolute path without resolving links, matching how the root was configured."""
+    if raw.startswith("~") or raw.startswith("/"):
+        return os.path.abspath(os.path.expanduser(raw))
+    return os.path.abspath(repo_root / raw)
+
+
+def _shared_root(roots: list[dict[str, Any]]) -> dict[str, Any] | None:
+    candidates = [root for root in roots if root["kind"] == "shared" and not root.get("repo")]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda root: root["order"])
+
+
 def _bump(current: str | None, mark: str) -> str | None:
     if MARK_RANK[mark] > MARK_RANK[current]:
         return mark
     return current
 
 
-def tool_marks(paths: list[str], roots: list[dict[str, Any]], repo_root: Path) -> tuple[dict[str, str | None], list[dict[str, Any]]]:
+def _classify_entry(located: Path) -> tuple[str, str | None, bool]:
+    """(state, readlink_text, is_link) for one entry path, via the indirections."""
+    try:
+        lst = _lstat(located)
+    except OSError as exc:
+        if exc.errno == errno.ENOENT:
+            return "absent", None, False
+        if _denied(exc):
+            return "denied", None, False
+        return "unknown", None, False
+    is_link = stat.S_ISLNK(lst.st_mode)
+    if not is_link:
+        return "present", None, False
+    try:
+        link_text = _readlink(located)
+    except OSError:
+        link_text = None
+    try:
+        _stat(located)
+        return "present", link_text, True
+    except OSError as exc:
+        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+            return "broken_link", link_text, True
+        if _denied(exc):
+            return "denied", link_text, True
+        return "unknown", link_text, True
+
+
+def _scope_of(root: dict[str, Any] | None, lexical: str, resolved: str | None, repo_ctx: dict[str, Any] | None) -> str:
+    if root is not None:
+        return "repo_entry" if root.get("repo") else "user"
+    if repo_ctx is not None:
+        repo_lexical = repo_ctx["lexical"]
+        repo_resolved = repo_ctx.get("resolved")
+        if lexical == repo_lexical or lexical.startswith(repo_lexical + os.sep):
+            return "repo_source"
+        if repo_resolved and resolved and (resolved == repo_resolved or resolved.startswith(repo_resolved + os.sep)):
+            return "repo_source"
+    return "other"
+
+
+def _evidence_sort_key(record: dict[str, Any], tool_order: dict[str, int]) -> tuple:
+    harness = record["harness"]
+    head = (0, tool_order[harness]) if harness in tool_order else (1, harness)
+    return (
+        head,
+        0 if record["kind"] == "entry" else 1,
+        {"direct": 0, "shared": 1, "missing": 2, "unknown": 3}[record["attribution"]],
+        record["lexical"],
+        record["resolved"] or "",
+    )
+
+
+def tool_marks(
+    paths: list[str],
+    roots: list[dict[str, Any]],
+    repo_root: Path,
+    repo_ctx: dict[str, Any] | None = None,
+    tool_order: dict[str, int] | None = None,
+) -> tuple[dict[str, str | None], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     tool_ids = {tool for root in roots for tool in root["tools"]}
     marks: dict[str, str | None] = {tool: None for tool in tool_ids}
+    tool_order = tool_order or {}
     entries = []
-    for raw in paths:
+    evidence = []
+    for entry_index, raw in enumerate(paths):
         if not isinstance(raw, str) or not raw.strip() or not drift_report.is_concrete(raw):
             continue
         located = drift_report.inventory.locate_path(raw, repo_root)
-        try:
-            present = located.exists()
-        except OSError:
-            present = False
-        target = None
-        try:
-            if located.is_symlink():
-                target = os.readlink(located)
-        except OSError:
-            target = None
-        expanded = _expand(raw, repo_root)
+        e_state, link_text, is_link = _classify_entry(located)
+        present = e_state == "present"
         # Hash-resolved plugin paths should match the root of the concrete file.
-        if "*" in raw:
-            expanded = str(located)
-        root = _match_root(expanded, roots) or _match_root(str(located), roots)
+        lexical = str(located) if "*" in raw else _lexical(raw, repo_root)
+        expanded = _expand(raw, repo_root) if "*" not in raw else str(located)
+        resolved = None
+        if present:
+            try:
+                candidate = _realpath(located)
+            except OSError:
+                candidate = None
+            if candidate and candidate != lexical:
+                resolved = candidate
+        # Direct attribution: where the entry itself sits, before following links.
+        root = _match_root(lexical, roots, "lexical")
+        target_root = None
+        if root is not None:
+            if resolved and resolved != lexical:
+                found = _match_root(resolved, roots)
+                if found is not None and found is not root:
+                    target_root = found
+        else:
+            # No lexical match: keep the resolved/target match as primary.
+            root = _match_root(expanded, roots) or _match_root(str(located), roots)
+        if e_state == "present":
+            entry_state = "present"
+            attribution = root["kind"] if root else None
+        elif e_state in ("absent", "broken_link"):
+            entry_state = e_state
+            attribution = "missing" if root else None
+        else:
+            entry_state = e_state  # denied | unknown
+            attribution = "unknown" if root else None
+        scope = _scope_of(root, lexical, resolved, repo_ctx)
         tools = root["tools"] if root else []
-        kind = root["kind"] if root else None
-        mark = None
-        if kind:
-            mark = kind if present else "missing"
+        mark = attribution
+        base = {
+            "path": raw,
+            "lexical": lexical,
+            "readlink": link_text,
+            "resolved": resolved,
+            "entry_index": entry_index,
+        }
+        if root is not None:
+            record_repo = bool(root.get("repo"))
             for tool in tools:
-                marks[tool] = _bump(marks.get(tool), mark)
+                evidence.append(
+                    {
+                        **base,
+                        "harness": tool,
+                        "kind": "entry",
+                        "attribution": attribution,
+                        "state": entry_state,
+                        "root": root["path"],
+                        "repo": record_repo,
+                        "repo_id": repo_ctx["id"] if (repo_ctx and record_repo) else None,
+                        "scope": "repo_entry" if record_repo else "user",
+                    }
+                )
+        if target_root is not None:
+            target_scope = "repo_entry" if target_root.get("repo") else "user"
+            for tool in target_root["tools"]:
+                evidence.append(
+                    {
+                        **base,
+                        "harness": tool,
+                        "kind": "target",
+                        "attribution": target_root["kind"],
+                        "state": "present",
+                        "root": target_root["path"],
+                        "repo": bool(target_root.get("repo")),
+                        "repo_id": repo_ctx["id"] if (repo_ctx and target_root.get("repo")) else None,
+                        "scope": target_scope,
+                    }
+                )
         entries.append(
             {
                 "path": raw,
                 "present": present,
-                "symlink": target is not None,
-                "target": target,
+                "symlink": link_text is not None,
+                "target": link_text,
                 "tools": tools,
                 "mark": mark,
+                "resolved": resolved,
+                "location": root["path"] if root else None,
+                "repo_id": repo_ctx["id"] if (repo_ctx and scope in ("repo_entry", "repo_source")) else None,
+                "scope": scope,
             }
         )
-    return marks, entries
+    for record in evidence:
+        marks[record["harness"]] = _bump(marks.get(record["harness"]), record["attribution"])
+    evidence.sort(key=lambda record: _evidence_sort_key(record, tool_order))
+    repo_ids = sorted({entry["repo_id"] for entry in entries if entry.get("repo_id")})
+    return marks, entries, evidence, repo_ids
+
+
+def _shared_entry(name: str, shared: dict[str, Any] | None) -> dict[str, Any]:
+    """Probe ``<shared_root>/<name>``; ordered steps, first terminal wins."""
+    raw = shared["path"] if shared else None
+    path = f"{raw.rstrip('/')}/{name}" if (raw and isinstance(name, str)) else None
+
+    def result(
+        state: str,
+        reason: str,
+        step: str,
+        detail: str,
+        *,
+        err: int | None = None,
+        target: str | None = None,
+        resolved: str | None = None,
+        link_kind: str | None = None,
+        target_scope: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "state": state,
+            "label": SHARED_LABEL[state],
+            "reason": reason,
+            "errno": err,
+            "step": step,
+            "path": path,
+            "target": target,
+            "resolved": resolved,
+            "link_kind": link_kind,
+            "target_scope": target_scope,
+            "detail": detail,
+            "root": raw,
+        }
+
+    # P0 preconditions: no syscalls.
+    if shared is None:
+        return result("unscanned", "no_shared_root", "P0", "配置里没有共享根")
+    try:
+        if not isinstance(name, str) or not name or "/" in name or "\x00" in name or name in (".", ".."):
+            return result("unknown", "invalid_name", "P0", "名称不是合法的目录名")
+        base = shared["expanded"]
+        # S1: shared root itself.
+        try:
+            root_stat = _stat(base)
+        except OSError as exc:
+            err = exc.errno
+            if _denied(exc):
+                return result("denied", "root_denied", "S1", "共享根目录无权限", err=err)
+            if err in (errno.ENOENT, errno.ENOTDIR):
+                return result("none", "root_absent", "S1", "共享根目录不存在", err=err)
+            if err == errno.ELOOP:
+                return result("unknown", "root_loop", "S1", "共享根目录路径存在链接循环", err=err)
+            return result("unknown", "root_error", "S1", "共享根目录无法读取", err=err)
+        if not stat.S_ISDIR(root_stat.st_mode):
+            return result("unknown", "root_not_dir", "S1", "共享根路径不是目录")
+        # S2: the entry itself.
+        entry = os.path.join(base, name)
+        try:
+            entry_stat = _lstat(entry)
+        except OSError as exc:
+            err = exc.errno
+            if err == errno.ENOENT:
+                return result("none", "entry_absent", "S2", "共享目录下没有这个入口", err=err)
+            if _denied(exc):
+                return result("denied", "entry_denied", "S2", "共享入口无权限", err=err)
+            return result("unknown", "entry_error", "S2", "共享入口无法读取", err=err)
+        is_link = stat.S_ISLNK(entry_stat.st_mode)
+        # S3: link text.
+        target = None
+        link_kind = None
+        if is_link:
+            try:
+                target = _readlink(entry)
+            except OSError as exc:
+                err = exc.errno
+                if _denied(exc):
+                    return result("denied", "readlink_denied", "S3", "链接文本无权限", err=err)
+                return result("unknown", "readlink_error", "S3", "链接文本无法读取", err=err)
+            link_kind = "absolute" if os.path.isabs(target) else "relative"
+        # S4: follow the entry.
+        try:
+            followed = _stat(entry)
+        except OSError as exc:
+            err = exc.errno
+            if is_link and err in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+                reason = {errno.ENOENT: "target_absent", errno.ENOTDIR: "target_enotdir", errno.ELOOP: "link_loop"}[err]
+                return result("broken_link", reason, "S4", "链接目标不存在", err=err, target=target, link_kind=link_kind)
+            if _denied(exc):
+                return result("denied", "target_denied" if is_link else "entry_denied", "S4", "链接目标无权限" if is_link else "共享入口无权限", err=err, target=target, link_kind=link_kind)
+            return result("unknown", "target_error" if is_link else "entry_error", "S4", "链接目标无法读取" if is_link else "共享入口无法读取", err=err, target=target, link_kind=link_kind)
+        if not stat.S_ISDIR(followed.st_mode):
+            return result("content_missing", "not_a_directory", "S4", "入口不是目录", target=target, link_kind=link_kind)
+        # S5: canonical path (informational scope only).
+        try:
+            resolved = _realpath(entry)
+        except PermissionError as exc:
+            return result("denied", "realpath_denied", "S5", "无法解析入口路径", err=exc.errno, target=target, link_kind=link_kind)
+        except OSError as exc:
+            return result("unknown", "realpath_error", "S5", "无法解析入口路径", err=exc.errno, target=target, link_kind=link_kind)
+        target_scope = None
+        if is_link:
+            target_scope = "inside_shared_root" if resolved == base or resolved.startswith(base + os.sep) else "outside_shared_root"
+        # S6: SKILL.md inside the entry.
+        skill_md = os.path.join(entry, "SKILL.md")
+        try:
+            md_stat = _lstat(skill_md)
+        except OSError as exc:
+            err = exc.errno
+            if err in (errno.ENOENT, errno.ENOTDIR):
+                return result("content_missing", "skill_md_absent", "S6", "没有 SKILL.md", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+            if _denied(exc):
+                return result("denied", "skill_md_denied", "S6", "SKILL.md 无权限", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+            if err == errno.ELOOP:
+                return result("content_missing", "skill_md_dangling", "S6", "SKILL.md 是失效链接", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+            return result("unknown", "skill_md_error", "S6", "SKILL.md 无法读取", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        if stat.S_ISLNK(md_stat.st_mode):
+            try:
+                md_stat = _stat(skill_md)
+            except OSError as exc:
+                err = exc.errno
+                if err in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+                    return result("content_missing", "skill_md_dangling", "S6", "SKILL.md 是失效链接", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+                if _denied(exc):
+                    return result("denied", "skill_md_denied", "S6", "SKILL.md 无权限", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+                return result("unknown", "skill_md_error", "S6", "SKILL.md 无法读取", err=err, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        if not stat.S_ISREG(md_stat.st_mode):
+            return result("content_missing", "skill_md_not_file", "S6", "SKILL.md 不是普通文件", target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        if md_stat.st_size == 0:
+            return result("content_missing", "skill_md_empty", "S6", "SKILL.md 是空文件", target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        try:
+            _read_head(skill_md)
+        except PermissionError as exc:
+            return result("denied", "skill_md_unreadable", "S6", "SKILL.md 不可读", err=exc.errno, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        except OSError as exc:
+            return result("unknown", "skill_md_read_error", "S6", "SKILL.md 读取失败", err=exc.errno, target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        # S7: success.
+        if is_link:
+            return result("link", "ok", "S7", "链接到共享目录里的有效入口", target=target, resolved=resolved, link_kind=link_kind, target_scope=target_scope)
+        return result("dir", "ok", "S7", "共享目录下的目录", resolved=resolved)
+    except Exception:
+        return result("unknown", "probe_exception", "??", "探测失败")
+
+
+def _shared_root_state(shared: dict[str, Any] | None) -> dict[str, Any]:
+    if shared is None:
+        return {"path": None, "state": "unscanned", "reason": "no_shared_root", "detail": "未配置共享目录"}
+    try:
+        probe = _stat(shared["expanded"])
+    except OSError as exc:
+        err = exc.errno
+        if _denied(exc):
+            return {"path": shared["path"], "state": "denied", "reason": "root_denied", "detail": "共享根目录无权限"}
+        if err in (errno.ENOENT, errno.ENOTDIR):
+            return {"path": shared["path"], "state": "absent", "reason": "root_absent", "detail": "共享根目录不存在"}
+        if err == errno.ELOOP:
+            return {"path": shared["path"], "state": "unknown", "reason": "root_loop", "detail": "共享根目录路径存在链接循环"}
+        return {"path": shared["path"], "state": "unknown", "reason": "root_error", "detail": "共享根目录无法读取"}
+    if not stat.S_ISDIR(probe.st_mode):
+        return {"path": shared["path"], "state": "unknown", "reason": "root_not_dir", "detail": "共享根路径不是目录"}
+    return {"path": shared["path"], "state": "ok", "reason": "ok", "detail": "共享目录已配置"}
 
 
 def _channel(skill: dict[str, Any]) -> tuple[str, str]:
@@ -511,7 +862,14 @@ def _command(bucket: str | None) -> str:
     return "python3 skills-governance/scripts/drift_report.py --format text"
 
 
-def _inventory_item(skill: dict[str, Any], row: dict[str, Any], roots: list[dict[str, Any]], repo_root: Path) -> dict[str, Any]:
+def _inventory_item(
+    skill: dict[str, Any],
+    row: dict[str, Any],
+    roots: list[dict[str, Any]],
+    repo_root: Path,
+    repo_ctx: dict[str, Any] | None = None,
+    tool_order: dict[str, int] | None = None,
+) -> dict[str, Any]:
     authority = skill.get("authority") if isinstance(skill.get("authority"), dict) else {}
     baseline = skill.get("baseline") if isinstance(skill.get("baseline"), dict) else {}
     paths = [value for value in skill.get("visible_paths") or [] if isinstance(value, str)]
@@ -521,7 +879,7 @@ def _inventory_item(skill: dict[str, Any], row: dict[str, Any], roots: list[dict
     canonical = authority.get("canonical_path")
     if isinstance(canonical, str):
         paths.append(canonical)
-    marks, entries = tool_marks(paths, roots, repo_root)
+    marks, entries, evidence, repo_ids = tool_marks(paths, roots, repo_root, repo_ctx, tool_order)
     label, detail = _channel(skill)
     canonical_text = canonical if isinstance(canonical, str) else None
     item = {
@@ -551,6 +909,8 @@ def _inventory_item(skill: dict[str, Any], row: dict[str, Any], roots: list[dict
         "conflict_status": skill.get("conflict_status"),
         "tools": marks,
         "entries": entries,
+        "evidence": evidence,
+        "repo_ids": repo_ids,
         "install_path": None,
         "capability_gate": None,
     }
@@ -558,9 +918,15 @@ def _inventory_item(skill: dict[str, Any], row: dict[str, Any], roots: list[dict
     return item
 
 
-def _unrecorded_item(row: dict[str, Any], roots: list[dict[str, Any]], repo_root: Path) -> dict[str, Any]:
+def _unrecorded_item(
+    row: dict[str, Any],
+    roots: list[dict[str, Any]],
+    repo_root: Path,
+    repo_ctx: dict[str, Any] | None = None,
+    tool_order: dict[str, int] | None = None,
+) -> dict[str, Any]:
     path = row.get("path") or ""
-    marks, entries = tool_marks([path] if path else [], roots, repo_root)
+    marks, entries, evidence, repo_ids = tool_marks([path] if path else [], roots, repo_root, repo_ctx, tool_order)
     return {
         "name": row.get("name") or path or "unrecorded",
         "origin": "unrecorded",
@@ -589,6 +955,8 @@ def _unrecorded_item(row: dict[str, Any], roots: list[dict[str, Any]], repo_root
         "conflict_status": None,
         "tools": marks,
         "entries": entries,
+        "evidence": evidence,
+        "repo_ids": repo_ids,
         "install_path": path,
         "capability_gate": None,
     }
@@ -786,6 +1154,9 @@ def build_payload(
             "summary": [],
             "tools": [],
             "attention": attention,
+            "skills_schema": SKILLS_SCHEMA,
+            "shared_root": {"path": None, "state": "unscanned", "reason": "no_shared_root", "detail": "清单无效，未扫描"},
+            "repos": [],
             "meta": {"sources": [{"id": "inventory", "label": "清单", "state": "bad", "detail": str(exc)}]},
         }
 
@@ -806,6 +1177,22 @@ def build_payload(
         changelog_dir,
     )
     by_name = {row.get("name"): row for row in report.get("skills") or []}
+    repo_lexical = os.path.abspath(repo_root)
+    try:
+        repo_resolved = _realpath(repo_root)
+        repo_ctx = {"id": repo_resolved, "lexical": repo_lexical, "resolved": repo_resolved}
+        repos = [{"id": repo_resolved, "label": Path(repo_resolved).name or repo_resolved, "path": repo_resolved, "identity_state": "ok", "reason": None}]
+    except OSError as exc:
+        err = exc.errno
+        if _denied(exc):
+            reason = "repo_root_denied"
+        elif err in (errno.ENOENT, errno.ENOTDIR):
+            reason = "repo_root_absent"
+        else:
+            reason = "repo_root_error"
+        repo_ctx = {"id": "unknown", "lexical": repo_lexical, "resolved": None}
+        repos = [{"id": "unknown", "label": "未知仓库", "path": repo_lexical, "identity_state": "unknown", "reason": reason}]
+    tool_order = {tool["id"]: index for index, tool in enumerate(tools)}
     items = []
     for skill in skills:
         row = by_name.get(skill["name"]) or {
@@ -816,12 +1203,12 @@ def build_payload(
             "baseline_ref": skill.get("baseline_ref"),
             "review_time": skill.get("review_time"),
         }
-        items.append(_inventory_item(skill, row, roots, repo_root))
+        items.append(_inventory_item(skill, row, roots, repo_root, repo_ctx, tool_order))
     known = {item["name"] for item in items}
     for row in report.get("unrecorded") or []:
         if row.get("name") in known:
             continue
-        items.append(_unrecorded_item(row, roots, repo_root))
+        items.append(_unrecorded_item(row, roots, repo_root, repo_ctx, tool_order))
 
     pending, staging_meta = read_staging(staging_root)
     gates: dict[str, dict[str, Any]] = {}
@@ -861,13 +1248,17 @@ def build_payload(
                         "conflict_status": None,
                         "tools": {},
                         "entries": [],
+                        "evidence": [],
+                        "repo_ids": [],
                         "install_path": candidate["id"],
                         "capability_gate": None,
                     }
                 )
                 known.add(name)
     assign_buckets(items, gates, review_days=review_days, now=moment)
+    shared = _shared_root(roots)
     for item in items:
+        item["shared_entry"] = _shared_entry(item.get("name"), shared)
         item["command"] = _command(item.get("bucket"))
 
     inventory_updated_at = _iso(datetime.fromtimestamp(inventory_path.stat().st_mtime, timezone.utc))
@@ -902,6 +1293,9 @@ def build_payload(
         "summary": _summary(items),
         "tools": tools,
         "attention": attention,
+        "skills_schema": SKILLS_SCHEMA,
+        "shared_root": _shared_root_state(shared),
+        "repos": repos,
         "meta": {
             "inventory_updated_at": inventory_updated_at,
             "inventory_sha": sha,
