@@ -613,8 +613,13 @@ class HarnessAttributionTests(unittest.TestCase):
         self.assertEqual(entry["tools"], ["hermes"])
         self.assertEqual(entry["location"], str(self.root / "hermes" / "skills"))
         self.assertTrue(entry["resolved"])
-        self.assertEqual(sorted(entry["target_tools"]), ["codex", "cursor"])
-        self.assertEqual(entry["target_mark"], "shared")
+        evidence = {(record["harness"], record["kind"]): record for record in item["evidence"]}
+        self.assertEqual(evidence[("hermes", "entry")]["attribution"], "direct")
+        self.assertEqual(evidence[("hermes", "entry")]["state"], "present")
+        self.assertEqual(evidence[("codex", "target")]["attribution"], "shared")
+        self.assertEqual(evidence[("cursor", "target")]["attribution"], "shared")
+        self.assertEqual(evidence[("codex", "target")]["root"], str(self.root / "shared"))
+        self.assertTrue(evidence[("codex", "target")]["resolved"])
         self.assertEqual(item["shared_entry"]["state"], "dir")
 
     def test_broken_link_marks_missing_without_target_evidence(self):
@@ -634,7 +639,7 @@ class HarnessAttributionTests(unittest.TestCase):
         self.assertIsNone(item["tools"]["cursor"])
         entry = item["entries"][0]
         self.assertEqual(entry["mark"], "missing")
-        self.assertEqual(entry["target_tools"], [])
+        self.assertFalse([record for record in item["evidence"] if record["kind"] == "target"])
         self.assertIsNone(entry["resolved"])
 
     def test_one_skill_linked_from_two_direct_roots_is_direct_for_both(self):
@@ -691,17 +696,647 @@ class HarnessAttributionTests(unittest.TestCase):
         item = body["items"][0]
         repo_id = body["repos"][0]["id"]
         self.assertEqual(body["repos"][0]["label"], "repo")
-        self.assertEqual(item["repo_id"], repo_id)
+        self.assertEqual(item["repo_ids"], [repo_id])
         by_path = {entry["path"]: entry for entry in item["entries"]}
         repo_entry = by_path[".agents/skills/dup"]
         self.assertEqual(repo_entry["repo_id"], repo_id)
+        self.assertEqual(repo_entry["scope"], "repo_entry")
         self.assertEqual(repo_entry["location"], ".agents/skills")
         self.assertEqual(sorted(repo_entry["tools"]), ["hermes", "project"])
         other_entry = by_path[str(outside)]
         self.assertIsNone(other_entry["repo_id"])
+        self.assertEqual(other_entry["scope"], "other")
         self.assertEqual(other_entry["tools"], [])
         self.assertIsNone(other_entry["mark"])
         self.assertEqual(item["tools"]["project"], "direct")
+
+
+class SharedEntryStateMachineTests(unittest.TestCase):
+    """Ordered-step probe: injected failures at each layer, real fixtures otherwise."""
+
+    def setUp(self):
+        skills_view._CACHE.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.shared_dir = self.root / "shared"
+        self.shared_dir.mkdir()
+
+    def tearDown(self):
+        skills_view._CACHE.clear()
+        for child in self.shared_dir.iterdir():
+            try:
+                child.chmod(0o755)
+            except OSError:
+                pass
+        self.tmp.cleanup()
+
+    def shared(self):
+        return {"path": str(self.shared_dir), "expanded": str(self.shared_dir.resolve())}
+
+    def probe(self, name, **patches):
+        shared = self.shared()
+        if not patches:
+            return skills_view._shared_entry(name, shared)
+        with mock.patch.multiple(skills_view, **patches):
+            return skills_view._shared_entry(name, shared)
+
+    def fail_at(self, fn_name, match, exc):
+        real = getattr(skills_view, fn_name)
+
+        def wrapper(path, *args):
+            if match(str(path)):
+                raise exc
+            return real(path)
+
+        return wrapper
+
+    def assert_outcome(self, entry, state, reason):
+        self.assertEqual(entry["state"], state, entry)
+        self.assertEqual(entry["reason"], reason, entry)
+
+    # -- (a) priority combinations -------------------------------------------------
+
+    def test_no_shared_root_beats_invalid_name(self):
+        entry = skills_view._shared_entry("a/b", None)
+        self.assert_outcome(entry, "unscanned", "no_shared_root")
+        self.assertIsNone(entry["errno"])
+        self.assertEqual(entry["step"], "P0")
+
+    def test_invalid_name_with_healthy_root_is_unknown(self):
+        for bad in ("a/b", "", ".", "..", "nul\x00name", None, 5):
+            entry = self.probe(bad)
+            self.assert_outcome(entry, "unknown", "invalid_name")
+            self.assertEqual(entry["step"], "P0")
+
+    def test_root_denied_beats_entry_absent(self):
+        entry = self.probe("ghost", _stat=self.fail_at("_stat", lambda p: True, PermissionError(errno.EACCES, "denied")))
+        self.assert_outcome(entry, "denied", "root_denied")
+        self.assertEqual(entry["step"], "S1")
+
+    def test_broken_link_beats_missing_skill_md(self):
+        os.symlink(self.root / "nowhere", self.shared_dir / "broken")
+        entry = self.probe("broken")
+        self.assert_outcome(entry, "broken_link", "target_absent")
+        self.assertEqual(entry["step"], "S4")
+
+    def test_denied_at_entry_target_and_skill_md(self):
+        # entry lstat denied -> S2 entry_denied
+        os.symlink(self.root / "nowhere", self.shared_dir / "s")
+        entry = self.probe("s", _lstat=self.fail_at("_lstat", lambda p: p.endswith("/s"), PermissionError(errno.EACCES, "x")))
+        self.assert_outcome(entry, "denied", "entry_denied")
+        self.assertEqual(entry["step"], "S2")
+        # target stat denied -> S4 target_denied
+        target_dir = self.root / "t"
+        target_dir.mkdir()
+        link = self.shared_dir / "s2"
+        os.symlink(target_dir, link)
+        entry = self.probe("s2", _stat=self.fail_at("_stat", lambda p: p.endswith("/s2"), PermissionError(errno.EACCES, "x")))
+        self.assert_outcome(entry, "denied", "target_denied")
+        self.assertEqual(entry["step"], "S4")
+        self.assertEqual(entry["target"], str(target_dir))
+        # SKILL.md lstat denied -> S6 skill_md_denied
+        (target_dir / "SKILL.md").write_text("x", encoding="utf-8")
+        entry = self.probe("s2", _lstat=self.fail_at("_lstat", lambda p: p.endswith("SKILL.md"), PermissionError(errno.EACCES, "x")))
+        self.assert_outcome(entry, "denied", "skill_md_denied")
+        self.assertEqual(entry["step"], "S6")
+
+    # -- (b) injected failures per layer ---------------------------------------------
+
+    def test_root_stat_failures(self):
+        cases = [
+            (PermissionError(errno.EACCES, "x"), "denied", "root_denied"),
+            (OSError(errno.ENOENT, "x"), "none", "root_absent"),
+            (OSError(errno.ENOTDIR, "x"), "none", "root_absent"),
+            (OSError(errno.ELOOP, "x"), "unknown", "root_loop"),
+            (OSError(errno.EIO, "x"), "unknown", "root_error"),
+        ]
+        for exc, state, reason in cases:
+            entry = self.probe("x", _stat=self.fail_at("_stat", lambda p: True, exc))
+            self.assert_outcome(entry, state, reason)
+
+    def test_entry_lstat_failures(self):
+        cases = [
+            (OSError(errno.ENOENT, "x"), "none", "entry_absent"),
+            (PermissionError(errno.EACCES, "x"), "denied", "entry_denied"),
+            (OSError(errno.ENOTDIR, "x"), "unknown", "entry_error"),
+            (OSError(errno.ELOOP, "x"), "unknown", "entry_error"),
+            (OSError(errno.EIO, "x"), "unknown", "entry_error"),
+        ]
+        for exc, state, reason in cases:
+            entry = self.probe("x", _lstat=self.fail_at("_lstat", lambda p: p.endswith("/x"), exc))
+            self.assert_outcome(entry, state, reason)
+
+    def test_readlink_failures(self):
+        target_dir = self.root / "t"
+        target_dir.mkdir()
+        (target_dir / "SKILL.md").write_text("x", encoding="utf-8")
+        os.symlink(target_dir, self.shared_dir / "x")
+        cases = [
+            (PermissionError(errno.EACCES, "x"), "denied", "readlink_denied"),
+            (OSError(errno.EIO, "x"), "unknown", "readlink_error"),
+        ]
+        for exc, state, reason in cases:
+            entry = self.probe("x", _readlink=self.fail_at("_readlink", lambda p: p.endswith("/x"), exc))
+            self.assert_outcome(entry, state, reason)
+
+    def test_target_stat_failures(self):
+        target_dir = self.root / "t"
+        target_dir.mkdir()
+        (target_dir / "SKILL.md").write_text("x", encoding="utf-8")
+        os.symlink(target_dir, self.shared_dir / "x")
+        cases = [
+            (PermissionError(errno.EACCES, "x"), "denied", "target_denied"),
+            (OSError(errno.ENOENT, "x"), "broken_link", "target_absent"),
+            (OSError(errno.ELOOP, "x"), "broken_link", "link_loop"),
+            (OSError(errno.ENOTDIR, "x"), "broken_link", "target_enotdir"),
+            (OSError(errno.EIO, "x"), "unknown", "target_error"),
+        ]
+        for exc, state, reason in cases:
+            entry = self.probe("x", _stat=self.fail_at("_stat", lambda p: p.endswith("/x"), exc))
+            self.assert_outcome(entry, state, reason)
+
+    def test_realpath_failures(self):
+        entry_dir = self.shared_dir / "x"
+        entry_dir.mkdir()
+        (entry_dir / "SKILL.md").write_text("x", encoding="utf-8")
+        cases = [
+            (PermissionError(errno.EACCES, "x"), "denied", "realpath_denied"),
+            (OSError(errno.EIO, "x"), "unknown", "realpath_error"),
+        ]
+        for exc, state, reason in cases:
+            entry = self.probe("x", _realpath=self.fail_at("_realpath", lambda p: p.endswith("/x"), exc))
+            self.assert_outcome(entry, state, reason)
+
+    def test_skill_md_failures(self):
+        entry_dir = self.shared_dir / "x"
+        entry_dir.mkdir()
+        (entry_dir / "SKILL.md").write_text("x", encoding="utf-8")
+        cases = [
+            ("_lstat", PermissionError(errno.EACCES, "x"), "denied", "skill_md_denied"),
+            ("_lstat", OSError(errno.ENOENT, "x"), "content_missing", "skill_md_absent"),
+            ("_lstat", OSError(errno.EIO, "x"), "unknown", "skill_md_error"),
+            ("_lstat", OSError(errno.ELOOP, "x"), "content_missing", "skill_md_dangling"),
+            ("_read_head", PermissionError(errno.EACCES, "x"), "denied", "skill_md_unreadable"),
+            ("_read_head", OSError(errno.EIO, "x"), "unknown", "skill_md_read_error"),
+        ]
+        for fn, exc, state, reason in cases:
+            entry = self.probe("x", **{fn: self.fail_at(fn, lambda p: p.endswith("SKILL.md"), exc)})
+            self.assert_outcome(entry, state, reason)
+        # SKILL.md as a dangling symlink: _stat follow fails.
+        (entry_dir / "SKILL.md").unlink()
+        os.symlink(entry_dir / "gone", entry_dir / "SKILL.md")
+        entry = self.probe("x")
+        self.assert_outcome(entry, "content_missing", "skill_md_dangling")
+        # SKILL.md as a directory.
+        (entry_dir / "SKILL.md").unlink()
+        (entry_dir / "SKILL.md").mkdir()
+        entry = self.probe("x")
+        self.assert_outcome(entry, "content_missing", "skill_md_not_file")
+
+    # -- (c) real fixtures -------------------------------------------------------------
+
+    def test_self_loop_symlink_is_broken_link(self):
+        os.symlink(self.shared_dir / "loop", self.shared_dir / "loop")
+        entry = self.probe("loop")
+        self.assert_outcome(entry, "broken_link", "link_loop")
+        self.assertEqual(entry["link_kind"], "absolute")
+
+    def test_shared_root_under_a_regular_file_is_absent(self):
+        blocker = self.root / "blocker"
+        blocker.write_text("file", encoding="utf-8")
+        shared = {"path": str(blocker / "sub"), "expanded": str(blocker / "sub")}
+        entry = skills_view._shared_entry("x", shared)
+        self.assert_outcome(entry, "none", "root_absent")
+
+    def test_relative_link_inside_root(self):
+        real = self.shared_dir / "real"
+        real.mkdir()
+        (real / "SKILL.md").write_text("x", encoding="utf-8")
+        os.symlink("real", self.shared_dir / "rel")
+        entry = self.probe("rel")
+        self.assert_outcome(entry, "link", "ok")
+        self.assertEqual(entry["link_kind"], "relative")
+        self.assertEqual(entry["target_scope"], "inside_shared_root")
+        self.assertEqual(entry["target"], "real")
+
+    def test_relative_link_outside_root(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "SKILL.md").write_text("x", encoding="utf-8")
+        os.symlink("../outside", self.shared_dir / "out")
+        entry = self.probe("out")
+        self.assert_outcome(entry, "link", "ok")
+        self.assertEqual(entry["link_kind"], "relative")
+        self.assertEqual(entry["target_scope"], "outside_shared_root")
+
+    def test_relative_dangling_link(self):
+        os.symlink("../gone", self.shared_dir / "out")
+        entry = self.probe("out")
+        self.assert_outcome(entry, "broken_link", "target_absent")
+        self.assertEqual(entry["link_kind"], "relative")
+
+    def test_absolute_link_outside_root(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "SKILL.md").write_text("x", encoding="utf-8")
+        os.symlink(outside, self.shared_dir / "abs")
+        entry = self.probe("abs")
+        self.assert_outcome(entry, "link", "ok")
+        self.assertEqual(entry["link_kind"], "absolute")
+        self.assertEqual(entry["target_scope"], "outside_shared_root")
+
+    def test_empty_skill_md_is_content_missing(self):
+        entry_dir = self.shared_dir / "empty"
+        entry_dir.mkdir()
+        (entry_dir / "SKILL.md").write_text("", encoding="utf-8")
+        entry = self.probe("empty")
+        self.assert_outcome(entry, "content_missing", "skill_md_empty")
+
+    def test_chmod_000_entry_dir_is_denied(self):
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            self.skipTest("root ignores permission bits")
+        entry_dir = self.shared_dir / "closed"
+        entry_dir.mkdir()
+        (entry_dir / "SKILL.md").write_text("x", encoding="utf-8")
+        entry_dir.chmod(0o000)
+        entry = self.probe("closed")
+        self.assert_outcome(entry, "denied", "skill_md_denied")
+
+    def test_probe_exception_is_unknown(self):
+        entry = self.probe("x", _lstat=self.fail_at("_lstat", lambda p: True, RuntimeError("boom")))
+        self.assert_outcome(entry, "unknown", "probe_exception")
+
+
+class EvidenceTests(unittest.TestCase):
+    def setUp(self):
+        skills_view._CACHE.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.inventory = self.root / "skills-inventory.json"
+        self.tools = self.root / "tool-roots.json"
+        self.staging = self.root / "staging"
+        self.staging.mkdir()
+        self.shared = self.root / "shared"
+
+    def tearDown(self):
+        skills_view._CACHE.clear()
+        for path in self.root.rglob("*"):
+            try:
+                path.chmod(0o755)
+            except OSError:
+                pass
+        self.tmp.cleanup()
+
+    def write_tools(self, roots):
+        self.tools.write_text(
+            json.dumps(
+                {
+                    "tools": [
+                        {"id": "codex", "label": "Codex"},
+                        {"id": "cursor", "label": "Cursor"},
+                        {"id": "hermes", "label": "Hermes"},
+                        {"id": "claude", "label": "Claude"},
+                        {"id": "project", "label": "仓库入口"},
+                    ],
+                    "roots": roots,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def payload(self, skills):
+        self.inventory.write_text(json.dumps({"skills": skills}), encoding="utf-8")
+        return build_payload(
+            repo_root=self.repo,
+            inventory_path=self.inventory,
+            tool_roots_path=self.tools,
+            staging_root=self.staging,
+            lock_path=self.root / "missing.lock",
+            changelog_dir=None,
+            now=NOW,
+            scan_roots=[],
+        )
+
+    def roots(self):
+        return [
+            {"path": str(self.shared), "tools": ["codex", "cursor"], "kind": "shared"},
+            {"path": str(self.root / "hermes" / "skills"), "tools": ["hermes"], "kind": "direct"},
+            {"path": str(self.root / "claude" / "skills"), "tools": ["claude"], "kind": "direct"},
+        ]
+
+    def test_same_target_from_two_harnesses_keeps_all_records(self):
+        self.write_tools(self.roots())
+        install = self.shared / "multi"
+        install.mkdir(parents=True)
+        (install / "SKILL.md").write_text("x", encoding="utf-8")
+        paths = []
+        for harness in ("hermes", "claude"):
+            link = self.root / harness / "skills" / "multi"
+            link.parent.mkdir(parents=True)
+            os.symlink(install, link)
+            paths.append(str(link))
+        body = self.payload([skill("multi", visible_paths=paths)])
+        item = body["items"][0]
+        records = {(r["harness"], r["kind"]) for r in item["evidence"]}
+        self.assertEqual(records, {("hermes", "entry"), ("claude", "entry"), ("codex", "target"), ("cursor", "target")})
+        self.assertEqual(item["tools"]["hermes"], "direct")
+        self.assertEqual(item["tools"]["claude"], "direct")
+        self.assertEqual(item["tools"]["codex"], "shared")
+        by_harness = {}
+        for record in item["evidence"]:
+            by_harness.setdefault(record["harness"], []).append(record)
+        # codex/cursor each get one record per entry (two entries): target records x2.
+        self.assertEqual(len(by_harness["codex"]), 2)
+        self.assertEqual(len(by_harness["cursor"]), 2)
+
+    def test_same_basename_different_targets_are_both_kept(self):
+        self.write_tools(self.roots())
+        for suffix in ("t1", "t2"):
+            target = self.root / suffix / "dup"
+            target.mkdir(parents=True)
+            (target / "SKILL.md").write_text("x", encoding="utf-8")
+        link_a = self.root / "hermes" / "skills" / "dup"
+        link_a.parent.mkdir(parents=True)
+        os.symlink(self.root / "t1" / "dup", link_a)
+        link_b = self.root / "claude" / "skills" / "dup"
+        link_b.parent.mkdir(parents=True)
+        os.symlink(self.root / "t2" / "dup", link_b)
+        body = self.payload([skill("dup", visible_paths=[str(link_a), str(link_b)])])
+        item = body["items"][0]
+        resolved = {entry["resolved"] for entry in item["entries"]}
+        self.assertEqual(len(resolved), 2)
+        self.assertTrue(any(r.endswith("t1/dup") for r in resolved))
+        self.assertTrue(any(r.endswith("t2/dup") for r in resolved))
+
+    def test_denied_entry_never_produces_missing(self):
+        self.write_tools(self.roots())
+        target = self.shared / "shut"
+        target.mkdir(parents=True)
+        (target / "SKILL.md").write_text("x", encoding="utf-8")
+        link = self.root / "hermes" / "skills" / "shut"
+        link.parent.mkdir(parents=True)
+        os.symlink(target, link)
+
+        real_stat = skills_view._stat
+
+        def deny_link(path):
+            if str(path) == str(link):
+                raise PermissionError(errno.EACCES, "denied")
+            return real_stat(path)
+
+        with mock.patch.object(skills_view, "_stat", side_effect=deny_link):
+            body = self.payload([skill("shut", visible_paths=[str(link)])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["hermes"], "unknown")
+        self.assertNotEqual(item["tools"]["hermes"], "missing")
+        entry_evidence = [r for r in item["evidence"] if r["harness"] == "hermes"]
+        self.assertEqual(entry_evidence[0]["attribution"], "unknown")
+        self.assertEqual(entry_evidence[0]["state"], "denied")
+        self.assertFalse(item["entries"][0]["present"])
+        self.assertIsNone(item["entries"][0]["resolved"])
+
+    def test_evidence_order_is_stable_under_input_permutation(self):
+        self.write_tools(self.roots())
+        install = self.shared / "stable"
+        install.mkdir(parents=True)
+        (install / "SKILL.md").write_text("x", encoding="utf-8")
+        paths = []
+        for harness in ("hermes", "claude"):
+            link = self.root / harness / "skills" / "stable"
+            link.parent.mkdir(parents=True)
+            os.symlink(install, link)
+            paths.append(str(link))
+        first = self.payload([skill("stable", visible_paths=paths)])["items"][0]["evidence"]
+        second = self.payload([skill("stable", visible_paths=list(reversed(paths)))])["items"][0]["evidence"]
+        strip = lambda records: [{k: v for k, v in r.items() if k != "entry_index"} for r in records]
+        self.assertEqual(strip(first), strip(second))
+        # Sorted by payload tool order: codex, cursor, hermes, claude (as written in write_tools).
+        harness_order = [r["harness"] for r in first]
+        self.assertEqual(harness_order, sorted(harness_order, key=lambda h: ["codex", "cursor", "hermes", "claude"].index(h)))
+        self.assertEqual(first[0]["harness"], "codex")
+        self.assertEqual(first[0]["kind"], "target")
+
+    def test_missing_entry_marks_missing(self):
+        self.write_tools(self.roots())
+        gone = self.root / "hermes" / "skills" / "gone"
+        gone.parent.mkdir(parents=True)
+        body = self.payload([skill("gone", visible_paths=[str(gone)])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["hermes"], "missing")
+        record = next(r for r in item["evidence"] if r["harness"] == "hermes")
+        self.assertEqual(record["attribution"], "missing")
+        self.assertEqual(record["state"], "absent")
+
+
+class RepoIdentityTests(unittest.TestCase):
+    def setUp(self):
+        skills_view._CACHE.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.inventory = self.root / "skills-inventory.json"
+        self.tools = self.root / "tool-roots.json"
+        self.staging = self.root / "staging"
+        self.staging.mkdir()
+        self.tools.write_text(
+            json.dumps(
+                {
+                    "tools": [{"id": "project", "label": "仓库入口"}],
+                    "roots": [{"path": ".agents/skills", "tools": ["project"], "kind": "direct", "repo": True}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def tearDown(self):
+        skills_view._CACHE.clear()
+        self.tmp.cleanup()
+
+    def payload(self, skills, repo_root=None):
+        self.inventory.write_text(json.dumps({"skills": skills}), encoding="utf-8")
+        return build_payload(
+            repo_root=repo_root or self.repo,
+            inventory_path=self.inventory,
+            tool_roots_path=self.tools,
+            staging_root=self.staging,
+            lock_path=self.root / "missing.lock",
+            changelog_dir=None,
+            now=NOW,
+            scan_roots=[],
+        )
+
+    def test_repos_record_shape_and_ok_state(self):
+        body = self.payload([skill("x")])
+        repo = body["repos"][0]
+        self.assertEqual(repo["id"], str(self.repo.resolve()))
+        self.assertEqual(repo["label"], "repo")
+        self.assertEqual(repo["identity_state"], "ok")
+        self.assertIsNone(repo["reason"])
+
+    def test_alias_symlink_collapses_to_same_id(self):
+        alias = self.root / "alias"
+        os.symlink(self.repo, alias)
+        real = self.payload([skill("x")], repo_root=self.repo)
+        via_alias = self.payload([skill("x")], repo_root=alias)
+        self.assertEqual(real["repos"][0]["id"], via_alias["repos"][0]["id"])
+
+    def test_absent_repo_root_is_unknown_identity(self):
+        missing = self.root / "no-such-repo"
+        body = self.payload([skill("x", visible_paths=[".agents/skills/x"])], repo_root=missing)
+        repo = body["repos"][0]
+        self.assertEqual(repo["id"], "unknown")
+        self.assertEqual(repo["label"], "未知仓库")
+        self.assertEqual(repo["identity_state"], "unknown")
+        self.assertEqual(repo["reason"], "repo_root_absent")
+        entry = body["items"][0]["entries"][0]
+        self.assertEqual(entry["repo_id"], "unknown")
+        self.assertEqual(entry["scope"], "repo_entry")
+        self.assertEqual(body["items"][0]["repo_ids"], ["unknown"])
+
+    def test_denied_repo_root_realpath_is_unknown_identity(self):
+        def deny(path):
+            raise PermissionError(errno.EACCES, "denied")
+
+        with mock.patch.object(skills_view, "_realpath", side_effect=deny):
+            body = self.payload([skill("x", visible_paths=[".agents/skills/x"])])
+        repo = body["repos"][0]
+        self.assertEqual(repo["identity_state"], "unknown")
+        self.assertEqual(repo["reason"], "repo_root_denied")
+        self.assertEqual(repo["id"], "unknown")
+
+    def test_repo_source_scope_for_unrooted_path_inside_repo(self):
+        (self.repo / "skills" / "src-skill").mkdir(parents=True)
+        (self.repo / "skills" / "src-skill" / "SKILL.md").write_text("x", encoding="utf-8")
+        body = self.payload([skill("src-skill", visible_paths=["skills/src-skill"])])
+        entry = body["items"][0]["entries"][0]
+        self.assertEqual(entry["scope"], "repo_source")
+        self.assertIsNone(entry["location"])
+        self.assertEqual(entry["repo_id"], body["repos"][0]["id"])
+        self.assertEqual(entry["tools"], [])
+        self.assertEqual(body["items"][0]["repo_ids"], [body["repos"][0]["id"]])
+
+    def test_skills_schema_two_on_ok_and_invalid_payloads(self):
+        body = self.payload([skill("x")])
+        self.assertEqual(body["skills_schema"], 2)
+        self.inventory.write_text("{", encoding="utf-8")
+        bad = build_payload(
+            repo_root=self.repo,
+            inventory_path=self.inventory,
+            tool_roots_path=self.tools,
+            staging_root=self.staging,
+            lock_path=self.root / "missing.lock",
+            changelog_dir=None,
+            now=NOW,
+            scan_roots=[],
+        )
+        self.assertEqual(bad["skills_schema"], 2)
+        self.assertEqual(bad["shared_root"]["state"], "unscanned")
+        self.assertEqual(bad["repos"], [])
+
+
+class CacheDependencyTests(unittest.TestCase):
+    def setUp(self):
+        skills_view._CACHE.clear()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.inventory = self.root / "skills-inventory.json"
+        self.tools = self.root / "tool-roots.json"
+        self.staging = self.root / "staging"
+        self.staging.mkdir()
+        self.shared = self.root / "shared"
+        self.shared.mkdir()
+        self.tools.write_text(
+            json.dumps(
+                {
+                    "tools": [{"id": "codex", "label": "Codex"}],
+                    "roots": [{"path": str(self.shared), "tools": ["codex"], "kind": "shared"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.clock = {"at": NOW}
+
+    def tearDown(self):
+        skills_view._CACHE.clear()
+        for path in self.root.rglob("*"):
+            try:
+                path.chmod(0o755)
+            except OSError:
+                pass
+        self.tmp.cleanup()
+
+    def cached(self):
+        return skills_document(
+            repo_root=self.repo,
+            inventory_path=self.inventory,
+            tool_roots_path=self.tools,
+            staging_root=self.staging,
+            lock_path=self.root / "missing.lock",
+            changelog_dir=None,
+            scan_roots=[],
+            clock=lambda: self.clock["at"],
+        )
+
+    def make_skill(self, name="alpha", symlink_to=None):
+        self.inventory.write_text(json.dumps({"skills": [skill(name)]}), encoding="utf-8")
+        if symlink_to:
+            os.symlink(symlink_to, self.shared / name)
+        else:
+            (self.shared / name).mkdir()
+            (self.shared / name / "SKILL.md").write_text("x", encoding="utf-8")
+
+    def test_shared_skill_md_chmod_invalidates(self):
+        self.make_skill()
+        first = self.cached()
+        self.assertIs(self.cached(), first)
+        (self.shared / "alpha" / "SKILL.md").chmod(0o600)
+        self.assertIsNot(self.cached(), first)
+
+    def test_symlinked_target_skill_md_delete_invalidates(self):
+        target = self.root / "target-alpha"
+        target.mkdir()
+        (target / "SKILL.md").write_text("x", encoding="utf-8")
+        self.make_skill(symlink_to=target)
+        first = self.cached()
+        (target / "SKILL.md").unlink()
+        self.assertIsNot(self.cached(), first)
+
+    def test_retargeting_entry_symlink_invalidates(self):
+        target_a = self.root / "ta"
+        target_b = self.root / "tb"
+        for target in (target_a, target_b):
+            target.mkdir()
+            (target / "SKILL.md").write_text("x", encoding="utf-8")
+        self.make_skill(symlink_to=target_a)
+        first = self.cached()
+        (self.shared / "alpha").unlink()
+        os.symlink(target_b, self.shared / "alpha")
+        self.assertIsNot(self.cached(), first)
+
+    def test_removing_shared_root_invalidates(self):
+        self.make_skill()
+        first = self.cached()
+        import shutil as sh
+
+        sh.rmtree(self.shared)
+        self.assertIsNot(self.cached(), first)
+
+    def test_editing_tool_roots_invalidates(self):
+        self.make_skill()
+        first = self.cached()
+        self.tools.write_text(self.tools.read_text(encoding="utf-8") + " ", encoding="utf-8")
+        self.assertIsNot(self.cached(), first)
+
+    def test_repo_root_mode_change_invalidates(self):
+        self.make_skill()
+        first = self.cached()
+        self.repo.chmod(0o700)
+        self.assertIsNot(self.cached(), first)
 
 
 if __name__ == "__main__":

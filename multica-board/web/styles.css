@@ -697,6 +697,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .tool-col small { display: block; color: var(--faint); font-weight: 400; }
 .tool-mark { text-align: center; font-size: 13px; }
 .tool-mark.missing { color: var(--bad); }
+.tool-mark.unknown { color: var(--warn); }
 .tool-mark.shared { color: var(--muted); }
 .skill-row { cursor: pointer; }
 .skill-row.quiet { opacity: 0.45; }
@@ -758,6 +759,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
   white-space: nowrap;
 }
 .entry-chip.missing { color: var(--bad); border-color: var(--bad); }
+.entry-chip.unknown { color: var(--warn); border-color: var(--warn); }
 @media (max-width: 1199px) {
   .source-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .skills-layout { grid-template-columns: 1fr; }

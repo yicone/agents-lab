@@ -28,7 +28,7 @@ const STATUS_CLASS = {
   missing: "bad",
 };
 
-const MARK = { direct: "●", shared: "○", missing: "✕" };
+const MARK = { direct: "●", shared: "○", missing: "✕", unknown: "?" };
 const GROUP_LIMIT = 8;
 
 const SHARED_LABEL = {
@@ -40,6 +40,7 @@ const SHARED_LABEL = {
   content_missing: "缺 SKILL.md",
   link: "链接",
   dir: "目录",
+  legacy: "旧数据",
 };
 const SHARED_CLASS = {
   dir: "ok",
@@ -50,6 +51,7 @@ const SHARED_CLASS = {
   denied: "warn",
   unknown: "warn",
   unscanned: "info",
+  legacy: "info",
 };
 const ANOMALY_STATES = [
   ["broken_link", "坏链"],
@@ -57,13 +59,32 @@ const ANOMALY_STATES = [
   ["denied", "无权限"],
   ["unknown", "无法确定"],
 ];
+const ROOT_BANNER_LINE = {
+  absent: "共享根目录不存在：以下全部显示无入口",
+  denied: "共享根目录无权限，共享入口未检查",
+  unknown: "共享根目录无法确定，以下状态以单项探测为准",
+  unscanned: "配置里没有共享根，共享入口未检查",
+};
 
-export function sharedEntryOf(item) {
-  const entry = item?.shared_entry;
-  if (!entry || !entry.state) {
-    return { state: "unscanned", label: SHARED_LABEL.unscanned, path: null, target: null, resolved: null, detail: "未检查" };
+export function sharedEntryOf(item, payload) {
+  const schema = payload?.skills_schema;
+  if (schema === undefined || schema === null || Number(schema) < 2) {
+    return { state: "legacy", label: SHARED_LABEL.legacy, reason: "legacy_payload", path: null, target: null, resolved: null, detail: "后端数据版本较旧，没有共享入口/来源证据，未检查" };
   }
-  return { ...entry, label: entry.label || SHARED_LABEL[entry.state] || entry.state };
+  const entry = item?.shared_entry;
+  if (!entry || typeof entry !== "object" || typeof entry.state !== "string" || !SHARED_LABEL[entry.state]) {
+    return { state: "unknown", label: SHARED_LABEL.unknown, reason: "field_invalid", path: null, target: null, resolved: null, detail: "共享入口字段缺失或不可识别" };
+  }
+  return { ...entry, label: entry.label || SHARED_LABEL[entry.state] };
+}
+
+export function sharedSummary(payload) {
+  const counts = {};
+  for (const item of payload?.items || []) {
+    const state = sharedEntryOf(item, payload).state;
+    counts[state] = (counts[state] || 0) + 1;
+  }
+  return counts;
 }
 
 export function badgeOf(payload) {
@@ -216,7 +237,7 @@ export function renderSkills(ctx) {
         "只看定制 / 有约束",
       ),
     ),
-    anomalyBanner(h, items),
+    anomalyBanner(h, payload),
     legend(h),
     h(
       "div",
@@ -227,16 +248,22 @@ export function renderSkills(ctx) {
   ];
 }
 
-function anomalyBanner(h, items) {
-  const counts = {};
-  for (const item of items) {
-    const state = sharedEntryOf(item).state;
-    counts[state] = (counts[state] || 0) + 1;
-  }
-  const parts = ANOMALY_STATES.filter(([state]) => counts[state]).map(([state, label]) => `${label} ${counts[state]}`);
-  if (counts.unscanned) parts.push(`未扫描 ${counts.unscanned}（≠ 无入口）`);
-  if (!parts.length) return null;
-  return h("div", { class: "skills-anomaly", role: "status" }, `共享入口异常：${parts.join(" · ")}`);
+function anomalyBanner(h, payload) {
+  const items = payload?.items || [];
+  const summary = sharedSummary(payload);
+  const parts = ANOMALY_STATES.filter(([state]) => summary[state]).map(([state, label]) => `${label} ${summary[state]}`);
+  if (summary.unscanned) parts.push(`未扫描 ${summary.unscanned}（≠ 无入口）`);
+  const rootLine = ROOT_BANNER_LINE[payload?.shared_root?.state] || null;
+  const lines = [];
+  if (rootLine) lines.push(rootLine);
+  if (summary.legacy) lines.push("后端数据版本较旧，共享入口与仓库入口未检查");
+  if (parts.length) lines.push(`共享入口异常（共 ${items.length} 项）：${parts.join(" · ")}`);
+  if (!lines.length) return null;
+  return h(
+    "div",
+    { class: "skills-anomaly", role: "status" },
+    lines.map((text) => h("div", null, text)),
+  );
 }
 
 function legend(h) {
@@ -247,13 +274,13 @@ function legend(h) {
       "span",
       { class: "legend-group" },
       h("strong", null, "共享入口 "),
-      "目录/链接=共享目录里有有效入口 · 无入口=共享目录里没有 · 坏链=链接目标不在 · 缺 SKILL.md=入口在但缺文件 · 无权限/无法确定=读不出来 · 未扫描=未检查",
+      "目录/链接=共享目录里有有效入口 · 无入口=共享目录里没有 · 坏链=链接目标不在 · 缺 SKILL.md=入口在但缺文件 · 无权限/无法确定=读不出来 · 未扫描=配置里没有共享根，未检查 ≠ 没有 · 旧数据=后端版本较旧",
     ),
     h(
       "span",
       { class: "legend-group" },
       h("strong", null, "Harness "),
-      "● 直接入口 ○ 经共享目录 ✕ 入口缺失（路径推导，非 runtime 加载验证）",
+      "● 直接入口 ○ 经共享目录 ✕ 入口缺失 ? 无法确定（路径推导，非 runtime 加载验证）",
     ),
     h("span", { class: "legend-group" }, h("strong", null, "仓库入口 "), "仓库名 + 入口位置（.agents / .codex / .cursor）"),
   );
@@ -346,7 +373,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
 function row(ctx, harness, projectTool, item, payload) {
   const { h } = ctx;
   const selected = ctx.drawerSkill === item.name;
-  const shared = sharedEntryOf(item);
+  const shared = sharedEntryOf(item, payload);
   const sharedTitle = [shared.path, shared.target ? `→ ${shared.target}` : null, shared.resolved ? `解析到 ${shared.resolved}` : null, shared.detail].filter(Boolean).join("\n");
   return h(
     "tr",
@@ -373,20 +400,13 @@ function row(ctx, harness, projectTool, item, payload) {
 
 function toolCell(h, item, tool) {
   const mark = item.tools?.[tool.id];
-  const lines = [];
-  let viaEntry = false;
-  let viaTarget = false;
-  for (const entry of item.entries || []) {
-    if ((entry.tools || []).includes(tool.id)) {
-      viaEntry = true;
-      lines.push(`入口原路径 ${entry.path}${entry.location ? ` (${entry.location})` : ""}`);
-    }
-    if ((entry.target_tools || []).includes(tool.id)) {
-      viaTarget = true;
-      lines.push(`链接目标 ${entry.resolved || entry.target || ""}${entry.target_location ? ` (${entry.target_location})` : ""}`);
-    }
-  }
-  const onlyTarget = viaTarget && !viaEntry;
+  const records = (item.evidence || []).filter((record) => record.harness === tool.id);
+  const lines = records.map((record) =>
+    record.kind === "entry"
+      ? `入口原路径 ${record.path}${record.root ? ` (${record.root})` : ""}`
+      : `链接目标 ${record.resolved || record.readlink || ""}${record.root ? ` (${record.root})` : ""}`,
+  );
+  const onlyTarget = records.length > 0 && records.every((record) => record.kind === "target");
   const title = [markTitle(mark), ...lines, lines.length ? "路径推导，未验证 runtime 实际加载" : null].filter(Boolean).join("\n");
   return h("td", { class: `tool-mark ${mark || "none"}${onlyTarget ? " via-target" : ""}`, title }, MARK[mark] || "", onlyTarget ? h("sup", null, "链") : null);
 }
@@ -415,8 +435,8 @@ function repoCell(h, item, payload) {
       entries.map((entry) =>
         h(
           "span",
-          { class: `entry-chip ${entry.mark === "missing" ? "missing" : "present"}`, title: entry.path },
-          `${shortLocation(entry.location) || entry.location || "?"} ${entry.mark === "missing" ? "✕" : "●"}`,
+          { class: `entry-chip ${entry.mark === "missing" ? "missing" : entry.mark === "unknown" ? "unknown" : "present"}`, title: entry.path },
+          `${shortLocation(entry.location) || (entry.scope === "repo_source" ? "源目录" : entry.location || "?")} ${entry.mark === "missing" ? "✕" : entry.mark === "unknown" ? "?" : "●"}`,
         ),
       ),
     );
@@ -427,6 +447,7 @@ function markTitle(mark) {
   if (mark === "direct") return "有直接入口";
   if (mark === "shared") return "经共享目录可见";
   if (mark === "missing") return "入口或版本文件不在";
+  if (mark === "unknown") return "路径无法确定（权限或读取失败）";
   return "不可见";
 }
 
@@ -530,9 +551,10 @@ export function renderSkillDrawer(ctx, item) {
       line(h, "实际版本", item.observed_version),
       line(h, "复核", item.review_time ? ctx.absTime(item.review_time) : "从未"),
     ]),
-    section(h, "共享入口", sharedSection(h, item)),
-    section(h, "仓库入口", entriesSection(h, item, (item.entries || []).filter((entry) => entry.repo_id), ctx)),
-    section(h, "用户级入口", entriesSection(h, item, (item.entries || []).filter((entry) => !entry.repo_id), ctx)),
+    section(h, "共享入口", sharedSection(h, item, ctx)),
+    ...SCOPE_GROUPS.map(([scope, title]) =>
+      section(h, title, entriesSection(h, item, (item.entries || []).map((entry, index) => ({ ...entry, _index: index })).filter((entry) => scopeOf(entry) === scope), ctx)),
+    ),
     section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, h("code", { title: finding.label }, finding.code), " ", h("span", { class: "muted" }, finding.label))) : [h("p", { class: "muted" }, "没有额外发现")]),
     section(h, "定制与兼容约束", customSection(h, item)),
     section(h, "在终端处理", [
@@ -542,8 +564,20 @@ export function renderSkillDrawer(ctx, item) {
   ];
 }
 
-function sharedSection(h, item) {
-  const shared = sharedEntryOf(item);
+const SCOPE_GROUPS = [
+  ["repo_entry", "仓库入口"],
+  ["repo_source", "仓库源目录"],
+  ["user", "用户级入口"],
+  ["other", "其他位置"],
+];
+
+function scopeOf(entry) {
+  if (entry.scope) return entry.scope;
+  return entry.repo_id ? "repo_entry" : "user";
+}
+
+function sharedSection(h, item, ctx) {
+  const shared = sharedEntryOf(item, ctx?.skills);
   return [
     h("p", null, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label), shared.detail ? h("span", { class: "muted" }, ` ${shared.detail}`) : null),
     line(h, "路径", shared.path),
@@ -557,7 +591,10 @@ function entriesSection(h, item, entries, ctx) {
   const reposById = new Map((ctx?.skills?.repos || []).map((repo) => [repo.id, repo]));
   return entries.map((entry) => {
     const repo = entry.repo_id ? reposById.get(entry.repo_id) : null;
-    const tools = [...(entry.tools || []).map((tool) => `${tool}（原路径）`), ...(entry.target_tools || []).map((tool) => `${tool}（链接目标）`)];
+    const records = (item.evidence || []).filter((record) => record.entry_index === entry._index);
+    const tools = records.length
+      ? records.map((record) => `${record.harness}（${record.kind === "entry" ? "原路径" : "链接目标"}）`)
+      : [...(entry.tools || []).map((tool) => `${tool}（原路径）`), ...(entry.target_tools || []).map((tool) => `${tool}（链接目标）`)];
     return h(
       "p",
       { class: "skill-entry" },
