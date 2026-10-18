@@ -10,7 +10,7 @@ import {
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
-import { applyPatch, formatHash, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
@@ -250,11 +250,16 @@ function now() {
 
 // ---------- routing ----------
 
+let adoptedHash = null;
+
 function setRoute(patch) {
   const r = applyPatch(state.route, patch);
   const hash = formatHash(r);
-  if (hash !== location.hash) history.replaceState(null, "", hash);
+  const action = historyWrite(location.hash, hash, patch);
+  if (action === "push") history.pushState(null, "", hash);
+  else if (action === "replace") history.replaceState(null, "", hash);
   state.route = r;
+  adoptedHash = hash;
   render();
 }
 
@@ -266,15 +271,20 @@ function follow(event, patch) {
 
 function syncFromLocation() {
   const next = redirectHash(location.hash);
-  if (next) {
+  if (next && next !== location.hash) {
     location.replace(locationHash(next));
     return;
   }
-  state.route = parseHash(location.hash);
+  const route = parseHash(location.hash);
+  const hash = formatHash(route);
+  state.route = route;
+  if (hash === adoptedHash) return;
+  adoptedHash = hash;
   render();
 }
 
 window.addEventListener("hashchange", syncFromLocation);
+window.addEventListener("popstate", syncFromLocation);
 
 // ---------- helpers ----------
 
