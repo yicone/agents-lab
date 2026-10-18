@@ -245,7 +245,7 @@ export function renderSkills(ctx) {
       h("div", { class: "skills-main" }, table(ctx, tools, harness, projectTool, groups, visible, payload)),
       queue(ctx, payload),
     ),
-  ];
+  ].filter(Boolean);
 }
 
 function anomalyBanner(h, payload) {
@@ -561,7 +561,7 @@ export function renderSkillDrawer(ctx, item) {
       h("p", { class: "muted" }, "页面只读，不替代命令行。"),
       item.command ? h("p", { class: "command" }, h("code", null, item.command), h("button", { type: "button", onclick: (e) => copyCommand(e.currentTarget, item.command) }, "复制")) : null,
     ]),
-  ];
+  ].filter(Boolean);
 }
 
 const SCOPE_GROUPS = [

@@ -398,3 +398,19 @@ test("render does not throw on an old payload without the new fields", () => {
   // legacy is not folded into the anomaly counts.
   assert.equal(findText(banner, "未扫描"), false);
 });
+
+test("renderSkills and renderSkillDrawer never emit null members for replaceChildren", () => {
+  const payloads = [
+    basePayload([simpleItem({ shared_entry: { state: "dir", label: "目录" } })]), // healthy: no banner at all
+    basePayload([simpleItem({ shared_entry: { state: "none", label: "无入口" }, name: "b" })]),
+    today, // legacy fixture
+    { ...basePayload([simpleItem({ shared_entry: { state: "none", label: "无入口" } })]), shared_root: { path: "/gone", state: "absent", reason: "root_absent", detail: "x" } },
+  ];
+  for (const payload of payloads) {
+    const parts = renderSkills(renderCtx(payload));
+    assert.ok(parts.every((part) => part != null && typeof part === "object"), `null member for ${payload.shared_root?.state}/${payload.skills_schema}`);
+  }
+  const item = simpleItem({ shared_entry: { state: "dir", label: "目录" } });
+  const drawerParts = renderSkillDrawer(renderCtx(basePayload([item])), item);
+  assert.ok(drawerParts.every((part) => part != null && typeof part === "object"));
+});
