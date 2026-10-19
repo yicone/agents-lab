@@ -110,6 +110,17 @@
   - 最近失败：`error_kind`、相对时间、issue identifier（不在缓存时不显示 identifier）。
 - 筛选：只看有失败、只看离线或未绑定的 runtime、显示已归档（默认关）。
 
+### 切换计划
+
+Agents 页的子视图，不加第 6 个一级 Tab。顶栏仍高亮 Agents。入口是工具栏的「规划切换…」。
+
+- `#/agents?plan=1&sel=`：勾选 agent。选择写在 URL 里，筛选变化不改 `sel`。底部条显示「其中 N 个不在当前筛选中」，N 为 0 时写「全部可见」。归档行的勾选框禁用。provider 块在这个模式下可以「全选本 provider」，只含当前可见、未归档的行。`Esc` 或再点入口会退出并清空选择。
+- `#/agents/plan/new`：范围卡、目标 runtime，以及模型 / 推理 / Tier 的不改、清除为默认、设为。命令区只有复制。参数名还没定稿，页面用 fixture 拼一条预览命令，不发送、不运行。跨多个 workspace 时范围卡标黄。目标 runtime 不是 Codex 时，Tier 的「设为」禁用。
+- `#/agents/plans`：计划列表。过期、hash 不符、无法解析都留在表里。目录为空时只显示占位，不画空表。顶栏状态换成「计划目录 · 最近一份 X 前」。
+- `#/agents/plans/<id>`：吸顶范围卡、本机时钟倒计时、门槛条、四组行表。hash 不符或无法解析时不渲染行表。G2 三项显示未接入，并有一行「apply 关闭」。这一行不是按钮。四组计数之和等于总行数。`null` 和 `""` 都显示为「默认」，后面用小号等宽标记区分；同一列两种都有时，列头加黄点。
+- 行详情是非模态右侧抽屉。`Esc` 关闭后焦点回到原行。批准区不渲染。
+- 契约定稿前这些页面只读 `web/fixtures/plan-data.js`，不请求 `/api/plans`。没有批准、执行、回滚入口。
+
 ## 交互细节
 
 - 快捷键按顶栏位置编号，不再按层号：`1` 地图、`2` 待你决定、`3` Issues、`4` Agents、`5` Skills。`[` / `]` 只在某一层的层视图里切到上一层 / 下一层（往 L5 / 往 L1，L1 与 L5 循环）。`/` 聚焦搜索，`Esc` 先关抽屉，再清空搜索。v1 的 `1` = Issues、`2` = Agents 已废弃。
@@ -167,3 +178,4 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 - 点行打开右侧详情。`Esc` 关闭后焦点回到原来的行。详情里给可复制的命令，不在页面里改 skill。
 - 屏宽小于 1200px 时，待处理栏移到表格上方，收成一行桶计数。
 - mock：默认 `fixtures/skills.json` 是设计稿里的分布（版本已变 3、未登记 1、基线债 76）。`?mock=skills-missing`、`skills-drift`、`skills-gate`、`skills-fallback`、`skills-invalid` 覆盖这一份。打开时加上 `#/skills`。生成：`node multica-board/web/fixtures/write-skills.js`。
+- 切换计划用 fixture，不经过 `generate.py`。在任意 `?mock=` 下打开 `#/agents/plans`。单份计划：`hist`（16 行，阻断 13、跳过 3）、`mixed`、`expired`、`mismatch`、`broken`、`blanks`、`cross`、`drift`。空目录是 `#/agents/plans?fix=empty`。`hist` 的分布对齐验收场景，不是 10-17 的实时快照。

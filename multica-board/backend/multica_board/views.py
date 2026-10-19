@@ -179,9 +179,10 @@ def _fit_text(lines: list[str]) -> str:
 
 
 class Views:
-    def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int):
+    def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int, server_identity: str | None = None):
         self.store = store
         self.server = server
+        self.server_identity = server_identity
         self.app_url = app_url.rstrip("/")
         self.collect_interval_s = collect_interval_s
 
@@ -272,6 +273,7 @@ class Views:
             )
         return {
             "api_version": API_VERSION,
+            "server_identity": self.server_identity,
             "generated_at": self.generated_at(),
             "collect_interval_s": self.collect_interval_s,
             "multica_web_base": self.app_url,

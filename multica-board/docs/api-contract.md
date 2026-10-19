@@ -573,3 +573,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 - v0.2（2026-10-15）：新增 `GET /api/stats/failures`（ACM-167）。`failure_reason` 取值即 `error_kind`。
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。
+
+## G1 meta API identity
+
+`GET /api/meta` additionally returns `server_identity`: a best-effort normalized API origin observed from the selected CLI profile's unique `Server:` line in read-only `auth status`. It is distinct from `multica_web_base` and the profile name. Resolution failure returns null; serve still starts and the collector retains its existing profile routing, without pinning an origin via `--server-url`. No actor or on-behalf-of identity is inferred. See `runtime-plan-contract.md` (v1.2 draft) for the plan interfaces and their null/empty-string exception.

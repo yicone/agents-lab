@@ -45,11 +45,13 @@ def assert_loopback(host: str) -> None:
 class BoardServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, host: str, port: int, views: Views, static_dir: Path | None = None):
+    def __init__(self, host: str, port: int, views: Views, static_dir: Path | None = None, *, plan_dir: Path | None = None):
         assert_loopback(host)
         if host == "::1":
             self.address_family = socket.AF_INET6
         self.views = views
+        from .plans import Plans
+        self.plans = Plans(plan_dir) if plan_dir is not None else Plans()
         self.static_dir = static_dir.resolve() if static_dir else None
         super().__init__((host, port), Handler)
         bound_port = self.server_address[1]
@@ -133,14 +135,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def _api(self, path: str) -> None:
         views = self.server.views
+        from .plans import PlanError
         try:
-            if path == "/api/attention":
+            if path == "/api/plans" or path.startswith("/api/plans/"):
+                if urlsplit(self.path).query:
+                    raise BadRequest("plan endpoints do not accept query parameters")
+                body = self.server.plans.list() if path == "/api/plans" else self.server.plans.detail(path[len("/api/plans/"):])
+            elif path == "/api/attention":
                 self._attention(views)
                 return
-            if path == "/api/skills/attention":
+            elif path == "/api/skills/attention":
                 self._skills_attention(views)
                 return
-            if path == "/api/skills":
+            elif path == "/api/skills":
                 body = views.skills(self._review_days())
             elif path == "/api/skills/meta":
                 body = views.skills_meta(self._review_days())
@@ -154,6 +161,9 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._error(HTTPStatus.NOT_FOUND, "not_found", "unknown endpoint")
                 return
+        except PlanError as exc:
+            self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "plan_unreadable", str(exc))
+            return
         except BadRequest as exc:
             self._error(HTTPStatus.BAD_REQUEST, "bad_request", str(exc))
             return
