@@ -156,6 +156,21 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(origin, {"server_identity": ORIGIN})
         self.assertNotIn("PRIVATE_IDENTITY", json.dumps(origin))
         self.assertNotIn("--output", execute.call_args.args[0])
+        execute.return_value = subprocess.CompletedProcess(
+            [], 0, "", "Server:  https://API.Example.Test:443/\nUser: PRIVATE_IDENTITY\nToken: secret\n",
+        )
+        origin = runner.run(["auth", "status"]).data
+        self.assertEqual(origin, {"server_identity": ORIGIN})
+        self.assertNotIn("PRIVATE_IDENTITY", json.dumps(origin))
+        self.assertNotIn("secret", json.dumps(origin))
+        execute.return_value = subprocess.CompletedProcess(
+            [], 0, "Server: https://a.test\n", "Server: https://b.test\n",
+        )
+        with self.assertRaises(CliError):
+            runner.run(["auth", "status"])
+        execute.return_value = subprocess.CompletedProcess(
+            [], 0, "Server:  https://API.Example.Test:443/\nUser: PRIVATE_IDENTITY\n", "",
+        )
         a = Mock()
         a.profile, a.app_url, a.refresh = "custom-profile", "https://web.example.test", 0
         a.static_dir, a.host, a.port = None, "127.0.0.1", 0

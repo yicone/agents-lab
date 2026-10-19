@@ -21,6 +21,7 @@ import {
   renderPlanList,
   renderPlanNew,
   renderPlanReview,
+  runtimeOptions,
   selectionLabel,
   tierSetAllowed,
   workspaceAllowList,
@@ -123,6 +124,46 @@ test("compose page marks cross-workspace scope and disables tier set off Codex",
   const labels = collectButtons(tree);
   assert.equal(labels.includes("复制"), true);
   assert.equal(labels.some((label) => /执行|应用|批准/.test(label)), false);
+});
+
+test("cross-workspace runtime dropdown keeps one row per name and maps each UUID", () => {
+  const selected = [
+    { id: "agent-a", name: "A", workspace_id: "ws-a", workspace_name: "Alpha" },
+    { id: "agent-b", name: "B", workspace_id: "ws-b", workspace_name: "Beta" },
+  ];
+  const runtimes = [
+    { id: "rt-a", name: "Antigravity (mini)", provider: "antigravity", workspace_id: "ws-a" },
+    { id: "rt-b", name: "Antigravity (mini)", provider: "antigravity", workspace_id: "ws-b" },
+    { id: "other", name: "Claude", provider: "claude", workspace_id: "ws-a" },
+  ];
+  const options = runtimeOptions(runtimes, workspaceAllowList(selected));
+  assert.equal(options.length, 2);
+  const anti = options.find((item) => item.name === "Antigravity (mini)");
+  assert.equal(anti.byWorkspace.get("ws-a").id, "rt-a");
+  assert.equal(anti.byWorkspace.get("ws-b").id, "rt-b");
+  const tree = {
+    children: renderPlanNew(vnode, {
+      ...ctxBase,
+      selected,
+      runtimes,
+      route: { ...ctxBase.route, rt: "rt-a", sel: "agent-a,agent-b" },
+    }),
+  };
+  const optionNodes = walk(tree).filter((node) => node.tag === "option" && node.attrs.value);
+  assert.deepEqual(optionNodes.map((node) => node.children.join("")), ["Antigravity (mini) · antigravity", "Claude · claude"]);
+  assert.equal(optionNodes.some((node) => node.attrs.value === "rt-a" || node.attrs.value === "rt-b"), false);
+  const commands = walk(tree)
+    .filter((node) => node.attrs?.class === "plan-command")
+    .map((node) => collectText(node).join(""));
+  assert.equal(commands.length, 2);
+  assert.match(commands[0], /--runtime rt-a\b/);
+  assert.match(commands[0], /--agents agent-a\b/);
+  assert.match(commands[0], /--allow-list ws-a\b/);
+  assert.doesNotMatch(commands[0], /agent-b|ws-b|rt-b/);
+  assert.match(commands[1], /--runtime rt-b\b/);
+  assert.match(commands[1], /--agents agent-b\b/);
+  assert.match(commands[1], /--allow-list ws-b\b/);
+  assert.doesNotMatch(collectText(tree).join(""), /该 workspace 没有此 runtime/);
 });
 
 test("list keeps expired, hash mismatch, and unreadable plans, and empty dir has no table", () => {

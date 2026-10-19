@@ -166,14 +166,20 @@ class CliRunner:
             transient = bool(re.search(r"(?i)timeout|timed out|connection|50[234]|429|rate limit|EOF", stderr))
             raise CliError(msg or "cli error", transient=transient)
         if identity_only:
-            # auth status has no JSON mode. Project only the exact Server line;
-            # never expose or retain its user/profile output in the Board.
+            # auth status has no JSON mode. Keep only one verified Server origin.
+            # User and token lines on either stream must not leave this function.
             from .plan_contract import server_identity
-            origins = re.findall(r"^Server:\s+(\S+)\s*$", proc.stdout or "", re.MULTILINE)
+            pattern = re.compile(r"^Server:\s+(\S+)\s*$", re.MULTILINE)
+
+            def server_lines(text: str) -> list[str]:
+                return pattern.findall(text or "")
+
+            raw = server_lines(proc.stdout) + server_lines(proc.stderr)
             try:
-                if len(origins) != 1:
+                origins = {server_identity(line) for line in raw}
+                if len(raw) == 0 or len(origins) != 1:
                     raise ValueError("missing or ambiguous origin")
-                return CliResult({"server_identity": server_identity(origins[0])})
+                return CliResult({"server_identity": origins.pop()})
             except ValueError:
                 raise CliError("CLI server identity could not be verified") from None
         try:
