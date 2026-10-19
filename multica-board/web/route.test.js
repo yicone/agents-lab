@@ -190,6 +190,61 @@ test("back and forward restore each chip, clear, and tab step", () => {
   assert.equal(index, stack.length - 1);
 });
 
+test("switch-plan routes stay on Agents and round-trip", () => {
+  assert.equal(redirectHash("#/agents/plan/new"), null);
+  assert.equal(redirectHash("#/agents/plans"), null);
+  assert.equal(redirectHash("#/agents/plans/hist"), null);
+  assert.equal(redirectHash("#/agents?plan=1&sel=aaa,bbb"), null);
+
+  const selecting = parseHash("#/agents?plan=1&group=provider&failed=1&sel=aaa,bbb");
+  assert.equal(selecting.view, "agents");
+  assert.equal(selecting.planMode, true);
+  assert.equal(selecting.planPage, "");
+  assert.equal(selecting.sel, "aaa,bbb");
+  assert.equal(selecting.failedOnly, true);
+  assert.equal(selecting.group, "provider");
+  const kept = parseHash(formatHash(applyPatch(selecting, { failedOnly: false })));
+  assert.equal(kept.sel, "aaa,bbb");
+  assert.equal(kept.planMode, true);
+  assert.equal(kept.failedOnly, false);
+
+  const compose = parseHash("#/agents/plan/new?sel=aaa,bbb&rt=rt-1&model=set:gpt&effort=clear&tier=omit");
+  assert.equal(compose.planPage, "new");
+  assert.equal(compose.view, "agents");
+  assert.equal(compose.sel, "aaa,bbb");
+  assert.equal(compose.rt, "rt-1");
+  assert.equal(compose.model, "set:gpt");
+  assert.equal(compose.effort, "clear");
+  assert.equal(compose.tier, "omit");
+  assert.equal(formatHash(compose), "#/agents/plan/new?sel=aaa%2Cbbb&rt=rt-1&model=set%3Agpt&effort=clear");
+  const restored = parseHash("#/agents/plan/new?from=hist&sel=aaa&model=conflict");
+  assert.equal(restored.fromPlan, "hist");
+  assert.equal(restored.model, "conflict");
+  assert.match(formatHash(restored), /from=hist/);
+  assert.match(formatHash(restored), /model=conflict/);
+
+  const review = parseHash("#/agents/plans/hist?bucket=blocked");
+  assert.equal(review.planPage, "review");
+  assert.equal(review.planId, "hist");
+  assert.equal(review.bucket, "blocked");
+  assert.equal(formatHash(review), "#/agents/plans/hist?bucket=blocked");
+  assert.equal(parseHash("#/agents/plans?fix=empty").planFix, "empty");
+  assert.equal(formatHash(parseHash("#/agents/plans?fix=empty")), "#/agents/plans?fix=empty");
+});
+
+test("leaving Agents clears the plan subview, and plan steps push history", () => {
+  const review = parseHash("#/agents/plans/hist?sel=aaa");
+  const map = applyPatch({ ...review, fromPlan: "hist" }, { view: "map" });
+  assert.equal(map.planPage, "");
+  assert.equal(map.planId, "");
+  assert.equal(map.fromPlan, "");
+  assert.equal(formatHash(map), "#/map");
+  assert.equal(historyWrite("#/agents?plan=1&sel=aaa", "#/agents/plan/new?sel=aaa", { planPage: "new", planMode: false }), "push");
+  assert.equal(historyWrite("#/agents/plan/new?sel=aaa", "#/agents?plan=1&sel=aaa", { planPage: "", planMode: true }), "push");
+  assert.equal(historyWrite("#/agents/plans", "#/agents/plans/hist", { planPage: "review", planId: "hist" }), "push");
+  assert.equal(historyWrite("#/agents?plan=1&sel=aaa", "#/agents?plan=1&sel=aaa,bbb", { sel: "aaa,bbb" }), "replace");
+});
+
 test("number keys follow the top bar, and [ ] walk the layers", () => {
   assert.deepEqual([1, 2, 3, 4, 5].map((n) => viewForKey(String(n))), ["map", "decide", "issues", "agents", "skills"]);
   assert.equal(stepLayer("l5", "next"), "l4");

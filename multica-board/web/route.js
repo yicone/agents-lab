@@ -8,6 +8,21 @@ const FILTER_LAYERS = new Set([...LAYER_IDS, "outside", "unassigned"]);
 const SKILL_SOURCES = new Set(["skills_cli_managed", "local_custom", "runtime_plugin", "runtime_builtin", "third_party_unmanaged", "unrecorded"]);
 const SKILL_STATUSES = new Set(["aligned", "stale", "version_changed", "modified", "unverified", "missing"]);
 const SKILL_TOOLS = new Set(["cursor", "codex", "claude", "hermes", "gemini", "project"]);
+const PLAN_BUCKETS = new Set(["approvable", "blocked", "skip", "unchanged"]);
+
+function agentsPlan(path) {
+  if (path === "agents/plan/new") return { planPage: "new", planId: "" };
+  if (path === "agents/plans") return { planPage: "list", planId: "" };
+  const review = /^agents\/plans\/([^/]+)$/.exec(path);
+  if (review) return { planPage: "review", planId: decodeURIComponent(review[1]) };
+  return null;
+}
+
+function fieldToken(raw) {
+  if (raw === "clear" || raw === "conflict") return raw;
+  if (typeof raw === "string" && raw.startsWith("set:")) return raw;
+  return "omit";
+}
 
 export function viewForKey(key) {
   return { 1: "map", 2: "decide", 3: "issues", 4: "agents", 5: "skills" }[key] || null;
@@ -41,6 +56,7 @@ function withQuery(path, params) {
 export function redirectHash(hash) {
   const { path, params } = splitHash(hash);
   if (path === "issues" || path === "agents" || path === "skills" || path === "decide") return null;
+  if (agentsPlan(path)) return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
     const rest = path.slice(4);
@@ -93,6 +109,17 @@ export function emptyRoute() {
     custom: false,
     debt: false,
     skillGroup: "source",
+    planMode: false,
+    planPage: "",
+    planId: "",
+    fromPlan: "",
+    sel: "",
+    rt: "",
+    model: "omit",
+    effort: "omit",
+    tier: "omit",
+    bucket: "",
+    planFix: "",
   };
 }
 
@@ -104,7 +131,12 @@ export function parseHash(hash) {
   route.ws = params.get("ws") || "";
   route.q = params.get("q") || "";
 
-  if (path === "decide") route.view = "decide";
+  const sub = agentsPlan(path);
+  if (sub) {
+    route.view = "agents";
+    route.planPage = sub.planPage;
+    route.planId = sub.planId;
+  } else if (path === "decide") route.view = "decide";
   else if (path === "issues") route.view = "issues";
   else if (path === "agents") route.view = "agents";
   else if (path === "skills") route.view = "skills";
@@ -145,11 +177,22 @@ export function parseHash(hash) {
     const group = params.get("group");
     route.skillGroup = group === "tool" || group === "flat" ? group : "source";
   } else if (route.view === "agents") {
-    route.group = params.get("group") === "provider" ? "provider" : "workspace";
-    route.provider = params.get("provider") || "";
-    route.failedOnly = flag(params, "failed");
-    route.offlineOnly = flag(params, "offline");
-    route.archived = flag(params, "archived");
+    route.sel = params.get("sel") || "";
+    route.fromPlan = params.get("from") || "";
+    route.rt = params.get("rt") || "";
+    route.model = fieldToken(params.get("model"));
+    route.effort = fieldToken(params.get("effort"));
+    route.tier = fieldToken(params.get("tier"));
+    route.bucket = PLAN_BUCKETS.has(params.get("bucket")) ? params.get("bucket") : "";
+    route.planFix = params.get("fix") === "empty" ? "empty" : "";
+    if (!route.planPage) {
+      route.planMode = flag(params, "plan");
+      route.group = params.get("group") === "provider" ? "provider" : "workspace";
+      route.provider = params.get("provider") || "";
+      route.failedOnly = flag(params, "failed");
+      route.offlineOnly = flag(params, "offline");
+      route.archived = flag(params, "archived");
+    }
   }
   return route;
 }
@@ -176,11 +219,27 @@ export function formatHash(route) {
     if (r.layer && FILTER_LAYERS.has(r.layer)) p.set("layer", r.layer);
     if (r.match === "involved") p.set("match", "involved");
   } else if (path === "agents") {
-    if (r.group === "provider") p.set("group", "provider");
-    if (r.provider) p.set("provider", r.provider);
-    if (r.failedOnly) p.set("failed", "1");
-    if (r.offlineOnly) p.set("offline", "1");
-    if (r.archived) p.set("archived", "1");
+    if (r.planPage === "new") path = "agents/plan/new";
+    else if (r.planPage === "list") path = "agents/plans";
+    else if (r.planPage === "review" && r.planId) path = `agents/plans/${encodeURIComponent(r.planId)}`;
+    if (r.planPage) {
+      if (r.planPage === "new" && r.sel) p.set("sel", r.sel);
+      if (r.planPage === "new" && r.fromPlan) p.set("from", r.fromPlan);
+      if (r.rt) p.set("rt", r.rt);
+      if (r.model && r.model !== "omit") p.set("model", r.model);
+      if (r.effort && r.effort !== "omit") p.set("effort", r.effort);
+      if (r.tier && r.tier !== "omit") p.set("tier", r.tier);
+      if (r.planPage === "review" && r.bucket) p.set("bucket", r.bucket);
+      if (r.planFix === "empty") p.set("fix", "empty");
+    } else {
+      if (r.group === "provider") p.set("group", "provider");
+      if (r.provider) p.set("provider", r.provider);
+      if (r.failedOnly) p.set("failed", "1");
+      if (r.offlineOnly) p.set("offline", "1");
+      if (r.archived) p.set("archived", "1");
+      if (r.planMode) p.set("plan", "1");
+      if (r.sel) p.set("sel", r.sel);
+    }
   } else if (path === "skills") {
     if (r.source) p.set("source", r.source);
     if (r.skillStatus) p.set("status", r.skillStatus);
@@ -207,7 +266,7 @@ export function canonicalHash(hash) {
 export function historyWrite(currentHash, nextHash, patch) {
   if (canonicalHash(currentHash) === canonicalHash(nextHash)) return "noop";
   const keys = patch && typeof patch === "object" ? Object.keys(patch) : [];
-  if (keys.some((key) => key === "view" || key === "ws")) return "push";
+  if (keys.some((key) => key === "view" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId")) return "push";
   return "replace";
 }
 
@@ -230,6 +289,19 @@ export function applyPatch(route, patch) {
       next.custom = false;
       next.debt = false;
       next.skillGroup = "source";
+    }
+    if (patch.view !== "agents") {
+      next.planMode = false;
+      next.planPage = "";
+      next.planId = "";
+      next.fromPlan = "";
+      next.sel = "";
+      next.rt = "";
+      next.model = "omit";
+      next.effort = "omit";
+      next.tier = "omit";
+      next.bucket = "";
+      next.planFix = "";
     }
   }
   if (!VIEWS.includes(next.view)) next.view = "map";

@@ -11,6 +11,7 @@ import {
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
 import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
+import { clockLine, composeTarget, findPlan, formatSel, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
@@ -91,6 +92,7 @@ const state = {
   skills: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
   expandedSkills: new Set(),
+  planRaw: false,
 };
 
 // ---------- data ----------
@@ -253,6 +255,9 @@ function now() {
 let adoptedHash = null;
 
 function setRoute(patch) {
+  const active = document.activeElement;
+  const label = active instanceof HTMLInputElement ? active.getAttribute("aria-label") : "";
+  const caret = active instanceof HTMLInputElement ? [active.selectionStart, active.selectionEnd] : null;
   const r = applyPatch(state.route, patch);
   const hash = formatHash(r);
   const action = historyWrite(location.hash, hash, patch);
@@ -261,6 +266,12 @@ function setRoute(patch) {
   state.route = r;
   adoptedHash = hash;
   render();
+  if (!label) return;
+  const next = document.querySelector(`[aria-label="${CSS.escape(label)}"]`);
+  if (next instanceof HTMLInputElement) {
+    next.focus();
+    if (caret[0] != null) next.setSelectionRange(caret[0], caret[1]);
+  }
 }
 
 function follow(event, patch) {
@@ -551,9 +562,11 @@ function renderChrome() {
   const hs = health();
   const snap = document.getElementById("snapshot");
   const skillsHead = state.route.view === "skills" ? skillsSnapshot() : null;
-  snap.className = `snapshot ${skillsHead?.level || hs.level}`;
-  snap.title = skillsHead?.title || hs.title || "";
-  snap.replaceChildren(h("span", { class: "dot" }), skillsHead?.text || hs.text);
+  const planHead = state.route.view === "agents" && state.route.planPage === "list" ? planSnapshot() : null;
+  const pageHead = skillsHead || planHead;
+  snap.className = `snapshot ${pageHead?.level || hs.level}`;
+  snap.title = pageHead?.title || hs.title || "";
+  snap.replaceChildren(h("span", { class: "dot" }), pageHead?.text || hs.text);
   if (MOCK) snap.append(h("span", { class: "mock" }, MOCK_SCENARIO ? `mock:${MOCK_SCENARIO}` : "mock"));
 
   const b = bannerInfo();
@@ -842,11 +855,14 @@ async function openDrawer(it, opener) {
 function closeDrawer() {
   if (!state.drawer) return;
   const opener = state.drawer.opener;
-  const skill = state.drawer.kind === "skill";
+  const planAgent = state.drawer.kind === "plan" ? state.drawer.row.agent_id : "";
+  const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan";
   state.drawer = null;
   renderDrawer();
-  if (skill) renderMain();
-  opener?.focus();
+  if (refreshMain) renderMain();
+  const fresh = planAgent ? document.getElementById(`plan-row-${planAgent}`) : null;
+  if (fresh) fresh.focus();
+  else opener?.focus();
 }
 
 function runRow(r) {
@@ -872,7 +888,7 @@ function renderDrawer() {
   const el = document.getElementById("drawer");
   const d = state.drawer;
   el.hidden = !d;
-  el.setAttribute("aria-label", d?.kind === "skill" ? "skill 详情" : "issue 详情");
+  el.setAttribute("aria-label", d?.kind === "skill" ? "skill 详情" : d?.kind === "plan" ? "计划行详情" : "issue 详情");
   document.body.classList.toggle("drawer-open", !!d);
   if (!d) {
     el.replaceChildren();
@@ -880,6 +896,10 @@ function renderDrawer() {
   }
   if (d.kind === "skill") {
     el.replaceChildren(...renderSkillDrawer({ ...atlasCtx(), closeDrawer }, d.skill));
+    return;
+  }
+  if (d.kind === "plan") {
+    el.replaceChildren(...renderPlanDrawer(h, { ...planActions(), closeDrawer }, d.row));
     return;
   }
   if (!d.opener) d.opener = document.activeElement;
@@ -921,6 +941,134 @@ function renderDrawer() {
     ].filter(Boolean),
   );
   close.focus();
+}
+
+function fixturePlans() {
+  if (!state.planAnchor) state.planAnchor = Date.now();
+  return planCatalog(state.route.planFix, state.planAnchor);
+}
+
+function planSnapshot() {
+  const plans = fixturePlans();
+  const latest = plans.slice().sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at))[0];
+  return {
+    level: "idle",
+    text: latest ? `计划目录 · 最近一份 ${ago(latest.generated_at)}` : "计划目录 · 空",
+    title: "fixture 计划目录，未接真实接口",
+  };
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.append(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+}
+
+function planActions() {
+  if (!state.planAnchor) state.planAnchor = Date.now();
+  return {
+    nowMs: Date.now(),
+    ago,
+    route: state.route,
+    setRoute,
+    copy: copyText,
+    leave: (event) => follow(event, { view: "agents", planPage: "", planMode: false, planId: "", fromPlan: "", sel: "", rt: "", model: "omit", effort: "omit", tier: "omit", bucket: "", planFix: "" }),
+    openList: (event) => follow(event, { planPage: "list", planMode: false, planId: "", fromPlan: "" }),
+    backToSelect: (event) => follow(event, { planPage: "", planMode: true, planId: "", fromPlan: "" }),
+    openPlan: (id) => setRoute({ planPage: "review", planId: id, planMode: false, bucket: "", fromPlan: "" }),
+    toggleRaw: () => {
+      state.planRaw = !state.planRaw;
+      render();
+    },
+    rawOpen: state.planRaw,
+    regenerate: (plan) => {
+      const target = composeTarget(plan);
+      setRoute({
+        planPage: "new",
+        planMode: false,
+        planId: "",
+        fromPlan: plan.plan_id || "",
+        sel: target.agents.map((agent) => agent.id).filter(Boolean).join(","),
+        rt: target.runtime?.id || "",
+        model: target.model,
+        effort: target.effort,
+        tier: target.tier,
+      });
+    },
+    openRow: (row, opener) => {
+      state.drawer = { kind: "plan", row, opener: opener || document.activeElement };
+      render();
+      renderDrawer();
+      document.querySelector("#drawer .drawer-close")?.focus();
+    },
+    closeDrawer,
+    drawerAgentId: state.drawer?.kind === "plan" ? state.drawer.row.agent_id : "",
+    agentById: new Map(state.agents.map((agent) => [agent.id, agent])),
+    snapshotAge: state.meta?.generated_at ? ago(state.meta.generated_at) : "未知",
+    plans: fixturePlans(),
+  };
+}
+
+function selectedAgentRecords() {
+  const byId = new Map(agentRows().map((row) => [row.a.id, row]));
+  return parseSel(state.route.sel).map((id) => {
+    const row = byId.get(id);
+    if (!row) return { id, name: id, missing: true, archived: false };
+    return {
+      id,
+      name: row.a.name,
+      workspace_id: row.a.workspace_id,
+      workspace_name: row.ws?.name || row.a.workspace_id,
+      archived: !!row.a.archived,
+    };
+  });
+}
+
+function composeView() {
+  if (state.route.fromPlan) {
+    const plan = findPlan(fixturePlans(), state.route.fromPlan);
+    if (!plan) {
+      return {
+        selected: [],
+        allow: [],
+        runtimes: state.runtimes,
+        restoreErrors: [`找不到计划 ${state.route.fromPlan}，没有清空成一份新计划。`],
+      };
+    }
+    const target = composeTarget(plan);
+    const runtimes = target.runtime?.id && !state.runtimes.some((item) => item.id === target.runtime.id)
+      ? [...state.runtimes, target.runtime]
+      : state.runtimes;
+    return { selected: target.agents, allow: target.allow, runtimes, restoreErrors: target.errors };
+  }
+  const selected = selectedAgentRecords();
+  const missing = selected.filter((agent) => agent.missing);
+  return {
+    selected,
+    allow: workspaceAllowList(selected),
+    runtimes: state.runtimes,
+    restoreErrors: missing.length
+      ? [`快照里没有这些 agent 的 workspace：${missing.map((agent) => agent.name).join("、")}。没有改成空 workspace。`]
+      : [],
+  };
+}
+
+function renderPlanPage() {
+  const ctx = planActions();
+  if (state.route.planPage === "new") return renderPlanNew(h, { ...ctx, ...composeView() });
+  if (state.route.planPage === "review") return renderPlanReview(h, { ...ctx, plan: findPlan(ctx.plans, state.route.planId) });
+  return renderPlanList(h, ctx);
+}
+
+function exitPlanSelect() {
+  setRoute({ planMode: false, sel: "" });
 }
 
 // ---------- agents view ----------
@@ -965,7 +1113,7 @@ function dimCell(v) {
   return v ? h("td", { class: "mono" }, v) : h("td", { class: "inherit", title: "未设置，继承 runtime 默认；实际值未知" }, "默认");
 }
 
-function agentRow({ a, ws, rt }, showWs) {
+function agentRow({ a, ws, rt }, showWs, planMode) {
   const recent = a.recent ?? {};
   const degraded = isWsDegraded(ws);
   let rtCell;
@@ -1005,9 +1153,28 @@ function agentRow({ a, ws, rt }, showWs) {
       )
     : h("td", { class: "muted" }, "—");
 
+  const picked = parseSel(state.route.sel).includes(a.id);
   return h(
     "tr",
     { class: `${degraded ? "is-stale" : ""}${a.archived ? " is-archived" : ""}` },
+    planMode
+      ? h(
+          "td",
+          null,
+          h("input", {
+            type: "checkbox",
+            checked: picked && !a.archived,
+            disabled: !!a.archived,
+            title: a.archived ? "已归档" : "选择这个 agent",
+            "aria-label": a.archived ? `${a.name} 已归档` : `选择 ${a.name}`,
+            onchange: () => {
+              const ids = parseSel(state.route.sel).filter((id) => id !== a.id);
+              if (!picked) ids.push(a.id);
+              setRoute({ sel: formatSel(ids) });
+            },
+          }),
+        )
+      : null,
     h(
       "td",
       { class: "agent-name" },
@@ -1033,6 +1200,7 @@ function agentRow({ a, ws, rt }, showWs) {
 
 function renderAgents() {
   const r = state.route;
+  const planMode = r.planMode && !r.planPage;
   const all = agentRows();
   const scoped = all.filter(({ ws }) => !r.ws || ws?.slug === r.ws);
   const summary = providerSummary(scoped);
@@ -1052,7 +1220,7 @@ function renderAgents() {
     summary.map((s) => {
       const active = r.provider === s.provider;
       const online = [...s.rts.values()].filter(Boolean).length;
-      return h(
+      const block = h(
         "button",
         {
           type: "button",
@@ -1069,6 +1237,24 @@ function renderAgents() {
           " · ",
           h("span", { class: s.failed ? "bad-n" : "muted" }, `${state.recentWindowH}h 失败 ${s.failed}`),
           s.quota ? h("span", { class: "tag quota" }, `额度/限流 ${s.quota}`) : null,
+        ),
+      );
+      if (!planMode) return block;
+      return h(
+        "div",
+        { class: "provider-wrap" },
+        block,
+        h(
+          "button",
+          {
+            type: "button",
+            class: "text-btn",
+            onclick: () => {
+              const ids = rows.filter((row) => providerOf(row) === s.provider && !row.a.archived).map((row) => row.a.id);
+              setRoute({ sel: formatSel([...parseSel(r.sel), ...ids]) });
+            },
+          },
+          "全选本 provider",
         ),
       );
     }),
@@ -1099,6 +1285,16 @@ function renderAgents() {
     toggle("failedOnly", `只看 ${state.recentWindowH}h 有失败`),
     toggle("offlineOnly", "只看离线 / 未绑定"),
     toggle("archived", "显示已归档"),
+    h(
+      "button",
+      {
+        type: "button",
+        class: planMode ? "active" : "",
+        "aria-pressed": planMode ? "true" : "false",
+        onclick: () => (planMode ? exitPlanSelect() : setRoute({ planMode: true })),
+      },
+      "规划切换…",
+    ),
     h("span", { class: "muted" }, `${rows.length} / ${all.length} agent`),
   );
 
@@ -1117,7 +1313,7 @@ function renderAgents() {
     h(
       "tr",
       null,
-      ["Agent", "状态", "Runtime", "模型", "推理", "Tier", `${state.recentWindowH}h`, "最近失败"].map((c) => h("th", { scope: "col" }, c)),
+      [...(planMode ? ["选择"] : []), "Agent", "状态", "Runtime", "模型", "推理", "Tier", `${state.recentWindowH}h`, "最近失败"].map((c) => h("th", { scope: "col" }, c)),
     ),
   );
   const bodies = [...groups.values()].map((g) =>
@@ -1127,14 +1323,14 @@ function renderAgents() {
       h(
         "tr",
         { class: "group-row" },
-        h(
+          h(
           "th",
-          { colspan: 8, scope: "rowgroup" },
+          { colspan: planMode ? 9 : 8, scope: "rowgroup" },
           g.ws ? wsTag(g.ws) : h("span", { class: "p-name" }, g.key),
           h("span", { class: "muted" }, ` ${g.rows.length}`),
         ),
       ),
-      g.rows.map((row) => agentRow(row, r.group === "provider")),
+      g.rows.map((row) => agentRow(row, r.group === "provider", planMode)),
     ),
   );
 
@@ -1142,7 +1338,26 @@ function renderAgents() {
     ? h("div", { class: "table-wrap" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
-  return [strip, toolbar, table];
+  if (!planMode) return [strip, toolbar, table];
+  const selected = selectedAgentRecords();
+  const outside = outsideCount(parseSel(r.sel), rows.map((row) => row.a.id));
+  const bar = h(
+    "div",
+    { class: "plan-bar" },
+    h("span", null, selectionLabel(selected.length, workspaceAllowList(selected).length, outside)),
+    h("button", { type: "button", onclick: () => setRoute({ sel: "" }) }, "清空"),
+    h("button", { type: "button", onclick: exitPlanSelect }, "取消"),
+    h(
+      "button",
+      {
+        type: "button",
+        disabled: selected.length === 0,
+        onclick: () => setRoute({ planPage: "new", planMode: false, fromPlan: "" }),
+      },
+      "下一步",
+    ),
+  );
+  return [strip, toolbar, table, bar];
 }
 
 // ---------- render ----------
@@ -1497,7 +1712,9 @@ function renderMain() {
   const view = state.route.view;
   const ctx = atlasCtx();
   const parts =
-    view === "agents"
+    view === "agents" && state.route.planPage
+      ? renderPlanPage()
+      : view === "agents"
       ? renderAgents()
       : view === "decide"
         ? renderDecide()
@@ -1542,7 +1759,9 @@ document.addEventListener("keydown", (e) => {
       search.value = "";
       setRoute({ q: "" });
       search.blur();
+      return;
     }
+    if (state.route.view === "agents" && state.route.planMode && !state.route.planPage) exitPlanSelect();
     return;
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1550,7 +1769,11 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     search.focus();
     search.select();
-  } else if (viewForKey(e.key)) setRoute({ view: viewForKey(e.key) });
+  } else if (viewForKey(e.key)) {
+    const next = viewForKey(e.key);
+    if (next === "agents" && (state.route.planPage || state.route.planMode)) setRoute({ planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" });
+    else setRoute({ view: next });
+  }
   else if ((e.key === "[" || e.key === "]") && state.route.view === "map" && /^l[1-5]$/.test(state.route.layer)) {
     const layer = stepLayer(state.route.layer, e.key === "]" ? "next" : "prev");
     if (layer) setRoute({ layer });
@@ -1560,6 +1783,10 @@ document.addEventListener("keydown", (e) => {
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", (e) => {
     e.preventDefault();
+    if (t.dataset.view === "agents" && (state.route.planPage || state.route.planMode)) {
+      setRoute({ planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" });
+      return;
+    }
     setRoute({ view: t.dataset.view });
   }),
 );
@@ -1568,3 +1795,21 @@ syncFromLocation();
 refresh(true);
 if (!MOCK) setInterval(refresh, META_POLL_MS);
 setInterval(renderChrome, 5_000);
+function syncPlanClock() {
+  if (state.route.view !== "agents" || state.route.planPage !== "review") return;
+  const plan = findPlan(fixturePlans(), state.route.planId);
+  const node = document.querySelector("[data-plan-clock]");
+  if (!plan || !node) return;
+  const line = clockLine(plan, Date.now());
+  const expired = line.expired ? "1" : "0";
+  if (node.dataset.planExpired !== expired) {
+    const activeId = document.activeElement?.id || "";
+    render();
+    if (activeId) document.getElementById(activeId)?.focus();
+    return;
+  }
+  node.dataset.planClock = line.clock;
+  if (node.textContent !== line.text) node.textContent = line.text;
+}
+
+setInterval(syncPlanClock, 1000);
