@@ -20,6 +20,7 @@ from .redact import redact
 # before a process is spawned, so no code path can reach a mutating CLI command.
 READ_ONLY_COMMANDS: frozenset[tuple[str, ...]] = frozenset(
     {
+        ("auth", "status"),
         ("workspace", "list"),
         ("workspace", "member", "list"),
         ("issue", "list"),
@@ -126,13 +127,14 @@ class CliRunner:
         if workspace_id:
             argv += ["--workspace-id", workspace_id]
         argv += list(args)
-        if "--output" not in args:
+        identity_only = args == ["auth", "status"]
+        if "--output" not in args and not identity_only:
             argv += ["--output", "json"]
 
         last: CliError | None = None
         for attempt in range(self.retries + 1):
             try:
-                return self._run_once(argv)
+                return self._run_once(argv, identity_only=identity_only)
             except CliError as exc:
                 last = exc
                 if not exc.transient or attempt == self.retries:
@@ -141,7 +143,7 @@ class CliRunner:
         assert last is not None
         raise last
 
-    def _run_once(self, argv: list[str]) -> CliResult:
+    def _run_once(self, argv: list[str], *, identity_only: bool = False) -> CliResult:
         try:
             with self._slots:
                 proc = self._exec(
@@ -163,6 +165,17 @@ class CliRunner:
             msg = redact(stderr.strip() or f"exit code {proc.returncode}")
             transient = bool(re.search(r"(?i)timeout|timed out|connection|50[234]|429|rate limit|EOF", stderr))
             raise CliError(msg or "cli error", transient=transient)
+        if identity_only:
+            # auth status has no JSON mode. Project only the exact Server line;
+            # never expose or retain its user/profile output in the Board.
+            from .plan_contract import server_identity
+            origins = re.findall(r"^Server:\s+(\S+)\s*$", proc.stdout or "", re.MULTILINE)
+            try:
+                if len(origins) != 1:
+                    raise ValueError("missing or ambiguous origin")
+                return CliResult({"server_identity": server_identity(origins[0])})
+            except ValueError:
+                raise CliError("CLI server identity could not be verified") from None
         try:
             data = json.loads(proc.stdout) if proc.stdout.strip() else None
         except json.JSONDecodeError:

@@ -18,6 +18,7 @@ from .server import BoardServer
 from .store import Store
 from .usage import DEFAULT_CODEXBAR, HISTORY_RETENTION_DAYS, UsageCollector, paths_beside
 from .views import Views
+from .runtime_plan import DEFAULT_PLAN_DIR
 
 DEFAULT_PROFILE = "desktop-api.multica.ai"
 DEFAULT_DB = Path.home() / ".multica-board" / "board.sqlite"
@@ -115,10 +116,17 @@ def cmd_collect_usage(a: argparse.Namespace) -> int:
 
 
 def cmd_serve(a: argparse.Namespace) -> int:
+    # Best-effort display metadata only. Preserve the collector's profile routing
+    # and allow offline/cache-only startup when identity cannot be resolved.
+    runner = _runner(a)
+    try:
+        origin = runner.run(["auth", "status"]).data["server_identity"]
+    except (CliError, KeyError, TypeError):
+        origin = None
     store = _open_store(a.db)
-    views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh)
+    views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh, server_identity=origin)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
-    httpd = BoardServer(a.host, a.port, views, static_dir=static)
+    httpd = BoardServer(a.host, a.port, views, static_dir=static, plan_dir=a.plan_dir)
     stop = threading.Event()
 
     def refresher() -> None:
@@ -187,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--full-every", type=int, default=30, help="every Nth cycle is a full run-history pass")
     s.add_argument("--app-url", default="https://multica.ai", help="web app base URL for deep links")
     s.add_argument("--static-dir", type=Path, default=DEFAULT_STATIC, help="frontend directory served at / (default ../web)")
+    s.add_argument("--plan-dir", type=Path, default=DEFAULT_PLAN_DIR, help="private G1 plan directory (read-only HTTP)")
 
     a = p.parse_args(argv)
     logging.basicConfig(
