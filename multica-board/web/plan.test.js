@@ -193,11 +193,13 @@ test("row drawer shows raw null and empty string and does not render an approval
   assert.equal(close.attrs["aria-label"], "关闭");
 });
 
-test("plan page does not call the network, and web scripts do not send writes", () => {
+test("live plan reads are GET only, and web scripts do not send writes", () => {
   const planSrc = readFileSync(new URL("./plan.js", import.meta.url), "utf8");
   const appSrc = readFileSync(new URL("./app.js", import.meta.url), "utf8");
   assert.doesNotMatch(planSrc, /\/api\/|fetch\s*\(/);
-  assert.doesNotMatch(appSrc, /\/api\/plans/);
+  assert.match(appSrc, /fetchJSON\("\/api\/plans", "plans"\)/);
+  assert.match(appSrc, /fetchJSON\(`\/api\/plans\/\$\{encodeURIComponent\(id\)\}`, "plan"\)/);
+  assert.doesNotMatch(appSrc, /\/api\/plans[\s\S]{0,120}method\s*:/);
   const dir = new URL("./", import.meta.url);
   for (const name of readdirSync(dir)) {
     if (!name.endsWith(".js")) continue;

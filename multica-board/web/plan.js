@@ -1,6 +1,7 @@
-/** G1 switch-plan views. Fixture only: no fetch, no POST, no approve/apply/rollback. */
+/** G1 switch-plan views. Fixture data stays local; live reads go through plan-api.js. No POST, approve, apply, or rollback. */
 
 import { buildPlans } from "./fixtures/plan-data.js";
+import { directoryBannerText } from "./plan-api.js";
 
 export const BUCKETS = [
   { id: "approvable", title: "可批准", hint: "满足计划器全部只读预检；G2 未满足时仍不能执行" },
@@ -19,6 +20,23 @@ const REASONS = {
   BLOCKED_COMPAT: "配置不兼容",
   BLOCKED_TARGET_RUNTIME: "目标未定",
 };
+
+const CONTRACT_REASONS = {
+  APPROVABLE: "可批准",
+  BLOCKED: "阻断",
+  SKIP_ACTIVE: "存在活动任务",
+  NO_CHANGE: "无变化",
+  BLOCKED_SOURCE: "源字段不完整",
+  BLOCKED_ARCHIVED: "已归档",
+  BLOCKED_TARGET: "目标不可确认",
+  BLOCKED_ACTIVITY_COMPLETENESS: "活动未穷尽",
+  BLOCKED_PERMISSION: "权限未证实",
+  BLOCKED_CAPABILITY: "能力未证实",
+  BLOCKED_CONFIG_COMPATIBILITY: "配置兼容未证实",
+  BLOCKED_HEALTH: "目标健康未证实",
+  BLOCKED_HISTORICAL: "历史快照仅供审阅",
+};
+
 
 const G2 = [
   { id: "approval", label: "批准原子消费" },
@@ -192,7 +210,7 @@ export function buildCommand({ server, agentIds, workspaceIds, runtimeId, model,
   const text = [
     "atlas-plan",
     "--server",
-    server || "api.multica.ai",
+    server || "<server>",
     "--agents",
     agentIds.join(","),
     "--allow-list",
@@ -213,7 +231,7 @@ export function bucketOf(row) {
   const decision = row?.decision || "";
   if (decision === "APPROVABLE") return "approvable";
   if (decision === "SKIP_ACTIVE" || decision.startsWith("SKIP_")) return "skip";
-  if (decision === "UNCHANGED") return "unchanged";
+  if (decision === "UNCHANGED" || decision === "NO_CHANGE") return "unchanged";
   if (decision.startsWith("BLOCKED")) return "blocked";
   const fields = Object.values(row?.fields || {});
   const unchanged = fields.every((field) => field?.op === "omit" || sameRaw(field?.old, field?.next));
@@ -265,11 +283,37 @@ export function reasonText(code) {
   return REASONS[code] || "";
 }
 
-export function reasonSummary(codes) {
+export function sortPlans(plans) {
+  return (plans || []).slice().sort((a, b) => {
+    const ta = a?.generated_at || "";
+    const tb = b?.generated_at || "";
+    if (ta !== tb) return ta < tb ? 1 : -1;
+    return String(b?.plan_id || "").localeCompare(String(a?.plan_id || ""));
+  });
+}
+
+export function summaryCounts(plan) {
+  if (plan && !Array.isArray(plan.rows) && plan.counts && typeof plan.counts === "object") {
+    const num = (value) => (Number.isFinite(value) ? value : 0);
+    return {
+      approvable: num(plan.counts.APPROVABLE),
+      blocked: num(plan.counts.BLOCKED),
+      skip: num(plan.counts.SKIP_ACTIVE),
+      unchanged: num(plan.counts.NO_CHANGE),
+    };
+  }
+  return bucketCounts(plan?.rows);
+}
+
+export function reasonSummary(codes, contract = false) {
   const list = codes || [];
-  const shown = list.slice(0, 2).map((code) => reasonText(code) || code);
+  const textOf = (code) => {
+    if (contract && Object.prototype.hasOwnProperty.call(CONTRACT_REASONS, code)) return CONTRACT_REASONS[code];
+    return reasonText(code);
+  };
+  const shown = list.slice(0, 2).map((code) => textOf(code) || code);
   const extra = list.length > 2 ? list.length - 2 : 0;
-  return { shown, extra, unknown: list.filter((code) => !reasonText(code)) };
+  return { shown, extra, unknown: list.filter((code) => !textOf(code)) };
 }
 
 export function remain(expires, nowMs) {
@@ -284,11 +328,15 @@ export function remain(expires, nowMs) {
   return { expired: false, clock: `剩 ${clock}`, short: `剩 ${Math.max(1, Math.ceil(total / 60))} 分` };
 }
 
+export function isExpired(plan, nowMs) {
+  return plan?.expired === true || remain(plan?.expires_at, nowMs).expired;
+}
+
 export function listStatus(plan, nowMs) {
   if (plan.parse_error) return { tone: "bad", text: "无法解析", detail: plan.parse_error };
   if (plan.hash_verified === false) return { tone: "bad", text: "hash 不符", detail: "内容与 hash 不符" };
   const left = remain(plan.expires_at, nowMs);
-  if (left.expired) return { tone: "muted", text: "已过期", detail: "" };
+  if (isExpired(plan, nowMs)) return { tone: "muted", text: "已过期", detail: "" };
   return { tone: "ok", text: `有效 · ${left.short}`, detail: "" };
 }
 
@@ -299,10 +347,11 @@ export function hashOk(plan) {
 export function driftOf(row, agent) {
   if (!agent) return false;
   const fields = row.fields || {};
-  if (fields.runtime?.old && (agent.runtime_id || "") !== (fields.runtime.old.id || "")) return true;
-  if (!sameRaw(agent.model, fields.model?.old)) return true;
-  if (!sameRaw(agent.thinking_level, fields.effort?.old)) return true;
-  if (!sameRaw(agent.service_tier, fields.tier?.old)) return true;
+  const known = (field) => field?.old_known !== false;
+  if (known(fields.runtime) && fields.runtime?.old && (agent.runtime_id || "") !== (fields.runtime.old.id || "")) return true;
+  if (known(fields.model) && !sameRaw(agent.model, fields.model?.old)) return true;
+  if (known(fields.effort) && !sameRaw(agent.thinking_level, fields.effort?.old)) return true;
+  if (known(fields.tier) && !sameRaw(agent.service_tier, fields.tier?.old)) return true;
   return false;
 }
 
@@ -330,10 +379,12 @@ function stamp(iso) {
 
 export function clockLine(plan, nowMs) {
   const left = remain(plan.expires_at, nowMs);
+  const expired = isExpired(plan, nowMs);
+  const clock = expired ? "已过期" : left.clock;
   return {
-    expired: left.expired,
-    clock: left.clock,
-    text: `生成 ${stamp(plan.generated_at)} · 过期 ${stamp(plan.expires_at)}（${left.clock}）· policy ${plan.policy} · schema ${plan.schema_version ?? "未知"}`,
+    expired,
+    clock,
+    text: `生成 ${stamp(plan.generated_at)} · 过期 ${stamp(plan.expires_at)}（${clock}）· policy ${plan.policy} · schema ${plan.schema_version ?? "未知"}`,
   };
 }
 
@@ -346,8 +397,13 @@ function rawText(value) {
 
 function fieldNodes(h, field, kind) {
   if (!field || field.op === "omit") {
+    if (field?.old_known === false) return [h("span", { class: "muted", title: "旧值未知" }, "不改")];
     const current = kind === "runtime" ? field?.old?.name || rawText(field?.old) : rawText(field?.old);
     return [h("span", { class: "muted", title: `当前值 ${current}` }, "不改")];
+  }
+  if (field.old_known === false) return [h("span", { class: "muted", title: "旧值未知" }, "未知")];
+  if (field.old_known === true && sameRaw(field.old, field.next)) {
+    return [h("span", { class: "muted", title: "设为当前值" }, "不变")];
   }
   const oldNode = isDefaultRaw(kind === "runtime" ? null : field.old) && kind !== "runtime"
     ? h("span", null, "默认", rawMark(field.old) ? h("span", { class: "plan-raw" }, rawMark(field.old)) : null)
@@ -404,9 +460,21 @@ function copyButton(h, ctx, text, label = "复制") {
   );
 }
 
+function serverLabel(h, server) {
+  if (server == null) return h("span", { class: "tag warn", title: "没有确认到 API origin，没有猜测地址" }, "<server>");
+  if (server === "") return h("span", { class: "mono" }, '""');
+  return h("span", { class: "mono" }, server);
+}
+
+function askedServer(ctx) {
+  return Object.prototype.hasOwnProperty.call(ctx, "serverIdentity");
+}
+
 export function renderPlanNew(h, ctx) {
   const selected = ctx.selected || [];
   const allow = ctx.allow || workspaceAllowList(selected);
+  const asked = askedServer(ctx);
+  const serverToken = !asked || ctx.serverIdentity == null ? (asked ? "<server>" : "api.multica.ai") : ctx.serverIdentity;
   let choices = runtimeChoices(ctx.runtimes || [], allow);
   let runtime = choices.find((item) => item.id === ctx.route.rt) || null;
   if (ctx.route.rt && !runtime) {
@@ -416,7 +484,7 @@ export function renderPlanNew(h, ctx) {
   const tierAllowed = tierSetAllowed(runtime?.provider);
   const tier = tierAllowed ? ctx.route.tier : "omit";
   const command = buildCommand({
-    server: "api.multica.ai",
+    server: serverToken,
     agentIds: selected.map((agent) => agent.id),
     workspaceIds: allow.map((ws) => ws.id),
     runtimeId: runtime?.id || "",
@@ -481,7 +549,7 @@ export function renderPlanNew(h, ctx) {
         "p",
         null,
         "server ",
-        h("span", { class: "mono" }, "api.multica.ai"),
+        serverLabel(h, asked ? ctx.serverIdentity : "api.multica.ai"),
         " · workspace allow-list ",
         allow.length
           ? allow.map((ws) => `${ws.name}（${shortId(ws.id)}）`).join("、")
@@ -543,7 +611,13 @@ export function renderPlanNew(h, ctx) {
       command.ok
         ? h("pre", { class: "plan-command" }, command.text)
         : h("p", { class: "bad-n" }, command.error),
-      h("p", { class: "muted" }, "参数名未定稿，这只是 fixture 预览。页面不会发送，也没有运行按钮。命令里不包含凭证或 profile。"),
+      h(
+        "p",
+        { class: "muted" },
+        asked
+          ? "这是在你自己的终端运行的命令文本。页面不会发送，也没有运行按钮。命令里不包含凭证或 profile。"
+          : "参数名未定稿，这只是 fixture 预览。页面不会发送，也没有运行按钮。命令里不包含凭证或 profile。",
+      ),
     ),
     h(
       "p",
@@ -554,74 +628,96 @@ export function renderPlanNew(h, ctx) {
   ].filter((node) => node != null && node !== false);
 }
 
+function agentCountText(plan) {
+  const count = Array.isArray(plan.rows) ? plan.rows.length : plan.agent_count;
+  return count == null ? "—" : `${count} agent`;
+}
+
 export function renderPlanList(h, ctx) {
-  const plans = ctx.plans || [];
-  const latest = plans.slice().sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at))[0];
-  const body = plans.length
-    ? h(
-        "div",
-        { class: "table-wrap" },
+  const plans = sortPlans(ctx.plans || []);
+  const latest = plans.find((plan) => plan.generated_at);
+  const incomplete = ctx.planComplete === false || !!ctx.directoryError;
+  const banner = incomplete
+    ? h("div", { class: "plan-card plan-bad", role: "alert" }, directoryBannerText(ctx.directoryError))
+    : ctx.planError
+      ? h("div", { class: "plan-card plan-bad", role: "alert" }, ctx.planError)
+      : null;
+  let body;
+  if (ctx.planLoading) body = h("div", { class: "empty loading", "aria-busy": "true" }, "加载中…");
+  else if (plans.length) {
+    body = h(
+      "div",
+      { class: "table-wrap" },
+      h(
+        "table",
+        { class: "plan-table" },
         h(
-          "table",
-          { class: "plan-table" },
-          h(
-            "thead",
-            null,
-            h("tr", null, ["生成", "状态", "模式", "范围", "结果", "hash"].map((name) => h("th", null, name))),
-          ),
-          h(
-            "tbody",
-            null,
-            plans
-              .slice()
-              .sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at))
-              .map((plan) => {
-                const status = listStatus(plan, ctx.nowMs);
-                const counts = bucketCounts(plan.rows);
-                const expired = remain(plan.expires_at, ctx.nowMs).expired;
-                return h(
-                  "tr",
-                  {
-                    class: expired ? "plan-expired" : "",
-                    tabindex: "0",
-                    onclick: () => ctx.openPlan(plan.plan_id),
-                  },
-                  h("td", { title: plan.generated_at }, ctx.ago(plan.generated_at)),
-                  h("td", { class: status.tone === "bad" ? "bad-n" : status.tone === "ok" ? "ok-n" : "muted" }, status.text, status.detail ? h("div", { class: "muted" }, status.detail) : null),
-                  h(
-                    "td",
-                    null,
-                    h("span", { class: plan.mode === "apply_candidate" ? "tag info" : "tag" }, plan.mode || "未知"),
-                    plan.mode === "apply_candidate" ? h("div", { class: "muted" }, "Atlas 不执行") : null,
-                  ),
-                  h("td", null, plan.allow?.length > 1 ? `${plan.allow.length} 个 ws` : plan.allow?.[0]?.name || "—", h("div", { class: "muted" }, `${plan.rows.length} agent`)),
-                  h(
-                    "td",
-                    null,
-                    ["approvable", "skip", "blocked", "unchanged"].map((id) => {
-                      const n = counts[id];
-                      const title = BUCKETS.find((bucket) => bucket.id === id).title;
-                      return h("span", { class: n ? "" : "muted" }, `${title} ${n} `);
-                    }),
-                  ),
-                  h("td", null, h("span", { class: "mono" }, shortHash(plan.plan_hash)), h("div", { class: "muted" }, "计划 hash")),
-                );
-              }),
-          ),
+          "thead",
+          null,
+          h("tr", null, ["生成", "状态", "模式", "范围", "结果", "hash"].map((name) => h("th", null, name))),
         ),
-      )
-    : h("div", { class: "empty" }, "还没有计划。在 Agents 页点「规划切换…」开始");
+        h(
+          "tbody",
+          null,
+          plans.map((plan) => {
+            const status = listStatus(plan, ctx.nowMs);
+            const counts = summaryCounts(plan);
+            const expired = isExpired(plan, ctx.nowMs);
+            return h(
+              "tr",
+              {
+                class: expired ? "plan-expired" : "",
+                tabindex: "0",
+                onclick: () => ctx.openPlan(plan.plan_id),
+              },
+              h("td", { title: plan.observed_at ? `观察 ${plan.observed_at}` : plan.generated_at || "" }, plan.generated_at ? ctx.ago(plan.generated_at) : "时间未知"),
+              h("td", { class: status.tone === "bad" ? "bad-n" : status.tone === "ok" ? "ok-n" : "muted" }, status.text, status.detail ? h("div", { class: "muted" }, status.detail) : null),
+              h(
+                "td",
+                null,
+                h("span", { class: plan.mode === "apply_candidate" ? "tag info" : "tag" }, plan.mode || "未知"),
+                plan.mode === "apply_candidate" ? h("div", { class: "muted" }, "Atlas 不执行") : null,
+              ),
+              h(
+                "td",
+                null,
+                plan.allow?.length > 1 ? `${plan.allow.length} 个 ws` : plan.allow?.[0]?.name || "—",
+                h("div", { class: "muted" }, agentCountText(plan)),
+                plan.snapshot_kind === "historical" ? h("div", { class: "muted" }, "历史快照") : null,
+              ),
+              h(
+                "td",
+                null,
+                ["approvable", "skip", "blocked", "unchanged"].map((id) => {
+                  const n = counts[id];
+                  const title = BUCKETS.find((bucket) => bucket.id === id).title;
+                  return h("span", { class: n ? "" : "muted" }, `${title} ${n} `);
+                }),
+              ),
+              h("td", null, h("span", { class: "mono" }, shortHash(plan.plan_hash)), h("div", { class: "muted" }, "计划 hash")),
+            );
+          }),
+        ),
+      ),
+    );
+  } else if (ctx.planError) body = h("div", { class: "empty bad-n" }, ctx.planError);
+  else if (incomplete) body = h("div", { class: "empty" }, "列表不完整，不能当成没有计划");
+  else body = h("div", { class: "empty" }, "还没有计划。在 Agents 页点「规划切换…」开始");
   return [
     crumbs(h, ctx, ""),
     h("p", { class: "muted" }, latest ? `计划目录 · 最近一份 ${ctx.ago(latest.generated_at)}` : "计划目录 · 空"),
+    banner,
     body,
   ];
 }
 
 export function renderPlanReview(h, ctx) {
   const plan = ctx.plan;
-  if (!plan) return [crumbs(h, ctx, "未找到"), h("div", { class: "empty" }, "fixture 里没有这份计划")];
-  const left = remain(plan.expires_at, ctx.nowMs);
+  if (!plan) {
+    if (ctx.planLoading) return [crumbs(h, ctx, "读取中"), h("div", { class: "empty loading", "aria-busy": "true" }, "加载中…")];
+    if (ctx.planError) return [crumbs(h, ctx, "未找到"), h("div", { class: "empty bad-n" }, ctx.planError)];
+    return [crumbs(h, ctx, "未找到"), h("div", { class: "empty" }, "没有这份计划")];
+  }
   const line = clockLine(plan, ctx.nowMs);
   const verified = hashOk(plan);
   const counts = bucketCounts(plan.rows);
@@ -635,20 +731,21 @@ export function renderPlanReview(h, ctx) {
     crumbs(h, ctx, stamp(plan.generated_at)),
     h(
       "section",
-      { class: `plan-scope${verified ? "" : " plan-bad"}${left.expired ? " is-expired" : ""}` },
-      left.expired ? h("div", { class: "plan-expired-bar" }, "已过期 · 仅供参考，需重新生成") : null,
+      { class: `plan-scope${verified ? "" : " plan-bad"}${line.expired ? " is-expired" : ""}` },
+      line.expired ? h("div", { class: "plan-expired-bar" }, "已过期 · 仅供参考，需重新生成") : null,
       h(
         "p",
         null,
         h("span", { class: plan.mode === "apply_candidate" ? "tag info" : "tag" }, (plan.mode || "review_only").toUpperCase()),
         plan.mode === "apply_candidate" ? h("span", { class: "muted" }, " Atlas 不执行；批准与执行不在本页") : null,
         " server ",
-        h("span", { class: "mono" }, plan.server),
+        serverLabel(h, plan.server),
         " · ws ",
         (plan.allow || []).map((ws) => ws.name).join("、") || "—",
         plan.allow?.length > 1 ? h("span", { class: "tag warn" }, `跨 ${plan.allow.length} 个 workspace`) : null,
         " · actor ",
         `${plan.actor?.name || "未知"}（${plan.actor?.kind || "未知"}）`,
+        plan.actor?.verified === false ? h("span", { class: "tag" }, "声明 · 未验证") : null,
       ),
       h(
         "p",
@@ -667,23 +764,27 @@ export function renderPlanReview(h, ctx) {
         copyButton(h, ctx, plan.plan_hash || "", "复制完整 hash"),
       ),
       plan.parse_error ? h("p", { class: "bad-n" }, plan.parse_error) : null,
+      plan.snapshot_kind === "historical" ? h("div", { class: "plan-expired-bar" }, "历史快照，仅供审阅") : null,
     ),
     h(
       "section",
-      { class: `plan-gates${left.expired ? " is-dim" : ""}` },
+      { class: `plan-gates${line.expired ? " is-dim" : ""}` },
       (plan.gates?.g1 || []).map((item) => {
         const dot = gateDot(item.state);
         return h("span", { class: `plan-gate ${dot.cls}` }, `${dot.mark} ${item.label}`);
       }),
       h("span", { class: "plan-gate-split" }),
       h("span", { class: "muted" }, "G2："),
-      G2.map((item) => h("span", { class: "plan-gate absent", title: "未接入" }, `· ${item.label}`)),
+      (Array.isArray(plan.gates?.g2) ? plan.gates.g2 : G2).map((item) => {
+        const dot = gateDot(item.state || "absent");
+        return h("span", { class: `plan-gate ${dot.cls}`, title: "未接入" }, `${dot.mark} ${item.label}`);
+      }),
       h("p", { class: "plan-apply" }, "apply 关闭：G2 硬门槛未满足。本页只用于审阅。"),
     ),
     showTable
       ? h(
           "div",
-          { class: left.expired ? "is-dim" : "" },
+          { class: line.expired ? "is-dim" : "" },
           h(
             "div",
             { class: "plan-counts", "data-bucket-sum": String(sum), "data-row-total": String(total) },
@@ -709,14 +810,14 @@ export function renderPlanReview(h, ctx) {
           "div",
           { class: "plan-card" },
           h("button", { type: "button", onclick: () => ctx.toggleRaw() }, "查看原始 JSON"),
-          ctx.rawOpen ? h("pre", { class: "plan-command" }, JSON.stringify(plan, null, 2)) : null,
+          ctx.rawOpen ? h("pre", { class: "plan-command" }, JSON.stringify(plan.raw || plan, null, 2)) : null,
         ),
     h(
       "p",
       { class: "plan-foot" },
       copyButton(h, ctx, plan.plan_hash || "", "复制完整 hash"),
       " ",
-      copyButton(h, ctx, JSON.stringify(plan), "复制原始计划 JSON"),
+      copyButton(h, ctx, JSON.stringify(plan.raw || plan), "复制原始计划 JSON"),
       " ",
       h("button", { type: "button", onclick: () => ctx.regenerate(plan) }, "用相同选择重新生成"),
     ),
@@ -762,9 +863,31 @@ function renderGroup(h, ctx, group) {
   );
 }
 
+function noFieldChange(row) {
+  const fields = row?.fields || {};
+  return ["runtime", "model", "effort", "tier"].every((key) => {
+    const field = fields[key];
+    if (!field || field.op === "omit") return true;
+    if (field.old_known === false) return false;
+    return sameRaw(field.old, field.next);
+  });
+}
+
+function activityText(activity) {
+  if (!activity) return "活动未知";
+  if (activity.unavailable || (activity.pages === 0 && activity.completeness === "UNKNOWN")) {
+    return "任务读取失败、被拒或响应不可用，不表示没有任务";
+  }
+  if (activity.completeness === "UNKNOWN") {
+    return `读取 ${activity.pages ?? "?"} 页 · 去重后 ${activity.tasks ?? "?"} 个任务 · 完整性未知`;
+  }
+  return `读取 ${activity.pages ?? "?"} 页 · 去重后 ${activity.tasks ?? "?"} 个任务 · ${activity.complete ? "已穷尽" : "未穷尽"}`;
+}
+
 function renderPlanRow(h, ctx, row) {
-  const reasons = reasonSummary(row.reasons);
+  const reasons = reasonSummary(row.reasons, row.contract === true);
   const drifted = driftOf(row, ctx.agentById?.get(row.agent_id));
+  const quiet = bucketOf(row) === "blocked" && noFieldChange(row);
   const selected = ctx.drawerAgentId === row.agent_id;
   return h(
     "tr",
@@ -779,6 +902,7 @@ function renderPlanRow(h, ctx, row) {
       null,
       row.agent_name,
       h("div", { class: "muted" }, row.workspace_name),
+      row.archived === null ? h("div", { class: "muted" }, "归档状态未知") : row.archived === true ? h("div", { class: "muted" }, "已归档") : row.archived === "" ? h("div", { class: "mono" }, '""') : null,
       drifted ? h("span", { class: "tag warn", title: `依据 Atlas 快照 ${ctx.snapshotAge}，不作执行依据；请重新生成计划` }, "现值已变") : null,
     ),
     h("td", null, ...fieldNodes(h, row.fields.runtime, "runtime")),
@@ -792,7 +916,8 @@ function renderPlanRow(h, ctx, row) {
     h(
       "td",
       null,
-      reasons.shown.map((text, i) => h("span", { class: reasons.unknown.includes(row.reasons[i]) ? "mono" : "" }, i ? `、${text}` : text)),
+      quiet ? h("span", { class: "tag" }, "无字段变更") : null,
+      reasons.shown.map((text, i) => h("span", { class: reasons.unknown.includes(row.reasons[i]) ? "mono" : "" }, i || quiet ? `、${text}` : text)),
       reasons.extra ? ` +${reasons.extra}` : "",
     ),
   );
@@ -814,6 +939,7 @@ export function renderPlanDrawer(h, ctx, row) {
     ),
     h("h3", { class: "drawer-sub" }, "身份"),
     h("p", null, `${row.workspace_name} · ${row.workspace_id}`),
+    row.archived === null ? h("p", null, "归档状态未知") : row.archived === true ? h("p", null, "已归档") : row.archived === "" ? h("p", { class: "mono" }, '""') : null,
     h("p", { class: "mono" }, row.agent_id, " ", copyButton(h, ctx, row.agent_id, "复制")),
     h("p", null, "所在 runtime ", rawText(row.fields.runtime?.old)),
     h("h3", { class: "drawer-sub" }, "字段 diff"),
@@ -835,10 +961,10 @@ export function renderPlanDrawer(h, ctx, row) {
     h("h3", { class: "drawer-sub" }, "预检"),
     ...(row.precheck || []).map((item) => h("p", null, `${item.label} ${item.state} · ${item.source || "未知"} · ${item.at || ""} · ${item.summary || ""}`)),
     h("h3", { class: "drawer-sub" }, "活动检查"),
-    h("p", null, `读取 ${row.activity?.pages ?? "?"} 页 · 去重后 ${row.activity?.tasks ?? "?"} 个任务 · ${row.activity?.complete ? "已穷尽" : "未穷尽"}`),
+    h("p", null, activityText(row.activity)),
     ...(row.activity?.runs || []).map((run) => h("p", null, `${run.status} · ${run.at}`)),
     h("h3", { class: "drawer-sub" }, "影响说明"),
-    h("p", null, row.impact || ""),
+    ...(Array.isArray(row.impact) ? row.impact : [row.impact || ""]).map((note) => h("p", null, note)),
     h("h3", { class: "drawer-sub" }, "源版本 / 指纹"),
     h("p", { class: "mono" }, `${row.source_version || ""} · ${row.fingerprint || ""}`),
     h("p", { class: "muted" }, "不是 CAS"),

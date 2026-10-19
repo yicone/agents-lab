@@ -11,7 +11,8 @@ import {
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
 import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
-import { clockLine, composeTarget, findPlan, formatSel, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
+import { mapPlanDetail, mapPlanList } from "./plan-api.js";
+import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
@@ -93,6 +94,15 @@ const state = {
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
   expandedSkills: new Set(),
   planRaw: false,
+  planList: [],
+  planListLoaded: false,
+  planListLoading: false,
+  planListComplete: true,
+  planDirectoryError: null,
+  planListError: "",
+  planDetails: new Map(),
+  planDetailErrors: new Map(),
+  planDetailLoading: new Set(),
 };
 
 // ---------- data ----------
@@ -949,13 +959,70 @@ function fixturePlans() {
 }
 
 function planSnapshot() {
-  const plans = fixturePlans();
-  const latest = plans.slice().sort((a, b) => Date.parse(b.generated_at) - Date.parse(a.generated_at))[0];
+  const plans = plansForPage();
+  const latest = plans.slice().sort((a, b) => Date.parse(b.generated_at || 0) - Date.parse(a.generated_at || 0))[0];
+  const incomplete = !MOCK && state.planListComplete === false;
   return {
-    level: "idle",
-    text: latest ? `计划目录 · 最近一份 ${ago(latest.generated_at)}` : "计划目录 · 空",
-    title: "fixture 计划目录，未接真实接口",
+    level: incomplete ? "warn" : "idle",
+    text: latest?.generated_at ? `计划目录 · 最近一份 ${ago(latest.generated_at)}` : "计划目录 · 空",
+    title: MOCK ? "fixture 计划目录，未接真实接口" : incomplete ? "计划目录不完整" : "计划目录",
   };
+}
+
+function plansForPage() {
+  if (MOCK) return fixturePlans();
+  return state.planList || [];
+}
+
+function detailPlan(id) {
+  if (MOCK) return findPlan(fixturePlans(), id);
+  return state.planDetails.get(id) || null;
+}
+
+async function loadPlanList(force = false) {
+  if (MOCK) return;
+  if (state.planListLoading) return;
+  if (state.planListLoaded && !force) return;
+  state.planListLoading = true;
+  try {
+    const mapped = mapPlanList(await fetchJSON("/api/plans", "plans"));
+    state.planList = mapped.plans;
+    state.planListComplete = mapped.complete;
+    state.planDirectoryError = mapped.directory_error;
+    state.planListError = "";
+    state.planListLoaded = true;
+  } catch (err) {
+    state.planListError = String(err.message || err);
+    state.planListLoaded = true;
+    if (!state.planList?.length) state.planListComplete = false;
+  } finally {
+    state.planListLoading = false;
+    render();
+  }
+}
+
+async function ensurePlanDetail(id) {
+  if (MOCK || !id || state.planDetails.has(id) || state.planDetailLoading.has(id) || state.planDetailErrors.has(id)) return;
+  state.planDetailLoading.add(id);
+  try {
+    const mapped = await mapPlanDetail(await fetchJSON(`/api/plans/${encodeURIComponent(id)}`, "plan"));
+    if (!mapped.ok) state.planDetailErrors.set(id, mapped.error || "计划无法读取");
+    else state.planDetails.set(id, mapped.plan);
+  } catch (err) {
+    state.planDetailErrors.set(id, String(err.message || err));
+  } finally {
+    state.planDetailLoading.delete(id);
+    render();
+  }
+}
+
+function ensurePlans() {
+  if (MOCK || state.route.view !== "agents") return;
+  const page = state.route.planPage;
+  const wantsList = page === "list" || page === "review" || (page === "new" && state.route.fromPlan);
+  if (wantsList && !state.planListLoaded && !state.planListLoading) void loadPlanList(false);
+  const detailId = page === "review" ? state.route.planId : page === "new" ? state.route.fromPlan : "";
+  if (detailId) void ensurePlanDetail(detailId);
 }
 
 async function copyText(text) {
@@ -1012,8 +1079,30 @@ function planActions() {
     drawerAgentId: state.drawer?.kind === "plan" ? state.drawer.row.agent_id : "",
     agentById: new Map(state.agents.map((agent) => [agent.id, agent])),
     snapshotAge: state.meta?.generated_at ? ago(state.meta.generated_at) : "未知",
-    plans: fixturePlans(),
+    plans: plansForPage(),
+    planLoading: planViewLoading(),
+    planError: planViewError(),
+    planComplete: MOCK ? undefined : state.planListComplete,
+    directoryError: MOCK ? null : state.planDirectoryError,
+    ...(MOCK ? {} : { serverIdentity: state.meta ? state.meta.server_identity ?? null : null }),
   };
+}
+
+function planViewLoading() {
+  if (MOCK) return false;
+  if (state.route.planPage === "list") return !state.planListLoaded && !state.planListError;
+  if (state.route.planPage === "review") {
+    const id = state.route.planId;
+    return !state.planDetails.has(id) && !state.planDetailErrors.has(id);
+  }
+  return false;
+}
+
+function planViewError() {
+  if (MOCK) return "";
+  if (state.route.planPage === "list") return state.planListError || "";
+  if (state.route.planPage === "review") return state.planDetailErrors.get(state.route.planId) || "";
+  return "";
 }
 
 function selectedAgentRecords() {
@@ -1033,13 +1122,22 @@ function selectedAgentRecords() {
 
 function composeView() {
   if (state.route.fromPlan) {
-    const plan = findPlan(fixturePlans(), state.route.fromPlan);
+    const plan = detailPlan(state.route.fromPlan);
     if (!plan) {
+      const failed = MOCK || state.planDetailErrors.has(state.route.fromPlan);
       return {
         selected: [],
         allow: [],
         runtimes: state.runtimes,
-        restoreErrors: [`找不到计划 ${state.route.fromPlan}，没有清空成一份新计划。`],
+        restoreErrors: [failed ? `找不到计划 ${state.route.fromPlan}，没有清空成一份新计划。` : "正在读取原计划，没有清空成一份新计划。"],
+      };
+    }
+    if (!hashOk(plan)) {
+      return {
+        selected: [],
+        allow: [],
+        runtimes: state.runtimes,
+        restoreErrors: ["内容与 hash 不符，没有用它重新生成。"],
       };
     }
     const target = composeTarget(plan);
@@ -1063,7 +1161,7 @@ function composeView() {
 function renderPlanPage() {
   const ctx = planActions();
   if (state.route.planPage === "new") return renderPlanNew(h, { ...ctx, ...composeView() });
-  if (state.route.planPage === "review") return renderPlanReview(h, { ...ctx, plan: findPlan(ctx.plans, state.route.planId) });
+  if (state.route.planPage === "review") return renderPlanReview(h, { ...ctx, plan: detailPlan(state.route.planId) });
   return renderPlanList(h, ctx);
 }
 
@@ -1737,6 +1835,7 @@ function render() {
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
+  ensurePlans();
 }
 
 // ---------- boot ----------
@@ -1797,7 +1896,7 @@ if (!MOCK) setInterval(refresh, META_POLL_MS);
 setInterval(renderChrome, 5_000);
 function syncPlanClock() {
   if (state.route.view !== "agents" || state.route.planPage !== "review") return;
-  const plan = findPlan(fixturePlans(), state.route.planId);
+  const plan = detailPlan(state.route.planId);
   const node = document.querySelector("[data-plan-clock]");
   if (!plan || !node) return;
   const line = clockLine(plan, Date.now());
@@ -1813,3 +1912,7 @@ function syncPlanClock() {
 }
 
 setInterval(syncPlanClock, 1000);
+setInterval(() => {
+  if (MOCK || state.route.view !== "agents" || state.route.planPage !== "list") return;
+  void loadPlanList(true);
+}, 15_000);
