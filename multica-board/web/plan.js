@@ -344,11 +344,16 @@ export function hashOk(plan) {
   return !plan?.parse_error && plan?.hash_verified === true;
 }
 
+function runtimeRawId(value) {
+  if (value && typeof value === "object") return value.id ?? null;
+  return value ?? null;
+}
+
 export function driftOf(row, agent) {
   if (!agent) return false;
   const fields = row.fields || {};
   const known = (field) => field?.old_known !== false;
-  if (known(fields.runtime) && fields.runtime?.old && (agent.runtime_id || "") !== (fields.runtime.old.id || "")) return true;
+  if (known(fields.runtime) && !Object.is(runtimeRawId(agent.runtime_id), runtimeRawId(fields.runtime?.old))) return true;
   if (known(fields.model) && !sameRaw(agent.model, fields.model?.old)) return true;
   if (known(fields.effort) && !sameRaw(agent.thinking_level, fields.effort?.old)) return true;
   if (known(fields.tier) && !sameRaw(agent.service_tier, fields.tier?.old)) return true;

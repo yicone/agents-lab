@@ -182,6 +182,48 @@ test("drift tag follows the atlas snapshot and unknown agents stay untagged", ()
   assert.equal(tags.split("现值已变").length - 1, 1);
 });
 
+test("known runtime ids compare null and empty string, and an unknown old runtime does not drift", () => {
+  const RT = "dd26ccd7-7e22-4912-ac43-201f9595f31b";
+  const row = (runtime) => ({
+    fields: {
+      runtime,
+      model: { old: "gpt-5.4", old_known: true },
+      effort: { old: null, old_known: true },
+      tier: { old: "", old_known: true },
+    },
+  });
+  const agent = (runtime_id) => ({ runtime_id, model: "gpt-5.4", thinking_level: null, service_tier: "" });
+  assert.equal(driftOf(row({ old: null, old_known: true }), agent(RT)), true);
+  assert.equal(driftOf(row({ old: RT, old_known: true }), agent(null)), true);
+  assert.equal(driftOf(row({ old: null, old_known: false }), agent(RT)), false);
+  assert.equal(driftOf(row({ old: RT, old_known: false }), agent(null)), false);
+  assert.equal(driftOf(row({ old: null, old_known: true }), agent(null)), false);
+  assert.equal(driftOf(row({ old: "", old_known: true }), agent(null)), true);
+  assert.equal(driftOf(row({ old: "", old_known: true }), agent("")), false);
+  assert.equal(driftOf(row({ old: { id: RT }, old_known: true }), agent(null)), true);
+
+  const plan = structuredClone(findPlan(planCatalog("", NOW), "drift"));
+  const changed = plan.rows[0];
+  changed.fields.runtime = { op: "omit", old: null, next: null, old_known: true };
+  const shown = {
+    children: renderPlanReview(vnode, {
+      ...ctxBase,
+      plan,
+      agentById: new Map([[changed.agent_id, { runtime_id: RT, model: "gpt-5.4", thinking_level: null, service_tier: null }]]),
+    }),
+  };
+  assert.match(collectText(shown).join(""), /现值已变/);
+  changed.fields.runtime = { op: "omit", old: null, next: null, old_known: false };
+  const hidden = {
+    children: renderPlanReview(vnode, {
+      ...ctxBase,
+      plan,
+      agentById: new Map([[changed.agent_id, { runtime_id: RT, model: "gpt-5.4", thinking_level: null, service_tier: null }]]),
+    }),
+  };
+  assert.equal(collectText(hidden).join("").includes("现值已变"), false);
+});
+
 test("row drawer shows raw null and empty string and does not render an approval section", () => {
   const row = findPlan(planCatalog("", NOW), "blanks").rows[0];
   const tree = { children: renderPlanDrawer(vnode, { ...ctxBase, closeDrawer() {} }, row) };
