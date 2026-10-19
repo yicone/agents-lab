@@ -227,6 +227,34 @@ export function buildCommand({ server, agentIds, workspaceIds, runtimeId, model,
   return { ok: true, error: "", text };
 }
 
+/** One schema-1 command per workspace, using that workspace's UUID for the chosen name. */
+export function buildWorkspaceCommands({ server, selected, allow, option, model, effort, tier }) {
+  if (!option) return { ok: false, error: "先选择 runtime", commands: [], missing: [] };
+  const commands = [];
+  const missing = [];
+  for (const ws of allow || []) {
+    const runtime = option.byWorkspace.get(ws.id);
+    if (!runtime) {
+      missing.push(ws);
+      continue;
+    }
+    const agentIds = (selected || []).filter((agent) => agent.workspace_id === ws.id).map((agent) => agent.id);
+    const command = buildCommand({
+      server,
+      agentIds,
+      workspaceIds: [ws.id],
+      runtimeId: runtime.id,
+      model,
+      effort,
+      tier,
+    });
+    commands.push({ ...command, workspace: ws, runtimeId: runtime.id });
+  }
+  const ready = commands.filter((command) => command.ok);
+  if (!ready.length) return { ok: false, error: commands[0]?.error || "先选择 runtime", commands, missing };
+  return { ok: true, error: "", text: ready.map((command) => command.text).join("\n"), commands, missing };
+}
+
 export function bucketOf(row) {
   const decision = row?.decision || "";
   if (decision === "APPROVABLE") return "approvable";
@@ -360,6 +388,28 @@ export function driftOf(row, agent) {
   return false;
 }
 
+export function runtimeKey(runtime) {
+  if (!runtime?.name) return `id:${runtime?.id || ""}`;
+  return `name:${runtime.provider || ""}:${runtime.name}`;
+}
+
+/** One dropdown row per name and provider. Each workspace keeps its own UUID. */
+export function runtimeOptions(runtimes, allow) {
+  const ids = new Set((allow || []).map((ws) => ws.id));
+  const groups = new Map();
+  for (const runtime of runtimes || []) {
+    if (!ids.has(runtime.workspace_id)) continue;
+    const key = runtimeKey(runtime);
+    let group = groups.get(key);
+    if (!group) {
+      group = { key, name: runtime.name, provider: runtime.provider, byWorkspace: new Map() };
+      groups.set(key, group);
+    }
+    if (!group.byWorkspace.has(runtime.workspace_id)) group.byWorkspace.set(runtime.workspace_id, runtime);
+  }
+  return [...groups.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)) || String(a.provider).localeCompare(String(b.provider)));
+}
+
 export function runtimeChoices(runtimes, allow) {
   const ids = new Set((allow || []).map((ws) => ws.id));
   return (runtimes || [])
@@ -480,29 +530,31 @@ export function renderPlanNew(h, ctx) {
   const allow = ctx.allow || workspaceAllowList(selected);
   const asked = askedServer(ctx);
   const serverToken = !asked || ctx.serverIdentity == null ? (asked ? "<server>" : "api.multica.ai") : ctx.serverIdentity;
-  let choices = runtimeChoices(ctx.runtimes || [], allow);
-  let runtime = choices.find((item) => item.id === ctx.route.rt) || null;
+  const choices = runtimeOptions(ctx.runtimes || [], allow);
+  let runtime = choices.find((item) => item.key === ctx.route.rt)
+    || choices.find((item) => [...item.byWorkspace.values()].some((row) => row.id === ctx.route.rt))
+    || null;
   if (ctx.route.rt && !runtime) {
-    runtime = { id: ctx.route.rt, name: "计划中的 runtime", provider: "未知", workspace_id: "" };
-    choices = [...choices, runtime];
+    runtime = {
+      key: ctx.route.rt,
+      name: "计划中的 runtime",
+      provider: "未知",
+      byWorkspace: new Map(allow.map((ws) => [ws.id, { id: ctx.route.rt, workspace_id: ws.id }])),
+    };
+    choices.push(runtime);
   }
   const tierAllowed = tierSetAllowed(runtime?.provider);
   const tier = tierAllowed ? ctx.route.tier : "omit";
-  const command = buildCommand({
+  const command = buildWorkspaceCommands({
     server: serverToken,
-    agentIds: selected.map((agent) => agent.id),
-    workspaceIds: allow.map((ws) => ws.id),
-    runtimeId: runtime?.id || "",
+    selected,
+    allow,
+    option: runtime,
     model: ctx.route.model,
     effort: ctx.route.effort,
     tier,
   });
-  const missing = new Set();
-  if (runtime) {
-    for (const agent of selected) {
-      if (agent.workspace_id && agent.workspace_id !== runtime.workspace_id) missing.add(agent.workspace_id);
-    }
-  }
+  const missing = command.missing || [];
   const fieldRow = (key, label, token, disabledSet) =>
     h(
       "div",
@@ -569,7 +621,7 @@ export function renderPlanNew(h, ctx) {
         " ",
         h("button", { type: "button", class: "text-btn", onclick: (e) => ctx.backToSelect(e) }, "改选择"),
       ),
-      missing.size
+      missing.length
         ? h("p", { class: "bad-n" }, "该 workspace 没有此 runtime。页面只提示，判定仍归计划器。")
         : null,
     ),
@@ -585,18 +637,18 @@ export function renderPlanNew(h, ctx) {
           "select",
           {
             "aria-label": "目标 runtime",
-            value: runtime?.id || "",
+            value: runtime?.key || "",
             onchange: (e) => {
-              const next = choices.find((item) => item.id === e.target.value);
+              const next = choices.find((item) => item.key === e.target.value);
               const patch = { rt: e.target.value };
               if (!tierSetAllowed(next?.provider) && ctx.route.tier.startsWith("set:")) patch.tier = "omit";
               ctx.setRoute(patch);
             },
           },
           h("option", { value: "", selected: !runtime }, "选择 runtime"),
-          choices.map((item) => h("option", { value: item.id, selected: item.id === runtime?.id }, `${item.name} · ${item.provider}`)),
+          choices.map((item) => h("option", { value: item.key, selected: item.key === runtime?.key }, `${item.name} · ${item.provider}`)),
         ),
-        h("span", { class: "muted" }, " 只列 allow-list 内 workspace 的 runtime"),
+        h("span", { class: "muted" }, " 同名 runtime 合并为一行，命令按 workspace 写入各自的 UUID"),
       ),
       fieldRow("model", "模型", ctx.route.model, false),
       fieldRow("effort", "推理", ctx.route.effort, false),
@@ -614,7 +666,10 @@ export function renderPlanNew(h, ctx) {
         copyButton(h, ctx, command.ok ? command.text : "", "复制"),
       ),
       command.ok
-        ? h("pre", { class: "plan-command" }, command.text)
+        ? h("div", null, command.commands.filter((item) => item.ok).map((item) => h("div", null,
+          command.commands.filter((row) => row.ok).length > 1 ? h("p", { class: "muted" }, item.workspace.name) : null,
+          h("pre", { class: "plan-command" }, item.text),
+        )))
         : h("p", { class: "bad-n" }, command.error),
       h(
         "p",
