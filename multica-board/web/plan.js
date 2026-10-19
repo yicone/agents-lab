@@ -708,7 +708,7 @@ export function renderPlanList(h, ctx) {
     h("p", { class: "muted" }, latest ? `计划目录 · 最近一份 ${ctx.ago(latest.generated_at)}` : "计划目录 · 空"),
     banner,
     body,
-  ];
+  ].filter((node) => node != null && node !== false);
 }
 
 export function renderPlanReview(h, ctx) {

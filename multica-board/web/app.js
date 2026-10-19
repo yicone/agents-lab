@@ -12,7 +12,9 @@ import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability,
 import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
 import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
 import { mapPlanDetail, mapPlanList } from "./plan-api.js";
+import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
+import { placeChildren } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
@@ -104,6 +106,12 @@ const state = {
   planDetailErrors: new Map(),
   planDetailLoading: new Set(),
 };
+
+const planReads = createPlanReads(state, {
+  fetchList: async () => mapPlanList(await fetchJSON("/api/plans", "plans")),
+  fetchDetail: async (id) => mapPlanDetail(await fetchJSON(`/api/plans/${encodeURIComponent(id)}`, "plan")),
+  onUpdate: () => render(),
+});
 
 // ---------- data ----------
 
@@ -979,50 +987,9 @@ function detailPlan(id) {
   return state.planDetails.get(id) || null;
 }
 
-async function loadPlanList(force = false) {
-  if (MOCK) return;
-  if (state.planListLoading) return;
-  if (state.planListLoaded && !force) return;
-  state.planListLoading = true;
-  try {
-    const mapped = mapPlanList(await fetchJSON("/api/plans", "plans"));
-    state.planList = mapped.plans;
-    state.planListComplete = mapped.complete;
-    state.planDirectoryError = mapped.directory_error;
-    state.planListError = "";
-    state.planListLoaded = true;
-  } catch (err) {
-    state.planListError = String(err.message || err);
-    state.planListLoaded = true;
-    if (!state.planList?.length) state.planListComplete = false;
-  } finally {
-    state.planListLoading = false;
-    render();
-  }
-}
-
-async function ensurePlanDetail(id) {
-  if (MOCK || !id || state.planDetails.has(id) || state.planDetailLoading.has(id) || state.planDetailErrors.has(id)) return;
-  state.planDetailLoading.add(id);
-  try {
-    const mapped = await mapPlanDetail(await fetchJSON(`/api/plans/${encodeURIComponent(id)}`, "plan"));
-    if (!mapped.ok) state.planDetailErrors.set(id, mapped.error || "计划无法读取");
-    else state.planDetails.set(id, mapped.plan);
-  } catch (err) {
-    state.planDetailErrors.set(id, String(err.message || err));
-  } finally {
-    state.planDetailLoading.delete(id);
-    render();
-  }
-}
-
 function ensurePlans() {
-  if (MOCK || state.route.view !== "agents") return;
-  const page = state.route.planPage;
-  const wantsList = page === "list" || page === "review" || (page === "new" && state.route.fromPlan);
-  if (wantsList && !state.planListLoaded && !state.planListLoading) void loadPlanList(false);
-  const detailId = page === "review" ? state.route.planId : page === "new" ? state.route.fromPlan : "";
-  if (detailId) void ensurePlanDetail(detailId);
+  if (MOCK) return;
+  void planReads.sync(state.route);
 }
 
 async function copyText(text) {
@@ -1823,7 +1790,7 @@ function renderMain() {
             : view === "map"
               ? renderMap(ctx)
               : renderIssues();
-  main.replaceChildren(...parts);
+  placeChildren(main, parts);
 }
 
 function render() {
@@ -1914,5 +1881,5 @@ function syncPlanClock() {
 setInterval(syncPlanClock, 1000);
 setInterval(() => {
   if (MOCK || state.route.view !== "agents" || state.route.planPage !== "list") return;
-  void loadPlanList(true);
+  void planReads.refreshList();
 }, 15_000);
