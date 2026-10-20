@@ -113,6 +113,10 @@ test("layer rails only link to pages that exist", () => {
     assert.match(text, /Issues 中本层的关注项/);
     assert.match(text, new RegExp(`#/decide\\?layer=${id}`));
   }
+  const l3 = railLinks("l3").map((link) => link.href).join("\n");
+  const l4 = railLinks("l4").map((link) => `${link.label} ${link.href}`).join("\n");
+  assert.match(l3, /#\/agents\?has_instructions=1/);
+  assert.match(l4, /Grok Bots & 桥接 #\/agents\?kind=bots/);
 });
 
 test("a layers report drives the map, and an unfilled report stays a guide", () => {

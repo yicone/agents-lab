@@ -368,6 +368,63 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .agent-status { color: var(--muted); }
 .agent-status.s-working { color: var(--run); font-weight: 600; }
 .is-archived td { color: var(--faint); }
+.agent-row { cursor: pointer; }
+.agent-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.matrix tbody tr.is-selected { background: var(--info-bg); }
+.matrix tbody tr.is-linked { box-shadow: inset 3px 0 0 var(--accent); }
+.instr-empty { color: var(--faint); }
+.skill-missing { color: var(--bad); font-weight: 700; }
+.duty-empty {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+.seg.agents-kind { flex-wrap: wrap; overflow: visible; max-width: 100%; }
+.seg.agents-kind button { white-space: nowrap; }
+.bot-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.bot-stat {
+  flex: 1 1 160px;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.bot-stat.is-bad { color: var(--bad); font-weight: 700; }
+.bot-stat.is-warn { color: var(--warn); font-weight: 650; }
+.tag.room { background: var(--info-bg); color: var(--info); margin-left: 6px; }
+.drawer-tabs { margin: 8px 0; }
+.drawer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.drawer-actions button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.instr-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.5 var(--mono);
+  background: var(--panel-2);
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 40vh;
+  overflow: auto;
+}
+.skill-list { margin: 0; padding-left: 18px; }
+@media (max-width: 420px) {
+  .main { padding: 8px; }
+  .drawer { width: 100vw; padding: 10px 12px 20px; }
+  .bot-stat { flex-basis: 100%; }
+  .seg.agents-kind { width: 100%; }
+}
 
 /* ---------- runs drawer ---------- */
 

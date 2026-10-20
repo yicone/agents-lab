@@ -16,6 +16,7 @@ import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { placeChildren } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
+import { agentQueryFields, instructionCell, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillsCell } from "./agents-view.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
 const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
@@ -81,6 +82,7 @@ const state = {
   meta: null,
   issues: [],
   agents: [],
+  bots: null,
   runtimes: [],
   recentWindowH: 24,
   fetchError: null,
@@ -164,6 +166,21 @@ async function getRuns(it) {
   return { generated_at: all.generated_at, items };
 }
 
+async function loadBots() {
+  try {
+    if (MOCK) return await getJSON("bots");
+    return await fetchJSON("/api/bots", "bots");
+  } catch (err) {
+    return { ok: false, reason: "error", error: String(err.message || err), items: [] };
+  }
+}
+
+function botsRefreshKey(payload) {
+  if (!payload) return "";
+  const items = payload.items || [];
+  return [payload.ok, payload.reason, payload.account_slot, payload.delivery, items.length, items.map((item) => `${item.id}:${item.updated_at}:${item.unread_count}:${item.description || ""}`).join(",")].join("|");
+}
+
 async function loadSkills() {
   try {
     if (MOCK) return await getJSON("skills");
@@ -217,8 +234,10 @@ async function refresh(force = false) {
     const meta = await getJSON("meta");
     const changed = force || !state.meta || meta.generated_at !== state.meta.generated_at;
     const previousSkills = skillsRefreshKey(state.skills);
-    // Skills live on this machine, so they reload even when the Multica snapshot is unchanged.
+    const previousBots = botsRefreshKey(state.bots);
+    // Skills and the Grok roster live on this machine, so they reload even when the Multica snapshot is unchanged.
     const skillsPromise = loadSkills();
+    const botsPromise = loadBots();
     if (changed) {
       const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
@@ -248,10 +267,12 @@ async function refresh(force = false) {
       }
     }
     state.skills = await skillsPromise;
+    state.bots = await botsPromise;
     const skillsChanged = skillsRefreshKey(state.skills) !== previousSkills;
+    const botsChanged = botsRefreshKey(state.bots) !== previousBots;
     state.meta = meta;
     state.fetchError = null;
-    if (changed || skillsChanged) render();
+    if (changed || skillsChanged || botsChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -874,13 +895,29 @@ function closeDrawer() {
   if (!state.drawer) return;
   const opener = state.drawer.opener;
   const planAgent = state.drawer.kind === "plan" ? state.drawer.row.agent_id : "";
-  const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan";
+  const rowId = state.drawer.rowId || "";
+  const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan" || state.drawer.kind === "agent" || state.drawer.kind === "bot";
   state.drawer = null;
   renderDrawer();
   if (refreshMain) renderMain();
-  const fresh = planAgent ? document.getElementById(`plan-row-${planAgent}`) : null;
+  const fresh = planAgent ? document.getElementById(`plan-row-${planAgent}`) : rowId ? document.getElementById(rowId) : null;
   if (fresh) fresh.focus();
   else opener?.focus();
+}
+
+function openRecordDrawer(kind, record, opener) {
+  const rowId = kind === "agent" ? `agent-row-${record.workspace_id}-${record.id}` : `bot-row-${record.id}`;
+  state.drawer = {
+    kind,
+    agent: kind === "agent" ? record : null,
+    bot: kind === "bot" ? record : null,
+    section: "brief",
+    rowId,
+    opener: opener || document.activeElement,
+  };
+  render();
+  renderDrawer();
+  document.querySelector("#drawer .drawer-close")?.focus();
 }
 
 function runRow(r) {
@@ -906,10 +943,53 @@ function renderDrawer() {
   const el = document.getElementById("drawer");
   const d = state.drawer;
   el.hidden = !d;
-  el.setAttribute("aria-label", d?.kind === "skill" ? "skill 详情" : d?.kind === "plan" ? "计划行详情" : "issue 详情");
+  const drawerLabel = { skill: "skill 详情", plan: "计划行详情", agent: "agent 详情", bot: "bot 详情" };
+  el.setAttribute("aria-label", drawerLabel[d?.kind] || "issue 详情");
   document.body.classList.toggle("drawer-open", !!d);
   if (!d) {
     el.replaceChildren();
+    return;
+  }
+  if (d.kind === "agent") {
+    const row = agentRows().find((item) => item.a.id === d.agent.id && item.a.workspace_id === d.agent.workspace_id);
+    el.replaceChildren(
+      ...renderAgentDrawer(
+        h,
+        {
+          closeDrawer,
+          copy: copyText,
+          setSection: (section) => {
+            if (!state.drawer || state.drawer.kind !== "agent") return;
+            state.drawer = { ...state.drawer, section };
+            renderDrawer();
+            document.querySelector("#drawer .drawer-tabs button.active")?.focus();
+          },
+          wsTag: wsTag(row?.ws),
+          extLink,
+          provider: row ? providerOf(row) : "",
+          recentWindowH: state.recentWindowH,
+          ago,
+          errKind,
+        },
+        state.drawer,
+      ),
+    );
+    return;
+  }
+  if (d.kind === "bot") {
+    const names = new Map((state.bots?.items || []).map((bot) => [bot.id, bot.name || bot.id]));
+    el.replaceChildren(
+      ...renderBotDrawer(
+        h,
+        {
+          closeDrawer,
+          copy: copyText,
+          delivery: state.bots?.delivery,
+          memberName: (id) => names.get(id) || id,
+        },
+        state.drawer,
+      ),
+    );
     return;
   }
   if (d.kind === "skill") {
@@ -1219,9 +1299,24 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     : h("td", { class: "muted" }, "—");
 
   const picked = parseSel(state.route.sel).includes(a.id);
+  const selected = state.drawer?.kind === "agent" && state.drawer.agent?.id === a.id && state.drawer.agent?.workspace_id === a.workspace_id;
   return h(
     "tr",
-    { class: `${degraded ? "is-stale" : ""}${a.archived ? " is-archived" : ""}` },
+    {
+      id: `agent-row-${a.workspace_id}-${a.id}`,
+      class: `agent-row${degraded ? " is-stale" : ""}${a.archived ? " is-archived" : ""}${selected ? " is-selected" : ""}`,
+      tabindex: "0",
+      "aria-label": `打开 ${a.name}`,
+      onclick: (event) => {
+        if (event.target.closest("a, button, input")) return;
+        openRecordDrawer("agent", a, event.currentTarget);
+      },
+      onkeydown: (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openRecordDrawer("agent", a, event.currentTarget);
+      },
+    },
     planMode
       ? h(
           "td",
@@ -1252,6 +1347,8 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     dimCell(a.model),
     dimCell(a.thinking_level),
     dimCell(a.service_tier),
+    instructionCell(h, a),
+    skillsCell(h, a, providerOf({ a, rt })),
     h(
       "td",
       { class: "num" },
@@ -1263,9 +1360,33 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
   );
 }
 
+function onAgentKind(id) {
+  const drawerOpen = state.drawer?.kind === "agent" || state.drawer?.kind === "bot";
+  if (drawerOpen) state.drawer = null;
+  if (id === "plan") setRoute({ kind: "", planMode: true });
+  else if (id === "bots") setRoute({ kind: "bots", planMode: false });
+  else setRoute({ kind: "", planMode: false, ...(state.route.planMode ? { sel: "" } : {}) });
+  if (drawerOpen) renderDrawer();
+}
+
 function renderAgents() {
   const r = state.route;
-  const planMode = r.planMode && !r.planPage;
+  const planMode = r.planMode && !r.planPage && r.kind !== "bots";
+  const switcher = kindSwitch(h, { route: r, planMode, onKind: onAgentKind });
+  if (r.kind === "bots" && !r.planPage) {
+    return renderBotPage(h, {
+      route: r,
+      payload: state.bots,
+      nowMs: now(),
+      ago,
+      absTime,
+      matchesQuery,
+      setRoute,
+      kindSwitch: switcher,
+      selectedId: state.drawer?.kind === "bot" ? state.drawer.bot?.id : "",
+      openBot: (bot, opener) => openRecordDrawer("bot", bot, opener),
+    });
+  }
   const all = agentRows();
   const scoped = all.filter(({ ws }) => !r.ws || ws?.slug === r.ws);
   const summary = providerSummary(scoped);
@@ -1276,7 +1397,8 @@ function renderAgents() {
     if (r.provider && providerOf(row) !== r.provider) return false;
     if (r.failedOnly && !a.recent?.failed) return false;
     if (r.offlineOnly && a.runtime_id && rt?.status === "online") return false;
-    return matchesQuery(r.q, a.name, a.model, a.thinking_level, a.service_tier, rt?.name, rt?.provider, ws?.name);
+    if (r.hasInstructions && !(typeof a.instructions === "string" && a.instructions.trim())) return false;
+    return matchesQuery(r.q, ...agentQueryFields(a, ws, rt));
   });
 
   const strip = h(
@@ -1336,6 +1458,7 @@ function renderAgents() {
   const toolbar = h(
     "div",
     { class: "toolbar" },
+    switcher,
     h(
       "div",
       { class: "seg", role: "group", "aria-label": "分组" },
@@ -1350,16 +1473,7 @@ function renderAgents() {
     toggle("failedOnly", `只看 ${state.recentWindowH}h 有失败`),
     toggle("offlineOnly", "只看离线 / 未绑定"),
     toggle("archived", "显示已归档"),
-    h(
-      "button",
-      {
-        type: "button",
-        class: planMode ? "active" : "",
-        "aria-pressed": planMode ? "true" : "false",
-        onclick: () => (planMode ? exitPlanSelect() : setRoute({ planMode: true })),
-      },
-      "规划切换…",
-    ),
+    toggle("hasInstructions", "只看有指令"),
     h("span", { class: "muted" }, `${rows.length} / ${all.length} agent`),
   );
 
@@ -1378,7 +1492,7 @@ function renderAgents() {
     h(
       "tr",
       null,
-      [...(planMode ? ["选择"] : []), "Agent", "状态", "Runtime", "模型", "推理", "Tier", `${state.recentWindowH}h`, "最近失败"].map((c) => h("th", { scope: "col" }, c)),
+      [...(planMode ? ["选择"] : []), "Agent", "状态", "Runtime", "模型", "推理", "Tier", "Instructions", "Skills", `${state.recentWindowH}h`, "最近失败"].map((c) => h("th", { scope: "col" }, c)),
     ),
   );
   const bodies = [...groups.values()].map((g) =>
@@ -1390,7 +1504,7 @@ function renderAgents() {
         { class: "group-row" },
           h(
           "th",
-          { colspan: planMode ? 9 : 8, scope: "rowgroup" },
+          { colspan: planMode ? 11 : 10, scope: "rowgroup" },
           g.ws ? wsTag(g.ws) : h("span", { class: "p-name" }, g.key),
           h("span", { class: "muted" }, ` ${g.rows.length}`),
         ),
@@ -1719,6 +1833,16 @@ function toolSignal(signal) {
     return `${count} 条 · 待处理 ${badge} · 基线债 ${debt}`;
   }
   if (signal === "agents") return `${state.agents.filter((agent) => !agent.archived).length} 个 agent`;
+  if (signal === "instructions") {
+    const n = state.agents.filter((agent) => !agent.archived && typeof agent.instructions === "string" && agent.instructions.trim()).length;
+    return n ? `${n} 条有指令` : "还没有指令";
+  }
+  if (signal === "bots") {
+    const payload = state.bots;
+    if (!payload) return "花名册加载中";
+    if (payload.ok === false) return payload.reason === "absent" ? "本机未登录" : "花名册还没接上";
+    return `${payload.items?.length ?? 0} 个`;
+  }
   if (signal === "daemon") {
     const online = state.runtimes.filter((rt) => rt.status === "online").length;
     return online ? `${online} 个在线` : "没有在线 runtime";
@@ -1798,7 +1922,7 @@ function render() {
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
   const view = state.route.view;
   search.placeholder =
-    view === "decide" ? "搜索待决定的 issue" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : "搜索 identifier / 标题 / agent / 模型";
+    view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
@@ -1837,8 +1961,10 @@ document.addEventListener("keydown", (e) => {
     search.select();
   } else if (viewForKey(e.key)) {
     const next = viewForKey(e.key);
-    if (next === "agents" && (state.route.planPage || state.route.planMode)) setRoute({ planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" });
-    else setRoute({ view: next });
+    if (next === "agents") {
+      const resetPlan = state.route.planPage || state.route.planMode;
+      setRoute({ view: "agents", kind: "", ...(resetPlan ? { planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" } : {}) });
+    } else setRoute({ view: next });
   }
   else if ((e.key === "[" || e.key === "]") && state.route.view === "map" && /^l[1-5]$/.test(state.route.layer)) {
     const layer = stepLayer(state.route.layer, e.key === "]" ? "next" : "prev");
@@ -1849,8 +1975,9 @@ document.addEventListener("keydown", (e) => {
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", (e) => {
     e.preventDefault();
-    if (t.dataset.view === "agents" && (state.route.planPage || state.route.planMode)) {
-      setRoute({ planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" });
+    if (t.dataset.view === "agents") {
+      const resetPlan = state.route.planPage || state.route.planMode;
+      setRoute({ view: "agents", kind: "", ...(resetPlan ? { planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" } : {}) });
       return;
     }
     setRoute({ view: t.dataset.view });
