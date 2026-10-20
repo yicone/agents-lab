@@ -101,6 +101,93 @@ def _issue_bucket(row: dict[str, Any]) -> str | None:
     return None
 
 
+def _json_list(raw: str | None) -> list[Any]:
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _skill_name_key(name: Any) -> str | None:
+    if not isinstance(name, str):
+        return None
+    text = " ".join(name.split())
+    return text or None
+
+
+def build_workspace_installs(
+    skill_rows: list[dict[str, Any]],
+    agent_rows: list[dict[str, Any]],
+    workspace_rows: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Cloud skills grouped by name, with the agents in that workspace that mount each one."""
+    workspaces = {row["id"]: row for row in workspace_rows if row.get("id")}
+    mounts: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
+
+    def add_mount(workspace_id: str, key: str | None, agent: dict[str, Any], enabled: bool) -> None:
+        if not workspace_id or not key:
+            return
+        bucket = mounts.setdefault((workspace_id, key), {})
+        current = bucket.get(agent["id"])
+        if current is None or (enabled and not current["enabled"]):
+            bucket[agent["id"]] = {"id": agent["id"], "name": agent.get("name"), "enabled": enabled}
+
+    for agent in agent_rows:
+        ws = agent.get("workspace_id")
+        if not ws or not agent.get("id"):
+            continue
+        seen_names: set[str] = set()
+        for item in _json_list(agent.get("skills_detail_json")):
+            if not isinstance(item, dict):
+                continue
+            enabled = item.get("enabled") is not False
+            if isinstance(item.get("id"), str) and item["id"]:
+                add_mount(ws, "id:" + item["id"], agent, enabled)
+            name = _skill_name_key(item.get("name"))
+            if name:
+                seen_names.add(name)
+                add_mount(ws, "name:" + name, agent, enabled)
+        for name in _skill_names(agent.get("skills_json")):
+            key = _skill_name_key(name)
+            if key and key not in seen_names:
+                add_mount(ws, "name:" + key, agent, True)
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for skill in skill_rows:
+        name = _skill_name_key(skill.get("name"))
+        if not name or not skill.get("id") or not skill.get("workspace_id"):
+            continue
+        ws = workspaces.get(skill["workspace_id"], {})
+        attached: dict[str, dict[str, Any]] = {}
+        for source in (
+            mounts.get((skill["workspace_id"], "id:" + skill["id"]), {}),
+            mounts.get((skill["workspace_id"], "name:" + name), {}),
+        ):
+            for aid, mount in source.items():
+                current = attached.get(aid)
+                if current is None or (mount["enabled"] and not current["enabled"]):
+                    attached[aid] = mount
+        agents = sorted(attached.values(), key=lambda item: ((item.get("name") or "").casefold(), item["id"]))
+        grouped.setdefault(name, []).append(
+            {
+                "workspace_id": skill["workspace_id"],
+                "workspace_slug": ws.get("slug"),
+                "workspace_name": ws.get("name"),
+                "id": skill["id"],
+                "name": name,
+                "description": skill.get("description"),
+                "updated_at": skill.get("updated_at"),
+                "agents": agents,
+            }
+        )
+    for installs in grouped.values():
+        installs.sort(key=lambda item: ((item.get("workspace_slug") or ""), item["workspace_id"], item["id"]))
+    return grouped
+
+
 def _skill_names(raw: str | None) -> set[str]:
     if not raw:
         return set()
@@ -177,93 +264,6 @@ def _fit_text(lines: list[str]) -> str:
     if not kept:
         return "…\n"
     return packed(kept, True)
-
-
-def _skill_name_key(name: Any) -> str | None:
-    if not isinstance(name, str):
-        return None
-    text = " ".join(name.split())
-    return text or None
-
-
-def _json_list(raw: str | None) -> list[Any]:
-    if not raw:
-        return []
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
-    return data if isinstance(data, list) else []
-
-
-def build_workspace_installs(
-    skill_rows: list[dict[str, Any]],
-    agent_rows: list[dict[str, Any]],
-    workspace_rows: list[dict[str, Any]],
-) -> dict[str, list[dict[str, Any]]]:
-    """Cloud skills grouped by name, with the agents in that workspace that mount each one."""
-    workspaces = {row["id"]: row for row in workspace_rows if row.get("id")}
-    mounts: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
-
-    def add_mount(workspace_id: str, key: str | None, agent: dict[str, Any], enabled: bool) -> None:
-        if not workspace_id or not key:
-            return
-        bucket = mounts.setdefault((workspace_id, key), {})
-        current = bucket.get(agent["id"])
-        if current is None or (enabled and not current["enabled"]):
-            bucket[agent["id"]] = {"id": agent["id"], "name": agent.get("name"), "enabled": enabled}
-
-    for agent in agent_rows:
-        ws = agent.get("workspace_id")
-        if not ws or not agent.get("id"):
-            continue
-        seen_names: set[str] = set()
-        for item in _json_list(agent.get("skills_detail_json")):
-            if not isinstance(item, dict):
-                continue
-            enabled = item.get("enabled") is not False
-            if isinstance(item.get("id"), str) and item["id"]:
-                add_mount(ws, "id:" + item["id"], agent, enabled)
-            name = _skill_name_key(item.get("name"))
-            if name:
-                seen_names.add(name)
-                add_mount(ws, "name:" + name, agent, enabled)
-        for name in _skill_names(agent.get("skills_json")):
-            key = _skill_name_key(name)
-            if key and key not in seen_names:
-                add_mount(ws, "name:" + key, agent, True)
-
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for skill in skill_rows:
-        name = _skill_name_key(skill.get("name"))
-        if not name or not skill.get("id") or not skill.get("workspace_id"):
-            continue
-        ws = workspaces.get(skill["workspace_id"], {})
-        attached: dict[str, dict[str, Any]] = {}
-        for source in (
-            mounts.get((skill["workspace_id"], "id:" + skill["id"]), {}),
-            mounts.get((skill["workspace_id"], "name:" + name), {}),
-        ):
-            for aid, mount in source.items():
-                current = attached.get(aid)
-                if current is None or (mount["enabled"] and not current["enabled"]):
-                    attached[aid] = mount
-        agents = sorted(attached.values(), key=lambda item: ((item.get("name") or "").casefold(), item["id"]))
-        grouped.setdefault(name, []).append(
-            {
-                "workspace_id": skill["workspace_id"],
-                "workspace_slug": ws.get("slug"),
-                "workspace_name": ws.get("name"),
-                "id": skill["id"],
-                "name": name,
-                "description": skill.get("description"),
-                "updated_at": skill.get("updated_at"),
-                "agents": agents,
-            }
-        )
-    for installs in grouped.values():
-        installs.sort(key=lambda item: ((item.get("workspace_slug") or ""), item["workspace_id"], item["id"]))
-    return grouped
 
 
 def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -621,6 +621,11 @@ class Views:
                     "thinking_level": a["thinking_level"],
                     "service_tier": a["service_tier"],
                     "max_concurrent_tasks": a["max_concurrent_tasks"],
+                    "description": a.get("description"),
+                    "instructions": a.get("instructions"),
+                    "instructions_sha256": a.get("instructions_sha256"),
+                    "skills": _json_list(a.get("skills_detail_json")),
+                    "disabled_runtime_skills": _json_list(a.get("disabled_runtime_skills_json")),
                     "tasks": load.get(k, {"running": 0, "queued": 0}),
                     "recent": recent.get(k, {"completed": 0, "failed": 0, "last_failed_at": None,
                                              "last_error_kind": None, "last_failed_issue_identifier": None}),
@@ -628,6 +633,13 @@ class Views:
                 }
             )
         return {"generated_at": self.generated_at(), "recent_window_h": RECENT_WINDOW_H, "items": items}
+
+    # --- /api/bots ----------------------------------------------------------
+
+    def bots(self) -> dict[str, Any]:
+        from .grok_bots import load_bots
+
+        return load_bots()
 
     # --- /api/runtimes ------------------------------------------------------
 
