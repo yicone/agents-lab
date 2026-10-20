@@ -1,0 +1,121 @@
+{
+  "schema": "grok-bots-manifest/v1",
+  "description": "Cloud skill names declared for each Grok Bot. Maintained in Git. This tool does not call the Grok client RPC.",
+  "bots": [
+    {
+      "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+      "name": "爱买 AI PM",
+      "skills": []
+    },
+    {
+      "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+      "name": "Agent Steward",
+      "skills": []
+    },
+    {
+      "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+      "name": "EO-PM",
+      "skills": []
+    },
+    {
+      "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+      "name": "信息获取 Bot",
+      "skills": []
+    },
+    {
+      "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+      "name": "Multica 转发",
+      "skills": []
+    },
+    {
+      "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+      "name": "小秘书",
+      "skills": []
+    },
+    {
+      "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+      "name": "网络管家",
+      "skills": []
+    },
+    {
+      "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+      "name": "macOS",
+      "skills": []
+    },
+    {
+      "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+      "name": "育儿辅导",
+      "skills": []
+    },
+    {
+      "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+      "name": "SaaS DNS Bot",
+      "skills": []
+    },
+    {
+      "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+      "name": "Healthcare",
+      "skills": []
+    },
+    {
+      "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+      "name": "X 运营",
+      "skills": []
+    },
+    {
+      "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+      "name": "English Study Assistant Bot",
+      "skills": []
+    },
+    {
+      "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+      "name": "ClipVibe PM",
+      "skills": []
+    },
+    {
+      "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+      "name": "个人品牌 PM",
+      "skills": []
+    },
+    {
+      "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+      "name": "存储",
+      "skills": []
+    },
+    {
+      "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+      "name": "Notebook",
+      "skills": []
+    },
+    {
+      "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+      "name": "支付方式 Bot",
+      "skills": []
+    },
+    {
+      "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+      "name": "小红书文案 Bot",
+      "skills": []
+    },
+    {
+      "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+      "name": "Product Researcher",
+      "skills": []
+    },
+    {
+      "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+      "name": "UI 平面设计 Bot",
+      "skills": []
+    },
+    {
+      "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+      "name": "Stock",
+      "skills": []
+    },
+    {
+      "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+      "name": "macOS 执委会",
+      "skills": []
+    }
+  ]
+}

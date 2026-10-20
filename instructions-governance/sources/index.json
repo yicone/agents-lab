@@ -1,0 +1,290 @@
+{
+  "schema": "instructions-sources/v1",
+  "agents": [
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "8fb83cbf-700e-4c53-97fe-889878e2e70b",
+      "name": "Vega",
+      "path": "agents/acm-lab/8fb83cbf-700e-4c53-97fe-889878e2e70b.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+      "name": "Knowledge Archivist",
+      "path": "agents/acm-lab/8b931db7-eba5-4fac-9aca-d4e907f353d9.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "cd9cf2e1-7afb-42de-9048-912b625bcb17",
+      "name": "Repo Analyst",
+      "path": "agents/acm-lab/cd9cf2e1-7afb-42de-9048-912b625bcb17.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "a916556c-1e70-4710-ab68-80d7f057970d",
+      "name": "Builder · Cursor",
+      "path": "agents/acm-lab/a916556c-1e70-4710-ab68-80d7f057970d.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "f2757059-c19f-4758-8541-41d30a273f61",
+      "name": "Reviewer · Hermes",
+      "path": "agents/acm-lab/f2757059-c19f-4758-8541-41d30a273f61.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "b9edc8e1-9b8e-4612-9577-c86d63ee7b0d",
+      "name": "存储",
+      "path": "agents/acm-lab/b9edc8e1-9b8e-4612-9577-c86d63ee7b0d.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "ab5d117b-2045-4d42-ac8c-91328fd40895",
+      "name": "产品体验研究员 · Antigravity",
+      "path": "agents/acm-lab/ab5d117b-2045-4d42-ac8c-91328fd40895.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "4f2ffa51-501a-4b4a-bd85-a88ab9b9cb89",
+      "name": "前端设计师 · Cursor",
+      "path": "agents/acm-lab/4f2ffa51-501a-4b4a-bd85-a88ab9b9cb89.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "b259d980-fe63-42c8-9ede-cb4148241019",
+      "name": "前端实现 · Cursor",
+      "path": "agents/acm-lab/b259d980-fe63-42c8-9ede-cb4148241019.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "04c7cc0a-f3dc-415d-a371-4b7ceddd5b84",
+      "name": "视觉设计师·Codex",
+      "path": "agents/acm-lab/04c7cc0a-f3dc-415d-a371-4b7ceddd5b84.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "cae9af99-b8c9-41bc-859b-62ac3f052acc",
+      "name": "视觉设计师·Antigravity",
+      "path": "agents/acm-lab/cae9af99-b8c9-41bc-859b-62ac3f052acc.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "9bfe8713-ce7e-499b-830e-423223a64480",
+      "name": "副调度",
+      "path": "agents/acm-lab/9bfe8713-ce7e-499b-830e-423223a64480.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "5a9cf748-d8d8-4d5b-9989-284ac9fbebc1",
+      "name": "调研 · Devin free",
+      "path": "agents/acm-lab/5a9cf748-d8d8-4d5b-9989-284ac9fbebc1.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "5305f7b9-52b7-4aa3-9c6d-180f3490c50d",
+      "name": "Builder · Codex",
+      "path": "agents/acm-lab/5305f7b9-52b7-4aa3-9c6d-180f3490c50d.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "18276dcc-100c-41f9-b407-4c630f3fc7a8",
+      "name": "Builder · Devin fusion",
+      "path": "agents/acm-lab/18276dcc-100c-41f9-b407-4c630f3fc7a8.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "395cf952-5551-404c-b17a-201669521866",
+      "name": "调研 · Antigravity",
+      "path": "agents/acm-lab/395cf952-5551-404c-b17a-201669521866.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "55584579-68e9-40e1-885e-4e1d850adf94",
+      "name": "通用 · Codex",
+      "path": "agents/acm-lab/55584579-68e9-40e1-885e-4e1d850adf94.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "09bf1839-6450-40e1-b183-9c69cedef991",
+      "name": "Reviewer · Devin free",
+      "path": "agents/acm-lab/09bf1839-6450-40e1-b183-9c69cedef991.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "d158f7a8-ef9f-43dd-94e7-52b8a2897315",
+      "name": "Mika",
+      "path": null
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "ac704b6e-3fed-48c8-a1cb-8042a7262f7a",
+      "name": "前端设计师 · Antigravity",
+      "path": "agents/acm-lab/ac704b6e-3fed-48c8-a1cb-8042a7262f7a.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "1f78b893-990b-4a05-8b94-8b67d2e0d4bd",
+      "name": "前端实现 · Codex",
+      "path": "agents/acm-lab/1f78b893-990b-4a05-8b94-8b67d2e0d4bd.md"
+    }
+  ],
+  "bots": [
+    {
+      "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+      "name": "爱买 AI PM",
+      "path": "bots/18fc579e-758b-4b00-ade6-91c42ea7e4ca.md"
+    },
+    {
+      "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+      "name": "Agent Steward",
+      "path": "bots/9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985.md"
+    },
+    {
+      "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+      "name": "EO-PM",
+      "path": null
+    },
+    {
+      "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+      "name": "信息获取 Bot",
+      "path": "bots/597dbdb3-ec21-4092-a2ad-0524d1caf3c3.md"
+    },
+    {
+      "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+      "name": "Multica 转发",
+      "path": "bots/20f3ddaf-1c35-407a-bf67-6c5812709c83.md"
+    },
+    {
+      "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+      "name": "小秘书",
+      "path": "bots/5608ae9a-3068-4b5d-baa8-b461908548c8.md"
+    },
+    {
+      "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+      "name": "网络管家",
+      "path": "bots/a1ecdba8-0f91-473f-b9b7-d941db9f426c.md"
+    },
+    {
+      "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+      "name": "macOS",
+      "path": "bots/f8e3aff8-ceb1-4558-b782-b558b91407aa.md"
+    },
+    {
+      "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+      "name": "育儿辅导",
+      "path": null
+    },
+    {
+      "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+      "name": "SaaS DNS Bot",
+      "path": "bots/3a5815fa-4747-4dc6-b34e-280f26bbd701.md"
+    },
+    {
+      "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+      "name": "Healthcare",
+      "path": null
+    },
+    {
+      "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+      "name": "X 运营",
+      "path": "bots/b1039ace-42cb-40aa-9dd3-74885eca31a9.md"
+    },
+    {
+      "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+      "name": "English Study Assistant Bot",
+      "path": "bots/6cf9727c-1a08-4efa-bd9f-e33d41148a19.md"
+    },
+    {
+      "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+      "name": "ClipVibe PM",
+      "path": "bots/3dc41a7c-b376-461e-975d-a3ee8846d5cc.md"
+    },
+    {
+      "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+      "name": "个人品牌 PM",
+      "path": "bots/8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b.md"
+    },
+    {
+      "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+      "name": "存储",
+      "path": "bots/63ba4c28-58f8-4019-8668-c8345e9c460a.md"
+    },
+    {
+      "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+      "name": "Notebook",
+      "path": "bots/b6d2d688-588d-447e-ac28-805c03cb6a5b.md"
+    },
+    {
+      "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+      "name": "支付方式 Bot",
+      "path": "bots/47978533-56ba-4b34-a1fb-3779505a2738.md"
+    },
+    {
+      "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+      "name": "小红书文案 Bot",
+      "path": "bots/1a59f518-d6b1-4665-9b2e-769ffff1907f.md"
+    },
+    {
+      "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+      "name": "Product Researcher",
+      "path": "bots/f49216ec-c7be-4f72-9a04-c0ebd5345b49.md"
+    },
+    {
+      "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+      "name": "UI 平面设计 Bot",
+      "path": "bots/4ff20134-3be8-497a-857e-ff79d7f47e94.md"
+    },
+    {
+      "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+      "name": "Stock",
+      "path": "bots/57be16ea-6d90-4483-8e2a-d806b9722848.md"
+    },
+    {
+      "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+      "name": "macOS 执委会",
+      "path": null
+    }
+  ]
+}

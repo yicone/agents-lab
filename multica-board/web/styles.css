@@ -407,7 +407,8 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
   padding: 2px 8px;
   cursor: pointer;
 }
-.instr-body {
+.instr-body,
+.diff-block {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -418,6 +419,9 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
   max-height: 40vh;
   overflow: auto;
 }
+.diff-line { margin: 0; padding: 0 4px; white-space: pre-wrap; }
+.diff-add { background: color-mix(in srgb, var(--ok) 18%, transparent); }
+.diff-del { background: color-mix(in srgb, var(--bad) 18%, transparent); }
 .skill-list { margin: 0; padding-left: 18px; }
 @media (max-width: 420px) {
   .main { padding: 8px; }
