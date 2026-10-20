@@ -17,6 +17,16 @@ test("#/skills stays", () => {
   assert.equal(redirectHash("#/skills?q=guard"), null);
 });
 
+test("#/usage stays", () => {
+  assert.equal(redirectHash("#/usage"), null);
+  assert.equal(redirectHash("#/usage?q=hermes"), null);
+  const route = parseHash("#/usage?q=hermes");
+  assert.equal(route.view, "usage");
+  assert.equal(route.q, "hermes");
+  assert.equal(formatHash(route), "#/usage?q=hermes");
+  assert.equal(applyPatch({ view: "map" }, { view: "usage" }).view, "usage");
+});
+
 test("skills filters round-trip", () => {
   const route = parseHash("#/skills?source=runtime_plugin&status=version_changed&tool=codex&custom=1&debt=1&group=tool&q=vis");
   assert.equal(route.view, "skills");

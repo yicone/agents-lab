@@ -1,0 +1,131 @@
+{
+  "generated_at": "2026-10-16T16:43:00Z",
+  "usage_collected_at": "2026-10-16T16:43:00Z",
+  "days": 14,
+  "snapshot_state": "partial",
+  "collection_errors": ["grok: timeout after 30s"],
+  "external_quotas": [
+    {
+      "provider": "cursor",
+      "status": "ok",
+      "source": "codexbar",
+      "updated_at": "2026-10-16T16:40:00Z",
+      "last_success_at": "2026-10-16T16:40:00Z",
+      "windows": [
+        {
+          "key": "primary",
+          "label": "Total",
+          "used_percent": 36.43,
+          "remaining_percent": 63.57,
+          "resets_at": "2026-10-19T12:00:00Z",
+          "signal": "dispatchable",
+          "signal_reason": "63.6% remaining with 66.9h until reset"
+        }
+      ]
+    },
+    {
+      "provider": "grok",
+      "status": "error",
+      "source": "codexbar",
+      "updated_at": "2026-10-16T16:42:00Z",
+      "last_success_at": "2026-10-16T00:00:00Z",
+      "error": { "kind": "timeout", "message": "timeout after 30s" },
+      "windows": [
+        {
+          "key": "primary",
+          "label": "Total",
+          "used_percent": 50,
+          "remaining_percent": 50,
+          "resets_at": "2026-10-18T00:00:00Z",
+          "signal": "exhausting"
+        }
+      ]
+    },
+    {
+      "provider": "codex",
+      "status": "ok",
+      "source": "codexbar",
+      "updated_at": "2026-10-16T16:41:00Z",
+      "last_success_at": "2026-10-16T16:41:00Z",
+      "windows": [
+        {
+          "key": "primary",
+          "label": "5h",
+          "used_percent": 12,
+          "resets_at": "2026-10-16T21:00:00Z",
+          "signal": "normal"
+        }
+      ]
+    },
+    { "provider": "9router", "status": "unconnected", "label": "未接入", "windows": [] },
+    { "provider": "orca", "status": "unconnected", "label": "未接入", "windows": [] }
+  ],
+  "signals": {
+    "dispatchable": [
+      {
+        "provider": "cursor",
+        "window_key": "primary",
+        "label": "Total",
+        "remaining_percent": 63.57,
+        "resets_at": "2026-10-19T12:00:00Z"
+      }
+    ],
+    "exhausting": [
+      {
+        "provider": "grok",
+        "window_key": "primary",
+        "label": "Total",
+        "remaining_percent": 50,
+        "resets_at": "2026-10-18T00:00:00Z"
+      }
+    ]
+  },
+  "multica_daily": {
+    "note": "Multica token usage and codexbar quota percentages use independent accounting and must not be summed.",
+    "by_provider": [],
+    "by_runtime": [
+      {
+        "key": "ws-should-hide:rt-secret-id",
+        "workspace_id": "ws-should-hide",
+        "workspace_slug": "alpha",
+        "runtime_id": "rt-secret-id",
+        "name": "Hermes",
+        "provider": "hermes",
+        "daily": [
+          {
+            "date": "2026-10-15",
+            "runs_total": 2,
+            "completed": 1,
+            "failed_total": 1,
+            "capacity_failed": 1,
+            "rate_limit_failed": 1,
+            "quota_failed": 0,
+            "true_failed": 0,
+            "cancelled": 0,
+            "input_tokens": 10,
+            "output_tokens": 2,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "cost_usd_ticks": 200
+          },
+          {
+            "date": "2026-10-16",
+            "runs_total": 5,
+            "completed": 0,
+            "failed_total": 2,
+            "capacity_failed": 1,
+            "rate_limit_failed": 0,
+            "quota_failed": 1,
+            "true_failed": 1,
+            "cancelled": 2,
+            "input_tokens": 20,
+            "output_tokens": 6,
+            "cache_read_tokens": 4,
+            "cache_write_tokens": 1,
+            "cost_usd_ticks": 1000
+          }
+        ]
+      }
+    ]
+  }
+}

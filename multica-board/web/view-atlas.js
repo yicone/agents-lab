@@ -175,7 +175,7 @@ function toolLine(ctx, tool) {
   return h(
     "a",
     { class: "tool", href: tool.href },
-    h("i", { class: tool.signal === "skills" && ctx.skillsAlert ? "dot bad" : "dot live" }),
+    h("i", { class: (tool.signal === "skills" && ctx.skillsAlert) || (tool.signal === "usage" && ctx.usageAlert) ? "dot bad" : "dot live" }),
     h("span", null, tool.label),
     h("span", { class: "muted" }, ctx.toolSignal(tool.signal)),
   );

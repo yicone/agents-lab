@@ -16,6 +16,7 @@ import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { placeChildren } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
+import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 import { agentQueryFields, instructionCell, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillsCell } from "./agents-view.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
@@ -96,6 +97,7 @@ const state = {
   layerReport: null,
   layerError: null,
   skills: null,
+  usage: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
   expandedSkills: new Set(),
   planRaw: false,
@@ -204,6 +206,14 @@ function botsRefreshKey(payload) {
   return [payload.ok, payload.reason, payload.account_slot, payload.delivery, items.length, items.map((item) => `${item.id}:${item.updated_at}:${item.unread_count}:${item.description || ""}`).join(",")].join("|");
 }
 
+async function loadUsage() {
+  try {
+    return await getJSON("usage");
+  } catch (err) {
+    return { error: String(err.message || err) };
+  }
+}
+
 async function loadSkills() {
   try {
     if (MOCK) return await getJSON("skills");
@@ -259,10 +269,12 @@ async function refresh(force = false) {
     const previousSkills = skillsRefreshKey(state.skills);
     const previousBots = botsRefreshKey(state.bots);
     const previousSources = JSON.stringify(state.instructionSources || {});
-    // Skills and the Grok roster live on this machine, so they reload even when the Multica snapshot is unchanged.
+    const previousUsage = usageRefreshKey(state.usage);
+    // Skills, the Grok roster, and the usage snapshot live beside the Multica issue snapshot, so they reload even when that snapshot is unchanged.
     const skillsPromise = loadSkills();
     const botsPromise = loadBots();
     const sourcesPromise = loadInstructionSources();
+    const usagePromise = loadUsage();
     if (changed) {
       const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
@@ -294,12 +306,14 @@ async function refresh(force = false) {
     state.skills = await skillsPromise;
     state.bots = await botsPromise;
     state.instructionSources = await sourcesPromise;
+    state.usage = await usagePromise;
     const skillsChanged = skillsRefreshKey(state.skills) !== previousSkills;
     const botsChanged = botsRefreshKey(state.bots) !== previousBots;
     const sourcesChanged = JSON.stringify(state.instructionSources || {}) !== previousSources;
+    const usageChanged = usageRefreshKey(state.usage) !== previousUsage;
     state.meta = meta;
     state.fetchError = null;
-    if (changed || skillsChanged || botsChanged || sourcesChanged) render();
+    if (changed || skillsChanged || botsChanged || sourcesChanged || usageChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -1880,6 +1894,7 @@ function toolSignal(signal) {
     const n = state.agents.filter((agent) => QUOTA_KINDS.has(agent.recent?.last_error_kind)).length;
     return n ? `${n} 个最近额度或限流失败` : "最近没有额度失败";
   }
+  if (signal === "usage") return usageSignal(state.usage);
   return "";
 }
 
@@ -1908,6 +1923,8 @@ function atlasCtx() {
     statusLabel: (status) => STATUS_LABEL[status] ?? status,
     toolSignal,
     skillsAlert: skillAlert(),
+    usageAlert: usageAlert(state.usage),
+    usage: state.usage,
     skills: state.skills,
     reviewDays: state.reviewDays,
     expandedSkills: state.expandedSkills,
@@ -1938,7 +1955,9 @@ function renderMain() {
         ? renderDecide()
         : view === "skills"
           ? renderSkills(ctx)
-          : view === "map" && state.route.layer
+          : view === "usage"
+            ? renderUsage(ctx)
+            : view === "map" && state.route.layer
             ? renderLayer(ctx)
             : view === "map"
               ? renderMap(ctx)
@@ -1951,7 +1970,7 @@ function render() {
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
   const view = state.route.view;
   search.placeholder =
-    view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : "搜索 identifier / 标题 / agent / 模型";
+    view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
