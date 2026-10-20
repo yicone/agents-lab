@@ -47,7 +47,17 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 # 打开 http://127.0.0.1:8765/?mock=1
 ```
 
-`--workspace`（可重复，ID 或 slug）和 `--all-workspaces` 必须二选一。停止：在前台按 Ctrl-C；后台启动的话，kill 它打印的 PID（或查 `lsof -nP -iTCP:8787 -sTCP:LISTEN`）。不要 `pkill multica`，那会匹配到 workspace daemon。
+`--workspace`（可重复，ID 或 slug）和 `--all-workspaces` 必须二选一。手工运行时在前台按 Ctrl-C 停止。后台运行时先查监听 PID，再用 `ps -p <PID> -o pid=,ppid=,args=` 确认命令是预期的 `python -m multica_board serve`；启动输出只包含地址，不包含 PID。不要 `pkill multica`，那会匹配到 workspace daemon。
+
+本机现用服务由 launchd 管理，端口为 8765；PID 以 launchd 为准。以下命令只读，不会重启服务：
+
+```sh
+launchctl print gui/$(id -u)/one.yic.multica-board
+lsof -nP -iTCP:8765 -sTCP:LISTEN
+ps -p <上面两处一致的PID> -o pid=,ppid=,args=
+```
+
+核对 `state = running`、`pid =`、监听 PID 和服务命令一致；若不一致，先排查，不能依据旧 PID 发信号。当前启动链路是 launchd → login-item 壳 → App 启动脚本 → `exec python3 -m multica_board serve`，标准输出/错误写入 `~/Library/Logs/multica-board.log`。Board 不读写 PID 文件；`~/.multica-board/board.pid` 和 `serve.log` 是历史手工运行遗留，不应作为状态或日志来源。启动、安装或打包流程不得生成、复制这些文件，也不要打包整个 `~/.multica-board` 运行目录。遗留文件清理需用户批准，不由服务或测试自动执行。
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
