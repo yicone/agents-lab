@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { badgeOf, filteredItems, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey } from "./skills.js";
+import { badgeOf, cloudCommands, cloudDrift, cloudPending, filteredItems, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey } from "./skills.js";
 
 const today = JSON.parse(readFileSync(new URL("./fixtures/skills.json", import.meta.url), "utf8"));
 
@@ -449,4 +449,155 @@ test("renderSkills and renderSkillDrawer never emit null members for replaceChil
   const item = simpleItem({ shared_entry: { state: "dir", label: "目录" } });
   const drawerParts = renderSkillDrawer(renderCtx(basePayload([item])), item);
   assert.ok(drawerParts.every((part) => part != null && typeof part === "object"));
+});
+
+function cloudItem(overrides = {}) {
+  return simpleItem({
+    name: "colgrep-search",
+    local_source: {
+      path: "skills/colgrep-search/SKILL.md",
+      updated_at: "2026-10-20T01:00:00Z",
+      summary: "Use when a coding agent needs to find code by behavior or meaning.",
+    },
+    workspace_installs: [
+      {
+        workspace_id: "ws-acm",
+        workspace_slug: "acm-lab",
+        workspace_name: "ACM Lab",
+        id: "skill-acm",
+        name: "colgrep-search",
+        description: "Use when a coding agent needs to find code by behavior or meaning.",
+        updated_at: "2026-10-16T08:08:13Z",
+        agents: [
+          { id: "agent-a", name: "前端实现", enabled: true },
+          { id: "agent-b", name: "调度", enabled: false },
+        ],
+      },
+      {
+        workspace_id: "ws-clip",
+        workspace_slug: "clipvibe",
+        workspace_name: "ClipVibe",
+        id: "skill-clip",
+        name: "colgrep-search",
+        description: "Use when a coding agent needs to find code by behavior or meaning.",
+        updated_at: "2026-10-16T08:08:13Z",
+        agents: [],
+      },
+    ],
+    ...overrides,
+  });
+}
+
+test("cloud column lists workspaces and enabled agents, and omits the column data when the API has none", () => {
+  const payload = basePayload([cloudItem(), simpleItem({ name: "plain" })]);
+  const tree = { children: renderSkills(renderCtx(payload)) };
+  const cells = findAll(tree, (n) => n.attrs?.class === "cloud-cell");
+  assert.equal(cells.length, 2);
+  assert.ok(findText(cells[0], "ACM Lab"));
+  assert.ok(findText(cells[0], "前端实现"));
+  assert.ok(findText(cells[0], "ClipVibe"));
+  assert.ok(findText(cells[0], "未挂载"));
+  assert.ok(findText(cells[1], "—"));
+  assert.equal(findText(cells[1], "未安装"), false);
+  const empty = { children: renderSkills(renderCtx(basePayload([simpleItem({ workspace_installs: [] })]))) };
+  const emptyCell = findAll(empty, (n) => n.attrs?.class === "cloud-cell")[0];
+  assert.ok(findText(emptyCell, "未安装"));
+});
+
+test("local skills directory newer than the cloud copy enters the pending queue", () => {
+  const stale = cloudItem();
+  const fresh = cloudItem({
+    name: "fresh-skill",
+    local_source: { path: "skills/fresh-skill/SKILL.md", updated_at: "2026-10-01T00:00:00Z", summary: "same" },
+    workspace_installs: [
+      {
+        workspace_id: "ws-acm",
+        workspace_name: "ACM Lab",
+        id: "skill-fresh",
+        updated_at: "2026-10-18T00:00:00Z",
+        description: "same",
+        agents: [{ id: "agent-a", name: "前端实现", enabled: true }],
+      },
+    ],
+  });
+  const summaryOnly = cloudItem({
+    name: "summary-skill",
+    local_source: { path: "skills/summary-skill/SKILL.md", summary: "local wording" },
+    workspace_installs: [
+      {
+        workspace_id: "ws-acm",
+        workspace_name: "ACM Lab",
+        id: "skill-summary",
+        description: "cloud wording",
+        agents: [],
+      },
+    ],
+  });
+  assert.ok(cloudDrift(stale));
+  assert.equal(cloudDrift(fresh), null);
+  assert.ok(cloudDrift(summaryOnly));
+  const payload = basePayload([stale, fresh, summaryOnly]);
+  assert.deepEqual(cloudPending(payload).map((item) => item.name), ["colgrep-search", "summary-skill"]);
+  const tree = { children: renderSkills(renderCtx(payload)) };
+  const queue = findAll(tree, (n) => n.attrs?.class === "skill-bucket cloud-pending")[0];
+  assert.ok(findText(queue, "云端未刷新"));
+  assert.ok(findText(queue, "colgrep-search"));
+  assert.ok(findText(queue, "本机 skills/ 新于云端"));
+  assert.equal(findText(queue, "fresh-skill"), false);
+  const row = findAll(tree, (n) => n.attrs?.id === "skill-colgrep-search")[0];
+  assert.ok(findText(row, "云端较旧"));
+});
+
+test("Grok CLI symlinks under ~/.grok/skills render as a filled circle", () => {
+  const item = simpleItem({
+    name: "computer-use",
+    tools: { grok: "shared" },
+    entries: [
+      {
+        path: "/Users/tr/.grok/skills/computer-use",
+        present: true,
+        symlink: true,
+        target: "../../.agents/skills/computer-use",
+        tools: ["grok"],
+        mark: "shared",
+        location: "~/.grok/skills",
+      },
+    ],
+    evidence: [
+      {
+        harness: "grok",
+        kind: "entry",
+        attribution: "direct",
+        state: "present",
+        path: "/Users/tr/.grok/skills/computer-use",
+        lexical: "/Users/tr/.grok/skills/computer-use",
+        readlink: "../../.agents/skills/computer-use",
+        root: "~/.grok/skills",
+      },
+    ],
+  });
+  const payload = basePayload([item], [{ id: "grok", label: "Grok CLI" }]);
+  const tree = { children: renderSkills(renderCtx(payload)) };
+  const cell = findAll(tree, (n) => String(n.attrs?.class || "").includes("tool-mark"))[0];
+  assert.ok(findText(cell, "●"));
+  assert.equal(findText(cell, "○"), false);
+  assert.match(cell.attrs.class, /direct/);
+});
+
+test("skill drawer copies refresh, update, and agent skill add commands without running them", () => {
+  const item = cloudItem();
+  const tree = { children: renderSkillDrawer(renderCtx(basePayload([item])), item) };
+  assert.ok(findText(tree, "Multica 云端（跨 Workspace）"));
+  assert.ok(findText(tree, "multica --workspace-id ws-acm skill refresh skill-acm"));
+  assert.ok(findText(tree, "multica --workspace-id ws-acm skill update skill-acm"));
+  assert.ok(findText(tree, "multica --workspace-id ws-acm skill update skill-acm --content-file skills/colgrep-search/SKILL.md"));
+  assert.ok(findText(tree, "multica --workspace-id ws-acm agent skills add agent-a --skill-ids skill-acm"));
+  assert.ok(findText(tree, "multica --workspace-id ws-clip skill refresh skill-clip"));
+  assert.ok(findText(tree, "已启用 前端实现"));
+  assert.ok(findText(tree, "挂给 调度"));
+  assert.ok(findText(tree, "页面只读，不代为执行"));
+  const commands = cloudCommands(item, item.workspace_installs[0]).map((entry) => entry.command);
+  assert.ok(commands.every((command) => !command.includes("&&") && !command.includes("|")));
+  const src = readFileSync(new URL("./skills.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /innerHTML/);
 });

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
@@ -263,6 +264,56 @@ def _fit_text(lines: list[str]) -> str:
     if not kept:
         return "…\n"
     return packed(kept, True)
+
+
+def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "name": name,
+        "origin": "cloud",
+        "source_class": "multica_cloud",
+        "source_label": "Multica 云端",
+        "scope": "workspace",
+        "ownership": None,
+        "source_authority": None,
+        "update_authority": None,
+        "canonical_path": None,
+        "repo_is_source": False,
+        "channel_label": "Multica 云端",
+        "channel_detail": f"{len(installs)} 个 Workspace",
+        "current_version": None,
+        "observed_version": None,
+        "baseline_kind": None,
+        "baseline_subject": None,
+        "baseline_ref": None,
+        "review_time": None,
+        "reconciliation_status": "unverified",
+        "status_label": "仅云端",
+        "findings": [],
+        "customization_mode": None,
+        "constraints": [],
+        "constraint_count": 0,
+        "conflict_status": None,
+        "tools": {},
+        "entries": [],
+        "evidence": [],
+        "repo_ids": [],
+        "install_path": None,
+        "capability_gate": None,
+        "baseline_debt": False,
+        "bucket": None,
+        "quiet": False,
+        "command": None,
+        "shared_entry": {
+            "state": "none",
+            "label": "未检查",
+            "reason": "cloud_only",
+            "path": None,
+            "target": None,
+            "resolved": None,
+            "detail": "云端技能不在本机清单，共享入口未检查",
+        },
+        "workspace_installs": installs,
+    }
 
 
 class Views:
@@ -1093,20 +1144,36 @@ class Views:
         except ValueError as exc:
             raise BadRequest(str(exc)) from exc
         document = skills_document(days)
-        installs = build_workspace_installs(
-            self.store.query("SELECT * FROM workspace_skills WHERE server=?", (self.server,)),
-            self.store.query(
-                "SELECT workspace_id, id, name, skills_json, skills_detail_json FROM agents WHERE server=?",
-                (self.server,),
-            ),
-            self.store.query("SELECT id, name, slug FROM workspaces WHERE server=?", (self.server,)),
-        )
+        installs = self._workspace_installs()
+        if installs is None:
+            return document
         items = []
+        seen: set[str] = set()
         for item in document.get("items") or []:
             copied = dict(item)
-            copied["workspace_installs"] = installs.get(_skill_name_key(item.get("name")) or "", [])
+            key = _skill_name_key(item.get("name")) or ""
+            copied["workspace_installs"] = installs.get(key, [])
+            if key:
+                seen.add(key)
             items.append(copied)
+        for name in sorted(installs):
+            if name in seen:
+                continue
+            items.append(_cloud_only_item(name, installs[name]))
         return {**document, "items": items}
+
+    def _workspace_installs(self) -> dict[str, list[dict[str, Any]]] | None:
+        """None when the ACM-291 cache table is not on this board yet."""
+        try:
+            skills = self.store.query("SELECT * FROM workspace_skills WHERE server=?", (self.server,))
+            agents = self.store.query(
+                "SELECT workspace_id, id, name, skills_json, skills_detail_json FROM agents WHERE server=?",
+                (self.server,),
+            )
+            workspaces = self.store.query("SELECT id, name, slug FROM workspaces WHERE server=?", (self.server,))
+        except sqlite3.OperationalError:
+            return None
+        return build_workspace_installs(skills, agents, workspaces)
 
     def skills_meta(self, review_days: int = 90) -> dict[str, Any]:
         document = self.skills(review_days)

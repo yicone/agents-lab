@@ -32,5 +32,6 @@
  "skills-drift": ["skills"],
  "skills-gate": ["skills"],
  "skills-fallback": ["skills"],
- "skills-invalid": ["skills"]
+ "skills-invalid": ["skills"],
+ "skills-cloud": ["skills"]
 }
