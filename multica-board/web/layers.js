@@ -29,11 +29,12 @@ export const MAP_TOOLS = {
   ],
   l4: [
     { label: "Workspace 健康", kind: "page", href: "#/issues", signal: "workspaces" },
+    { label: "Grok Bots & 桥接", kind: "page", href: "#/agents?kind=bots", signal: "bots" },
     { label: "派活与交接", kind: "gap", gap: "未建" },
   ],
   l3: [
     { label: "Skills", kind: "page", href: "#/skills", signal: "skills" },
-    { label: "Instructions", kind: "gap", gap: "未建" },
+    { label: "Instructions", kind: "page", href: "#/agents?has_instructions=1", signal: "instructions" },
     { label: "Spec", kind: "gap", gap: "未建" },
   ],
   l2: [

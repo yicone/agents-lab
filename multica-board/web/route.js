@@ -109,6 +109,9 @@ export function emptyRoute() {
     custom: false,
     debt: false,
     skillGroup: "source",
+    kind: "",
+    hasInstructions: false,
+    botLinked: false,
     planMode: false,
     planPage: "",
     planId: "",
@@ -186,6 +189,9 @@ export function parseHash(hash) {
     route.bucket = PLAN_BUCKETS.has(params.get("bucket")) ? params.get("bucket") : "";
     route.planFix = params.get("fix") === "empty" ? "empty" : "";
     if (!route.planPage) {
+      route.kind = params.get("kind") === "bots" ? "bots" : "";
+      route.hasInstructions = flag(params, "has_instructions");
+      route.botLinked = flag(params, "linked");
       route.planMode = flag(params, "plan");
       route.group = params.get("group") === "provider" ? "provider" : "workspace";
       route.provider = params.get("provider") || "";
@@ -237,6 +243,9 @@ export function formatHash(route) {
       if (r.failedOnly) p.set("failed", "1");
       if (r.offlineOnly) p.set("offline", "1");
       if (r.archived) p.set("archived", "1");
+      if (r.kind === "bots") p.set("kind", "bots");
+      if (r.hasInstructions) p.set("has_instructions", "1");
+      if (r.botLinked) p.set("linked", "1");
       if (r.planMode) p.set("plan", "1");
       if (r.sel) p.set("sel", r.sel);
     }
@@ -266,7 +275,7 @@ export function canonicalHash(hash) {
 export function historyWrite(currentHash, nextHash, patch) {
   if (canonicalHash(currentHash) === canonicalHash(nextHash)) return "noop";
   const keys = patch && typeof patch === "object" ? Object.keys(patch) : [];
-  if (keys.some((key) => key === "view" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId")) return "push";
+  if (keys.some((key) => key === "view" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind")) return "push";
   return "replace";
 }
 
@@ -291,6 +300,9 @@ export function applyPatch(route, patch) {
       next.skillGroup = "source";
     }
     if (patch.view !== "agents") {
+      next.kind = "";
+      next.hasInstructions = false;
+      next.botLinked = false;
       next.planMode = false;
       next.planPage = "";
       next.planId = "";

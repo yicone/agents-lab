@@ -253,3 +253,23 @@ test("number keys follow the top bar, and [ ] walk the layers", () => {
   assert.equal(stepLayer("l5", "prev"), "l1");
   assert.equal(stepLayer("all", "next"), null);
 });
+
+test("agents subviews round-trip and leaving the page clears them", () => {
+  const bots = parseHash("#/agents?kind=bots&ws=alpha-lab&q=职责&linked=1");
+  assert.equal(bots.view, "agents");
+  assert.equal(bots.kind, "bots");
+  assert.equal(bots.botLinked, true);
+  assert.equal(bots.q, "职责");
+  assert.equal(formatHash(bots), "#/agents?ws=alpha-lab&q=%E8%81%8C%E8%B4%A3&kind=bots&linked=1");
+  const instructions = parseHash("#/agents?has_instructions=1");
+  assert.equal(instructions.hasInstructions, true);
+  assert.equal(instructions.kind, "");
+  assert.equal(formatHash(instructions), "#/agents?has_instructions=1");
+  assert.equal(formatHash(parseHash("#/agents?plan=1")), "#/agents?plan=1");
+  const left = applyPatch(bots, { view: "map" });
+  assert.equal(left.kind, "");
+  assert.equal(left.botLinked, false);
+  assert.equal(formatHash(left), "#/map?ws=alpha-lab&q=%E8%81%8C%E8%B4%A3");
+  assert.equal(historyWrite("#/agents", "#/agents?kind=bots", { kind: "bots" }), "push");
+  assert.equal(historyWrite("#/agents", "#/agents?has_instructions=1", { hasInstructions: true }), "replace");
+});
