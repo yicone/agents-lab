@@ -150,7 +150,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 
 真实地图读 `GET /api/layers`。`ready` 为 false（三个属性还没建）时显示引导，不画五层全 0。属性在、但已归层为 0（主层还没回填）时也是引导。已经回填的部分按接口计数，没回填的落在未归层。`?mock=` 没有这份响应，仍用 fixture 里的 `issue.layer` 在浏览器汇总。Issues 页在层数据就绪后增加「层」和「按主层 / 按涉及层」，卡片头部加五格条；非 ACM Lab 的卡片不画条，选了层之后这些卡片被滤掉。Agents 页内容不变。Skills 页读 `GET /api/skills`（见下方）。角标是待处理条数，基线债不计入，0 时隐藏。只看治理线时，未完成和待你决定用接口的 `governance_open` / `governance_decide`；接口没有单独的治理线总数，所以这一档的「总数」等于未完成。
 
-旧地址用 `location.replace` 跳到新地址：`#/l5/attention` → `#/issues`，`#/l2/agents` → `#/agents`，`#/l3/skills` → `#/skills`，`#/lN` 与 `#/lN/issues` → `#/map/lN`（保留 `scope`），其他 `#/lN/…` → `#/map/lN`，`#/gov` → `#/map/all?gov=1`，空地址或不认识的地址 → `#/map`。`#/issues`、`#/agents`、`#/skills` 保持原样。刷新停在替换后的地址上，后退不会回到旧地址。
+旧地址用 `location.replace` 跳到新地址：`#/l5/attention` → `#/issues`，`#/l2/agents` → `#/agents`，`#/l3/skills` → `#/skills`，`#/lN` 与 `#/lN/issues` → `#/map/lN`（保留 `scope`），其他 `#/lN/…` → `#/map/lN`，`#/gov` → `#/map/all?gov=1`，空地址或不认识的地址 → `#/map`。`#/issues`、`#/agents`、`#/skills`、`#/usage` 保持原样。刷新停在替换后的地址上，后退不会回到旧地址。
 
 - mock 模式以 `meta.collector.last_attempt_at`（没有则用 `generated_at`）作为“现在”，所以相对时间保持稳定。
 - 各场景覆盖哪些响应，记录在 `fixtures/scenarios.json`。
@@ -179,3 +179,13 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 - 屏宽小于 1200px 时，待处理栏移到表格上方，收成一行桶计数。
 - mock：默认 `fixtures/skills.json` 是设计稿里的分布（版本已变 3、未登记 1、基线债 76）。`?mock=skills-missing`、`skills-drift`、`skills-gate`、`skills-fallback`、`skills-invalid` 覆盖这一份。打开时加上 `#/skills`。生成：`node multica-board/web/fixtures/write-skills.js`。
 - 切换计划用 fixture，不经过 `generate.py`。在任意 `?mock=` 下打开 `#/agents/plans`。单份计划：`hist`（16 行，阻断 13、跳过 3）、`mixed`、`expired`、`mismatch`、`broken`、`blanks`、`cross`、`drift`。空目录是 `#/agents/plans?fix=empty`。`hist` 的分布对齐验收场景，不是 10-17 的实时快照。
+
+## 用量与额度（ACM-299）
+
+回答「Multica 运行、外部额度和失败各是多少」。三栏同一页，不合成一个总数。入口是地图 L1 的「用量与额度」，地址 `#/usage`。不加第六个顶栏页。
+
+- 数据是 `GET /api/usage`。mock 读 `fixtures/usage.json`。
+- Multica 运行层用 `multica_daily.by_runtime`。每个 runtime 在 `days` 窗内列出运行、完成、满载失败、真失败、取消，以及 token 计数和 `cost_usd_ticks`。页头标出 `days` 和 `usage_collected_at`。`cost_usd_ticks` 保持接口原值，不换算成美元。
+- 外部额度用 `external_quotas` 和 `signals`。按 provider 显示窗口 `used_percent`、`resets_at`、`source`、`status`、`updated_at` / `last_success_at`。`9router` 和 `orca` 保持「未接入」。可派活 / 即将耗尽只显示接口给出的 `dispatchable` / `exhausting`。
+- 失败栏用同一批 runtime 计数里的满载失败（含额度失败和限流失败）和真失败。耗时和原始 error 文本不在这个接口里，页面写明缺口。
+- Multica 的 token / cost 与 CodexBar 额度分栏，不相加。不显示 workspace id、runtime id、账号或认证信息。

@@ -117,6 +117,7 @@ test("layer rails only link to pages that exist", () => {
   const l4 = railLinks("l4").map((link) => `${link.label} ${link.href}`).join("\n");
   assert.match(l3, /#\/agents\?has_instructions=1/);
   assert.match(l4, /Grok Bots & 桥接 #\/agents\?kind=bots/);
+  assert.match(railLinks("l1").map((link) => `${link.label} ${link.href}`).join("\n"), /用量与额度 #\/usage/);
 });
 
 test("a layers report drives the map, and an unfilled report stays a guide", () => {

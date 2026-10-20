@@ -1,6 +1,6 @@
 /** Hash routes for Agent Atlas. Legacy hashes redirect with location.replace. */
 
-export const VIEWS = ["map", "decide", "issues", "agents", "skills"];
+export const VIEWS = ["map", "decide", "issues", "agents", "skills", "usage"];
 
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
@@ -55,7 +55,7 @@ function withQuery(path, params) {
  */
 export function redirectHash(hash) {
   const { path, params } = splitHash(hash);
-  if (path === "issues" || path === "agents" || path === "skills" || path === "decide") return null;
+  if (path === "issues" || path === "agents" || path === "skills" || path === "decide" || path === "usage") return null;
   if (agentsPlan(path)) return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
@@ -143,6 +143,7 @@ export function parseHash(hash) {
   else if (path === "issues") route.view = "issues";
   else if (path === "agents") route.view = "agents";
   else if (path === "skills") route.view = "skills";
+  else if (path === "usage") route.view = "usage";
   else route.view = "map";
 
   if (route.view === "map") {

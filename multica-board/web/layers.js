@@ -42,7 +42,7 @@ export const MAP_TOOLS = {
     { label: "Daemon", kind: "page", href: "#/agents", signal: "daemon" },
   ],
   l1: [
-    { label: "用量与额度", kind: "gap", gap: "未接入", note: "ACM-183" },
+    { label: "用量与额度", kind: "page", href: "#/usage", signal: "usage" },
     { label: "额度信号", kind: "page", href: "#/agents?failed=1", signal: "quota" },
   ],
 };
