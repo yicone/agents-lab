@@ -10,14 +10,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 TABLES = (
     "workspaces", "sync_status", "issues", "projects", "members", "agents", "runtimes", "tasks",
-    "property_defs", "changes", "change_baseline", "meta",
+    "workspace_skills", "property_defs", "changes", "change_baseline", "meta",
 )
 DATA_TABLES = (
-    "issues", "projects", "members", "agents", "runtimes", "tasks", "property_defs",
-    "changes", "change_baseline",
+    "issues", "projects", "members", "agents", "runtimes", "tasks", "workspace_skills",
+    "property_defs", "changes", "change_baseline",
 )
 
 SCHEMA = """
@@ -61,6 +61,13 @@ CREATE TABLE IF NOT EXISTS agents (
   model TEXT, thinking_level TEXT, service_tier TEXT,
   max_concurrent_tasks INTEGER, visibility TEXT, owner_id TEXT,
   archived_at TEXT, updated_at TEXT, skills_json TEXT,
+  description TEXT, instructions TEXT, instructions_sha256 TEXT,
+  skills_detail_json TEXT, disabled_runtime_skills_json TEXT,
+  PRIMARY KEY (server, workspace_id, id)
+);
+CREATE TABLE IF NOT EXISTS workspace_skills (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+  name TEXT, description TEXT, labels_json TEXT, updated_at TEXT,
   PRIMARY KEY (server, workspace_id, id)
 );
 CREATE TABLE IF NOT EXISTS runtimes (

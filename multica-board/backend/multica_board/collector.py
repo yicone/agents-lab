@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -99,8 +101,120 @@ def norm_issue(i: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def normalize_instructions(text: str) -> str:
+    """Canonical form hashed before redaction: NFC, LF newlines, trimmed edges."""
+    text = unicodedata.normalize("NFC", text.replace("\r\n", "\n").replace("\r", "\n"))
+    return text.strip()
+
+
+def instructions_sha256(text: str | None) -> str | None:
+    """SHA-256 of the normalized original. Secrets stay in the hash input, never in the stored text."""
+    if not isinstance(text, str):
+        return None
+    norm = normalize_instructions(text)
+    if not norm:
+        return None
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+
+
+def _plain_text(value: Any) -> str | None:
+    """Redact a free-text field in full. Non-strings are dropped so nested config cannot land in the cache."""
+    if not isinstance(value, str):
+        return None
+    text = redact(value, limit=None)
+    if not isinstance(text, str):
+        return None
+    text = text.strip()
+    return text or None
+
+
+def skill_details(raw: Any) -> list[dict[str, Any]]:
+    """id, name, description, enabled. Skill bodies and any other keys stay out of the cache."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        sid = item.get("id") if isinstance(item.get("id"), str) and item.get("id").strip() else None
+        name = item.get("name")
+        if isinstance(name, str):
+            name = " ".join(name.split()) or None
+        else:
+            name = None
+        if sid is None and name is None:
+            continue
+        out.append(
+            {
+                "id": sid,
+                "name": name,
+                "description": _plain_text(item.get("description")),
+                "enabled": item.get("enabled") is not False,
+            }
+        )
+    return out
+
+
+def disabled_runtime_skills(raw: Any) -> list[Any]:
+    """Names (and ids) only. Runtime skill bodies are not collected."""
+    if not isinstance(raw, list):
+        return []
+    out: list[Any] = []
+    for item in raw:
+        if isinstance(item, str):
+            name = " ".join(item.split())
+            if name:
+                out.append(_plain_text(name) or name)
+            continue
+        if not isinstance(item, dict):
+            continue
+        entry: dict[str, Any] = {}
+        if isinstance(item.get("id"), str) and item.get("id").strip():
+            entry["id"] = item["id"].strip()
+        name = item.get("name") if isinstance(item.get("name"), str) else None
+        if name is not None:
+            name = " ".join(name.split()) or None
+        if name:
+            entry["name"] = _plain_text(name) or name
+        if entry:
+            out.append(entry)
+    return out
+
+
+def _skill_labels(raw: Any) -> list[str]:
+    out: list[str] = []
+    for lab in raw or []:
+        if isinstance(lab, dict):
+            text = lab.get("name") or lab.get("id") or ""
+        elif isinstance(lab, str):
+            text = lab
+        else:
+            continue
+        if not isinstance(text, str):
+            continue
+        text = " ".join(text.split())
+        if not text:
+            continue
+        cleaned = redact(text, limit=80)
+        if cleaned:
+            out.append(cleaned)
+    return out
+
+
+def norm_workspace_skill(s: dict[str, Any]) -> dict[str, Any]:
+    """Cloud skill row. config and any other keys are not stored."""
+    updated = s.get("updated_at")
+    return {
+        "id": s["id"],
+        "name": " ".join(s["name"].split()) if isinstance(s.get("name"), str) else None,
+        "description": _plain_text(s.get("description")),
+        "labels_json": json.dumps(_skill_labels(s.get("labels")), ensure_ascii=False),
+        "updated_at": updated if isinstance(updated, str) and updated else None,
+    }
+
+
 def enabled_skill_names(raw: Any) -> list[str]:
-    """Enabled workspace-skill names only. Instructions and skill bodies stay out of the cache."""
+    """Enabled workspace-skill names only. Skill bodies stay out of the cache."""
     names: list[str] = []
     if not isinstance(raw, list):
         return names
@@ -128,6 +242,14 @@ def norm_agent(a: dict[str, Any]) -> dict[str, Any]:
     row = _nn({k: a.get(k) for k in keep})
     row["runtime_bound"] = int(bool(a.get("runtime_bound")))
     row["skills_json"] = json.dumps(enabled_skill_names(a.get("skills")), ensure_ascii=False)
+    row["description"] = _plain_text(a.get("description"))
+    original = a.get("instructions") if isinstance(a.get("instructions"), str) else None
+    row["instructions_sha256"] = instructions_sha256(original)
+    row["instructions"] = _plain_text(normalize_instructions(original)) if original is not None else None
+    row["skills_detail_json"] = json.dumps(skill_details(a.get("skills")), ensure_ascii=False)
+    row["disabled_runtime_skills_json"] = json.dumps(
+        disabled_runtime_skills(a.get("disabled_runtime_skills")), ensure_ascii=False
+    )
     return row
 
 
@@ -247,6 +369,7 @@ class Collector:
             "members": self._members,
             "runtimes": self._runtimes,
             "agents": self._agents,
+            "workspace_skills": self._workspace_skills,
             "property_defs": self._property_defs,
         }
         agents: list[dict[str, Any]] | None = None
@@ -362,6 +485,14 @@ class Collector:
         rows = [norm_agent(a) for a in items if a.get("id")]
         self.store.replace_snapshot(self.server, ws, "agents", rows)
         return len(rows), True, rows
+
+    def _workspace_skills(self, ws: str):
+        res = self.runner.run(["skill", "list"], workspace_id=ws)
+        items = _as_list(res.data, "skills")
+        self._check_scope(ws, items)
+        rows = [norm_workspace_skill(s) for s in items if s.get("id")]
+        self.store.replace_snapshot(self.server, ws, "workspace_skills", rows)
+        return len(rows), True, None
 
     def _property_defs(self, ws: str):
         """Option names are required to parse 主层 / 涉及层 by the L1–L5 prefix."""

@@ -63,6 +63,7 @@ STATIC_ROUTES: dict[str, Callable[[Views], Any]] = {
     "/api/issues": lambda v: v.issues(),
     "/api/layers": lambda v: v.layers(),
     "/api/agents": lambda v: v.agents(),
+    "/api/bots": lambda v: v.bots(),
     "/api/runtimes": lambda v: v.runtimes(),
     "/api/stats/failures": lambda v: v.failure_stats(),
     "/api/usage": lambda v: v.usage(),
