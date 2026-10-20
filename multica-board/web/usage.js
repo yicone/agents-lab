@@ -1,3 +1,4 @@
+import { runtimeIcon } from "./runtime-mark.js";
 /** Read-only usage page. Counts and signals come from GET /api/usage; this file only displays them. */
 
 const EMAIL = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/;
@@ -274,7 +275,7 @@ function runtimeCard(ctx, row) {
   return h(
     "article",
     { class: "usage-card" },
-    h("h4", null, row.name),
+    h("h4", null, runtimeIcon(h, row.provider), row.name),
     h("p", { class: "muted" }, `${row.provider} · ${row.workspace}`),
     h("p", { class: "muted" }, span),
     countLine(h, row, ["runs_total", "completed", "capacity_failed", "true_failed", "cancelled"]),
@@ -309,6 +310,7 @@ function signalList(ctx, title, rows, tone) {
             "p",
             { class: "usage-signal" },
             h("span", { class: `tag ${SIGNAL_CLASS[tone] || ""}`.trim() }, SIGNAL_LABEL[tone] || tone),
+            runtimeIcon(h, row.provider),
             ` ${row.provider} · ${row.label}`,
             row.remaining_percent == null ? null : ` · 剩余 ${formatPercent(row.remaining_percent)}`,
             row.resets_at ? h("span", { class: "muted" }, ` · ${when(ctx, row.resets_at, { absolute: true })}`) : null,
@@ -323,7 +325,7 @@ function quotaCard(ctx, row) {
   return h(
     "article",
     { class: "usage-card" },
-    h("h4", null, row.provider),
+    h("h4", null, runtimeIcon(h, row.provider), row.provider),
     h("p", null, h("span", { class: `tag ${STATUS_CLASS[row.status] || ""}`.trim() }, STATUS_LABEL[row.status] || row.status)),
     row.status === "unconnected"
       ? null
@@ -354,7 +356,7 @@ function failureCard(ctx, row) {
   return h(
     "article",
     { class: "usage-card" },
-    h("h4", null, row.name),
+    h("h4", null, runtimeIcon(h, row.provider), row.name),
     h("p", { class: "muted" }, `${row.provider} · ${row.workspace}`),
     metric(h, "满载失败", formatCount(row.capacity_failed)),
     metric(h, "额度失败", formatCount(row.quota_failed)),

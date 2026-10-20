@@ -1,3 +1,4 @@
+import { runtimeIcon } from "./runtime-mark.js";
 import { QUEUED_RUN, classifyIssue } from "./attention.js";
 import {
   decideQueue,
@@ -1312,6 +1313,7 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
       "td",
       { class: "rt", title: `${rt.device_info ?? ""}\n最后在线 ${absTime(rt.last_seen_at)}` },
       h("span", { class: `dot ${rt.status === "online" ? "ok" : "off"}` }),
+      runtimeIcon(h, rt.provider),
       rt.name,
       rt.status !== "online" ? h("span", { class: "tag bad" }, `离线 ${ago(rt.last_seen_at)}`) : null,
     );
@@ -1458,7 +1460,7 @@ function renderAgents() {
           "aria-pressed": active ? "true" : "false",
           onclick: () => setRoute({ provider: active ? "" : s.provider }),
         },
-        h("span", { class: "p-name" }, s.provider),
+        h("span", { class: "p-name" }, runtimeIcon(h, s.provider), s.provider),
         h("span", { class: "p-main" }, `${s.agents} agent · ${s.ws.size} ws`),
         h(
           "span",

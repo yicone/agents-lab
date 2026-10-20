@@ -167,8 +167,7 @@ function toolLine(ctx, tool) {
       "div",
       { class: "tool gap" },
       h("i", { class: "dot" }),
-      h("span", null, tool.label),
-      h("span", { class: "gap-label" }, tool.gap),
+      h("span", { class: "tool-name" }, tool.label, " ", h("span", { class: "gap-label" }, tool.gap)),
       tool.note ? h("span", { class: "muted" }, tool.note) : null,
     );
   }
@@ -203,7 +202,7 @@ function previewList(ctx, box, governanceOnly) {
       "button",
       { type: "button", class: "preview", onclick: (e) => ctx.openDrawer(row.issue, e.currentTarget) },
       h("span", { class: "ident" }, row.issue.identifier),
-      h("span", { class: "preview-title" }, row.issue.title),
+      h("span", { class: "preview-title", title: row.issue.title }, row.issue.title),
       h("span", { class: `wait ${row.wait.level}` }, formatWait(row.wait.ms, row.wait.approximate)),
     ),
   );
@@ -313,7 +312,7 @@ export function renderMap(ctx) {
     " 未完成 ",
     h("i", { class: "swatch decide" }),
     " 待你决定 ",
-    h("span", { class: "muted" }, " · 工具行：绿点是已有页面，灰点是未建或未接入，只出现在地图上。"),
+    h("span", { class: "muted" }, " · 工具行：绿点是已有页面且无告警，红点是已有页面且有告警，灰点是未建或未接入，只出现在地图上。"),
   );
 
   return [

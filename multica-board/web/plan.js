@@ -1,3 +1,4 @@
+import { runtimeIcon, runtimeOption } from "./runtime-mark.js";
 /** G1 switch-plan views. Fixture data stays local; live reads go through plan-api.js. No POST, approve, apply, or rollback. */
 
 import { buildPlans } from "./fixtures/plan-data.js";
@@ -480,7 +481,7 @@ function fieldNodes(h, field, kind) {
 function runtimeBits(h, value) {
   if (!value || typeof value !== "object") return rawText(value);
   const on = value.status === "online";
-  return h("span", { class: "rt" }, h("span", { class: `dot ${on ? "ok" : "off"}`, title: on ? "在线" : "离线" }), value.name || value.id);
+  return h("span", { class: "rt" }, h("span", { class: `dot ${on ? "ok" : "off"}`, title: on ? "在线" : "离线" }), runtimeIcon(h, value.provider), value.name || value.id);
 }
 
 function evidenceMark(state) {
@@ -646,7 +647,7 @@ export function renderPlanNew(h, ctx) {
             },
           },
           h("option", { value: "", selected: !runtime }, "选择 runtime"),
-          choices.map((item) => h("option", { value: item.key, selected: item.key === runtime?.key }, `${item.name} · ${item.provider}`)),
+          choices.map((item) => h("option", { value: item.key, selected: item.key === runtime?.key }, runtimeOption(item.provider, item.name))),
         ),
         h("span", { class: "muted" }, " 同名 runtime 合并为一行，命令按 workspace 写入各自的 UUID"),
       ),
