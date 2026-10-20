@@ -29,6 +29,21 @@ function vnode(tag, attrs, ...children) {
   return { tag, attrs: attrs || {}, children: children.flat(Infinity).filter((child) => child != null && child !== false) };
 }
 
+test("recursive installations show category, package provenance and both same-name entries", () => {
+  const item = {
+    name: "computer-use", entries: [
+      { path: "/skills/computer-use", present: true, scope: "user", symlink: true, target: "../../shared/computer-use", resolved: "/shared/computer-use" },
+      { path: "/skills/autonomous-ai-agents/computer-use", present: true, scope: "user", category: "autonomous-ai-agents", package: "hermes-builtin-skills", registration: "bundle_member", manifest_path: "/skills/.bundled_manifest", provider_path: "/hermes-agent/skills/autonomous-ai-agents/computer-use/SKILL.md" },
+      { path: "/skills/user-added", present: true, scope: "user", package: "hermes-builtin-skills", registration: "unrecorded" },
+    ],
+  };
+  const nodes = renderSkillDrawer({ h: vnode, closeDrawer() {}, absTime: (value) => value }, item);
+  const text = flatten({ children: nodes }).filter((node) => typeof node === "string").join("\n");
+  for (const expected of ["/skills/computer-use", "/skills/autonomous-ai-agents/computer-use", "../../shared/computer-use", "分类 autonomous-ai-agents", "hermes-builtin-skills", "/skills/.bundled_manifest", "内容未校验", "来源未核实", "未验证 runtime 当前会话实际加载"]) {
+    assert.ok(text.includes(expected), expected);
+  }
+});
+
 function rowClasses(node, found = []) {
   if (!node || typeof node !== "object") return found;
   if (typeof node.attrs?.class === "string" && node.attrs.class.includes("skill-row")) found.push(node.attrs.class);

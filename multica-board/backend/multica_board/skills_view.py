@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from .skill_discovery import scan_installs
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = REPO_ROOT / "skills-governance" / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -246,7 +248,7 @@ def _tool_root_paths(tool_roots_path: Path, repo_root: Path) -> list[Path]:
     return paths
 
 
-def _install_stamp(inventory_path: Path, tool_roots_path: Path, repo_root: Path, staging_root: Path) -> tuple:
+def _install_stamp(inventory_path: Path, tool_roots_path: Path, repo_root: Path, staging_root: Path, scan_roots: list[Path] | None = None) -> tuple:
     """Fingerprint installs. Inventory mtime alone misses these writes."""
     stamps: list = [_stamp_tree(staging_root)]
     for root in _tool_root_paths(tool_roots_path, repo_root):
@@ -263,6 +265,15 @@ def _install_stamp(inventory_path: Path, tool_roots_path: Path, repo_root: Path,
         probe_roots = []
     shared = _shared_root(probe_roots)
     skills = document.get("skills") if isinstance(document, dict) else None
+    extra_roots = scan_roots if scan_roots is not None else (
+        drift_report.machine_roots(document, repo_root, [], True) if isinstance(skills, list) else [])
+    disk_roots = _tool_root_paths(tool_roots_path, repo_root) + list(extra_roots)
+    stamps.append(scan_installs(disk_roots)["stamp"])
+    if isinstance(skills, list):
+        for bundle in _bundle_roots([skill for skill in skills if isinstance(skill, dict)], repo_root):
+            stamps.append(_stat_token(bundle["manifest"]))
+            if bundle["provider"] is not None:
+                stamps.append(_stamp_tree(bundle["provider"]))
     if shared is not None:
         shared_dir = Path(shared["expanded"])
         stamps.append(_stat_token(shared_dir))
@@ -341,6 +352,8 @@ def structural_bucket(item: dict[str, Any]) -> str | None:
     """Bucket from drift / conflict only. Staging is applied afterwards."""
     if item.get("origin") == "unrecorded":
         return "unrecorded"
+    if item.get("origin") == "bundle_member":
+        return None
     if item.get("origin") == "staging":
         return None
     status = item.get("reconciliation_status")
@@ -382,6 +395,8 @@ def assign_buckets(
         primary = structural_bucket(item)
         if primary:
             hits.append(primary)
+        if "unrecorded" not in hits and any(entry.get("registration") == "unrecorded" for entry in item.get("entries", [])):
+            hits.append("unrecorded")
         gate = gates.get(item["name"])
         if gate and (gate.get("blocked") or gate.get("backend") == "fallback"):
             hits.append("capability_pending")
@@ -439,10 +454,10 @@ def _load_tool_roots(path: Path, repo_root: Path) -> tuple[list[dict[str, Any]],
         raw = str(item["path"])
         if item.get("repo"):
             lexical = os.path.abspath(repo_root / raw)
-            expanded = str((repo_root / raw).resolve())
+            expanded = os.path.realpath(repo_root / raw)
         else:
             lexical = os.path.abspath(Path(raw).expanduser())
-            expanded = str(Path(raw).expanduser().resolve())
+            expanded = os.path.realpath(Path(raw).expanduser())
         roots.append(
             {
                 "path": raw,
@@ -468,8 +483,8 @@ def _match_root(expanded: str, roots: list[dict[str, Any]], key: str = "expanded
 
 def _expand(raw: str, repo_root: Path) -> str:
     if raw.startswith("~") or raw.startswith("/"):
-        return str(Path(raw).expanduser().resolve())
-    return str((repo_root / raw).resolve())
+        return os.path.realpath(Path(raw).expanduser())
+    return os.path.realpath(repo_root / raw)
 
 
 def _lexical(raw: str, repo_root: Path) -> str:
@@ -1013,6 +1028,8 @@ def _inventory_item(
     if isinstance(canonical, str):
         paths.append(canonical)
     marks, entries, evidence, repo_ids = tool_marks(paths, roots, repo_root, repo_ctx, tool_order)
+    for entry in entries:
+        entry.update(registration="inventory", source_class=skill.get("source_class"), runtime_loaded=None)
     label, detail = _channel(skill)
     canonical_text = canonical if isinstance(canonical, str) else None
     item = {
@@ -1082,7 +1099,7 @@ def _unrecorded_item(
         "baseline_subject": None,
         "baseline_ref": None,
         "review_time": None,
-        "reconciliation_status": "missing",
+        "reconciliation_status": "unverified",
         "status_label": "未登记",
         "findings": [{"code": "unrecorded", "label": "清单里没有这条安装"}],
         "customization_mode": None,
@@ -1096,6 +1113,115 @@ def _unrecorded_item(
         "install_path": path,
         "capability_gate": None,
     }
+
+
+def _bundle_roots(skills: list[dict], repo_root: Path) -> list[dict]:
+    """Package containment is evidence, never a blanket builtin assertion."""
+    bundles = []
+    for skill in skills:
+        if not drift_report.is_bundle(skill):
+            continue
+        paths = list(skill.get("visible_paths") or [])
+        paths += [adapter.get("path") for adapter in skill.get("adapters", []) if isinstance(adapter, dict)]
+        paths.append((skill.get("authority") or {}).get("canonical_path"))
+        for raw in paths:
+            if not isinstance(raw, str) or not drift_report.is_concrete(raw):
+                continue
+            path = Path(_lexical(raw, repo_root))
+            if not path.is_dir() or (path / "SKILL.md").is_file():
+                continue
+            manifest = path / ".bundled_manifest"
+            names = set()
+            # Hermes owns this manifest format. Do not interpret arbitrary
+            # provider files as evidence for other runtimes.
+            if skill.get("name") == "hermes-builtin-skills":
+                try:
+                    names = {line.partition(":")[0].strip() for line in manifest.read_text(encoding="utf-8-sig").splitlines() if line.strip()}
+                except (OSError, UnicodeError):
+                    pass
+            subject = (skill.get("baseline") or {}).get("subject")
+            provider = Path(_lexical(subject, repo_root)).parent / "skills" if isinstance(subject, str) else None
+            bundles.append({"path": path, "skill": skill, "manifest": manifest, "names": names, "provider": provider})
+    return sorted(bundles, key=lambda b: len(str(b["path"])), reverse=True)
+
+
+def _discovered_metadata(path: str, name: str, found: dict | None, bundles: list[dict]) -> dict:
+    metadata = {"registration": "unrecorded", "source_class": "unrecorded", "runtime_loaded": None}
+    if found:
+        metadata.update({key: found[key] for key in ("root", "relative_path", "category", "symlink_chain")})
+    for bundle in bundles:
+        try:
+            relative = Path(path).relative_to(bundle["path"])
+        except ValueError:
+            continue
+        skill = bundle["skill"]
+        metadata["package"] = skill["name"]
+        metadata["package_path"] = str(bundle["path"])
+        provider = bundle["provider"]
+        # Manifest names alone cannot distinguish two same-named installs.
+        # Corroborate the exact relative directory in the runtime distribution
+        # and reject links that escape the package root.
+        try:
+            inside = Path(path).resolve().is_relative_to(bundle["path"].resolve())
+            provider_skill = provider / relative / "SKILL.md" if provider else None
+            verified = (inside and name in bundle["names"] and provider_skill is not None and provider_skill.is_file()
+                        and drift_report.skill_label(provider_skill.parent) == name)
+        except (OSError, RuntimeError, UnicodeError):
+            verified = False
+        if verified:
+            metadata.update(registration="bundle_member", source_class=skill["source_class"],
+                            provenance="provider_manifest_and_path", manifest_path=str(bundle["manifest"]),
+                            provider_path=str(provider_skill))
+        else:
+            metadata["provenance"] = "unverified"
+        break
+    return metadata
+
+
+def _merge_discovered(items: list[dict], rows: list[dict], discovered: list[dict], bundles: list[dict],
+                      roots: list[dict], repo_root: Path, repo_ctx: dict, tool_order: dict) -> None:
+    """Merge names for display, identify each installation by lexical path."""
+    by_name = {item["name"]: item for item in items}
+    owners = { _lexical(entry["path"], repo_root): item for item in items for entry in item["entries"] }
+    found_by_path = {row["path"]: row for row in discovered}
+    candidates = { _lexical(row["path"], repo_root): row for row in rows }
+    for found in discovered:
+        path = Path(found["path"])
+        try:
+            name = drift_report.skill_label(path)
+        except UnicodeError:
+            name = path.name
+        candidates[found["path"]] = {"name": name, "path": str(path)}
+    for lexical, row in sorted(candidates.items()):
+        metadata = _discovered_metadata(lexical, row["name"], found_by_path.get(lexical), bundles)
+        item = owners.get(lexical)
+        if item is None:
+            item = by_name.get(row["name"])
+            if item is None:
+                item = _unrecorded_item(row, roots, repo_root, repo_ctx, tool_order)
+                if metadata["registration"] == "bundle_member":
+                    item.update(origin="bundle_member", source_class=metadata["source_class"],
+                                source_label=SOURCE_LABEL[metadata["source_class"]],
+                                channel_label="随运行时包治理", channel_detail=metadata["package"],
+                                reconciliation_status=None, status_label="包级治理", findings=[])
+                items.append(item)
+                by_name[item["name"]] = item
+            else:
+                paths = [entry["path"] for entry in item["entries"]] + [row["path"]]
+                previous = {_lexical(entry["path"], repo_root): entry for entry in item["entries"]}
+                marks, entries, evidence, repo_ids = tool_marks(paths, roots, repo_root, repo_ctx, tool_order)
+                for entry in entries:
+                    old = previous.get(_lexical(entry["path"], repo_root), {})
+                    entry.update({key: value for key, value in old.items() if key not in entry})
+                item.update(tools=marks, entries=entries, evidence=evidence, repo_ids=repo_ids)
+            owners[lexical] = item
+            for entry in item["entries"]:
+                if _lexical(entry["path"], repo_root) == lexical:
+                    entry.update(metadata)
+        else:
+            for entry in item["entries"]:
+                if _lexical(entry["path"], repo_root) == lexical and found_by_path.get(lexical):
+                    entry.update({key: value for key, value in metadata.items() if key not in ("registration", "source_class")})
 
 
 def _skill_names(staging_dir: Path, root_info: dict[str, Any]) -> list[str]:
@@ -1340,11 +1466,10 @@ def build_payload(
             "review_time": skill.get("review_time"),
         }
         items.append(_inventory_item(skill, row, roots, repo_root, repo_ctx, tool_order))
+    discovery = scan_installs([Path(root["lexical"]) for root in roots] + list(scan))
+    _merge_discovered(items, report.get("unrecorded") or [], discovery["installs"], _bundle_roots(skills, repo_root),
+                      roots, repo_root, repo_ctx, tool_order)
     known = {item["name"] for item in items}
-    for row in report.get("unrecorded") or []:
-        if row.get("name") in known:
-            continue
-        items.append(_unrecorded_item(row, roots, repo_root, repo_ctx, tool_order))
 
     pending, staging_meta = read_staging(staging_root)
     gates: dict[str, dict[str, Any]] = {}
@@ -1404,6 +1529,10 @@ def build_payload(
     sources = [
         {"id": "inventory", "label": "清单", "state": "ok", "detail": sha or "无 Git SHA"},
         {"id": "drift", "label": "漂移扫描", "state": "ok", "detail": "刚刚"},
+        {"id": "discovery", "label": "磁盘入口扫描",
+         "state": "fallback" if any(issue["code"] != "missing" for issue in discovery["issues"]) else "ok",
+         "detail": f"{len(discovery['installs'])} 个入口；未验证 runtime 加载" +
+                   ("；部分路径无法扫描，详见 discovery.issues" if any(issue["code"] != "missing" for issue in discovery["issues"]) else "")},
         {
             "id": "skill_lock",
             "label": "SkilLock",
@@ -1440,6 +1569,9 @@ def build_payload(
             "review_days": review_days,
             "sources": sources,
             "staging": staging_meta,
+            "discovery": {"kind": "disk_installations", "runtime_loaded": None,
+                          "detail": "磁盘安装可见性；未验证 runtime 当前会话实际加载。包清单与路径仅证明来源，不验证内容未修改。",
+                          "install_count": len(discovery["installs"]), "issues": discovery["issues"]},
         },
     }
 
@@ -1486,7 +1618,7 @@ def skills_document(
         _mtime(tool_roots_path),
         str(lock_path),
         _mtime(lock_path),
-        _install_stamp(inventory_path, tool_roots_path, repo_root, staging_root),
+        _install_stamp(inventory_path, tool_roots_path, repo_root, staging_root, scan_roots),
     )
     cached = _CACHE.get(key)
     if cached is not None:
