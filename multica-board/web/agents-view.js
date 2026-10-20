@@ -48,9 +48,59 @@ function heredoc(body) {
   return `$(cat <<'${marker}'\n${text}\n${marker}\n)`;
 }
 
-export function instructionCommand(agent) {
+export function instructionCommand(agent, body) {
   const id = agent?.id || "";
-  return `multica agent update ${id} --instructions ${heredoc(instructionStat(agent?.instructions).text)}`;
+  const text = body === undefined ? instructionStat(agent?.instructions).text : instructionStat(body).text;
+  return `multica agent update ${id} --instructions ${heredoc(text)}`;
+}
+
+export function normalizeInstruction(text) {
+  if (typeof text !== "string") return "";
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").normalize("NFC").trim();
+}
+
+export function driftStatus(liveHash, gitHash, liveText, gitText) {
+  const hasGit = gitHash != null || gitText != null;
+  if (!hasGit) return "untracked";
+  if (typeof liveHash === "string" && liveHash && typeof gitHash === "string" && gitHash) {
+    return liveHash === gitHash ? "aligned" : "modified";
+  }
+  return normalizeInstruction(liveText) === normalizeInstruction(gitText) ? "aligned" : "modified";
+}
+
+export function lineDiff(gitText, liveText) {
+  const left = instructionLines(gitText);
+  const right = instructionLines(liveText);
+  const rows = [];
+  const dp = Array.from({ length: left.length + 1 }, () => new Uint32Array(right.length + 1));
+  for (let i = left.length - 1; i >= 0; i -= 1) {
+    for (let j = right.length - 1; j >= 0; j -= 1) {
+      dp[i][j] = left[i] === right[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  let i = 0;
+  let j = 0;
+  while (i < left.length && j < right.length) {
+    if (left[i] === right[j]) {
+      rows.push({ op: " ", text: left[i] });
+      i += 1;
+      j += 1;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      rows.push({ op: "-", text: left[i] });
+      i += 1;
+    } else {
+      rows.push({ op: "+", text: right[j] });
+      j += 1;
+    }
+  }
+  while (i < left.length) rows.push({ op: "-", text: left[i++] });
+  while (j < right.length) rows.push({ op: "+", text: right[j++] });
+  return rows;
+}
+
+function instructionLines(text) {
+  const norm = normalizeInstruction(text);
+  return norm ? norm.split("\n") : [];
 }
 
 export function skillCommands(agent) {
@@ -207,6 +257,36 @@ function commandBlock(h, copy, command) {
   return h("p", { class: "command" }, h("code", null, command), copyButton(h, copy, command, "复制"));
 }
 
+function renderGitDrift(h, copy, { liveHash, liveText, git, noun }) {
+  const gitText = git && typeof git.text === "string" ? git.text : null;
+  const status = driftStatus(liveHash, git?.sha256, liveText, gitText);
+  const label = status === "aligned" ? "一致" : status === "modified" ? "已修改" : "未纳管";
+  const tone = status === "aligned" ? "ok" : status === "modified" ? "bad" : "warn";
+  const nodes = [h("h3", { class: "drawer-sub" }, "Git 真源"), h("p", null, h("span", { class: `tag ${tone}` }, label))];
+  if (status === "untracked") {
+    nodes.push(h("p", { class: "muted" }, `Git 里还没有这份${noun}。`));
+    return nodes;
+  }
+  if (status === "aligned") nodes.push(h("p", { class: "muted" }, "和 Git 真源的规范化哈希一致。"));
+  else {
+    const rows = lineDiff(gitText || "", liveText || "");
+    nodes.push(h("p", { class: "muted" }, "逐行对比：减号是 Git 真源，加号是当前缓存。"));
+    nodes.push(
+      rows.length
+        ? h(
+            "div",
+            { class: "diff-block" },
+            rows.map((row) => h("div", { class: `diff-line diff-${row.op === "+" ? "add" : row.op === "-" ? "del" : "same"}` }, `${row.op} ${row.text}`)),
+          )
+        : h("p", { class: "muted" }, "哈希不一致，缓存正文和 Git 规范化后相同。"),
+    );
+  }
+  const skills = Array.isArray(git?.skills) ? git.skills.filter((name) => typeof name === "string" && name.trim()) : [];
+  if (noun === "职责说明") nodes.push(h("p", null, skills.length ? `云端 Skills：${skills.join("、")}` : "云端 Skills：未在 Git 声明"));
+  nodes.push(h("p", { class: "drawer-actions" }, copyButton(h, copy, gitText || "", "复制 Git 真源")));
+  return nodes;
+}
+
 export function renderAgentDrawer(h, ctx, drawer) {
   const agent = drawer.agent;
   const section = drawer.section || "brief";
@@ -283,6 +363,10 @@ export function renderAgentDrawer(h, ctx, drawer) {
         ? h("p", null, h("span", { class: "instr-empty" }, "无"), h("span", { class: "muted" }, " instructions"))
         : h("pre", { class: "instr-body" }, stat.text),
       h("p", { class: "drawer-actions" }, copyButton(h, ctx.copy, full, "复制全文"), copyButton(h, ctx.copy, instructionCommand(agent), "复制更新命令")),
+      ...renderGitDrift(h, ctx.copy, { liveHash: agent.instructions_sha256, liveText: stat.text, git: ctx.gitSource, noun: "instructions" }),
+      ctx.gitSource && typeof ctx.gitSource.text === "string"
+        ? commandBlock(h, ctx.copy, instructionCommand(agent, ctx.gitSource.text))
+        : null,
       h("h3", { class: "drawer-sub" }, "CLI"),
       commandBlock(h, ctx.copy, instructionCommand(agent)),
     );
@@ -456,6 +540,7 @@ export function renderBotDrawer(h, ctx, drawer) {
     h("h3", { class: "drawer-sub" }, "职责说明"),
     duty ? h("pre", { class: "instr-body" }, duty) : h("p", null, h("span", { class: "duty-empty" }, "未填职责说明")),
     h("p", { class: "drawer-actions" }, copyButton(h, ctx.copy, duty, "复制职责说明")),
+    ...renderGitDrift(h, ctx.copy, { liveHash: bot.description_sha256, liveText: duty, git: ctx.gitSource, noun: "职责说明" }),
     h("h3", { class: "drawer-sub" }, "Room 成员"),
     bot.is_group ? (members.length ? h("ul", { class: "skill-list" }, members.map((id) => h("li", null, names(id)))) : h("p", { class: "muted" }, "没有成员")) : h("p", { class: "muted" }, "不是 Room"),
     h("h3", { class: "drawer-sub" }, "Bridge 路由与 outbox"),

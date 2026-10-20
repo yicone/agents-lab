@@ -10,10 +10,13 @@ import {
   botQueryFields,
   compareGroups,
   dutyExcerpt,
+  driftStatus,
   instructionCommand,
   instructionStat,
+  lineDiff,
   missingHermesSkill,
   renderAgentDrawer,
+  renderBotDrawer,
   renderBotPage,
   skillCommands,
   usageParts,
@@ -162,4 +165,38 @@ test("agent drawer renders instructions as text and bot rows keep duty and room 
 test("agents view source does not assign innerHTML", () => {
   const src = readFileSync(new URL("./agents-view.js", import.meta.url), "utf8");
   assert.doesNotMatch(src, /innerHTML/);
+});
+
+test("drawer shows a line diff and copies the Git source text", () => {
+  assert.equal(driftStatus("abc", "abc", "live", "git"), "aligned");
+  assert.equal(driftStatus("abc", "def", "live", "git"), "modified");
+  assert.equal(driftStatus(null, null, "same", "same"), "aligned");
+  assert.equal(driftStatus(null, null, "live", null), "untracked");
+  const rows = lineDiff("alpha\nbeta", "alpha\nBETA\nmore");
+  assert.deepEqual(rows.map((row) => `${row.op}${row.text}`), [" alpha", "-beta", "+BETA", "+more"]);
+
+  const drawer = renderAgentDrawer(
+    h,
+    { closeDrawer() {}, copy() {}, setSection() {}, wsTag: null, extLink: h, provider: "cursor", recentWindowH: 24, ago: () => "", errKind: () => "", gitSource: { sha256: "def", text: "git <source>" } },
+    { section: "brief", agent: { id: "a", name: "Reviewer", description: "", instructions: "live <text>", instructions_sha256: "abc", skills: [] } },
+  );
+  const text = textOf({ children: drawer });
+  assert.match(text, /已修改/);
+  assert.match(text, /复制 Git 真源/);
+  assert.match(text, /- git <source>/);
+  assert.match(text, /\+ live <text>/);
+  const blocks = [];
+  for (const part of drawer) walk(part, (node) => { if (String(node.attrs?.class || "").includes("diff-block")) blocks.push(node); });
+  assert.equal(blocks.length, 1);
+  assert.equal(JSON.stringify(blocks[0]).includes("innerHTML"), false);
+
+  const bot = renderBotDrawer(
+    h,
+    { closeDrawer() {}, copy() {}, memberName: (id) => id, gitSource: { sha256: "same", text: "盯着待验收", skills: [] } },
+    { bot: { id: "b", name: "Steward", description: "盯着待验收", description_sha256: "same", is_group: false, member_ids: [], bridge: {} } },
+  );
+  const botText = textOf({ children: bot });
+  assert.match(botText, /一致/);
+  assert.match(botText, /复制 Git 真源/);
+  assert.match(botText, /云端 Skills：未在 Git 声明/);
 });

@@ -83,6 +83,7 @@ const state = {
   issues: [],
   agents: [],
   bots: null,
+  instructionSources: { agents: {}, bots: {} },
   runtimes: [],
   recentWindowH: 24,
   fetchError: null,
@@ -166,6 +167,28 @@ async function getRuns(it) {
   return { generated_at: all.generated_at, items };
 }
 
+async function loadInstructionSources() {
+  try {
+    const payload = await fetchJSON("instruction-sources.json", "instruction-sources");
+    return {
+      agents: payload?.agents && typeof payload.agents === "object" ? payload.agents : {},
+      bots: payload?.bots && typeof payload.bots === "object" ? payload.bots : {},
+    };
+  } catch {
+    return { agents: {}, bots: {} };
+  }
+}
+
+function gitAgent(agent) {
+  if (!agent) return null;
+  return state.instructionSources?.agents?.[`${agent.workspace_id}/${agent.id}`] || null;
+}
+
+function gitBot(bot) {
+  if (!bot) return null;
+  return state.instructionSources?.bots?.[bot.id] || null;
+}
+
 async function loadBots() {
   try {
     if (MOCK) return await getJSON("bots");
@@ -235,9 +258,11 @@ async function refresh(force = false) {
     const changed = force || !state.meta || meta.generated_at !== state.meta.generated_at;
     const previousSkills = skillsRefreshKey(state.skills);
     const previousBots = botsRefreshKey(state.bots);
+    const previousSources = JSON.stringify(state.instructionSources || {});
     // Skills and the Grok roster live on this machine, so they reload even when the Multica snapshot is unchanged.
     const skillsPromise = loadSkills();
     const botsPromise = loadBots();
+    const sourcesPromise = loadInstructionSources();
     if (changed) {
       const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
@@ -268,11 +293,13 @@ async function refresh(force = false) {
     }
     state.skills = await skillsPromise;
     state.bots = await botsPromise;
+    state.instructionSources = await sourcesPromise;
     const skillsChanged = skillsRefreshKey(state.skills) !== previousSkills;
     const botsChanged = botsRefreshKey(state.bots) !== previousBots;
+    const sourcesChanged = JSON.stringify(state.instructionSources || {}) !== previousSources;
     state.meta = meta;
     state.fetchError = null;
-    if (changed || skillsChanged || botsChanged) render();
+    if (changed || skillsChanged || botsChanged || sourcesChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -970,6 +997,7 @@ function renderDrawer() {
           recentWindowH: state.recentWindowH,
           ago,
           errKind,
+          gitSource: gitAgent(d.agent),
         },
         state.drawer,
       ),
@@ -986,6 +1014,7 @@ function renderDrawer() {
           copy: copyText,
           delivery: state.bots?.delivery,
           memberName: (id) => names.get(id) || id,
+          gitSource: gitBot(d.bot),
         },
         state.drawer,
       ),
