@@ -27,6 +27,7 @@ READ_ONLY_COMMANDS: frozenset[tuple[str, ...]] = frozenset(
         ("project", "list"),
         ("agent", "list"),
         ("agent", "tasks"),
+        ("skill", "list"),
         ("runtime", "list"),
         ("runtime", "usage"),
         ("runtime", "activity"),

@@ -262,6 +262,27 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 - `tasks.queued` 包含 `queued` / `dispatched` / `waiting_local_directory`。
 - `recent`：`recent_window_h` 小时内的 run 统计。`last_failed_issue_identifier` 只有该 issue 在缓存里时才有值。
 - `url`：`{multica_web_base}/{slug}/agents/{agent_uuid}`，无法拼接时为 `null`。
+- `description`：agent 简介，入库前经 `redact()`，没有则为 `null`。
+- `instructions`：规范化后的指令全文，入库前经 `redact()`（不截断到错误摘要的 200 字）。`sk-`、`Bearer`、`ghp_`、JWT、长 hex 等被换成 `[redacted]`。没有则为 `null`。
+- `instructions_sha256`：规范化原文（NFC、换行统一为 LF、去掉首尾空白）的 SHA-256，在脱敏之前计算。原文不入库。
+- `skills`：对象数组，元素是 `{id, name, description, enabled}`。不含 skill 正文。未采集时为 `[]`。
+- `disabled_runtime_skills`：被关掉的 runtime skill 名称（或 `{id, name}`）。未采集时为 `[]`。
+
+`custom_env`、`mcp_config`、`runtime_config`、`launch_header` 不采集。某个 workspace 返回 `error.kind=auth` 时，该 workspace 的缓存（含 `workspace_skills`）整表清空。
+
+## `GET /api/bots`
+
+本机 Grok Bot 花名册。只读 sand-client 的 5 个切片，以及 `routes.json` 和 `outbox.json`。不读 transcript、草稿、secret、Cookies、credential 或 Keychain。目录不存在或未登录时：
+
+```json
+{"ok": false, "reason": "absent", "items": []}
+```
+
+登录后 `ok: true`。`account_slot` 只保留账号标识末 8 位。`items` 是花名册（单人 Bot 与 Room），带分组、`pinned`、`is_group`、`member_ids`。`weekly_usage` 是账号级周额度。`delivery` 是 bridge 的 `shadow` 或 `send`。每个 item 的 `bridge` 含负责的 workspace、webhook `routine`、`delivery`、outbox 的 `pending` / `dead_letter` / `shadow_record`，以及该目的地的断路器。数量以本机 roster 为准。
+
+## `GET /api/skills` 的 `workspace_installs`
+
+每条本地 skill 增加 `workspace_installs`：各 workspace 里同名的云端 skill，以及该 workspace 中挂载它的 agent（`id`、`name`、`enabled`）。云端 skill 来自 `multica skill list`，缓存在 `workspace_skills`（键 `server + workspace_id + id`）。
 
 ## `GET /api/runtimes`
 
@@ -564,6 +585,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 ## 变更记录
 
+- v0.7（2026-10-20）：ACM-291 增加 `GET /api/bots`。`GET /api/agents` 增加 `description`、`instructions`、`instructions_sha256`、`skills`、`disabled_runtime_skills`。`GET /api/skills` 的每条增加 `workspace_installs`。
 - v0.6（2026-10-17）：ACM-182 增加 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。drift 增加 `version_changed`。页面待处理栏和 attention 接口用同一个分桶函数。
 - v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。同日给 `GET /api/changes` 增加 `?kind=`，`status` 只返回 issue 状态迁移，避免 run 事件占满分页后等待时长全部退回 `≥`。
 - v0.4（2026-10-16）：ACM-179 在 `GET /api/attention` 增加 `agent_updates`，列出近 24 小时内负责人 agent 已完成、但没有被同期 `in_review` / `blocked` 迁移覆盖的 run。

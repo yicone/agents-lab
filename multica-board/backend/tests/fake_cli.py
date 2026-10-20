@@ -61,6 +61,8 @@ class FakeMultica:
             out = self.workspaces[ws].get("runtimes", [])
         elif key == ("agent", "list"):
             out = self.workspaces[ws].get("agents", [])
+        elif key == ("skill", "list"):
+            out = self.workspaces[ws].get("skills", [])
         elif key == ("property", "list"):
             out = self.workspaces[ws].get("properties", [])
         elif key == ("agent", "tasks"):

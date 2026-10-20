@@ -22,7 +22,7 @@ from multica_board.collector import WORKSPACE, CollectOptions, Collector  # noqa
 from multica_board.redact import ERROR_KINDS, classify_error, redact  # noqa: E402
 from multica_board.server import STATIC_CSP, BoardServer, assert_loopback  # noqa: E402
 from multica_board.store import Store  # noqa: E402
-from multica_board.views import ATTENTION_TEXT_BYTES, NotFound, Views, render_attention_text  # noqa: E402
+from multica_board.views import ATTENTION_TEXT_BYTES, NotFound, Views, build_workspace_installs, render_attention_text  # noqa: E402
 
 WS_A, WS_B = "ws-a", "ws-b"
 SERVER = "test-profile"
@@ -79,6 +79,8 @@ class RedactTests(unittest.TestCase):
             '"api_key": "sk-abcdefghijk"',
             "ghp_" + "a" * 36,
             "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+            "sk-" + "a" * 16,
+            "deadbeef" * 8,
         ]:
             out = redact(s)
             self.assertIn("[redacted]", out, s)
@@ -128,12 +130,17 @@ class RunnerTests(unittest.TestCase):
             ["workspace", "switch", "x"],
             ["daemon", "stop"],
             ["auth", "token"],
+            ["skill", "create", "x"],
+            ["skill", "update", "x"],
+            ["skill", "refresh"],
+            ["skill", "import", "x"],
         ):
             with self.assertRaises(CommandNotAllowed, msg=args):
                 assert_read_only(args)
         with self.assertRaises(CommandNotAllowed):
             assert_read_only(["issue", "list", "--server-url", "http://evil"])
         assert_read_only(["property", "list"])
+        assert_read_only(["skill", "list"])
 
     def test_refused_before_spawn(self):
         fake = FakeMultica({})
@@ -240,6 +247,97 @@ class CollectorTests(unittest.TestCase):
         )
         self.assertNotIn(FAKE_TOKEN.encode(), self.db.read_bytes())
 
+    def test_instructions_redacted_before_store_and_skills_collected(self):
+        import hashlib
+
+        from multica_board.collector import instructions_sha256, normalize_instructions
+
+        jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        secret_hex = "ab" * 32
+        instructions = ("word " * 80) + f"sk-abcdefghijk Bearer {FAKE_TOKEN} ghp_{'b' * 36} {jwt} {secret_hex}"
+        data = fixture()
+        data[WS_A]["agents"][0] = agent(
+            WS_A,
+            "ag1",
+            description="public blurb",
+            instructions=instructions,
+            skills=[
+                {"id": "sk1", "name": "mem-distill", "description": f"body {FAKE_TOKEN}", "enabled": True, "content": FAKE_TOKEN},
+                {"id": "sk2", "name": "off", "description": "paused", "enabled": False, "content": FAKE_TOKEN},
+            ],
+            disabled_runtime_skills=["runtime-skill", {"id": "rs", "name": "other", "content": FAKE_TOKEN}],
+        )
+        data[WS_A]["skills"] = [{
+            "id": "cloud1", "workspace_id": WS_A, "name": "mem-distill",
+            "description": f"cloud {FAKE_TOKEN}", "labels": ["ops", {"name": "beta"}],
+            "updated_at": "2026-10-20T00:00:00Z", "config": {"token": FAKE_TOKEN},
+        }]
+        data[WS_B]["skills"] = [{
+            "id": "cloud2", "workspace_id": WS_B, "name": "mem-distill",
+            "description": "beta skill", "labels": [], "updated_at": "2026-10-19T00:00:00Z",
+        }]
+        data[WS_B]["agents"][0] = agent(
+            WS_B, "bg1", instructions="beta instructions",
+            skills=[{"id": "cloud2", "name": "mem-distill", "description": "mounted", "enabled": True}],
+        )
+        store, col = make(FakeMultica(data), self.db)
+        res = col.collect()
+        self.assertTrue(res["workspaces"][WS_A]["ok"], res)
+        self.assertTrue(res["workspaces"][WS_B]["ok"], res)
+        row = store.query("SELECT * FROM agents WHERE id='ag1'")[0]
+        self.assertEqual(row["description"], "public blurb")
+        self.assertEqual(row["instructions_sha256"], instructions_sha256(instructions))
+        self.assertEqual(
+            row["instructions_sha256"],
+            hashlib.sha256(normalize_instructions(instructions).encode()).hexdigest(),
+        )
+        stored = row["instructions"]
+        for needle in (FAKE_TOKEN, "sk-abcdefghijk", "ghp_" + "b" * 36, jwt, secret_hex):
+            self.assertNotIn(needle, stored)
+        self.assertIn("[redacted]", stored)
+        self.assertGreater(len(stored), 200)
+        detail = json.loads(row["skills_detail_json"])
+        self.assertEqual(
+            [(item["id"], item["name"], item["enabled"]) for item in detail],
+            [("sk1", "mem-distill", True), ("sk2", "off", False)],
+        )
+        self.assertNotIn(FAKE_TOKEN, json.dumps(detail))
+        self.assertEqual(
+            json.loads(row["disabled_runtime_skills_json"]),
+            ["runtime-skill", {"id": "rs", "name": "other"}],
+        )
+        columns = {item[1] for item in store._conn.execute("PRAGMA table_info(agents)")}
+        for forbidden in ("custom_env", "mcp_config", "runtime_config", "launch_header"):
+            self.assertNotIn(forbidden, columns)
+        cloud = store.query("SELECT * FROM workspace_skills WHERE id='cloud1'")[0]
+        self.assertEqual(cloud["name"], "mem-distill")
+        self.assertNotIn(FAKE_TOKEN, cloud["description"])
+        self.assertEqual(json.loads(cloud["labels_json"]), ["ops", "beta"])
+        body = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60).agents()
+        by_id = {item["id"]: item for item in body["items"]}
+        self.assertEqual(by_id["ag1"]["instructions_sha256"], row["instructions_sha256"])
+        self.assertEqual(by_id["ag1"]["skills"][0]["name"], "mem-distill")
+        self.assertEqual(by_id["bg1"]["instructions"], "beta instructions")
+        self.assertEqual(by_id["bg1"]["workspace_id"], WS_B)
+        installs = build_workspace_installs(
+            store.query("SELECT * FROM workspace_skills"),
+            store.query("SELECT workspace_id, id, name, skills_json, skills_detail_json FROM agents"),
+            store.query("SELECT id, name, slug FROM workspaces"),
+        )["mem-distill"]
+        self.assertEqual([item["id"] for item in installs], ["cloud1", "cloud2"])
+        self.assertEqual(installs[1]["agents"][0]["id"], "bg1")
+        document = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60).skills()
+        self.assertIn("items", document)
+        self.assertTrue(all("workspace_installs" in item for item in document["items"]))
+        named = [item for item in document["items"] if item.get("name") == "mem-distill"]
+        if named:
+            self.assertEqual([row["id"] for row in named[0]["workspace_installs"]], ["cloud1", "cloud2"])
+        store.close()
+        for path in self.db.parent.iterdir():
+            blob = path.read_bytes()
+            for needle in (FAKE_TOKEN.encode(), secret_hex.encode(), jwt.encode()):
+                self.assertNotIn(needle, blob, path.name)
+
     def test_empty_strings_become_null(self):
         store, col = make(FakeMultica(fixture()), self.db)
         col.collect()
@@ -298,13 +396,20 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(beta["error"]["kind"], "timeout")
 
     def test_auth_error_purges(self):
-        fake = FakeMultica(fixture())
+        data = fixture()
+        data[WS_B]["skills"] = [{
+            "id": "s1", "workspace_id": WS_B, "name": "kept", "description": "d",
+            "labels": [], "updated_at": "2026-10-01T00:00:00Z",
+        }]
+        fake = FakeMultica(data)
         store, col = make(fake, self.db)
         col.collect()
+        self.assertEqual(self.count(store, "workspace_skills", WS_B), 1)
         fake.fail[WS_B] = "403 forbidden: not a member"
         col.collect()
         self.assertEqual(self.count(store, "issues", WS_B), 0)
         self.assertEqual(self.count(store, "agents", WS_B), 0)
+        self.assertEqual(self.count(store, "workspace_skills", WS_B), 0)
         beta = ws_state(store, WS_B)
         self.assertEqual((beta["collect_state"], beta["error"]["kind"], beta["counts"]), ("error", "auth", None))
 
@@ -546,6 +651,11 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(ag["recent"]["last_failed_issue_identifier"], "ORPHAN")
         self.assertEqual(ag["url"], "https://app.test/one/agents/ag")
         self.assertIsNone(ag["model"])
+        self.assertIsNone(ag["description"])
+        self.assertIsNone(ag["instructions"])
+        self.assertIsNone(ag["instructions_sha256"])
+        self.assertEqual(ag["skills"], [])
+        self.assertEqual(ag["disabled_runtime_skills"], [])
 
     def test_runtimes(self):
         rt = self.v.runtimes()["items"][0]
@@ -703,7 +813,7 @@ class ServerTests(unittest.TestCase):
                 assert_loopback(host)
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/layers", "/api/agents", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):
+        for path in ("/api/meta", "/api/issues", "/api/layers", "/api/agents", "/api/bots", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")

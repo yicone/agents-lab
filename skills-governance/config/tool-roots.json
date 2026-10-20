@@ -8,6 +8,7 @@
     {"id": "claude", "label": "Claude"},
     {"id": "hermes", "label": "Hermes"},
     {"id": "gemini", "label": "Gemini"},
+    {"id": "grok", "label": "Grok CLI"},
     {"id": "project", "label": "仓库入口"}
   ],
   "roots": [
@@ -27,6 +28,7 @@
     {"path": "~/.gemini/config/skills", "tools": ["gemini"], "kind": "direct"},
     {"path": "~/.gemini/antigravity/global_skills", "tools": ["gemini"], "kind": "direct"},
     {"path": "~/.gemini/antigravity-cli/skills", "tools": ["gemini"], "kind": "direct"},
+    {"path": "~/.grok/skills", "tools": ["grok"], "kind": "direct"},
     {
       "path": ".agents/skills",
       "tools": ["project", "hermes"],
@@ -35,6 +37,7 @@
       "evidence": "Hermes skill_utils.PROJECT_SKILLS_SUBDIRS 包含 <repo>/.agents/skills。"
     },
     {"path": ".codex/skills", "tools": ["project", "codex"], "kind": "direct", "repo": true},
-    {"path": ".cursor/skills", "tools": ["project", "cursor"], "kind": "direct", "repo": true}
+    {"path": ".cursor/skills", "tools": ["project", "cursor"], "kind": "direct", "repo": true},
+    {"path": ".grok/skills", "tools": ["project", "grok"], "kind": "direct", "repo": true}
   ]
 }
