@@ -91,6 +91,18 @@ export function badgeOf(payload) {
   return payload?.attention?.badge || 0;
 }
 
+function installStamp(payload) {
+  const bits = [];
+  for (const item of payload?.items || []) {
+    if (item.local_source?.updated_at) bits.push(`local:${item.name}:${item.local_source.updated_at}`);
+    for (const install of item.workspace_installs || []) {
+      const agents = (install.agents || []).map((agent) => `${agent.id}:${agent.enabled === false ? 0 : 1}`).join(",");
+      bits.push(`${item.name}:${install.workspace_id}:${install.id}:${install.updated_at || ""}:${agents}`);
+    }
+  }
+  return bits.join("\n");
+}
+
 export function skillsRefreshKey(payload) {
   if (!payload) return "";
   const attention = payload.attention || {};
@@ -101,6 +113,7 @@ export function skillsRefreshKey(payload) {
     payload.generated_at || "",
     attention.badge ?? "",
     attention.baseline_debt ?? "",
+    installStamp(payload),
   ].join("\n");
 }
 
@@ -128,6 +141,12 @@ function haystack(item) {
     item.install_path,
     ...(item.findings || []).map((finding) => finding.code),
     ...(item.entries || []).map((entry) => entry.path),
+    ...(item.workspace_installs || []).flatMap((install) => [
+      install.workspace_name,
+      install.workspace_slug,
+      install.description,
+      ...(install.agents || []).map((agent) => agent.name),
+    ]),
   ]
     .filter(Boolean)
     .join("\n")
@@ -283,6 +302,7 @@ function legend(h) {
       "● 直接入口 ○ 经共享目录 ✕ 入口缺失 ? 无法确定（路径推导，非 runtime 加载验证）",
     ),
     h("span", { class: "legend-group" }, h("strong", null, "仓库入口 "), "仓库名 + 入口位置（.agents / .codex / .cursor）"),
+    h("span", { class: "legend-group" }, h("strong", null, "云端 "), "各 Workspace 的安装，以及已启用的 Agent。本机 skills/ 新于云端时标云端较旧。"),
   );
 }
 
@@ -331,6 +351,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     null,
     h("th", null, "Skill"),
     h("th", null, "来源 / 更新通道"),
+    h("th", { title: "Multica 云端（跨 Workspace）" }, "云端"),
     h("th", null, "共享入口"),
     ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
     projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, "仓库入口", h("small", null, String(visible.get(projectTool.id) || 0))) : null,
@@ -348,7 +369,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
       h(
         "tr",
         { class: "skill-group" },
-        h("th", { colspan: String(7 + tools.length) }, group.label, h("span", { class: "muted" }, ` · ${group.items.length}`), group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null),
+        h("th", { colspan: String(8 + tools.length) }, group.label, h("span", { class: "muted" }, ` · ${group.items.length}`), group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null),
       ),
     );
     for (const item of shown) body.push(row(ctx, harness, projectTool, item, payload));
@@ -359,14 +380,14 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
           { class: "skill-more" },
           h(
             "td",
-            { colspan: String(7 + tools.length) },
+            { colspan: String(8 + tools.length) },
             h("button", { type: "button", class: "text-btn", onclick: () => ctx.toggleSkillGroup(group.id) }, `显示其余 ${rest} 条`),
           ),
         ),
       );
     }
   }
-  if (!groups.length) body.push(h("tr", null, h("td", { class: "empty", colspan: String(7 + tools.length) }, "没有符合筛选的 skill")));
+  if (!groups.length) body.push(h("tr", null, h("td", { class: "empty", colspan: String(8 + tools.length) }, "没有符合筛选的 skill")));
   return h("div", { class: "table-wrap" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
 }
 
@@ -386,8 +407,9 @@ function row(ctx, harness, projectTool, item, payload) {
         if (e.key === "Enter") ctx.openSkill(item, e.currentTarget);
       },
     },
-    h("td", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null),
+    h("td", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn" }, "云端较旧") : null),
     h("td", null, h("div", null, item.channel_label), h("div", { class: "muted mono" }, item.channel_detail || "—")),
+    h("td", { class: "cloud-cell" }, cloudCell(h, item)),
     h("td", { class: "shared-entry", title: sharedTitle }, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
     ...harness.map((tool) => toolCell(h, item, tool)),
     projectTool ? h("td", { class: "repo-entries" }, repoCell(h, item, payload)) : null,
@@ -398,8 +420,179 @@ function row(ctx, harness, projectTool, item, payload) {
   );
 }
 
+const CLOUD_PREVIEW = 3;
+
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function grokPath(path) {
+  if (typeof path !== "string" || !path) return false;
+  const text = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  return text === ".grok/skills" || text === "~/.grok/skills" || text.endsWith("/.grok/skills") || text.includes("/.grok/skills/");
+}
+
+function grokSymlinkDirect(item) {
+  const evidence = (item.evidence || []).some(
+    (record) => record.harness === "grok" && record.kind === "entry" && (record.readlink || record.attribution === "direct") && (grokPath(record.root) || grokPath(record.path) || grokPath(record.lexical)),
+  );
+  const entry = (item.entries || []).some((row) => row.symlink && (row.tools || []).includes("grok") && (grokPath(row.location) || grokPath(row.path)));
+  return evidence || entry;
+}
+
+function displayMark(item, tool) {
+  if (tool.id === "grok" && grokSymlinkDirect(item)) return "direct";
+  return item.tools?.[tool.id];
+}
+
+export function cloudDrift(item) {
+  const local = item?.local_source;
+  const installs = Array.isArray(item?.workspace_installs) ? item.workspace_installs : [];
+  if (!local || !installs.length) return null;
+  const localMs = Date.parse(local.updated_at || "");
+  const localSummary = normalizeText(local.summary);
+  const stale = [];
+  for (const install of installs) {
+    const cloudMs = Date.parse(install.updated_at || "");
+    const timeKnown = !Number.isNaN(localMs) && !Number.isNaN(cloudMs);
+    const timeStale = !Number.isNaN(localMs) && (Number.isNaN(cloudMs) || localMs > cloudMs + 1000);
+    const summaryStale = !timeKnown && localSummary && normalizeText(install.description) && localSummary !== normalizeText(install.description);
+    if (timeStale || summaryStale) stale.push(install);
+  }
+  if (!stale.length) return null;
+  return { local, installs: stale };
+}
+
+export function cloudPending(payload) {
+  return (payload?.items || []).filter((item) => cloudDrift(item));
+}
+
+function workspaceLabel(install) {
+  return install.workspace_name || install.workspace_slug || install.workspace_id || "Workspace";
+}
+
+function agentBrief(agents) {
+  const list = Array.isArray(agents) ? agents : [];
+  const enabled = list.filter((agent) => agent.enabled !== false);
+  if (!enabled.length) return list.length ? "未启用" : "未挂载";
+  const names = enabled.map((agent) => agent.name || agent.id).filter(Boolean);
+  const shown = names.slice(0, 2).join("、");
+  const rest = names.length - 2;
+  return rest > 0 ? `${shown} +${rest}` : shown || "已启用";
+}
+
+function cloudCell(h, item) {
+  const installs = item.workspace_installs;
+  if (!Array.isArray(installs)) return h("span", { class: "muted" }, "—");
+  if (!installs.length) return h("span", { class: "muted" }, "未安装");
+  const drift = cloudDrift(item);
+  const stale = new Set((drift?.installs || []).map((install) => `${install.workspace_id}:${install.id}`));
+  const shown = installs.slice(0, CLOUD_PREVIEW);
+  const rest = installs.length - shown.length;
+  const title = installs
+    .map((install) => {
+      const agents = (install.agents || []).map((agent) => `${agent.name || agent.id}${agent.enabled === false ? "（未启用）" : ""}`).join("、");
+      return `${workspaceLabel(install)}${agents ? `：${agents}` : "：未挂载"}`;
+    })
+    .join("\n");
+  return h(
+    "div",
+    { title },
+    shown.map((install) =>
+      h(
+        "div",
+        { class: stale.has(`${install.workspace_id}:${install.id}`) ? "cloud-ws stale" : "cloud-ws" },
+        h("span", null, workspaceLabel(install)),
+        h("span", { class: "muted" }, ` · ${agentBrief(install.agents)}`),
+      ),
+    ),
+    rest > 0 ? h("div", { class: "muted" }, `另有 ${rest} 个 Workspace`) : null,
+  );
+}
+
+function cloudQueue(ctx, payload) {
+  const { h } = ctx;
+  const pending = cloudPending(payload);
+  const body = pending.length
+    ? h(
+        "ul",
+        null,
+        pending.map((item) =>
+          h(
+            "li",
+            null,
+            h(
+              "button",
+              { type: "button", class: "queue-item", onclick: (e) => ctx.focusSkill(item.name, e.currentTarget) },
+              h("span", { class: "mono" }, item.name),
+              h("span", null, "本机 skills/ 新于云端"),
+              h("span", { class: "muted" }, item.local_source?.updated_at ? relTime(item.local_source.updated_at, ctx.ago) : ""),
+            ),
+          ),
+        ),
+      )
+    : h("p", { class: "muted" }, "无");
+  return h("section", { class: "skill-bucket cloud-pending" }, h("header", null, h("span", null, "云端未刷新"), h("span", { class: "count" }, String(pending.length))), body);
+}
+
+export function cloudCommands(item, install) {
+  const ws = install.workspace_id;
+  const id = install.id;
+  const commands = [
+    { label: "从导入源刷新", command: `multica --workspace-id ${ws} skill refresh ${id}` },
+    { label: "更新这条云端 Skill", command: `multica --workspace-id ${ws} skill update ${id}` },
+  ];
+  if (item.local_source?.path) {
+    commands.push({
+      label: "用本机 SKILL.md 更新",
+      command: `multica --workspace-id ${ws} skill update ${id} --content-file ${item.local_source.path}`,
+    });
+  }
+  for (const agent of install.agents || []) {
+    if (!agent?.id) continue;
+    const name = agent.name || agent.id;
+    commands.push({
+      label: agent.enabled === false ? `挂给 ${name}` : `已启用 ${name}`,
+      command: `multica --workspace-id ${ws} agent skills add ${agent.id} --skill-ids ${id}`,
+    });
+  }
+  return commands;
+}
+
+function cloudSection(h, item) {
+  const installs = item.workspace_installs;
+  if (!Array.isArray(installs)) return [h("p", { class: "muted" }, "这份清单还没有云端安装数据。")];
+  if (!installs.length) return [h("p", { class: "muted" }, "已采集的 Workspace 里没有同名云端 Skill。")];
+  const drift = cloudDrift(item);
+  const nodes = [
+    h("p", { class: "muted" }, "页面只读，不代为执行。复制命令后在自己的终端运行。"),
+  ];
+  if (item.local_source) {
+    nodes.push(h("p", null, h("span", { class: "muted" }, "本机 "), h("span", { class: "mono" }, item.local_source.path), item.local_source.updated_at ? h("span", { class: "muted" }, ` · ${item.local_source.updated_at}`) : null));
+    if (item.local_source.summary) nodes.push(h("p", null, h("span", { class: "muted" }, "本机摘要 "), item.local_source.summary));
+  }
+  if (drift) nodes.push(h("p", { class: "tag warn" }, `云端较旧 · ${drift.installs.length} 个 Workspace`));
+  for (const install of installs) {
+    const agents = install.agents || [];
+    const enabled = agents.filter((agent) => agent.enabled !== false);
+    const disabled = agents.filter((agent) => agent.enabled === false);
+    nodes.push(
+      h(
+        "div",
+        { class: "cloud-install" },
+        h("p", null, h("strong", null, workspaceLabel(install)), h("span", { class: "muted" }, install.updated_at ? ` · ${install.updated_at}` : "")),
+        install.description ? h("p", null, install.description) : null,
+        h("p", { class: "muted" }, enabled.length ? `已启用 ${enabled.map((agent) => agent.name || agent.id).join("、")}` : "没有已启用的 Agent"),
+        disabled.length ? h("p", { class: "muted" }, `未启用 ${disabled.map((agent) => agent.name || agent.id).join("、")}`) : null,
+        ...cloudCommands(item, install).map((entry) => h("p", { class: "command" }, h("span", { class: "muted" }, entry.label), h("code", null, entry.command), h("button", { type: "button", onclick: (e) => copyCommand(e.currentTarget, entry.command) }, "复制"))),
+      ),
+    );
+  }
+  return nodes;
+}
+
 function toolCell(h, item, tool) {
-  const mark = item.tools?.[tool.id];
+  const mark = displayMark(item, tool);
   const records = (item.evidence || []).filter((record) => record.harness === tool.id);
   const lines = records.map((record) =>
     record.kind === "entry"
@@ -483,8 +676,14 @@ function queue(ctx, payload) {
   return h(
     "aside",
     { class: "skills-queue", "aria-label": "待处理" },
-    h("div", { class: "skills-compact" }, buckets.map((bucket) => h("span", null, bucket.title, " ", bucket.connected ? String(bucket.items.length) : "—"))),
+    h(
+      "div",
+      { class: "skills-compact" },
+      h("span", null, "云端未刷新 ", String(cloudPending(payload).length)),
+      buckets.map((bucket) => h("span", null, bucket.title, " ", bucket.connected ? String(bucket.items.length) : "—")),
+    ),
     h("h2", null, "待处理"),
+    cloudQueue(ctx, payload),
     ...buckets.map((bucket) => bucketBlock(ctx, bucket)),
     h(
       "button",
@@ -567,6 +766,7 @@ export function renderSkillDrawer(ctx, item) {
     ),
     section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, h("code", { title: finding.label }, finding.code), " ", h("span", { class: "muted" }, finding.label))) : [h("p", { class: "muted" }, "没有额外发现")]),
     section(h, "定制与兼容约束", customSection(h, item)),
+    section(h, "Multica 云端（跨 Workspace）", cloudSection(h, item)),
     section(h, "在终端处理", [
       h("p", { class: "muted" }, "页面只读，不替代命令行。"),
       item.command ? h("p", { class: "command" }, h("code", null, item.command), h("button", { type: "button", onclick: (e) => copyCommand(e.currentTarget, item.command) }, "复制")) : null,

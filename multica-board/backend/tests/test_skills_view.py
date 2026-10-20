@@ -1222,6 +1222,54 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(record["attribution"], "missing")
         self.assertEqual(record["state"], "absent")
 
+    def test_grok_symlink_is_direct_when_inventory_omits_the_path(self):
+        grok = self.root / ".grok" / "skills"
+        grok.mkdir(parents=True)
+        target = self.root / "real" / "computer-use"
+        target.mkdir(parents=True)
+        (target / "SKILL.md").write_text("---\ndescription: use the computer\n---\n", encoding="utf-8")
+        os.symlink(target, grok / "computer-use")
+        self.tools.write_text(
+            json.dumps(
+                {
+                    "tools": [{"id": "grok", "label": "Grok CLI"}],
+                    "roots": [{"path": str(grok), "tools": ["grok"], "kind": "direct"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        body = self.payload([skill("computer-use", visible_paths=[])])
+        item = body["items"][0]
+        self.assertEqual(item["tools"]["grok"], "direct")
+        record = next(row for row in item["evidence"] if row["harness"] == "grok")
+        self.assertEqual(record["kind"], "entry")
+        self.assertTrue(record["readlink"])
+
+    def test_local_source_uses_repo_skills_directory(self):
+        folder = self.repo / "skills" / "colgrep-search"
+        folder.mkdir(parents=True)
+        (folder / "SKILL.md").write_text(
+            "---\nname: colgrep-search\ndescription: find code by meaning\n---\n# Colgrep\n",
+            encoding="utf-8",
+        )
+        self.write_tools(self.roots())
+        body = self.payload([
+            skill(
+                "colgrep-search",
+                source_class="local_custom",
+                authority={
+                    "ownership": "local",
+                    "source_authority": "canonical_git",
+                    "update_authority": "repository_maintainer",
+                    "canonical_path": "skills/colgrep-search",
+                },
+            )
+        ])
+        local = body["items"][0]["local_source"]
+        self.assertEqual(local["path"], "skills/colgrep-search/SKILL.md")
+        self.assertEqual(local["summary"], "find code by meaning")
+        self.assertIn("T", local["updated_at"])
+
 
 class RepoIdentityTests(unittest.TestCase):
     def setUp(self):

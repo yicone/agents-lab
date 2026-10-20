@@ -860,6 +860,133 @@ def _findings(codes: list[str]) -> list[dict[str, str]]:
     ]
 
 
+def _frontmatter_description(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None
+    if not text.startswith("---"):
+        return None
+    end = text.find("\n---", 3)
+    if end < 0:
+        return None
+    for line in text[3:end].splitlines():
+        if not line.startswith("description:"):
+            continue
+        value = " ".join(line.split(":", 1)[1].split()).strip("\"'")
+        return value[:180] or None
+    return None
+
+
+def _local_source(skill: dict[str, Any], repo_root: Path) -> dict[str, str] | None:
+    """mtime and frontmatter description of agents-lab/skills/<name>/SKILL.md."""
+    authority = skill.get("authority") if isinstance(skill.get("authority"), dict) else {}
+    canonical = authority.get("canonical_path")
+    name = skill.get("name")
+    candidates: list[Path] = []
+    if isinstance(canonical, str) and canonical.strip() and not canonical.startswith(("~", "/")):
+        candidates.append(repo_root / canonical / "SKILL.md")
+    if isinstance(name, str) and name and "/" not in name and "\x00" not in name and name not in (".", ".."):
+        candidates.append(repo_root / "skills" / name / "SKILL.md")
+    seen: set[str] = set()
+    for path in candidates:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            st = path.stat()
+        except OSError:
+            continue
+        if not stat.S_ISREG(st.st_mode):
+            continue
+        try:
+            rel = path.resolve().relative_to(repo_root.resolve()).as_posix()
+        except (OSError, ValueError):
+            continue
+        if not rel.startswith("skills/") or not rel.endswith("/SKILL.md"):
+            continue
+        found: dict[str, str] = {
+            "path": rel,
+            "updated_at": datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        summary = _frontmatter_description(path)
+        if summary:
+            found["summary"] = summary
+        return found
+    return None
+
+
+def _grok_skill_root(root: dict[str, Any]) -> bool:
+    raw = str(root.get("path") or "").rstrip("/")
+    return raw in {"~/.grok/skills", ".grok/skills"} or raw.endswith("/.grok/skills")
+
+
+def _attach_grok_symlinks(items: list[dict[str, Any]], roots: list[dict[str, Any]]) -> None:
+    """Symlinks in ~/.grok/skills are a direct Grok CLI entry even when the inventory omitted that path."""
+    grok_roots = [root for root in roots if _grok_skill_root(root)]
+    if not grok_roots:
+        return
+    by_name: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = item.get("name")
+        if isinstance(name, str) and name:
+            by_name.setdefault(name, item)
+    for root in grok_roots:
+        base = Path(root["expanded"])
+        try:
+            children = list(base.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if child.name.startswith(".") or child.name not in by_name:
+                continue
+            try:
+                if not child.is_symlink():
+                    continue
+                link_text = os.readlink(child)
+            except OSError:
+                continue
+            item = by_name[child.name]
+            marks = item.setdefault("tools", {})
+            marks["grok"] = _bump(marks.get("grok"), "direct")
+            path = str(child)
+            evidence = item.setdefault("evidence", [])
+            if any(record.get("harness") == "grok" and record.get("root") == root.get("path") and record.get("readlink") == link_text for record in evidence):
+                continue
+            evidence.append(
+                {
+                    "path": path,
+                    "lexical": path,
+                    "readlink": link_text,
+                    "resolved": None,
+                    "entry_index": None,
+                    "harness": "grok",
+                    "kind": "entry",
+                    "attribution": "direct",
+                    "state": "present",
+                    "root": root["path"],
+                    "repo": bool(root.get("repo")),
+                    "repo_id": None,
+                    "scope": "repo_entry" if root.get("repo") else "user",
+                }
+            )
+            item.setdefault("entries", []).append(
+                {
+                    "path": path,
+                    "present": True,
+                    "symlink": True,
+                    "target": link_text,
+                    "tools": ["grok"],
+                    "mark": "direct",
+                    "resolved": None,
+                    "location": root["path"],
+                    "repo_id": None,
+                    "scope": "repo_entry" if root.get("repo") else "user",
+                }
+            )
+
+
 def _command(bucket: str | None) -> str:
     if bucket == "capability_pending":
         return "python3 skills-governance/scripts/skill_guard.py diff --help"
@@ -921,6 +1048,9 @@ def _inventory_item(
         "capability_gate": None,
     }
     item["constraint_count"] = len(item["constraints"])
+    local = _local_source(skill, repo_root)
+    if local:
+        item["local_source"] = local
     return item
 
 
@@ -1263,6 +1393,7 @@ def build_payload(
                 known.add(name)
     assign_buckets(items, gates, review_days=review_days, now=moment)
     shared = _shared_root(roots)
+    _attach_grok_symlinks(items, roots)
     for item in items:
         item["shared_entry"] = _shared_entry(item.get("name"), shared)
         item["command"] = _command(item.get("bucket"))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
@@ -176,6 +177,143 @@ def _fit_text(lines: list[str]) -> str:
     if not kept:
         return "…\n"
     return packed(kept, True)
+
+
+def _skill_name_key(name: Any) -> str | None:
+    if not isinstance(name, str):
+        return None
+    text = " ".join(name.split())
+    return text or None
+
+
+def _json_list(raw: str | None) -> list[Any]:
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def build_workspace_installs(
+    skill_rows: list[dict[str, Any]],
+    agent_rows: list[dict[str, Any]],
+    workspace_rows: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Cloud skills grouped by name, with the agents in that workspace that mount each one."""
+    workspaces = {row["id"]: row for row in workspace_rows if row.get("id")}
+    mounts: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
+
+    def add_mount(workspace_id: str, key: str | None, agent: dict[str, Any], enabled: bool) -> None:
+        if not workspace_id or not key:
+            return
+        bucket = mounts.setdefault((workspace_id, key), {})
+        current = bucket.get(agent["id"])
+        if current is None or (enabled and not current["enabled"]):
+            bucket[agent["id"]] = {"id": agent["id"], "name": agent.get("name"), "enabled": enabled}
+
+    for agent in agent_rows:
+        ws = agent.get("workspace_id")
+        if not ws or not agent.get("id"):
+            continue
+        seen_names: set[str] = set()
+        for item in _json_list(agent.get("skills_detail_json")):
+            if not isinstance(item, dict):
+                continue
+            enabled = item.get("enabled") is not False
+            if isinstance(item.get("id"), str) and item["id"]:
+                add_mount(ws, "id:" + item["id"], agent, enabled)
+            name = _skill_name_key(item.get("name"))
+            if name:
+                seen_names.add(name)
+                add_mount(ws, "name:" + name, agent, enabled)
+        for name in _skill_names(agent.get("skills_json")):
+            key = _skill_name_key(name)
+            if key and key not in seen_names:
+                add_mount(ws, "name:" + key, agent, True)
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for skill in skill_rows:
+        name = _skill_name_key(skill.get("name"))
+        if not name or not skill.get("id") or not skill.get("workspace_id"):
+            continue
+        ws = workspaces.get(skill["workspace_id"], {})
+        attached: dict[str, dict[str, Any]] = {}
+        for source in (
+            mounts.get((skill["workspace_id"], "id:" + skill["id"]), {}),
+            mounts.get((skill["workspace_id"], "name:" + name), {}),
+        ):
+            for aid, mount in source.items():
+                current = attached.get(aid)
+                if current is None or (mount["enabled"] and not current["enabled"]):
+                    attached[aid] = mount
+        agents = sorted(attached.values(), key=lambda item: ((item.get("name") or "").casefold(), item["id"]))
+        grouped.setdefault(name, []).append(
+            {
+                "workspace_id": skill["workspace_id"],
+                "workspace_slug": ws.get("slug"),
+                "workspace_name": ws.get("name"),
+                "id": skill["id"],
+                "name": name,
+                "description": skill.get("description"),
+                "updated_at": skill.get("updated_at"),
+                "agents": agents,
+            }
+        )
+    for installs in grouped.values():
+        installs.sort(key=lambda item: ((item.get("workspace_slug") or ""), item["workspace_id"], item["id"]))
+    return grouped
+
+
+def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "name": name,
+        "origin": "cloud",
+        "source_class": "multica_cloud",
+        "source_label": "Multica 云端",
+        "scope": "workspace",
+        "ownership": None,
+        "source_authority": None,
+        "update_authority": None,
+        "canonical_path": None,
+        "repo_is_source": False,
+        "channel_label": "Multica 云端",
+        "channel_detail": f"{len(installs)} 个 Workspace",
+        "current_version": None,
+        "observed_version": None,
+        "baseline_kind": None,
+        "baseline_subject": None,
+        "baseline_ref": None,
+        "review_time": None,
+        "reconciliation_status": "unverified",
+        "status_label": "仅云端",
+        "findings": [],
+        "customization_mode": None,
+        "constraints": [],
+        "constraint_count": 0,
+        "conflict_status": None,
+        "tools": {},
+        "entries": [],
+        "evidence": [],
+        "repo_ids": [],
+        "install_path": None,
+        "capability_gate": None,
+        "baseline_debt": False,
+        "bucket": None,
+        "quiet": False,
+        "command": None,
+        "shared_entry": {
+            "state": "none",
+            "label": "未检查",
+            "reason": "cloud_only",
+            "path": None,
+            "target": None,
+            "resolved": None,
+            "detail": "云端技能不在本机清单，共享入口未检查",
+        },
+        "workspace_installs": installs,
+    }
 
 
 class Views:
@@ -993,7 +1131,37 @@ class Views:
             days = parse_review_days(None if review_days == 90 else str(review_days))
         except ValueError as exc:
             raise BadRequest(str(exc)) from exc
-        return skills_document(days)
+        document = skills_document(days)
+        installs = self._workspace_installs()
+        if installs is None:
+            return document
+        items = []
+        seen: set[str] = set()
+        for item in document.get("items") or []:
+            copied = dict(item)
+            key = _skill_name_key(item.get("name")) or ""
+            copied["workspace_installs"] = installs.get(key, [])
+            if key:
+                seen.add(key)
+            items.append(copied)
+        for name in sorted(installs):
+            if name in seen:
+                continue
+            items.append(_cloud_only_item(name, installs[name]))
+        return {**document, "items": items}
+
+    def _workspace_installs(self) -> dict[str, list[dict[str, Any]]] | None:
+        """None when the ACM-291 cache table is not on this board yet."""
+        try:
+            skills = self.store.query("SELECT * FROM workspace_skills WHERE server=?", (self.server,))
+            agents = self.store.query(
+                "SELECT workspace_id, id, name, skills_json, skills_detail_json FROM agents WHERE server=?",
+                (self.server,),
+            )
+            workspaces = self.store.query("SELECT id, name, slug FROM workspaces WHERE server=?", (self.server,))
+        except sqlite3.OperationalError:
+            return None
+        return build_workspace_installs(skills, agents, workspaces)
 
     def skills_meta(self, review_days: int = 90) -> dict[str, Any]:
         document = self.skills(review_days)
