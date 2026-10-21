@@ -1133,16 +1133,16 @@ class EvidenceTests(unittest.TestCase):
         body = self.payload([skill("multi", visible_paths=paths)])
         item = body["items"][0]
         records = {(r["harness"], r["kind"]) for r in item["evidence"]}
-        self.assertEqual(records, {("hermes", "entry"), ("claude", "entry"), ("codex", "target"), ("cursor", "target")})
+        self.assertEqual(records, {("hermes", "entry"), ("claude", "entry"), ("codex", "target"), ("cursor", "target"), ("codex", "entry"), ("cursor", "entry")})
         self.assertEqual(item["tools"]["hermes"], "direct")
         self.assertEqual(item["tools"]["claude"], "direct")
         self.assertEqual(item["tools"]["codex"], "shared")
         by_harness = {}
         for record in item["evidence"]:
             by_harness.setdefault(record["harness"], []).append(record)
-        # codex/cursor each get one record per entry (two entries): target records x2.
-        self.assertEqual(len(by_harness["codex"]), 2)
-        self.assertEqual(len(by_harness["cursor"]), 2)
+        # Discovery also retains the shared directory's own lexical entry.
+        self.assertEqual(len(by_harness["codex"]), 3)
+        self.assertEqual(len(by_harness["cursor"]), 3)
 
     def test_same_basename_different_targets_are_both_kept(self):
         self.write_tools(self.roots())
@@ -1209,7 +1209,7 @@ class EvidenceTests(unittest.TestCase):
         harness_order = [r["harness"] for r in first]
         self.assertEqual(harness_order, sorted(harness_order, key=lambda h: ["codex", "cursor", "hermes", "claude"].index(h)))
         self.assertEqual(first[0]["harness"], "codex")
-        self.assertEqual(first[0]["kind"], "target")
+        self.assertEqual(first[0]["kind"], "entry")
 
     def test_missing_entry_marks_missing(self):
         self.write_tools(self.roots())
