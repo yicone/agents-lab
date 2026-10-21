@@ -10,6 +10,10 @@ that snapshot and counts runs from the SQLite task cache at read time.
 
 from __future__ import annotations
 
+from .stdlib_path import prefer_stdlib_imports
+
+prefer_stdlib_imports()
+
 import json
 import logging
 import os

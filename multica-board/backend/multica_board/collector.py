@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from .stdlib_path import prefer_stdlib_imports
+
+prefer_stdlib_imports()
+
 import hashlib
 import json
 import logging
