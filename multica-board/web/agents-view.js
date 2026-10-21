@@ -1,3 +1,4 @@
+import { runtimeIcon } from "./runtime-mark.js";
 /** Agents subviews: instruction/skill columns, Grok Bots, and the read-only drawers. */
 
 export const HERMES_SKILL = "hermes-async-delegation";
@@ -380,7 +381,7 @@ export function renderAgentDrawer(h, ctx, drawer) {
     ),
     h("h2", { class: "drawer-title" }, agent.name),
     agent.url ? ctx.extLink(agent.url, { class: "drawer-link" }, "在 Multica 打开 ↗") : null,
-    h("p", { class: "muted" }, ctx.provider ? `runtime ${ctx.provider}` : "未绑定 runtime"),
+    h("p", { class: "muted" }, runtimeIcon(h, ctx.provider), ctx.provider ? `runtime ${ctx.provider}` : "未绑定 runtime"),
     tabs,
     body,
   ].filter(Boolean);
@@ -451,7 +452,7 @@ export function renderBotPage(h, ctx) {
   } else {
     table = h(
       "div",
-      { class: "table-wrap" },
+      { class: "table-wrap sticky-head" },
       h(
         "table",
         { class: "matrix" },

@@ -1,3 +1,4 @@
+import { runtimeIcon } from "./runtime-mark.js";
 import { QUEUED_RUN, classifyIssue } from "./attention.js";
 import {
   decideQueue,
@@ -16,6 +17,7 @@ import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { placeChildren } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
+import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 import { agentQueryFields, instructionCell, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillsCell } from "./agents-view.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
@@ -100,6 +102,8 @@ const state = {
   usage: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
   expandedSkills: new Set(),
+  skillContent: new Map(),
+  skillContentReq: new Map(),
   planRaw: false,
   planList: [],
   planListLoaded: false,
@@ -570,9 +574,23 @@ function toggleSkillGroup(id) {
 
 function openSkill(item, opener) {
   state.drawer = { kind: "skill", skill: item, opener: opener || document.activeElement };
+  state.skillContent = new Map();
+  state.skillContentReq = new Map();
   render();
   renderDrawer();
   document.querySelector("#drawer .drawer-close")?.focus();
+}
+
+async function loadSkillContent(name, path) {
+  const key = skillContentKey(name, path);
+  const token = (state.skillContentReq.get(key) || 0) + 1;
+  state.skillContentReq.set(key, token);
+  state.skillContent.set(key, { state: "loading" });
+  renderDrawer();
+  const result = MOCK ? { state: "unavailable", message: "mock 模式没有正文接口" } : await requestSkillContent(fetch, name, path);
+  if (state.skillContentReq.get(key) !== token) return;
+  state.skillContent.set(key, result);
+  if (state.drawer?.kind === "skill" && state.drawer.skill?.name === name) renderDrawer();
 }
 
 function focusSkill(name, opener) {
@@ -939,6 +957,8 @@ function closeDrawer() {
   const rowId = state.drawer.rowId || "";
   const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan" || state.drawer.kind === "agent" || state.drawer.kind === "bot";
   state.drawer = null;
+  state.skillContent = new Map();
+  state.skillContentReq = new Map();
   renderDrawer();
   if (refreshMain) renderMain();
   const fresh = planAgent ? document.getElementById(`plan-row-${planAgent}`) : rowId ? document.getElementById(rowId) : null;
@@ -1312,6 +1332,7 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
       "td",
       { class: "rt", title: `${rt.device_info ?? ""}\n最后在线 ${absTime(rt.last_seen_at)}` },
       h("span", { class: `dot ${rt.status === "online" ? "ok" : "off"}` }),
+      runtimeIcon(h, rt.provider),
       rt.name,
       rt.status !== "online" ? h("span", { class: "tag bad" }, `离线 ${ago(rt.last_seen_at)}`) : null,
     );
@@ -1458,7 +1479,7 @@ function renderAgents() {
           "aria-pressed": active ? "true" : "false",
           onclick: () => setRoute({ provider: active ? "" : s.provider }),
         },
-        h("span", { class: "p-name" }, s.provider),
+        h("span", { class: "p-name" }, runtimeIcon(h, s.provider), s.provider),
         h("span", { class: "p-main" }, `${s.agents} agent · ${s.ws.size} ws`),
         h(
           "span",
@@ -1557,7 +1578,7 @@ function renderAgents() {
   );
 
   const table = rows.length
-    ? h("div", { class: "table-wrap" }, h("table", { class: "matrix" }, head, bodies))
+    ? h("div", { class: "table-wrap sticky-head" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
   if (!planMode) return [strip, toolbar, table];
@@ -1931,6 +1952,8 @@ function atlasCtx() {
     drawerSkill: state.drawer?.kind === "skill" ? state.drawer.skill?.name : "",
     openSkill,
     focusSkill,
+    skillContent: state.skillContent,
+    loadSkillContent,
     toggleSkillGroup,
     setReviewDays,
     closeDrawer,
