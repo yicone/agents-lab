@@ -283,3 +283,12 @@ test("agents subviews round-trip and leaving the page clears them", () => {
   assert.equal(historyWrite("#/agents", "#/agents?kind=bots", { kind: "bots" }), "push");
   assert.equal(historyWrite("#/agents", "#/agents?has_instructions=1", { hasInstructions: true }), "replace");
 });
+
+test("cloud pseudo source round-trips and bogus sources still drop", () => {
+  const route = parseHash("#/skills?source=cloud");
+  assert.equal(route.source, "cloud");
+  assert.equal(formatHash(route), "#/skills?source=cloud");
+  assert.equal(parseHash("#/skills?source=cloud&status=stale").skillStatus, "stale");
+  assert.equal(parseHash("#/skills?source=bogus").source, "");
+  assert.equal(formatHash(parseHash("#/skills?source=bogus")), "#/skills");
+});

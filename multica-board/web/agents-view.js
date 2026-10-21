@@ -452,7 +452,7 @@ export function renderBotPage(h, ctx) {
   } else {
     table = h(
       "div",
-      { class: "table-wrap" },
+      { class: "table-wrap sticky-head" },
       h(
         "table",
         { class: "matrix" },
