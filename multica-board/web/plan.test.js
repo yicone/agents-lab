@@ -150,7 +150,7 @@ test("cross-workspace runtime dropdown keeps one row per name and maps each UUID
     }),
   };
   const optionNodes = walk(tree).filter((node) => node.tag === "option" && node.attrs.value);
-  assert.deepEqual(optionNodes.map((node) => node.children.join("")), ["Antigravity (mini) · antigravity", "Claude · claude"]);
+  assert.deepEqual(optionNodes.map((node) => node.children.join("")), ["[A] Antigravity (mini) · antigravity", "[Cl] Claude · claude"]);
   assert.equal(optionNodes.some((node) => node.attrs.value === "rt-a" || node.attrs.value === "rt-b"), false);
   const commands = walk(tree)
     .filter((node) => node.attrs?.class === "plan-command")
