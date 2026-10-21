@@ -1,5 +1,29 @@
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
+import { contentKey, CONTENT_LABEL } from "./skill-content.js";
+
+/** 伪来源 id：选中时按「已安装到 Multica 云端」筛选，不是 source_class。 */
+export const CLOUD_SOURCE = "cloud";
+
+export function isCloudItem(item) {
+  return Array.isArray(item?.workspace_installs) && item.workspace_installs.length > 0;
+}
+
+/** 来源卡片/下拉用的块列表：后端 summary 块 + 末尾合成的云端块。 */
+export function sourceBlocks(payload) {
+  const items = payload?.items || [];
+  const cloudItems = items.filter(isCloudItem);
+  const statuses = {};
+  for (const item of cloudItems) {
+    const key = item.reconciliation_status || "";
+    statuses[key] = (statuses[key] || 0) + 1;
+  }
+  // 没有任何条目带 workspace_installs 数组 ⇒ 云端清单从未采集，不是「装了 0 个」。
+  const uncollected = !items.some((item) => Array.isArray(item?.workspace_installs));
+  // source_class 里也有叫「Multica 云端」的来源块（仅云端条目），这里加后缀区分。
+  return [...(payload?.summary || []), { id: CLOUD_SOURCE, label: "Multica 云端 · 已安装", count: cloudItems.length, statuses, uncollected }];
+}
+
 export const BUCKETS = [
   { id: "missing", title: "缺失 / 坏链" },
   { id: "version_changed", title: "版本已变" },
@@ -156,7 +180,9 @@ function haystack(item) {
 export function filteredItems(payload, route) {
   const q = (route.q || "").trim().toLowerCase();
   return (payload?.items || []).filter((item) => {
-    if (route.source && item.source_class !== route.source) return false;
+    if (route.source === CLOUD_SOURCE) {
+      if (!isCloudItem(item)) return false;
+    } else if (route.source && item.source_class !== route.source) return false;
     if (route.skillStatus && item.reconciliation_status !== route.skillStatus) return false;
     if (route.tool && !item.tools?.[route.tool]) return false;
     if (route.custom && !(item.constraint_count || (item.customization_mode && item.customization_mode !== "none"))) return false;
@@ -239,13 +265,14 @@ export function renderSkills(ctx) {
   const projectTool = tools.find((tool) => tool.id === "project") || null;
   const items = filteredItems(payload, route);
   const groups = groupedItems(items, route.skillGroup || "source", tools);
+  const blocks = sourceBlocks(payload);
   const visible = new Map(tools.map((tool) => [tool.id, (payload.items || []).filter((item) => item.tools?.[tool.id] === "direct" || item.tools?.[tool.id] === "shared").length]));
   return [
-    h("div", { class: "source-grid" }, (payload.summary || []).map((block) => sourceCard(ctx, block))),
+    h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
     h(
       "div",
       { class: "toolbar" },
-      select(h, "来源", route.source, [["", "全部来源"], ...(payload.summary || []).filter((block) => block.id !== "all").map((block) => [block.id, block.label])], (value) => ctx.setRoute({ source: value })),
+      select(h, "来源", route.source, [["", "全部来源"], ...blocks.filter((block) => block.id !== "all").map((block) => [block.id, block.label])], (value) => ctx.setRoute({ source: value })),
       select(h, "状态", route.skillStatus, [["", "全部状态"], ["aligned", "一致"], ["stale", "未复核"], ["version_changed", "版本已变"], ["modified", "已修改"], ["unverified", "未核实"], ["missing", "缺失"]], (value) => ctx.setRoute({ skillStatus: value })),
       select(h, "工具", route.tool, [["", "全部工具"], ...tools.map((tool) => [tool.id, tool.label])], (value) => ctx.setRoute({ tool: value })),
       select(h, "分组", route.skillGroup || "source", [["source", "按来源"], ["tool", "按工具"], ["flat", "不分组"]], (value) => ctx.setRoute({ skillGroup: value })),
@@ -302,7 +329,12 @@ function legend(h) {
       "● 直接入口 ○ 经共享目录 ✕ 入口缺失 ? 无法确定（路径推导，非 runtime 加载验证）",
     ),
     h("span", { class: "legend-group" }, h("strong", null, "仓库入口 "), "仓库名 + 入口位置（.agents / .codex / .cursor）"),
-    h("span", { class: "legend-group" }, h("strong", null, "云端 "), "各 Workspace 的安装，以及已启用的 Agent。本机 skills/ 新于云端时标云端较旧。"),
+    h(
+      "span",
+      { class: "legend-group" },
+      h("strong", null, "云端 "),
+      "各 Workspace 的安装，以及已启用的 Agent。本机 skills/ 新于云端时标云端较旧。云端筛选按云端安装记录（workspace_installs）判定，含仅存在于云端的条目；云端条目只有元数据，没有正文。",
+    ),
   );
 }
 
@@ -320,13 +352,15 @@ function sourceCard(ctx, block) {
       onclick: () => ctx.setRoute({ source: active ? "" : id }),
     },
     h("span", { class: "source-label" }, block.label),
-    h("strong", null, block.count),
+    h("strong", null, block.uncollected ? "—" : block.count),
     h(
       "span",
       { class: "source-recon" },
-      bits.length
-        ? bits.map((bit) => h("span", { class: bit.bad ? "bad-n" : "muted" }, `${bit.label} ${bit.count}`))
-        : h("span", { class: "muted" }, "—"),
+      block.uncollected
+        ? h("span", { class: "muted" }, "云端数据未采集")
+        : bits.length
+          ? bits.map((bit) => h("span", { class: bit.bad ? "bad-n" : "muted" }, `${bit.label} ${bit.count}`))
+          : h("span", { class: "muted" }, "—"),
     ),
   );
 }
@@ -387,8 +421,17 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
       );
     }
   }
-  if (!groups.length) body.push(h("tr", null, h("td", { class: "empty", colspan: String(8 + tools.length) }, "没有符合筛选的 skill")));
-  return h("div", { class: "table-wrap" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
+  if (!groups.length) {
+    const cloudBlock = sourceBlocks(payload).find((block) => block.id === CLOUD_SOURCE);
+    const emptyText =
+      ctx.route.source === CLOUD_SOURCE && cloudBlock?.uncollected
+        ? "云端安装数据未采集，无法筛选"
+        : ctx.route.source === CLOUD_SOURCE
+          ? "没有已安装到 Multica 云端的 skill"
+          : "没有符合筛选的 skill";
+    body.push(h("tr", null, h("td", { class: "empty", colspan: String(8 + tools.length) }, emptyText)));
+  }
+  return h("div", { class: "table-wrap sticky-head" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
 }
 
 function row(ctx, harness, projectTool, item, payload) {
@@ -766,6 +809,7 @@ export function renderSkillDrawer(ctx, item) {
     ),
     section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, h("code", { title: finding.label }, finding.code), " ", h("span", { class: "muted" }, finding.label))) : [h("p", { class: "muted" }, "没有额外发现")]),
     section(h, "定制与兼容约束", customSection(h, item)),
+    section(h, "Skill 正文", contentSection(h, ctx, item)),
     section(h, "Multica 云端（跨 Workspace）", cloudSection(h, item)),
     section(h, "在终端处理", [
       h("p", { class: "muted" }, "页面只读，不替代命令行。"),
@@ -819,6 +863,73 @@ function entriesSection(h, item, entries, ctx) {
       tools.length ? h("span", { class: "muted" }, ` · ${tools.join(" / ")}`) : null,
     );
   });
+}
+
+const SCOPE_TITLE = new Map(SCOPE_GROUPS);
+
+function contentTargets(item) {
+  const targets = [];
+  const seen = new Set();
+  if (item.local_source?.path) {
+    seen.add(item.local_source.path);
+    targets.push({ label: "本机 skills/ 源", path: item.local_source.path });
+  }
+  for (const entry of dedupeEntries(item.entries)) {
+    if (!entry.present || !entry.path || seen.has(entry.path)) continue;
+    seen.add(entry.path);
+    const scope = SCOPE_TITLE.get(scopeOf(entry)) || "入口";
+    targets.push({ label: entry.location ? `${scope} · ${entry.location}` : scope, path: entry.path });
+  }
+  return targets;
+}
+
+function contentPanel(h, ctx, item, target, result) {
+  const meta = CONTENT_LABEL[result.state] || CONTENT_LABEL.error;
+  if (result.state === "ok") {
+    return h(
+      "div",
+      null,
+      h(
+        "p",
+        { class: "muted" },
+        h("span", { class: "mono" }, result.path || target.path),
+        result.bytes != null ? ` · ${result.bytes} 字节` : "",
+        result.sha256 ? ` · ${String(result.sha256).slice(0, 12)}` : "",
+        ` · ${result.format || "markdown"}`,
+      ),
+      h("pre", { class: "instr-body skill-body" }, result.content),
+    );
+  }
+  const retry = result.state === "loading" ? null : h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path) }, "重试");
+  return h("p", null, h("span", { class: `tag ${meta.cls}` }, meta.label), result.message ? h("span", { class: "muted" }, ` ${result.message}`) : null, retry ? " " : null, retry);
+}
+
+function contentSection(h, ctx, item) {
+  const nodes = [];
+  const targets = contentTargets(item);
+  if (!targets.length) nodes.push(h("p", { class: "muted" }, "没有可查看的本机入口"));
+  for (const target of targets) {
+    const result = ctx.skillContent?.get(contentKey(item.name, target.path));
+    nodes.push(
+      h(
+        "div",
+        { class: "skill-content" },
+        h(
+          "p",
+          null,
+          h("span", { class: "muted" }, `${target.label} `),
+          h("span", { class: "mono" }, target.path),
+          " ",
+          h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path) }, "查看正文"),
+        ),
+        result ? contentPanel(h, ctx, item, target, result) : null,
+      ),
+    );
+  }
+  const installs = item.workspace_installs;
+  if (!Array.isArray(installs)) nodes.push(h("p", { class: "muted" }, "这份清单还没有云端安装数据。"));
+  else for (const install of installs) nodes.push(h("p", { class: "muted" }, `${workspaceLabel(install)} · 云端正文未采集（云端清单只含元数据，后端尚未采集正文）${install.id ? ` · ${install.id}` : ""}`));
+  return nodes;
 }
 
 function customSection(h, item) {

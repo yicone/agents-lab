@@ -348,6 +348,7 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .matrix thead th {
   position: sticky;
   top: 0;
+  z-index: 2;
   background: var(--panel);
   font-size: 11px;
   font-weight: 600;
@@ -741,7 +742,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .src-chip.state-fallback { border-style: dashed; color: var(--muted); }
 .src-chip.state-absent .dot,
 .src-chip.state-fallback .dot { background: transparent; border: 1.5px solid var(--faint); }
-.source-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .source-card {
   text-align: left;
   border: 1px solid var(--line);
@@ -755,9 +756,11 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .source-recon { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 11px; }
 .skills-layout { display: grid; grid-template-columns: minmax(0, 1fr) 352px; gap: 12px; align-items: start; }
 .table-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.table-wrap.sticky-head { max-height: max(320px, calc(100vh - 160px)); overflow: auto; }
 .skills-table { width: max-content; min-width: 100%; border-collapse: collapse; }
 .skills-table th, .skills-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; font-size: 12px; }
-.skills-table th { font-weight: 600; color: var(--muted); background: var(--panel-2); position: sticky; top: 0; white-space: nowrap; }
+.skills-table th { font-weight: 600; color: var(--muted); background: var(--panel-2); white-space: nowrap; }
+.skills-table thead th { position: sticky; top: 0; z-index: 2; background: var(--panel-2); }
 .skills-table th:last-child, .skills-table td:last-child { white-space: nowrap; }
 .tool-col { width: 44px; text-align: center; }
 .tool-col small { display: block; color: var(--faint); font-weight: 400; }
@@ -768,7 +771,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .skill-row { cursor: pointer; }
 .skill-row.quiet { opacity: 0.45; }
 .skill-row.selected, .skill-row:hover { background: var(--panel-2); opacity: 1; }
-.skill-group th { background: var(--bg); color: var(--text); font-size: 12px; }
+.skill-group th { background: var(--bg); color: var(--text); font-size: 12px; position: static; }
 .skill-more td { background: var(--bg); }
 .text-btn { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; }
 .skills-queue { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
@@ -833,7 +836,6 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .entry-chip.missing { color: var(--bad); border-color: var(--bad); }
 .entry-chip.unknown { color: var(--warn); border-color: var(--warn); }
 @media (max-width: 1199px) {
-  .source-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .skills-layout { grid-template-columns: minmax(0, 1fr); }
   .skills-queue { order: -1; }
   .skills-compact { display: flex; flex-wrap: wrap; gap: 8px 12px; color: var(--muted); font-size: 12px; }

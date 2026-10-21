@@ -583,6 +583,15 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 每个 skill 只进一个桶，优先级是上面的桶代码顺序。`version_changed` 是记录的插件版本目录不在、同级有新版本。`modified` 同时收 `unverified`。升级检查第一期没有数据源，桶在 JSON 里 `connected: false`。
 
+## 提议：`GET /api/skills/content`（未实现，ACM-312 缺口）
+
+**当前后端没有此接口。** 前端 Skill 抽屉的「Skill 正文」区按下面的契约写好，接口缺席时显示缺口态，绝不伪造正文。
+
+- `GET /api/skills/content?name=<skill>&path=<绝对路径>`。`path` 取自 `item.local_source.path` 或 `item.entries[].path`，即清单已经暴露过的路径；后端只应服务这些已知路径、且必须是普通文件，并设大小上限。
+- 200 响应：`{ok:true, state:"ok", name, path, format:"markdown", bytes, sha256, content}`；空文件用 `{ok:true, state:"empty", ...}`（无 `content`）。
+- 失败响应：`{ok:false, state:"missing"|"denied"|"too_large"|"error", message}`。
+- 前端语义：`empty` 只表示后端确认读到空文件，不作其它失败的兜底；接口 404 `unknown endpoint` / 405 归类为 `unavailable`（后端未提供正文接口），是产品缺口而不是读取失败。
+
 ## 变更记录
 
 - v0.7（2026-10-20）：ACM-291 增加 `GET /api/bots`。`GET /api/agents` 增加 `description`、`instructions`、`instructions_sha256`、`skills`、`disabled_runtime_skills`。`GET /api/skills` 的每条增加 `workspace_installs`。

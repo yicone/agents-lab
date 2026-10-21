@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { badgeOf, cloudCommands, cloudDrift, cloudPending, filteredItems, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey } from "./skills.js";
+import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
 
 const today = JSON.parse(readFileSync(new URL("./fixtures/skills.json", import.meta.url), "utf8"));
 
@@ -600,4 +600,160 @@ test("skill drawer copies refresh, update, and agent skill add commands without 
   assert.ok(commands.every((command) => !command.includes("&&") && !command.includes("|")));
   const src = readFileSync(new URL("./skills.js", import.meta.url), "utf8");
   assert.doesNotMatch(src, /innerHTML/);
+});
+
+const baseRoute = { q: "", source: "", skillStatus: "", tool: "", custom: false, debt: false, skillGroup: "source" };
+
+test("cloud source filters on workspace_installs, never on source_class", () => {
+  const cloud = cloudItem();
+  const plain = simpleItem({ name: "plain" });
+  const emptyInstalls = simpleItem({ name: "empty-installs", workspace_installs: [] });
+  const unrecorded = simpleItem({ name: "third", source_class: "unrecorded", source_label: "未登记", workspace_installs: [] });
+  const payload = basePayload([cloud, plain, emptyInstalls, unrecorded]);
+  const out = filteredItems(payload, { ...baseRoute, source: "cloud" });
+  assert.deepEqual(out.map((item) => item.name), ["colgrep-search"]);
+  // cloud intersects with the other filters
+  assert.equal(filteredItems(payload, { ...baseRoute, source: "cloud", skillStatus: cloud.reconciliation_status }).length, 1);
+  assert.equal(filteredItems(payload, { ...baseRoute, source: "cloud", skillStatus: "missing" }).length, 0);
+  assert.deepEqual(filteredItems(payload, { ...baseRoute, source: "cloud", q: "没有匹配" }), []);
+  const tooled = basePayload([cloudItem({ tools: { codex: "direct" } }), cloudItem({ name: "other-cloud" })]);
+  assert.deepEqual(filteredItems(tooled, { ...baseRoute, source: "cloud", tool: "codex" }).map((item) => item.name), ["colgrep-search"]);
+  // items without the array are excluded even when the route is not cloud-filtered by class
+  assert.equal(filteredItems(payload, { ...baseRoute, source: "local_custom" }).some((item) => item.name === "third"), false);
+  // grouping still uses source_class, so cloud items stay under their origin group
+  const groups = groupedItems(out, "source", payload.tools);
+  assert.deepEqual(groups.map((group) => group.id), ["local_custom"]);
+});
+
+test("sourceBlocks appends a synthesized cloud block matching filteredItems", () => {
+  const items = [cloudItem({ reconciliation_status: "stale" }), cloudItem({ name: "b", reconciliation_status: "aligned", status_label: "一致" }), simpleItem({ name: "c" })];
+  const payload = basePayload(items);
+  const blocks = sourceBlocks(payload);
+  const cloud = blocks[blocks.length - 1];
+  assert.equal(cloud.id, "cloud");
+  assert.equal(cloud.label, "Multica 云端 · 已安装");
+  assert.equal(cloud.count, filteredItems(payload, { ...baseRoute, source: "cloud" }).length);
+  assert.deepEqual(cloud.statuses, { stale: 1, aligned: 1 });
+  assert.equal(cloud.uncollected, false);
+  // no item carries the array at all ⇒ uncollected, and the card shows — not 0
+  const never = basePayload([simpleItem({ name: "x" })]);
+  const neverCloud = sourceBlocks(never).pop();
+  assert.equal(neverCloud.uncollected, true);
+  const card = findAll({ children: renderSkills(renderCtx(never)) }, (n) => String(n.attrs?.class || "").includes("source-card")).pop();
+  assert.ok(findText(card, "Multica 云端"));
+  assert.ok(findText(card, "云端数据未采集"));
+  const strong = findAll(card, (n) => n.tag === "strong")[0];
+  assert.equal(flatten(strong).filter((c) => typeof c === "string").join(""), "—");
+  // empty arrays do count as collected
+  const collected = sourceBlocks(basePayload([simpleItem({ workspace_installs: [] })])).pop();
+  assert.equal(collected.uncollected, false);
+  assert.equal(collected.count, 0);
+});
+
+test("source dropdown contains Multica 云端 and the cloud card is a filter toggle", () => {
+  const payload = basePayload([cloudItem()]);
+  const tree = { children: renderSkills(renderCtx(payload, { route: { ...baseRoute, source: "cloud" } })) };
+  const options = findAll(tree, (n) => n.tag === "option").map((n) => flatten(n).filter((c) => typeof c === "string").join(""));
+  assert.ok(options.includes("Multica 云端 · 已安装"), options.join("|"));
+  const card = findAll(tree, (n) => String(n.attrs?.class || "").includes("source-card")).pop();
+  assert.match(card.attrs.class, /active/);
+});
+
+test("empty table text distinguishes uncollected cloud, empty cloud, and no match", () => {
+  const route = { ...baseRoute, source: "cloud" };
+  const never = { children: renderSkills(renderCtx(basePayload([simpleItem({})]), { route })) };
+  assert.ok(findText(never, "云端安装数据未采集，无法筛选"));
+  const empty = { children: renderSkills(renderCtx(basePayload([simpleItem({ workspace_installs: [] })]), { route })) };
+  assert.ok(findText(empty, "没有已安装到 Multica 云端的 skill"));
+  const nomatch = { children: renderSkills(renderCtx(basePayload([simpleItem({})]), { route: { ...baseRoute, q: "zzz" } })) };
+  assert.ok(findText(nomatch, "没有符合筛选的 skill"));
+});
+
+test("skills table wrap is sticky-head and styles.css keeps the header sticky", () => {
+  const tree = { children: renderSkills(renderCtx(basePayload([simpleItem({})]))) };
+  const wrap = findAll(tree, (n) => String(n.attrs?.class || "") === "table-wrap sticky-head")[0];
+  assert.ok(wrap, "sticky-head wrap");
+  const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
+  const block = css.slice(css.indexOf(".table-wrap.sticky-head"), css.indexOf("}", css.indexOf(".table-wrap.sticky-head")));
+  assert.match(block, /max-height/);
+  assert.match(block, /overflow:\s*auto/);
+  const head = css.slice(css.indexOf(".skills-table thead th"), css.indexOf("}", css.indexOf(".skills-table thead th")));
+  assert.match(head, /position:\s*sticky/);
+  const group = css.slice(css.indexOf(".skill-group th"), css.indexOf("}", css.indexOf(".skill-group th")));
+  assert.doesNotMatch(group, /sticky/);
+  assert.match(group, /position:\s*static/);
+});
+
+function drawerCtx(payload, skillContent, extra = {}) {
+  return renderCtx(payload, {
+    skillContent,
+    loadSkillContent() {},
+    ...extra,
+  });
+}
+
+test("drawer 正文 section renders the viewer for each state and keeps raw text as text", () => {
+  const item = cloudItem();
+  const path = item.local_source.path;
+  const it = simpleItem({ name: "alpha", local_source: item.local_source, workspace_installs: item.workspace_installs });
+  const payload = basePayload([it]);
+  const states = [
+    [{ state: "loading" }, "读取中"],
+    [{ state: "unavailable", message: "后端未提供正文接口" }, "后端未提供正文接口"],
+    [{ state: "missing", message: "文件不存在" }, "文件不存在"],
+    [{ state: "denied", message: "无权限读取" }, "无权限读取"],
+    [{ state: "too_large", message: "文件过大，未载入" }, "文件过大"],
+    [{ state: "error", message: "boom" }, "读取失败"],
+    [{ state: "empty" }, "文件为空"],
+  ];
+  for (const [result, needle] of states) {
+    const ctx = drawerCtx(payload, new Map([[`alpha\n${path}`, result]]));
+    const tree = { children: renderSkillDrawer(ctx, it) };
+    assert.ok(findText(tree, "Skill 正文"), String(result.state));
+    assert.ok(findText(tree, needle), `${result.state}: ${needle}`);
+    assert.equal(findAll(tree, (n) => n.tag === "pre").length, 0, `${result.state} must not render a pre`);
+  }
+  const okCtx = drawerCtx(payload, new Map([[`alpha\n${path}`, { state: "ok", path, bytes: 30, sha256: "0123456789abcdef", format: "markdown", content: "line1\n<script>alert(1)</script>\n<b>bold</b>" }]]));
+  const okTree = { children: renderSkillDrawer(okCtx, it) };
+  const pre = findAll(okTree, (n) => n.tag === "pre")[0];
+  assert.ok(pre, "ok pre");
+  assert.match(pre.attrs.class, /instr-body skill-body/);
+  assert.deepEqual(pre.children, ["line1\n<script>alert(1)</script>\n<b>bold</b>"]);
+  assert.ok(findText(okTree, "30 字节"));
+  assert.ok(findText(okTree, "0123456789ab"));
+  // 云端行只有未采集说明，没有任何正文按钮
+  assert.ok(findText(okTree, "云端正文未采集"));
+  const cloudLines = findAll(okTree, (n) => n.tag === "p" && flatten(n).some((c) => typeof c === "string" && c.includes("云端正文未采集")));
+  assert.ok(cloudLines.length);
+  for (const cloudLine of cloudLines) assert.equal(findAll(cloudLine, (n) => n.tag === "button").length, 0);
+});
+
+test("drawer 正文 section lists local targets and requests content per path", () => {
+  const requested = [];
+  const item = simpleItem({
+    name: "alpha",
+    local_source: { path: "skills/alpha/SKILL.md", updated_at: "t", summary: "s" },
+    entries: [
+      { path: "skills/alpha/SKILL.md", present: true, scope: "repo_source", location: null, tools: [] },
+      { path: "~/.codex/skills/alpha", present: true, scope: "user", location: "~/.codex/skills", tools: ["codex"] },
+      { path: "/gone/alpha", present: false, scope: "other", location: null, tools: [] },
+    ],
+  });
+  const payload = basePayload([item]);
+  const ctx = drawerCtx(payload, new Map(), { loadSkillContent: (name, path) => requested.push([name, path]) });
+  const tree = { children: renderSkillDrawer(ctx, item) };
+  const buttons = findAll(tree, (n) => n.tag === "button" && flatten(n).includes("查看正文"));
+  // local_source target + the one distinct present entry (duplicate path deduped, absent entry skipped)
+  assert.equal(buttons.length, 2);
+  assert.ok(findText(tree, "本机 skills/ 源"));
+  assert.ok(findText(tree, "用户级入口 · ~/.codex/skills"));
+  buttons[0].attrs.onclick();
+  buttons[1].attrs.onclick();
+  assert.deepEqual(requested, [
+    ["alpha", "skills/alpha/SKILL.md"],
+    ["alpha", "~/.codex/skills/alpha"],
+  ]);
+  const noTargets = simpleItem({ name: "beta" });
+  const bare = { children: renderSkillDrawer(drawerCtx(basePayload([noTargets]), new Map()), noTargets) };
+  assert.ok(findText(bare, "没有可查看的本机入口"));
 });
