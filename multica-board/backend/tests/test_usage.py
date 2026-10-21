@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -191,7 +192,9 @@ class _FakeCodexbar:
 
 
 class CollectTests(unittest.TestCase):
-    def test_failure_isolation_counts_and_snapshot(self):
+    # Collection, response building and live views must share the fixture clock.
+    @patch("multica_board.views._now", return_value=NOW)
+    def test_failure_isolation_counts_and_snapshot(self, _clock):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             db = root / "board.sqlite"
@@ -295,6 +298,7 @@ class CollectTests(unittest.TestCase):
             self.assertEqual(body["snapshot_state"], "partial")
             self.assertEqual(live["snapshot_state"], "partial")
             self.assertEqual(live["external_quotas"][0]["windows"][0]["signal"], "dispatchable")
+            self.assertEqual(live, body)
             self.assertEqual(body["usage_collected_at"], "2026-10-16T16:43:00Z")
             self.assertEqual(body["multica_daily"]["note"], USAGE_NOTE)
             cursor = next(item for item in body["external_quotas"] if item["provider"] == "cursor")
@@ -404,6 +408,57 @@ class CollectTests(unittest.TestCase):
 
 
 class ApiShapeTests(unittest.TestCase):
+    def test_live_views_recompute_signals_from_snapshot_at_read_time(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Store(Path(tmp) / "board.sqlite")
+            snapshot = Path(tmp) / "usage-snapshot.json"
+            write_snapshot(snapshot, {
+                "usage_collected_at": "2026-10-16T00:00:00Z",
+                "days": 14,
+                "external_quotas": [{
+                    "provider": provider,
+                    "status": status,
+                    "last_success_at": "2026-10-16T00:00:00Z",
+                    "windows": [{
+                        "key": "primary",
+                        "label": "Weekly",
+                        "window_minutes": 10080,
+                        "used_percent": used,
+                        "resets_at": "2026-10-19T16:43:00Z",
+                    }],
+                } for provider, status, used in (
+                    ("cursor", "ok", 10), ("grok", "error", 95),
+                )],
+            })
+            original = snapshot.read_bytes()
+            view = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60)
+            try:
+                for day, signal, alerts in (
+                    (16, "normal", ["grok:primary"]),
+                    (18, "dispatchable", ["grok:primary"]),
+                    (19, "normal", []),
+                    (20, "normal", []),
+                ):
+                    now = NOW.replace(day=day)
+                    with self.subTest(now=now), patch("multica_board.views._now", return_value=now):
+                        body = view.usage()
+                        self.assertEqual(body["snapshot_state"], "partial")
+                        self.assertEqual(body["external_quotas"][0]["windows"][0]["signal"], signal)
+                        self.assertEqual(
+                            [item["provider"] for item in body["signals"]["dispatchable"]],
+                            ["cursor"] if signal == "dispatchable" else [],
+                        )
+                        self.assertEqual(
+                            [item["provider"] for item in body["signals"]["exhausting"]],
+                            ["grok"] if alerts else [],
+                        )
+                        self.assertEqual(
+                            [item["identifier"] for item in view.attention()["quota_alerts"]], alerts,
+                        )
+                        self.assertEqual(snapshot.read_bytes(), original)
+            finally:
+                store.close()
+
     def test_missing_snapshot(self):
         store = Store(":memory:")
         body = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60).usage()
