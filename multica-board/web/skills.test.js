@@ -945,3 +945,37 @@ test("all Skills Workspace labels and tooltips use the approved name",()=>{
   bot.grok_bots[0].evidence_state="inferred";
   assert.notEqual(skillsRefreshKey(payload),before);
 });
+
+test("drawer findings render Chinese descriptions without codes in text or titles",()=>{
+  const item=simpleItem({findings:[
+    {code:"content_hash_mismatch",label:"内容哈希和基线不一致"},
+    {code:"local_installation_unobserved",label:"local_installation_unobserved"},
+    {code:"future_internal_reason",label:"未知原因 future_internal_reason"},
+  ]});
+  const tree={children:renderSkillDrawer(renderCtx(basePayload([item])),item)};
+  const visible=flatten(tree).filter(node=>typeof node==="string").join("\n");
+  const titles=findAll(tree,node=>node.attrs?.title).map(node=>node.attrs.title).join("\n");
+  assert.match(visible,/内容哈希和基线不一致/);
+  assert.match(visible,/尚未观测到本机安装/);
+  assert.match(visible,/原因说明待补充/);
+  for(const code of item.findings.map(f=>f.code)) {
+    assert.equal(visible.includes(code),false);
+    assert.equal(titles.includes(code),false);
+  }
+});
+
+test("Workspace-only rows use unrecorded consistently in status chips, filter and row",()=>{
+  const payload=JSON.parse(readFileSync(new URL("./fixtures/skills-grok/skills.json",import.meta.url),"utf8"));
+  const only=payload.items.filter(item=>item.origin==="cloud");
+  assert.equal(only.length,7);
+  assert.ok(only.every(item=>item.reconciliation_status==="unrecorded"&&item.status_label==="未登记"));
+  const filtered=filteredItems(payload,{source:"cloud",skillStatus:"unrecorded"});
+  assert.equal(filtered.length,7);
+  assert.equal(filteredItems(payload,{source:"cloud",skillStatus:"unverified"}).length,0);
+  assert.equal(sourceBlocks(payload).find(block=>block.id==="cloud").statuses.unrecorded,7);
+  assert.equal(payload.summary.find(block=>block.id==="all").statuses.unrecorded,7);
+  const tree={children:renderSkills(renderCtx(payload,{route:{source:"cloud",skillStatus:"unrecorded",skillGroup:"flat"}}))};
+  const rows=findAll(tree,node=>node.tag==="tr"&&node.attrs?.class?.includes("skill-row"));
+  assert.equal(rows.length,7);
+  assert.ok(rows.every(row=>findText(row,"未登记")));
+});

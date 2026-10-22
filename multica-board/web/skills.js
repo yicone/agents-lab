@@ -667,6 +667,13 @@ function cloudSection(h, item) {
 
 const EVIDENCE_TEXT = { tool_roots: "技能根配置", runtimes: "运行时清单", skill_evidence: "技能路径证据", disk_installations: "本机安装目录", observed: "已观测", unknown: "无法确定", no_match: "未命中", not_applicable: "不适用", local_installation_unobserved: "尚未观测到本机安装", skill_roots_unconfigured: "未配置技能根", cloud_only: "仅存在于 Multica Workspace，本机运行时不适用" };
 const evidenceText = value => EVIDENCE_TEXT[value] || "证据待确认";
+function findingText(finding) {
+  const label = finding?.label;
+  // The API supplies Chinese descriptions. Older/unknown codes must never leak
+  // through visible text or tooltip attributes when that description is absent.
+  if (typeof label === "string" && /[\u3400-\u9fff]/.test(label) && !/[a-z][a-z0-9]*(?:_[a-z0-9]+)+/i.test(label)) return label;
+  return EVIDENCE_TEXT[finding?.code] || "对账发现待复核（原因说明待补充）";
+}
 function columnEvidence(tool) {
   return [tool.roots_state === "unconfigured" ? "未配置技能根，待确认" : "", ...(tool.sources || []).map(s => `${evidenceText(s.source)} · ${s.collected_at || "采集时间未知"} · ${evidenceText(s.evidence_state)}`)].filter(Boolean).join("\n");
 }
@@ -860,7 +867,7 @@ export function renderSkillDrawer(ctx, item) {
     ...SCOPE_GROUPS.map(([scope, title]) =>
       section(h, title, entriesSection(h, item, dedupeEntries((item.entries || []).map((entry, index) => ({ ...entry, _index: index }))).filter((entry) => scopeOf(entry) === scope), ctx)),
     ),
-    section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, h("code", { title: finding.label }, finding.code), " ", h("span", { class: "muted" }, finding.label))) : [h("p", { class: "muted" }, "没有额外发现")]),
+    section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, findingText(finding))) : [h("p", { class: "muted" }, "没有额外发现")]),
     section(h, "定制与兼容约束", customSection(h, item)),
     section(h, "Skill 正文", contentSection(h, ctx, item)),
     section(h, "Multica Workspace（跨 Workspace）", cloudSection(h, item)),

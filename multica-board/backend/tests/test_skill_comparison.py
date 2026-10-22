@@ -74,8 +74,18 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(item["reconciliation_status"], "unrecorded")
         self.assertEqual(next(block for block in _summary([item]) if block["id"] == "unrecorded")["statuses"], {"unrecorded": 1})
         cloud = _cloud_only_item("cloud", [{"id": "s"}])
+        self.assertEqual(cloud["reconciliation_status"], "unrecorded")
+        self.assertEqual(cloud["status_label"], "未登记")
         result = runtime_columns({"tools": [{"id": "codex", "label": "Codex"}], "items": [cloud]}, {"items": [{"provider": "future"}]}, [])
         self.assertTrue(all(e["state"] == "not_applicable" for e in result["items"][0]["runtime_evidence"].values()))
+
+    def test_known_and_unknown_findings_have_human_descriptions(self):
+        from multica_board.skills_view import _findings
+        findings = _findings(["content_hash_mismatch", "new_internal_reason", "content_hash_match"])
+        self.assertEqual(len(findings), 2)
+        self.assertEqual(findings[0]["label"], "内容哈希和基线不一致")
+        self.assertIn("原因说明待补充", findings[1]["label"])
+        self.assertNotIn("new_internal_reason", findings[1]["label"])
 
     def test_runtime_config_covers_platform_and_new_runtimes_with_evidence(self):
         config = json.loads((Path(__file__).resolve().parents[3] / "skills-governance/config/tool-roots.json").read_text())

@@ -284,7 +284,7 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 每条本地 skill 增加 `workspace_installs`：各 workspace 里同名的 Multica Workspace skill，以及该 workspace 中挂载它的 agent（`id`、`name`、`enabled`）。Multica Workspace skill 来自 `multica skill list`，缓存在 `workspace_skills`（键 `server + workspace_id + id`）。
 
-ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-256；`summary` 保留完整描述。Multica Workspace`workspace_installs[].content_hash` 优先取列表，缺失时通过不带 `--with-content` 的 `skill get` 补采，仅缓存合法 SHA-256，不保存正文；同 workspace、skill ID、非空 updated_at 未变时复用。获取失败可返回 null，鉴权或 workspace 越界仍按原有隔离规则处理。前端优先比较哈希，相同即忽略 mtime；不同只说明内容不同。缺少哈希时才按时间推断并明确提示，时间未知时仅比较完整描述。`summary` 在合并仅 Multica Workspace 条目后重算；未登记安装的 `reconciliation_status` 使用 `unrecorded`，卡片、行和状态筛选统一显示「未登记」，有记录但未核实仍为 `unverified`。
+ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-256；`summary` 保留完整描述。Multica Workspace`workspace_installs[].content_hash` 优先取列表，缺失时通过不带 `--with-content` 的 `skill get` 补采，仅缓存合法 SHA-256，不保存正文；同 workspace、skill ID、非空 updated_at 未变时复用。获取失败可返回 null，鉴权或 workspace 越界仍按原有隔离规则处理。前端优先比较哈希，相同即忽略 mtime；不同只说明内容不同。缺少哈希时才按时间推断并明确提示，时间未知时仅比较完整描述。`summary` 在合并仅 Multica Workspace 条目后重算；未登记安装和仅 Multica Workspace 条目的 `reconciliation_status` 使用 `unrecorded`，卡片、行和状态筛选统一显示「未登记」，有记录但未核实仍为 `unverified`。
 
 ## `GET /api/runtimes`
 

@@ -872,7 +872,7 @@ def _constraints(skill: dict[str, Any]) -> list[dict[str, str]]:
 def _findings(codes: list[str]) -> list[dict[str, str]]:
     hidden = {code for code in codes if code.endswith("_match")}
     return [
-        {"code": code, "label": FINDING_LABEL.get(code, code)}
+        {"code": code, "label": FINDING_LABEL.get(code, "对账发现待复核（原因说明待补充）")}
         for code in codes
         if code not in hidden
     ]
