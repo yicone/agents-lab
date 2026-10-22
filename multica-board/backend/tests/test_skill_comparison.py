@@ -62,7 +62,7 @@ class ComparisonTests(unittest.TestCase):
         document = {"ok": True, "generated_at": "t", "items": [local], "tools": [], "summary": _summary([local])}
         views = Views(self.store, "test", app_url="https://example.test", collect_interval_s=60)
         installs = {"local": [{"id": "s1"}], "cloud": [{"id": "s2"}, {"id": "s3"}]}
-        with mock.patch("multica_board.skills_view.skills_document", return_value=document), mock.patch.object(views, "_workspace_installs", return_value=installs), mock.patch.object(views, "runtimes", return_value={"items": []}):
+        with mock.patch("multica_board.skill_grok_bots.grok_bot_skills", return_value=([], {"state":"ok", "detail":"test"})), mock.patch("multica_board.skills_view.skills_document", return_value=document), mock.patch.object(views, "_workspace_installs", return_value=installs), mock.patch.object(views, "runtimes", return_value={"items": []}):
             result = views.skills()
         self.assertEqual(result["summary"][0]["count"], 2)
         self.assertEqual(sum(result["summary"][0]["statuses"].values()), 2)
@@ -72,7 +72,7 @@ class ComparisonTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             item = _unrecorded_item({"name": "demo"}, [], Path(folder))
         self.assertEqual(item["reconciliation_status"], "unrecorded")
-        self.assertEqual(_summary([item])[-1]["statuses"], {"unrecorded": 1})
+        self.assertEqual(next(block for block in _summary([item]) if block["id"] == "unrecorded")["statuses"], {"unrecorded": 1})
         cloud = _cloud_only_item("cloud", [{"id": "s"}])
         result = runtime_columns({"tools": [{"id": "codex", "label": "Codex"}], "items": [cloud]}, {"items": [{"provider": "future"}]}, [])
         self.assertTrue(all(e["state"] == "not_applicable" for e in result["items"][0]["runtime_evidence"].values()))

@@ -68,7 +68,7 @@ export async function loadSkillContent(fetchImpl, name, path, file = "SKILL.md")
 }
 
 export const CONTENT_LABEL = {
-  uncollected: { label: "云端正文未采集", cls: "muted" },
+  uncollected: { label: "Multica Workspace 正文未采集", cls: "muted" },
   unsupported: { label: "二进制或非 UTF-8 文本，不预览", cls: "muted" },
   loading: { label: "读取中…", cls: "muted" },
   ok: { label: "ok", cls: "ok" },

@@ -777,6 +777,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .channel-col .cell-ellipsis { max-width: 164px; }
 .version-col .cell-ellipsis { max-width: 112px; }
 .tool-mark.not-applicable { color: var(--muted); }
+.not-applicable { color: var(--muted); }
 .skill-row.selected, .skill-row:hover { background: var(--panel-2); opacity: 1; }
 .skill-group th { background: var(--bg); color: var(--text); font-size: 12px; position: static; }
 .skill-more td { background: var(--bg); }

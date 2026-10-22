@@ -3,14 +3,18 @@ import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
 
-/** 伪来源 id：选中时按「已安装到 Multica 云端」筛选，不是 source_class。 */
+/** 伪来源 id：选中时按「已安装到 Multica Workspace」筛选，不是 source_class。 */
 export const CLOUD_SOURCE = "cloud";
+export const skillKey = item => item.key || item.name;
+export const skillRowId = item => `skill-${item.key ? encodeURIComponent(item.key) : item.name}`;
+const isGrokBot = item => item.origin === "grok_bot";
+const notApplicable = (h, detail) => h("span", { class: "not-applicable", title: `∅ 不适用：${detail}` }, "∅");
 
 export function isCloudItem(item) {
   return Array.isArray(item?.workspace_installs) && item.workspace_installs.length > 0;
 }
 
-/** 来源卡片/下拉用的块列表：后端 summary 块 + 末尾合成的云端块。 */
+/** 来源卡片/下拉用的块列表：后端 summary 块 + 末尾合成的 Multica Workspace 块。 */
 export function sourceBlocks(payload) {
   const items = payload?.items || [];
   const cloudItems = items.filter(isCloudItem);
@@ -19,10 +23,10 @@ export function sourceBlocks(payload) {
     const key = item.reconciliation_status || "";
     statuses[key] = (statuses[key] || 0) + 1;
   }
-  // 没有任何条目带 workspace_installs 数组 ⇒ 云端清单从未采集，不是「装了 0 个」。
+  // 没有任何条目带 workspace_installs 数组 ⇒ Multica Workspace 清单从未采集，不是「装了 0 个」。
   const uncollected = !items.some((item) => Array.isArray(item?.workspace_installs));
-  // source_class 里也有叫「Multica 云端」的来源块（仅云端条目），这里加后缀区分。
-  return [...(payload?.summary || []), { id: CLOUD_SOURCE, label: "Multica 云端 · 已安装", count: cloudItems.length, statuses, uncollected }];
+  // source_class 里也有叫「Multica Workspace」的来源块（仅 Multica Workspace 条目），这里加后缀区分。
+  return [...(payload?.summary || []), { id: CLOUD_SOURCE, label: "Multica Workspace · 已安装", count: cloudItems.length, statuses, uncollected }];
 }
 
 export const BUCKETS = [
@@ -55,7 +59,7 @@ const STATUS_CLASS = {
   missing: "bad",
 };
 
-export const RUNTIME_LEGEND = "● 直接入口 · ○ 经共享目录 · ✕ 入口或版本文件缺失 · ∅ 不适用（仅云端） · ? 无法确定（含未配置技能根） · 空白：已配置根未命中，仍可能从其他目录加载；云端列 — 表示数据未采集。路径证据不代表当前会话实际加载。";
+export const RUNTIME_LEGEND = "● 直接入口 · ○ 经共享目录 · ✕ 入口或版本文件缺失 · ∅ 不适用（仅 Multica Workspace 或 Grok Bot 名称声明） · ? 无法确定（含未配置技能根） · 空白：已配置根未命中，仍可能从其他目录加载；Multica Workspace 列 — 表示数据未采集。路径证据不代表当前会话实际加载。";
 const MARK = { direct: "●", shared: "○", missing: "✕", unknown: "?" };
 const GROUP_LIMIT = 8;
 
@@ -95,6 +99,7 @@ const ROOT_BANNER_LINE = {
 };
 
 export function sharedEntryOf(item, payload) {
+  if (isGrokBot(item)) return { state: "not_applicable", label: "∅", detail: "Grok Bot 仅有名称声明，本机共享入口不适用" };
   const schema = payload?.skills_schema;
   if (schema === undefined || schema === null || Number(schema) < 2) {
     return { state: "legacy", label: SHARED_LABEL.legacy, reason: "legacy_payload", path: null, target: null, resolved: null, detail: "后端数据版本较旧，没有共享入口/来源证据，未检查" };
@@ -122,6 +127,7 @@ export function badgeOf(payload) {
 function installStamp(payload) {
   const bits = [];
   for (const item of payload?.items || []) {
+    if (isGrokBot(item)) bits.push(`${skillKey(item)}:${JSON.stringify(item.grok_bots || [])}`);
     if (item.local_source) bits.push(`local:${item.name}:${item.local_source.updated_at || ""}:${item.local_source.content_hash || ""}`);
     for (const install of item.workspace_installs || []) {
       const agents = (install.agents || []).map((agent) => `${agent.id}:${agent.enabled === false ? 0 : 1}`).join(",");
@@ -167,6 +173,7 @@ function haystack(item) {
     item.current_version,
     item.observed_version,
     item.install_path,
+    ...(item.grok_bots || []).map(bot => bot.name),
     ...(item.findings || []).map((finding) => finding.code),
     ...(item.entries || []).map((entry) => entry.path),
     ...(item.workspace_installs || []).flatMap((install) => [
@@ -204,7 +211,7 @@ function byAttention(a, b) {
 export function groupedItems(items, group, tools) {
   if (group === "flat") return [{ id: "all", label: "全部", note: "", items: [...items].sort(byAttention) }];
   if (group === "tool") {
-    return tools
+    const groups = tools
       .map((tool) => ({
         id: tool.id,
         label: tool.label,
@@ -212,6 +219,9 @@ export function groupedItems(items, group, tools) {
         items: items.filter((item) => item.tools?.[tool.id]).sort(byAttention),
       }))
       .filter((entry) => entry.items.length);
+    const bots = items.filter(isGrokBot);
+    if (bots.length) groups.push({id: "grok_bot", label: "Grok Bot", note: "仅名称声明，Runtime 不适用", items: bots.sort(byAttention)});
+    return groups;
   }
   const order = [];
   const map = new Map();
@@ -337,8 +347,8 @@ function legend(h) {
     h(
       "span",
       { class: "legend-group" },
-      h("strong", null, "云端 "),
-      "各 Workspace 的安装，以及已启用的 Agent。优先比较内容哈希；不同时提示云端内容不同，不推断新旧。缺少哈希时才按时间推断云端较旧，并注明依据；时间未知时仅比较完整描述。— 表示云端数据未采集。云端筛选包含仅云端条目；云端正文未采集。",
+      h("strong", null, "Multica Workspace"),
+      "各 Workspace 的安装，以及已启用的 Agent。优先比较内容哈希；不同时提示 Multica Workspace 内容不同，不推断新旧。缺少哈希时才按时间推断 Multica Workspace 较旧，并注明依据；时间未知时仅比较完整描述。— 表示 Multica Workspace 数据未采集。Multica Workspace 筛选包含仅 Multica Workspace 条目；Multica Workspace 正文未采集。",
     ),
   );
 }
@@ -353,6 +363,7 @@ function sourceCard(ctx, block) {
     {
       type: "button",
       class: `source-card${active ? " active" : ""}`,
+      title: block.detail || block.label,
       "aria-pressed": active ? "true" : "false",
       onclick: () => ctx.setRoute({ source: active ? "" : id }),
     },
@@ -362,7 +373,7 @@ function sourceCard(ctx, block) {
       "span",
       { class: "source-recon" },
       block.uncollected
-        ? h("span", { class: "muted" }, "云端数据未采集")
+        ? h("span", { class: "muted" }, block.detail || "Multica Workspace 数据未采集")
         : bits.length
           ? bits.map((bit) => h("span", { class: bit.bad ? "bad-n" : "muted" }, `${bit.label} ${bit.count}`))
           : h("span", { class: "muted" }, "—"),
@@ -390,7 +401,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     null,
     h("th", null, "Skill"),
     h("th", { class: "channel-col" }, "来源 / 更新通道"),
-    h("th", { title: "Multica 云端（跨 Workspace）" }, "云端"),
+    h("th", { title: "Multica Workspace（跨 Workspace）" }, "Multica Workspace"),
     h("th", null, "共享入口"),
     ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}\n${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
     projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, "仓库入口", h("small", null, String(visible.get(projectTool.id) || 0))) : null,
@@ -430,9 +441,9 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     const cloudBlock = sourceBlocks(payload).find((block) => block.id === CLOUD_SOURCE);
     const emptyText =
       ctx.route.source === CLOUD_SOURCE && cloudBlock?.uncollected
-        ? "云端安装数据未采集，无法筛选"
+        ? "Multica Workspace 安装数据未采集，无法筛选"
         : ctx.route.source === CLOUD_SOURCE
-          ? "没有已安装到 Multica 云端的 skill"
+          ? "没有已安装到 Multica Workspace 的 skill"
           : "没有符合筛选的 skill";
     body.push(h("tr", null, h("td", { class: "empty", colspan: String(8 + tools.length) }, emptyText)));
   }
@@ -441,13 +452,13 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
 
 function row(ctx, harness, projectTool, item, payload) {
   const { h } = ctx;
-  const selected = ctx.drawerSkill === item.name;
+  const selected = ctx.drawerSkill === skillKey(item);
   const shared = sharedEntryOf(item, payload);
   const sharedTitle = [shared.path, shared.target ? `→ ${shared.target}` : null, shared.resolved ? `解析到 ${shared.resolved}` : null, shared.detail].filter(Boolean).join("\n");
   return h(
     "tr",
     {
-      id: `skill-${item.name}`,
+      id: skillRowId(item),
       class: `skill-row${item.quiet ? " quiet" : ""}${selected ? " selected" : ""}`,
       tabindex: "0",
       onclick: (e) => ctx.openSkill(item, e.currentTarget),
@@ -456,15 +467,15 @@ function row(ctx, harness, projectTool, item, payload) {
       },
     },
     h("td", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
-    h("td", { class: "channel-col", title: [item.channel_label, item.channel_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, item.channel_label), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
+    h("td", { class: "channel-col", title: [item.channel_label, item.channel_detail, item.evidence_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, item.channel_label), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
     h("td", { class: "cloud-cell" }, cloudCell(h, item)),
     h("td", { class: "shared-entry", title: sharedTitle }, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
     ...harness.map((tool) => toolCell(h, item, tool)),
-    projectTool ? h("td", { class: "repo-entries" }, repoCell(h, item, payload)) : null,
-    h("td", { class: "mono version-col", title: `记录：${item.current_version || "未记录"}\n实际：${item.observed_version || "未采集"}` }, h("div", { class: "cell-ellipsis" }, versionCell(h, item))),
+    projectTool ? h("td", { class: "repo-entries" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 没有本机仓库入口") : repoCell(h, item, payload)) : null,
+    h("td", { class: "mono version-col", title: isGrokBot(item) ? "∅ 不适用：Grok Bot 清单没有版本" : `记录：${item.current_version || "未记录"}\n实际：${item.observed_version || "未采集"}` }, h("div", { class: "cell-ellipsis" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 清单没有版本") : versionCell(h, item))),
     h("td", null, h("span", { class: `tag ${STATUS_CLASS[item.reconciliation_status] || ""}`, title: item.reconciliation_status === "stale" ? (item.review_time ? "复核已过期，需要重新检查" : "从未复核：尚未建立人工复核记录") : "" }, item.reconciliation_status === "stale" && !item.review_time ? "从未复核" : item.status_label || item.reconciliation_status || "—")),
-    h("td", null, customCell(h, item)),
-    h("td", { class: "muted", title: item.review_time || "" }, relTime(item.review_time, ctx.ago)),
+    h("td", null, isGrokBot(item) ? notApplicable(h, "Grok Bot 清单未提供定制或约束") : customCell(h, item)),
+    h("td", { class: "muted", title: item.review_time || "" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 名称声明不参与本机基线复核") : relTime(item.review_time, ctx.ago)),
   );
 }
 
@@ -520,7 +531,7 @@ export function cloudDrift(item) {
   if (!stale.length) return null;
   const onlyTime = comparisons.every(row => row.basis === "time");
   return { local, installs: stale, comparisons,
-    label: onlyTime ? "云端较旧（按时间推断）" : "云端内容不同",
+    label: onlyTime ? "Multica Workspace 较旧（按时间推断）" : "Multica Workspace 内容不同",
     explanation: comparisons.map(({install, basis}) => `${workspaceLabel(install)}：${basis === "hash" ? "内容哈希不同，无法据此判断新旧" : basis === "time" ? "缺少内容哈希，按时间推断；文件修改时间可能受 git pull 影响" : "缺少内容哈希且时间未知，完整描述不同，正文是否相同待确认"}`).join("\n"),
   };
 }
@@ -544,9 +555,10 @@ function agentBrief(agents) {
 }
 
 function cloudCell(h, item) {
+  if (isGrokBot(item)) return notApplicable(h, "Grok Bot 名称声明独立于 Multica Workspace 安装记录");
   const installs = item.workspace_installs;
-  if (!Array.isArray(installs)) return h("span", { class: "muted", title: "云端数据未采集" }, "—");
-  if (!installs.length) return h("span", { class: "muted" }, "未安装");
+  if (!Array.isArray(installs)) return h("span", { class: "muted", title: "Multica Workspace 数据未采集" }, "—");
+  if (!installs.length) return h("span", { class: "muted" }, "Multica Workspace 未安装");
   const drift = cloudDrift(item);
   const stale = new Set((drift?.installs || []).map((install) => `${install.workspace_id}:${install.id}`));
   const shown = installs.slice(0, CLOUD_PREVIEW);
@@ -594,7 +606,7 @@ function cloudQueue(ctx, payload) {
         ),
       )
     : h("p", { class: "muted" }, "无");
-  return h("section", { class: "skill-bucket cloud-pending" }, h("header", null, h("span", null, "云端未刷新"), h("span", { class: "count" }, String(pending.length))), body);
+  return h("section", { class: "skill-bucket cloud-pending" }, h("header", null, h("span", null, "Multica Workspace 待核对"), h("span", { class: "count" }, String(pending.length))), body);
 }
 
 export function cloudCommands(item, install) {
@@ -602,7 +614,7 @@ export function cloudCommands(item, install) {
   const id = install.id;
   const commands = [
     { label: "从导入源刷新", command: `multica --workspace-id ${ws} skill refresh ${id}` },
-    { label: "更新这条云端 Skill", command: `multica --workspace-id ${ws} skill update ${id}` },
+    { label: "更新这条 Multica Workspace Skill", command: `multica --workspace-id ${ws} skill update ${id}` },
   ];
   if (item.local_source?.path) {
     commands.push({
@@ -623,8 +635,8 @@ export function cloudCommands(item, install) {
 
 function cloudSection(h, item) {
   const installs = item.workspace_installs;
-  if (!Array.isArray(installs)) return [h("p", { class: "muted" }, "这份清单还没有云端安装数据。")];
-  if (!installs.length) return [h("p", { class: "muted" }, "已采集的 Workspace 里没有同名云端 Skill。")];
+  if (!Array.isArray(installs)) return [h("p", { class: "muted" }, "这份清单还没有 Multica Workspace 安装数据。")];
+  if (!installs.length) return [h("p", { class: "muted" }, "已采集的 Workspace 里没有同名 Multica Workspace Skill。")];
   const drift = cloudDrift(item);
   const nodes = [
     h("p", { class: "muted" }, "页面只读，不代为执行。复制命令后在自己的终端运行。"),
@@ -653,7 +665,7 @@ function cloudSection(h, item) {
   return nodes;
 }
 
-const EVIDENCE_TEXT = { tool_roots: "技能根配置", runtimes: "运行时清单", skill_evidence: "技能路径证据", disk_installations: "本机安装目录", observed: "已观测", unknown: "无法确定", no_match: "未命中", not_applicable: "不适用", local_installation_unobserved: "尚未观测到本机安装", skill_roots_unconfigured: "未配置技能根", cloud_only: "仅存在于云端，本机运行时不适用" };
+const EVIDENCE_TEXT = { tool_roots: "技能根配置", runtimes: "运行时清单", skill_evidence: "技能路径证据", disk_installations: "本机安装目录", observed: "已观测", unknown: "无法确定", no_match: "未命中", not_applicable: "不适用", local_installation_unobserved: "尚未观测到本机安装", skill_roots_unconfigured: "未配置技能根", cloud_only: "仅存在于 Multica Workspace，本机运行时不适用" };
 const evidenceText = value => EVIDENCE_TEXT[value] || "证据待确认";
 function columnEvidence(tool) {
   return [tool.roots_state === "unconfigured" ? "未配置技能根，待确认" : "", ...(tool.sources || []).map(s => `${evidenceText(s.source)} · ${s.collected_at || "采集时间未知"} · ${evidenceText(s.evidence_state)}`)].filter(Boolean).join("\n");
@@ -661,7 +673,8 @@ function columnEvidence(tool) {
 
 function toolCell(h, item, tool) {
   const evidence = item.runtime_evidence?.[tool.id];
-  if (evidence?.state === "not_applicable" || (item.origin === "cloud" && !item.entries?.length && !item.local_source)) return h("td", { class: "tool-mark not-applicable", title: `不适用：仅云端条目，没有本机安装记录\n${RUNTIME_LEGEND}` }, "∅");
+  if (isGrokBot(item)) return h("td", { class: "tool-mark not-applicable", title: `∅ 不适用：Grok Bot 只有技能名称声明，没有本机 Runtime 安装证据\n${RUNTIME_LEGEND}` }, "∅");
+  if (evidence?.state === "not_applicable" || (item.origin === "cloud" && !item.entries?.length && !item.local_source)) return h("td", { class: "tool-mark not-applicable", title: `不适用：仅 Multica Workspace 条目，没有本机安装记录\n${RUNTIME_LEGEND}` }, "∅");
   if (tool.roots_state === "unconfigured" && !displayMark(item, tool)) return h("td", { class: "tool-mark unknown", title: `${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, "?");
   if (evidence?.state === "unknown" && !displayMark(item, tool)) return h("td", { class: "tool-mark unknown", title: `${evidenceText(evidence.reason)}\n${columnEvidence(tool)}\n${RUNTIME_LEGEND}` }, "?");
   const mark = displayMark(item, tool);
@@ -751,7 +764,7 @@ function queue(ctx, payload) {
     h(
       "div",
       { class: "skills-compact" },
-      h("span", null, "云端未刷新 ", String(cloudPending(payload).length)),
+      h("span", null, "Multica Workspace 待核对 ", String(cloudPending(payload).length)),
       buckets.map((bucket) => h("span", null, bucket.title, " ", bucket.connected ? String(bucket.items.length) : "—")),
     ),
     h("h2", null, "待处理"),
@@ -813,6 +826,16 @@ function bucketBlock(ctx, bucket) {
 export function renderSkillDrawer(ctx, item) {
   const { h } = ctx;
   const close = h("button", { type: "button", class: "drawer-close", "aria-label": "关闭", onclick: ctx.closeDrawer }, "×");
+  if (isGrokBot(item)) return [
+    h("header", { class: "drawer-head" }, h("span", { class: "mono" }, item.name), close),
+    h("h2", { class: "drawer-title" }, "Grok Bot"),
+    section(h, "证据范围", [h("p", null, item.evidence_detail), line(h, "只读来源", item.manifest_path), h("p", { class: "muted" }, "仅展示 Git 清单中的名称声明；不调用 Grok 接口，不表示所有 Bot 均已实测。")]),
+    section(h, "使用此技能的 Bot", (item.grok_bots || []).map(bot => h("p", { title: bot.evidence_label }, h("strong", null, bot.name), " · ", h("span", { class: bot.evidence_state === "observed" ? "info" : "muted" }, bot.evidence_label)))),
+    section(h, "Skill 正文", [notApplicable(h, "Grok Bot 清单只有名称，没有正文")]),
+    section(h, "版本", [notApplicable(h, "Grok Bot 清单没有版本")]),
+    section(h, "Runtime", [notApplicable(h, "Grok Bot 名称声明不是本机 Runtime 安装证据")]),
+    item.related_skill_name ? section(h, "同名关联", [h("p", null, `本机或 Multica Workspace 另有同名技能 ${item.related_skill_name}；保留独立条目。`), h("button", { type: "button", class: "text-btn", onclick: e => ctx.focusSkill(item.related_skill_name, e.currentTarget) }, "查看同名技能")]) : null,
+  ].filter(Boolean);
   return [
     h("header", { class: "drawer-head" }, h("div", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null), close),
     h("h2", { class: "drawer-title" }, item.channel_label || "Skill"),
@@ -840,7 +863,7 @@ export function renderSkillDrawer(ctx, item) {
     section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, h("code", { title: finding.label }, finding.code), " ", h("span", { class: "muted" }, finding.label))) : [h("p", { class: "muted" }, "没有额外发现")]),
     section(h, "定制与兼容约束", customSection(h, item)),
     section(h, "Skill 正文", contentSection(h, ctx, item)),
-    section(h, "Multica 云端（跨 Workspace）", cloudSection(h, item)),
+    section(h, "Multica Workspace（跨 Workspace）", cloudSection(h, item)),
     section(h, "在终端处理", [
       h("p", { class: "muted" }, "页面只读，不替代命令行。"),
       item.command ? h("p", { class: "command" }, h("code", null, item.command), h("button", { type: "button", onclick: (e) => copyCommand(e.currentTarget, item.command) }, "复制")) : null,
@@ -971,8 +994,8 @@ function contentSection(h, ctx, item) {
     })));
   }
   const installs = item.workspace_installs;
-  if (!Array.isArray(installs)) nodes.push(h("p", { class: "muted" }, "这份清单还没有云端安装数据。"));
-  else for (const install of installs) nodes.push(h("p", { class: "muted" }, `${workspaceLabel(install)} · 云端正文未采集（云端清单只含元数据，后端尚未采集正文）${install.id ? ` · ${install.id}` : ""}`));
+  if (!Array.isArray(installs)) nodes.push(h("p", { class: "muted" }, "这份清单还没有 Multica Workspace 安装数据。"));
+  else for (const install of installs) nodes.push(h("p", { class: "muted" }, `${workspaceLabel(install)} · Multica Workspace 正文未采集（Multica Workspace 清单只含元数据，后端尚未采集正文）${install.id ? ` · ${install.id}` : ""}`));
   return nodes;
 }
 

@@ -5,7 +5,7 @@ export const VIEWS = ["map", "decide", "issues", "agents", "skills", "usage"];
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
 const FILTER_LAYERS = new Set([...LAYER_IDS, "outside", "unassigned"]);
-const SKILL_SOURCES = new Set(["skills_cli_managed", "local_custom", "runtime_plugin", "runtime_builtin", "third_party_unmanaged", "unrecorded", "multica_cloud", "cloud"]);
+const SKILL_SOURCES = new Set(["skills_cli_managed", "local_custom", "runtime_plugin", "runtime_builtin", "third_party_unmanaged", "unrecorded", "multica_cloud", "cloud", "grok_bot"]);
 const SKILL_STATUSES = new Set(["aligned", "stale", "version_changed", "modified", "unrecorded", "unverified", "missing"]);
 // Before the first payload, retain a bounded provider token from a deep link.
 // Once loaded, the API's column data is the only tool whitelist.

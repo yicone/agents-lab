@@ -282,9 +282,9 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 ## `GET /api/skills` 的 `workspace_installs`
 
-每条本地 skill 增加 `workspace_installs`：各 workspace 里同名的云端 skill，以及该 workspace 中挂载它的 agent（`id`、`name`、`enabled`）。云端 skill 来自 `multica skill list`，缓存在 `workspace_skills`（键 `server + workspace_id + id`）。
+每条本地 skill 增加 `workspace_installs`：各 workspace 里同名的 Multica Workspace skill，以及该 workspace 中挂载它的 agent（`id`、`name`、`enabled`）。Multica Workspace skill 来自 `multica skill list`，缓存在 `workspace_skills`（键 `server + workspace_id + id`）。
 
-ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-256；`summary` 保留完整描述。云端 `workspace_installs[].content_hash` 优先取列表，缺失时通过不带 `--with-content` 的 `skill get` 补采，仅缓存合法 SHA-256，不保存正文；同 workspace、skill ID、非空 updated_at 未变时复用。获取失败可返回 null，鉴权或 workspace 越界仍按原有隔离规则处理。前端优先比较哈希，相同即忽略 mtime；不同只说明内容不同。缺少哈希时才按时间推断并明确提示，时间未知时仅比较完整描述。`summary` 在合并仅云端条目后重算；未登记安装的 `reconciliation_status` 使用 `unrecorded`，卡片、行和状态筛选统一显示「未登记」，有记录但未核实仍为 `unverified`。
+ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-256；`summary` 保留完整描述。Multica Workspace`workspace_installs[].content_hash` 优先取列表，缺失时通过不带 `--with-content` 的 `skill get` 补采，仅缓存合法 SHA-256，不保存正文；同 workspace、skill ID、非空 updated_at 未变时复用。获取失败可返回 null，鉴权或 workspace 越界仍按原有隔离规则处理。前端优先比较哈希，相同即忽略 mtime；不同只说明内容不同。缺少哈希时才按时间推断并明确提示，时间未知时仅比较完整描述。`summary` 在合并仅 Multica Workspace 条目后重算；未登记安装的 `reconciliation_status` 使用 `unrecorded`，卡片、行和状态筛选统一显示「未登记」，有记录但未核实仍为 `unverified`。
 
 ## `GET /api/runtimes`
 
@@ -591,7 +591,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 - `?name=<skill>&path=<入口>&tree=1` 返回 `{ok:true,state:"ok",files:[{path,type,bytes,readable}],truncated,max_bytes}`。路径相对技能目录，`type=file|directory|symlink|special|unknown`，bytes 为 lstat 字节数；探测失败 bytes 为 null。`readable` 只表示普通文件且未超大小上限，UTF-8 检查仍在读取时执行。目录访问失败附 `state:"unknown"`。最多 2000 项、递归 16 层，触限 `truncated:true`。
 - 正文响应 `{ok:true,state:"ok"|"empty",name,path,file,format:"markdown"|"text",bytes,sha256,content,source:"local",collected_at,evidence_state:"observed"}`。UTF-8 原文保留（含 frontmatter、换行、HTML 字面文本），空文件 `content:""`。单文件上限 512 KiB，不预览二进制、非 UTF-8、FIFO 等特殊文件。
 - 读取失败仍 HTTP 200：`{ok:false,state:"missing"|"denied"|"too_large"|"unsupported"|"error",name,path,source,collected_at,evidence_state:"unknown",message}`。路径穿越、绝对 `file`、链接及非普通文件为 denied；错误不包含底层异常或额外本机路径。重复/未知查询参数、缺 name/path、非法 tree/source 为 HTTP 400 标准 error 对象。沿用回环、同源与 GET/HEAD 安全门禁。
-- `?name=<skill>&source=cloud` 不读取本机目录，返回 `{ok:false,state:"uncollected",source:"cloud",collected_at:null,evidence_state:"unknown",message,...}`。`workspace_installs[].content` 同样明确标注此未采集状态；云端更新时间不等于正文采集时间。
+- `?name=<skill>&source=cloud` 不读取本机目录，返回 `{ok:false,state:"uncollected",source:"cloud",collected_at:null,evidence_state:"unknown",message,...}`。`workspace_installs[].content` 同样明确标注此未采集状态；Multica Workspace 更新时间不等于正文采集时间。
 
 ### 动态 Runtime 列
 
@@ -599,9 +599,17 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。
 
-每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅云端、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。云端列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
+每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅 Multica Workspace 、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。Multica Workspace 列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
 
 `tool_filter_ids` 与 tools 同源。前端路由收到列数据后使用 tools.id 生成筛选白名单；首次加载前仅暂存格式受限的 URL provider，避免 Grok/未来 provider 深链在数据到达前丢失。查看器、共享入口加载规则和无根标记的展示由阶段 2 消费。
+
+### Grok Bot 技能名称来源（ACM-349）
+
+`GET /api/skills` 只读 `instructions-governance/grok-bots-manifest.json`（`grok-bots-manifest/v1`），不读取 Grok 客户端、不调用 Grok API，也不改清单。每个不同技能名称生成一个 `origin/source_class="grok_bot"` 条目，附 `grok_bots:[{id,name,evidence_state,evidence_label}]`；`key` 是独立标识，与本机或 Multica Workspace 的同名行保持分离。`related_skill_name` 只表示存在同名关联。
+
+ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实测），其它 21 个 Bot 标 `inferred`（按共享机制推断、未逐一实测）；新增名称不继承旧实测结论。这不代表当前会话加载。Grok Bot 没有正文、版本或本机安装入口，`content.state` 和所有 `runtime_evidence[].state` 为 `not_applicable`，页面以浅灰 `∅` 展示；不生成正文读取按钮、更新命令或 Workspace 安装记录。
+
+`summary` 含 `grok_bot` 来源卡片，全部计数包含这些独立条目；Bot 名称可搜索，来源可筛选。清单缺失或格式无效通过 `meta.sources[id=grok_bot]` 显式标注，来源卡片显示未采集，不能把读取失败视作 0 个技能。用户文案统一为「Multica Workspace」；历史 API 标识 `cloud` / `multica_cloud` 继续兼容。
 
 ## 变更记录
 

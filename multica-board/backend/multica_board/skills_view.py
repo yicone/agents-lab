@@ -126,6 +126,7 @@ SUMMARY_SOURCES = (
     ("runtime_builtin", "运行时内置"),
     ("third_party_unmanaged", "第三方未托管"),
     ("unrecorded", "未登记"),
+    ("grok_bot", "Grok Bot"),
 )
 
 _CACHE: dict[tuple, dict[str, Any]] = {}

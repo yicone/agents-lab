@@ -309,3 +309,9 @@ test("unrecorded reconciliation filter round trips through a deep link", () => {
   assert.equal(route.source,"unrecorded");
   assert.match(formatHash(route),/status=unrecorded/);
 });
+
+test("Grok Bot source filter survives routing and does not become a runtime",()=>{
+  const route=parseHash("#/skills?source=grok_bot");
+  assert.equal(route.source,"grok_bot");
+  assert.match(formatHash(route),/source=grok_bot/);
+});
