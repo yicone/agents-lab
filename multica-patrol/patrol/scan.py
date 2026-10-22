@@ -45,6 +45,11 @@ def _next_due_at(issue: dict, f: dict, now) -> object:
         break
     if newest_failed_completed:
         candidates.append(newest_failed_completed + timedelta(seconds=config.FAILED_RUN_GRACE_S))
+    if status in ("blocked", "in_review"):
+        last_comment_at = facts.parse_ts((f.get("last_comment") or {}).get("created_at"))
+        anchor = max([t for t in (entered, last_comment_at) if t], default=None)
+        if anchor:
+            candidates.append(anchor + timedelta(seconds=config.UNWOKEN_GRACE_S))
     if status in config.LIGHT_STATUSES:
         candidates.append(now + timedelta(seconds=config.LIGHT_RECHECK_S))
     future = [c for c in candidates if c > now]
@@ -119,12 +124,7 @@ def needs_deep(issue: dict, cached: dict | None, full: bool, now) -> bool:
 
 
 def _compact_runs(runs: list[dict]) -> list[dict]:
-    return [
-        {"id": r.get("id"), "status": r.get("status"), "attempt": r.get("attempt"),
-         "max_attempts": r.get("max_attempts"), "completed_at": r.get("completed_at"),
-         "agent_id": r.get("agent_id")}
-        for r in runs
-    ]
+    return [facts.compact_run(r) for r in runs]
 
 
 def _newest_live_id(runs: list[dict]) -> str | None:
@@ -178,8 +178,9 @@ def run_scan(cli, state: dict, full: bool, now, monotonic) -> dict:
                     }
                 continue
             deep_jobs.append(issue)
-        elif issue.get("assignee_id"):
-            # Light refresh for every cached issue with an assignee (any status):
+        elif issue.get("assignee_id") or \
+                issue.get("status") in ("blocked", "in_review"):
+            # Light refresh for cached issues with an assignee (any status), plus
             # run failures/retries may not move the fingerprint. One full runs
             # call both updates the active set and feeds the failed-run rule.
             try:

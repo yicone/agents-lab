@@ -1,6 +1,6 @@
 --- a/playbook.md
 +++ b/playbook.md
-@@ -182,3 +182,38 @@
+@@ -182,3 +182,42 @@
  CLI 发送结果不确定时会保留 inflight 批次，后续只查询评论确认，不自动重发；连续错误退避并记 ALERT 日志。维护者需在停旁路、确认没有活动 CLI/重复批次并完整核对评论后处理无法确认的批次，不可直接删除 state.json，否则会丢本地待处理队列。断档超过 24 小时会补核当前待验收/阻塞 issue；无法还原已经消失的瞬时历史事件。
  
  回滚只停新旁路：`launchctl bootout gui/501/one.yic.multica-dispatch-sidecar`。保留代码、plist、日志和 state.json 以便恢复，不触碰旧桥接。恢复：`launchctl bootstrap gui/501 ~/Library/LaunchAgents/one.yic.multica-dispatch-sidecar.plist`。
@@ -39,3 +39,7 @@
 +**第二层：每日分析（副调度，09:00 SGT，早于 09:15 待决定清单）。** 独立 autopilot。先运行 `python3 -m patrol daily-pack --format json` 取机器数据，再按「大事」归类写**一条**评论到 ACM-216，用 `python3 -m patrol daily-post --file <正文>` 发出（同一天只发一次，正文不得含 agent/member mention）。每件大事写：卡在哪、原因、谁该接手、推荐做法（1–2 个选项）。只列「需要用户拍板」与「副调度已推进」两类。能按既有授权推进的（补 @mention、父 issue 状态纠偏、按已有批准派活）直接做并在汇总注明；推送、合并、删除、花钱、方向性问题只整理成决定点。搁置标签事项不读取不提醒不派活。机器层不扩大授权；每日分析里的派活仍按本手册第 3 节。
 +
 +**回滚。** 见 `multica-patrol/docs/switchover.md` 的回滚段：恢复 autopilot 旧描述（`multica-patrol/docs/rollback/` 有快照）、暂停每日分析 autopilot、`git revert` 合并提交；旧台账与收件箱不受影响。
++
++**未唤醒的交付补发（机器层第二个会写源 issue 的动作）。** issue 处于 blocked / in_review ≥15 分钟，最后一条业务评论是 agent 写的交付/判定但没有有效 UUID mention（`mention://agent|member/<uuid>`，`mention://agent/副调度` 或纯文字 @ 都不算），且评论之后没有任何 run（含 queued/cancelled/active）开始，则脚本重读该 issue、评论和 run 后，以副调度身份在源 issue 发一条补发评论 @副调度，注明交付 agent、评论时间和缺失的唤醒，由副调度决定复验/返工/顶层批准请求。同一 issue 24h 最多一次，每轮最多 3 条。机器层不验证 mention 指向的 UUID 是否过期或正确，也不还原被编辑过的评论。
++
++规则 8/9 的既有假设：只有 agent 写的最后评论算交付；有效 mention 只看格式；评论之后的任何 run 都算已被唤醒；补发/重试每 issue 各 24h/一次性；blocked/in_review 阈值同时看状态进入时长与评论时长。自然整点上的实际触发由 Reviewer 观察确认，手动 dry-run 不算证据。

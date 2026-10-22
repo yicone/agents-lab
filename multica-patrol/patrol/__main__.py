@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import config, daily, ledger, retry, rules, scan, selfreport
+from . import config, daily, ledger, retry, rules, scan, selfreport, unwoken
 from .cli import CliError, PatrolCLI
 from .facts import SGT, iso, parse_ts
 from .identity import check_dispatcher_identity
@@ -242,13 +242,17 @@ def run_hourly(args, ctx) -> int:
         result["retries_sent"] = err_res.retries_sent
         result["retries_would_send"] = err_res.retries_would_send
         result["error_escalations"] = err_res.error_escalations
-        if err_res.identity_violation and not dry_run:
-            state["identity_violation"] = {"at": iso(now),
-                                           "detail": err_res.identity_violation}
-            fail("identity_violation", err_res.identity_violation)
+        unw_res = unwoken.process_unwoken(
+            store, cli, state, scanned["per_issue"], now, dry_run, ctx["sleep"])
+        result["unwoken_sent"] = unw_res.sent
+        result["unwoken_would_send"] = unw_res.would_send
+        violation = err_res.identity_violation or unw_res.identity_violation
+        if violation and not dry_run:
+            state["identity_violation"] = {"at": iso(now), "detail": violation}
+            fail("identity_violation", violation)
             selfreport.prune_state(state, now)
             store.save(state)
-            _err(err, f"identity_violation: {err_res.identity_violation}")
+            _err(err, f"identity_violation: {violation}")
             result["self_failures_consecutive"] = state["consecutive_failures"]
             return finish(3, "held")
 
@@ -259,7 +263,7 @@ def run_hourly(args, ctx) -> int:
             err_res.actions, suppressed, len(suppressed_keys), unresolved,
             prior_failures,
             escalate_keys + (["self"] if self_escalate else []),
-            duration, now_sgt)
+            duration, now_sgt, unwoken_rows=unw_res.actions)
 
         if dry_run:
             print(body, file=out)

@@ -99,6 +99,23 @@ def evaluate(issue: dict, facts: dict, now) -> list[dict]:
     if pe:
         add("completed_provider_error", pe.get("run_id"), provider_error=pe)
 
+    # Unwoken handoff: only agent-authored last comments count as agent
+    # handoffs (member comments are human speech, not a delivery/judgement).
+    lc = facts.get("last_comment")
+    if status in ("blocked", "in_review") and lc and \
+            lc.get("author_type") == "agent" and not lc.get("has_valid_mention"):
+        entered_age = (now - entered).total_seconds() if entered else None
+        comment_at = parse_ts(lc.get("created_at"))
+        comment_age = (now - comment_at).total_seconds() if comment_at else None
+        later_run = any(
+            (parse_ts(r.get("started_at")) or parse_ts(r.get("dispatched_at"))
+             or parse_ts(r.get("created_at")) or entered or now) >= comment_at
+            for r in facts.get("runs") or [])
+        if entered_age is not None and entered_age >= config.UNWOKEN_GRACE_S and \
+                comment_age is not None and comment_age >= config.UNWOKEN_GRACE_S and \
+                not later_run:
+            add("unwoken_handoff", lc.get("id"), last_comment=lc)
+
     return findings
 
 

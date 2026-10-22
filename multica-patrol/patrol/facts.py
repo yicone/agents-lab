@@ -130,8 +130,10 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
     active_runs = active_res.data if isinstance(active_res.data, list) else []
 
     runs = []
-    if issue.get("assignee_id") and not active_runs and \
-            issue.get("status") not in ("done", "cancelled"):
+    if (issue.get("assignee_id") and not active_runs
+            and issue.get("status") not in ("done", "cancelled")) \
+            or issue.get("status") in ("blocked", "in_review"):
+        # blocked/in_review always need the full runs list (unwoken-handoff rule).
         runs_res = cli.run_json(["issue", "runs", issue_id, "--output", "json"])
         runs = runs_res.data if isinstance(runs_res.data, list) else []
 
@@ -148,16 +150,49 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
         "approval_wait_at": iso(anchors["approval_wait_at"]),
         "evidence_partial": anchors["evidence_partial"],
         "active_runs": [{"id": r.get("id"), "status": r.get("status")} for r in active_runs],
-        "runs": [
-            {"id": r.get("id"), "status": r.get("status"), "attempt": r.get("attempt"),
-             "max_attempts": r.get("max_attempts"), "completed_at": r.get("completed_at"),
-             "agent_id": r.get("agent_id")}
-            for r in runs
-        ],
+        "runs": [compact_run(r) for r in runs],
+        "last_comment": _last_comment(comments),
         "provider_error": provider_error,
         "wakeups": wakeups_small,
         "checked_at": iso(now),
     }
+
+
+def compact_run(r: dict) -> dict:
+    return {"id": r.get("id"), "status": r.get("status"), "attempt": r.get("attempt"),
+            "max_attempts": r.get("max_attempts"), "created_at": r.get("created_at"),
+            "started_at": r.get("started_at"), "dispatched_at": r.get("dispatched_at"),
+            "completed_at": r.get("completed_at"), "agent_id": r.get("agent_id")}
+
+
+_INFRA_PREFIXES = ("[patrol-", "[dispatch-batch:")
+
+
+def _excluded_comment(comment: dict) -> bool:
+    content = (comment.get("content") or "").lstrip()
+    return (content.startswith(config.SELF_COMMENT_PREFIXES)
+            or content.startswith(_INFRA_PREFIXES)
+            or config.RETRY_PREFIX in content
+            or config.UNWOKEN_PREFIX in content)
+
+
+def _last_comment(comments: list[dict]) -> dict | None:
+    """Newest real comment — patrol/dispatch-infra comments never count."""
+    best = None
+    for c in comments or []:
+        if c.get("type") != "comment" or _excluded_comment(c):
+            continue
+        ts = parse_ts(c.get("created_at"))
+        if ts is None:
+            continue
+        if best is None or ts > best[0]:
+            best = (ts, c)
+    if best is None:
+        return None
+    return {"id": best[1].get("id"), "author_type": best[1].get("author_type"),
+            "author_id": best[1].get("author_id"), "created_at": iso(best[0]),
+            "has_valid_mention": bool(
+                config.UUID_MENTION_RE.search(best[1].get("content") or ""))}
 
 
 def _detect_provider_error(runs: list[dict], comments: list[dict], now) -> dict | None:
@@ -200,12 +235,8 @@ def collect_light_facts(cli, issue: dict, now: datetime) -> dict:
     rule also applies when an assignee is set, so fetch the full list then)."""
     if issue.get("assignee_id"):
         runs_res = cli.run_json(["issue", "runs", issue["id"], "--output", "json"])
-        runs = [
-            {"id": r.get("id"), "status": r.get("status"), "attempt": r.get("attempt"),
-             "max_attempts": r.get("max_attempts"), "completed_at": r.get("completed_at"),
-             "agent_id": r.get("agent_id")}
-            for r in (runs_res.data if isinstance(runs_res.data, list) else [])
-        ]
+        runs = [compact_run(r)
+                for r in (runs_res.data if isinstance(runs_res.data, list) else [])]
         active_runs = [{"id": r["id"], "status": r["status"]}
                        for r in runs if r["status"] in config.ACTIVE_RUN_STATUSES]
     else:
@@ -222,6 +253,7 @@ def collect_light_facts(cli, issue: dict, now: datetime) -> dict:
         "evidence_partial": False,
         "active_runs": active_runs,
         "runs": runs,
+        "last_comment": None,
         "provider_error": None,
         "wakeups": [],
         "checked_at": iso(now),

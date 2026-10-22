@@ -45,6 +45,7 @@ SUGGESTIONS = {
     "approved_unassigned": "approved-labelled issue is unassigned and idle",
     "run_failed_no_retry": "latest runs failed with no retry in flight",
     "in_progress_no_assignee": "in progress without an assignee",
+    "unwoken_handoff": "给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。",
 }
 
 
@@ -52,7 +53,7 @@ def render_batch(batch_id: str, mode_tag: str, slot: str, scan_kind: str, covera
                  rows: list[dict], exempt_rows: list[dict], provider_rows: list[dict],
                  suppressed: int, suppressed_keys: int, unresolved: list[dict],
                  prior_failures: list[dict], escalations: list[str],
-                 duration_s: float, now_sgt) -> str:
+                 duration_s: float, now_sgt, unwoken_rows: list[dict] | None = None) -> str:
     lines = [f"[patrol-batch:{batch_id} v2 {mode_tag}]"]
     lines.append(
         f"Patrol {slot[:4]}-{slot[4:6]}-{slot[6:8]} {slot[8:]}:00 SGT · "
@@ -97,6 +98,13 @@ def render_batch(batch_id: str, mode_tag: str, slot: str, scan_kind: str, covera
             lines.append(
                 f"- {_mention(row['issue'])} agent={row.get('agent_name') or '?'} "
                 f"run={row.get('run_id')} action={row['action']}")
+    if unwoken_rows:
+        lines.append("")
+        lines.append("## 未唤醒的交付补发")
+        for row in unwoken_rows:
+            lines.append(
+                f"- {_mention(row['issue'])} agent={row.get('agent_name') or '?'} "
+                f"comment_at={row.get('comment_at')} action={row['action']}")
     lines.append("")
     lines.append(f"dedupe 抑制：{suppressed}（涉及 {suppressed_keys} 个 key）")
     if unresolved:

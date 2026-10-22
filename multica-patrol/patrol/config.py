@@ -62,6 +62,13 @@ ERROR_RUN_WINDOW_S = 6 * 3600
 RETRY_NO_RUN_ESCALATE_S = 2 * 3600
 MAX_RETRIES_PER_RUN = 3
 RETRY_PREFIX = "[patrol-retry:"
+UNWOKEN_GRACE_S = 15 * 60
+UNWOKEN_DEDUPE_S = 24 * 3600
+MAX_UNWOKEN_PER_RUN = 3
+UNWOKEN_PREFIX = "[patrol-unwoken:"
+UUID_MENTION_RE = re.compile(
+    r"mention://(agent|member)/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
+    r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 FIRST_LINE_NEED = "需要你做："
 FIRST_LINE_NEXT = "不需要你做，下一步由"
 MENTION_RE = re.compile(r"mention://(agent|member)/")

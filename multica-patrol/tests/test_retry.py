@@ -127,6 +127,7 @@ class TestRetryWrite(RetryCase):
         self.assertEqual(lines[0], "不需要你做，下一步由 WorkerAgent 做：重试上一轮以 [Error] 结束的原任务。")
         self.assertTrue(lines[1].startswith(f"[patrol-retry:{issue['id']}:{r['id']}"))
         self.assertIn(f"mention://agent/{AGENT}", lines[2])
+        self.assertIn("原任务要求不变", lines[2])  # original task requirement unchanged
         res = last_result(out)
         self.assertEqual(res["retries_sent"], 1)
         state = Store(self.state_dir).load()

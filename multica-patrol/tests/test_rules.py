@@ -147,6 +147,37 @@ class RuleBoundaries(unittest.TestCase):
         self.assertIn("run_failed_no_retry", reasons(rules.evaluate(issue, f, BASE_NOW)))
 
 
+    def test_unwoken_handoff_pure_boundaries(self):
+        lc = {"id": "lc1", "author_type": "agent", "author_id": "a1",
+              "created_at": iso(BASE_NOW - timedelta(minutes=16)),
+              "has_valid_mention": False}
+        issue = make_issue("ACM-8", "in_review")
+        for entered_min, expected in ((14, False), (15, True)):
+            f = facts(entered_status_at=iso(BASE_NOW - timedelta(minutes=entered_min)),
+                      last_comment=lc, runs=[])
+            self.assertEqual("unwoken_handoff" in reasons(rules.evaluate(issue, f, BASE_NOW)),
+                             expected, entered_min)
+        f = facts(entered_status_at=iso(BASE_NOW - timedelta(minutes=60)), last_comment=lc)
+        self.assertIn("unwoken_handoff", reasons(rules.evaluate(issue, f, BASE_NOW)))
+        # comment younger than grace does not fire
+        lc2 = dict(lc, created_at=iso(BASE_NOW - timedelta(minutes=14)))
+        f = facts(entered_status_at=iso(BASE_NOW - timedelta(minutes=60)), last_comment=lc2)
+        self.assertNotIn("unwoken_handoff", reasons(rules.evaluate(issue, f, BASE_NOW)))
+        # valid mention / member author / wrong status never fire
+        f = facts(entered_status_at=iso(BASE_NOW - timedelta(minutes=60)),
+                  last_comment=dict(lc, has_valid_mention=True))
+        self.assertNotIn("unwoken_handoff", reasons(rules.evaluate(issue, f, BASE_NOW)))
+        f = facts(entered_status_at=iso(BASE_NOW - timedelta(minutes=60)),
+                  last_comment=dict(lc, author_type="member"))
+        self.assertNotIn("unwoken_handoff", reasons(rules.evaluate(issue, f, BASE_NOW)))
+        # a run started after the comment suppresses
+        f = facts(entered_status_at=iso(BASE_NOW - timedelta(minutes=60)),
+                  last_comment=lc,
+                  runs=[{"id": "r", "status": "queued",
+                         "started_at": iso(BASE_NOW - timedelta(minutes=10))}])
+        self.assertNotIn("unwoken_handoff", reasons(rules.evaluate(issue, f, BASE_NOW)))
+
+
 class Exemptions(unittest.TestCase):
     def test_persistent(self):
         issue = make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID)
