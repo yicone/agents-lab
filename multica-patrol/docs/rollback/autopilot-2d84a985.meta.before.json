@@ -1,0 +1,16 @@
+{
+  "autopilot_id": "2d84a985-978e-43ca-9b87-bd7b71fa2e0c",
+  "title": "ACM Lab 干等巡检（全天逐时，日夜分流）",
+  "status": "active",
+  "execution_mode": "run_only",
+  "assignee_id": "9bfe8713-ce7e-499b-830e-423223a64480",
+  "project_id": "ad48897b-bd8e-4268-8ee7-e1ede97e48d8",
+  "trigger": {
+    "id": "596f1ca0-bd6a-4d50-952b-91aee35821c4",
+    "kind": "schedule",
+    "cron_expression": "0 * * * *",
+    "timezone": "Asia/Singapore",
+    "label": "全天逐时；09–23完整，其余仅批准未派出",
+    "enabled": true
+  }
+}

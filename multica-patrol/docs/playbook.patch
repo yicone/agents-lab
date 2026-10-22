@@ -1,0 +1,35 @@
+--- a/playbook.md
++++ b/playbook.md
+@@ -159,3 +159,32 @@
+ CLI 发送结果不确定时会保留 inflight 批次，后续只查询评论确认，不自动重发；连续错误退避并记 ALERT 日志。维护者需在停旁路、确认没有活动 CLI/重复批次并完整核对评论后处理无法确认的批次，不可直接删除 state.json，否则会丢本地待处理队列。断档超过 24 小时会补核当前待验收/阻塞 issue；无法还原已经消失的瞬时历史事件。
+ 
+ 回滚只停新旁路：`launchctl bootout gui/501/one.yic.multica-dispatch-sidecar`。保留代码、plist、日志和 state.json 以便恢复，不触碰旧桥接。恢复：`launchctl bootstrap gui/501 ~/Library/LaunchAgents/one.yic.multica-dispatch-sidecar.plist`。
++
++## 9. 干等巡检（ACM-227 v2：机器层 + 每日分析）
++
++生效依据：ACM-342（用户 2026-10-22 批准重做）。代码在 `~/Workspace/agents-lab/multica-patrol/`，只能从已合并的 main 使用。本节取代 autopilot `2d84a985` 旧描述里的日夜分流与 approved_unassigned 派活例外；其余本手册规则不变。
++
++**第一层：每小时机器检查（脚本，无大模型决策）。** autopilot 整点触发后，副调度只做启动器：运行 `python3 -m patrol run`，原样回传输出，不判断、不改写、不另开工具。脚本读取 ACM Lab 全部 in_progress / in_review / blocked / todo / backlog，按固定阈值检查：
++
++| 规则 | 阈值 |
++| --- | --- |
++| `in_progress_no_active_run` | in_progress 有负责人、无活动 run，最后业务进展 ≥2h |
++| `in_review_stale` | in_review ≥24h |
++| `blocked_stale` | blocked ≥48h |
++| `approval_not_blocked` | 最新 agent 评论首行「待用户批准/待决定」、未 blocked、且其后无用户评论，≥1h |
++| `approved_unassigned` | todo/backlog 无负责人、无活动 run、带「可开工」标签（自然语言批准由每日分析判断） |
++| `run_failed_no_retry` | 无活动 run，最近 run 连续失败 ≥2 次，或最新失败已用尽 attempt；失败 ≥10 分钟；全天；失败 run 不算进展 |
++| `in_progress_no_assignee` | in_progress 无负责人 ≥30 分钟 |
++
++- 每个 slot 只写一条 ACM-229 台账（batch_id=`patrol:SGT年月日时`，首行 `[patrol-batch:… v2 …]`）；同一事项（issue+原因+进展锚点）24h 只提醒一次；台账里没有 agent/member mention，只有 issue 链接。
++- 豁免：ACM-229、ACM-216（持续入口）；搁置事项 ACM-60、235、34–38、224 只计数、不提醒；有生效 wakeup 的 1/2/3 类列为等待并注明下次复查；ACM-215 口径未定，每 24h 在台账「待用户口径」列一次，既不报卡滞也不静默豁免，直到用户裁定。
++- 23:00 SGT 固定全量扫描；其余整点只深查有变化或时间阈值到期的 issue，但所有有负责人的 issue 每轮都会刷新 run 状态。没有夜间模式。
++- 读取失败不当空结果：台账会标「覆盖不完整，不能断言无异常」。
++- 自身失败：脚本输出 `[Error]`，失败与漏跑的 slot 记入本地状态，下一轮台账「上一轮自报」。连续 2 个 slot 失败，向 ACM-216 发一条升级评论；同一事项台账提醒后 48h 仍无进展变化，向 ACM-216 升级一次。
++- 台账与升级评论只能以副调度 agent 身份写：脚本要求运行在 daemon 注入的 agent 任务环境里（`MULTICA_AGENT_ID` 是副调度、有 `MULTICA_TASK_ID` 和任务凭证），并在发后读回校验作者；不满足一律拒绝写入（退出码 3），不得改用用户登录态或其它凭证。
++- 发送结果不确定时先读回，不盲重发；同 slot 已发过则报 duplicate。
++- 命令（在 `~/Workspace/agents-lab/multica-patrol/` 下，仅限 autopilot 任务环境）：`python3 -m patrol run`（人工触发才加 `--manual <run id>`）。只读演练：`python3 -m patrol run --dry-run`（任何身份可跑，不写任何评论）。
++
++**第二层：每日分析（副调度，09:00 SGT，早于 09:15 待决定清单）。** 独立 autopilot。先运行 `python3 -m patrol daily-pack --format json` 取机器数据，再按「大事」归类写**一条**评论到 ACM-216，用 `python3 -m patrol daily-post --file <正文>` 发出（同一天只发一次，正文不得含 agent/member mention）。每件大事写：卡在哪、原因、谁该接手、推荐做法（1–2 个选项）。只列「需要用户拍板」与「副调度已推进」两类。能按既有授权推进的（补 @mention、父 issue 状态纠偏、按已有批准派活）直接做并在汇总注明；推送、合并、删除、花钱、方向性问题只整理成决定点。搁置事项不提醒不派活。机器层不扩大授权；每日分析里的派活仍按本手册第 3 节。
++
++**回滚。** 见 `multica-patrol/docs/switchover.md` 的回滚段：恢复 autopilot 旧描述（`multica-patrol/docs/rollback/` 有快照）、暂停每日分析 autopilot、`git revert` 合并提交；旧台账与收件箱不受影响。
