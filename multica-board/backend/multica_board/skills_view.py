@@ -7,6 +7,7 @@ The page and ``GET /api/skills/attention`` both use :func:`assign_buckets`.
 from __future__ import annotations
 
 import errno
+import hashlib
 import json
 import os
 import shutil
@@ -65,6 +66,7 @@ STATUS_LABEL = {
     "version_changed": "版本已变",
     "modified": "已修改",
     "unverified": "未核实",
+    "unrecorded": "未登记",
     "missing": "缺失",
 }
 FINDING_LABEL = {
@@ -889,12 +891,12 @@ def _frontmatter_description(path: Path) -> str | None:
         if not line.startswith("description:"):
             continue
         value = " ".join(line.split(":", 1)[1].split()).strip("\"'")
-        return value[:180] or None
+        return value or None
     return None
 
 
 def _local_source(skill: dict[str, Any], repo_root: Path) -> dict[str, str] | None:
-    """mtime and frontmatter description of agents-lab/skills/<name>/SKILL.md."""
+    """Content fingerprint and metadata of the repository's canonical SKILL.md."""
     authority = skill.get("authority") if isinstance(skill.get("authority"), dict) else {}
     canonical = authority.get("canonical_path")
     name = skill.get("name")
@@ -925,6 +927,10 @@ def _local_source(skill: dict[str, Any], repo_root: Path) -> dict[str, str] | No
             "path": rel,
             "updated_at": datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
+        try:
+            found["content_hash"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            pass
         summary = _frontmatter_description(path)
         if summary:
             found["summary"] = summary
@@ -1099,7 +1105,7 @@ def _unrecorded_item(
         "baseline_subject": None,
         "baseline_ref": None,
         "review_time": None,
-        "reconciliation_status": "unverified",
+        "reconciliation_status": "unrecorded",
         "status_label": "未登记",
         "findings": [{"code": "unrecorded", "label": "清单里没有这条安装"}],
         "customization_mode": None,
@@ -1500,8 +1506,8 @@ def build_payload(
                         "baseline_subject": None,
                         "baseline_ref": None,
                         "review_time": None,
-                        "reconciliation_status": "unverified",
-                        "status_label": "未核实",
+                        "reconciliation_status": "unrecorded",
+                        "status_label": "未登记",
                         "findings": [],
                         "customization_mode": None,
                         "constraints": [],

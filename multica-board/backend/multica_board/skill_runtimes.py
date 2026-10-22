@@ -37,11 +37,12 @@ def runtime_columns(document: dict, runtime_document: dict, roots: list[dict]) -
         for item in result.get("items") or []:
             mark = item.get("tools", {}).get(column["id"])
             local = bool(item.get("entries") or item.get("local_source"))
+            cloud_only = item.get("origin") == "cloud" and not local
             item.setdefault("runtime_evidence", {})[column["id"]] = {
                 "mark": mark,
-                "state": ("unknown" if mark == "unknown" or not local else
+                "state": ("not_applicable" if cloud_only else "unknown" if mark == "unknown" or not local else
                           "observed" if mark else "no_match" if configured else "unknown"),
-                "reason": "local_installation_unobserved" if not local else
+                "reason": "cloud_only" if cloud_only else "local_installation_unobserved" if not local else
                           None if configured else "skill_roots_unconfigured",
                 "source": "disk_installations", "collected_at": document.get("generated_at"),
                 "runtime_loaded": None,

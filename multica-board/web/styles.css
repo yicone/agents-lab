@@ -769,7 +769,14 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .tool-mark.unknown { color: var(--warn); }
 .tool-mark.shared { color: var(--muted); }
 .skill-row { cursor: pointer; }
-.skill-row.quiet { opacity: 0.45; }
+.skill-row.quiet { opacity: 1; }
+.tag.review-pending { color: var(--warn); border: 1px dashed currentColor; background: var(--panel-2); }
+.skills-table .channel-col { width: 164px; max-width: 164px; }
+.skills-table .version-col { width: 112px; max-width: 112px; }
+.skills-table .cell-ellipsis { max-width: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel-col .cell-ellipsis { max-width: 164px; }
+.version-col .cell-ellipsis { max-width: 112px; }
+.tool-mark.not-applicable { color: var(--muted); }
 .skill-row.selected, .skill-row:hover { background: var(--panel-2); opacity: 1; }
 .skill-group th { background: var(--bg); color: var(--text); font-size: 12px; position: static; }
 .skill-more td { background: var(--bg); }

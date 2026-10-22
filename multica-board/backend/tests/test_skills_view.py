@@ -1269,6 +1269,20 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(local["path"], "skills/colgrep-search/SKILL.md")
         self.assertEqual(local["summary"], "find code by meaning")
         self.assertIn("T", local["updated_at"])
+        self.assertEqual(local["content_hash"], hashlib.sha256((folder / "SKILL.md").read_bytes()).hexdigest())
+        # A checkout/mtime refresh cannot alter the content fingerprint.
+        os.utime(folder / "SKILL.md", (1900000000, 1900000000))
+        refreshed = skills_view._local_source({"name": "colgrep-search"}, self.repo)
+        self.assertEqual(local["content_hash"], refreshed["content_hash"])
+        self.assertNotEqual(local["updated_at"], refreshed["updated_at"])
+
+    def test_local_source_retains_complete_description(self):
+        folder = self.repo / "skills" / "long-description"
+        folder.mkdir(parents=True)
+        summary = "A complete description " * 20
+        (folder / "SKILL.md").write_text(f"---\nname: long-description\ndescription: {summary}\n---\nbody\n")
+        local = skills_view._local_source({"name": "long-description"}, self.repo)
+        self.assertEqual(local["summary"], summary.strip())
 
 
 class RepoIdentityTests(unittest.TestCase):

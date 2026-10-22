@@ -302,3 +302,10 @@ test("cloud pseudo source round-trips and bogus sources still drop", () => {
   assert.equal(parseHash("#/skills?source=bogus").source, "");
   assert.equal(formatHash(parseHash("#/skills?source=bogus")), "#/skills");
 });
+
+test("unrecorded reconciliation filter round trips through a deep link", () => {
+  const route = parseHash("#/skills?status=unrecorded&source=unrecorded");
+  assert.equal(route.skillStatus,"unrecorded");
+  assert.equal(route.source,"unrecorded");
+  assert.match(formatHash(route),/status=unrecorded/);
+});

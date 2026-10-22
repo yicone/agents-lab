@@ -558,7 +558,7 @@ test("local skills directory newer than the cloud copy enters the pending queue"
   const queue = findAll(tree, (n) => n.attrs?.class === "skill-bucket cloud-pending")[0];
   assert.ok(findText(queue, "云端未刷新"));
   assert.ok(findText(queue, "colgrep-search"));
-  assert.ok(findText(queue, "本机 skills/ 新于云端"));
+  assert.ok(findText(queue, "云端较旧（按时间推断）"));
   assert.equal(findText(queue, "fresh-skill"), false);
   const row = findAll(tree, (n) => n.attrs?.id === "skill-colgrep-search")[0];
   assert.ok(findText(row, "云端较旧"));
@@ -787,7 +787,8 @@ test("runtime roots distinguish unconfigured, unknown and configured no-match wi
   assert.ok(findText(tree,'空白：已配置根未命中'));
   const cells = findAll(tree,n=>n.tag==='td' && n.attrs?.class?.includes('tool-mark'));
   assert.ok(cells.some(n=>n.children.includes('?')));
-  assert.ok(cells.some(n=>n.attrs.title.includes('runtimes · 2026-10-22')));
+  assert.ok(cells.some(n=>n.attrs.title.includes('运行时清单 · 2026-10-22')));
+  assert.ok(cells.every(n=>!n.attrs.title.includes('local_installation_unobserved')));
   assert.ok(cells.some(n=>n.attrs.title.includes('已配置的根未命中')));
 });
 
@@ -833,4 +834,69 @@ test("loading attachment has no retry until its request settles", () => {
   ]);
   const tree={children:renderSkillDrawer(drawerCtx(basePayload([item]),cache),item)};
   assert.equal(findAll(tree,n=>n.tag==="button" && n.children.includes("重试")).length,0);
+});
+
+test("equal hashes suppress checkout mtime drift; differing hashes outrank timestamps", () => {
+  const item = cloudItem({
+    local_source: { path: "skills/demo/SKILL.md", content_hash: "a".repeat(64), updated_at: "2026-10-22T00:00:00Z" },
+    workspace_installs: [{ id: "s", workspace_id: "w", content_hash: "a".repeat(64), updated_at: "2026-01-01T00:00:00Z" }],
+  });
+  assert.equal(cloudDrift(item), null);
+  item.workspace_installs[0].content_hash = "b".repeat(64);
+  item.workspace_installs[0].updated_at = "2026-12-01T00:00:00Z";
+  assert.equal(cloudDrift(item).comparisons[0].basis, "hash");
+  assert.equal(cloudDrift(item).label, "云端内容不同");
+  assert.match(cloudDrift(item).explanation, /无法据此判断新旧/);
+  const before = skillsRefreshKey(basePayload([item]));
+  item.workspace_installs[0].content_hash = "a".repeat(64);
+  assert.notEqual(skillsRefreshKey(basePayload([item])), before);
+});
+
+test("hashless fallbacks disclose inference and compare complete descriptions", () => {
+  const description = "Long description ".repeat(20);
+  const item = cloudItem({
+    local_source: {path: "skills/demo/SKILL.md", summary: description, updated_at: "2026-10-22T00:00:00Z"},
+    workspace_installs: [{id:"s",workspace_id:"w",description,updated_at:"2026-10-21T00:00:00Z"}],
+  });
+  assert.match(cloudDrift(item).label, /按时间推断/);
+  assert.match(cloudDrift(item).explanation, /git pull/);
+  delete item.workspace_installs[0].updated_at;
+  assert.equal(cloudDrift(item), null);
+  item.workspace_installs[0].description += " different tail";
+  assert.equal(cloudDrift(item).comparisons[0].basis, "description");
+  delete item.workspace_installs[0].description;
+  assert.equal(cloudDrift(item), null); // Unknown time alone is not evidence of staleness.
+});
+
+test("cloud-only runtime cells use a distinct symbol even without configured roots", () => {
+  const item = simpleItem({name:"cloud",origin:"cloud",entries:[],workspace_installs:[{id:"s",workspace_id:"w"}]});
+  const payload = {...basePayload([item]),tools:[{id:"future",label:"Future",roots_state:"unconfigured"}]};
+  const tree = {children:renderSkills(renderCtx(payload))};
+  const cells = findAll(tree,n=>n.tag==="td" && n.attrs?.class?.includes("tool-mark"));
+  assert.equal(cells.length,1);
+  assert.deepEqual(cells[0].children,["∅"]);
+  assert.match(cells[0].attrs.title,/不适用：仅云端/);
+  assert.match(cells[0].attrs.title,/— 表示数据未采集/);
+});
+
+test("unrecorded source card, row and status filter use the same term and value", () => {
+  const item = simpleItem({source_class:"unrecorded",source_label:"未登记",channel_label:"未登记",reconciliation_status:"unrecorded",status_label:"未登记"});
+  const payload = basePayload([item]);
+  payload.summary = [{id:"all",label:"全部",count:1,statuses:{unrecorded:1}},{id:"unrecorded",label:"未登记",count:1,statuses:{unrecorded:1}}];
+  const tree={children:renderSkills(renderCtx(payload))};
+  assert.ok(findAll(tree,n=>n.tag==="option" && n.attrs.value==="unrecorded").every(n=>findText(n,"未登记")));
+  assert.equal(filteredItems(payload,{skillStatus:"unrecorded"}).length,1);
+  assert.equal(filteredItems(payload,{skillStatus:"unverified"}).length,0);
+  assert.ok(findText(tree,"未登记 1"));
+});
+
+test("never-reviewed rows have an explicit treatment and compact columns retain full titles", () => {
+  const detail="github:owner/very-long-source-channel".repeat(8), version="2.0.0-preview-very-long-version";
+  const item=simpleItem({reconciliation_status:"stale",status_label:"未复核",review_time:null,quiet:true,channel_detail:detail,current_version:version});
+  const tree={children:renderSkills(renderCtx(basePayload([item])))};
+  const status=findAll(tree,n=>n.attrs?.class==="tag review-pending")[0];
+  assert.ok(findText(status,"从未复核"));
+  assert.match(status.attrs.title,/尚未建立人工复核记录/);
+  assert.equal(findAll(tree,n=>n.tag==="td"&&n.attrs?.class==="channel-col")[0].attrs.title.includes(detail),true);
+  assert.ok(findAll(tree,n=>n.tag==="td"&&n.attrs?.class==="mono version-col")[0].attrs.title.includes(version));
 });

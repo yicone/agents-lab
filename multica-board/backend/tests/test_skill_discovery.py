@@ -65,7 +65,7 @@ class RecursiveSkillsTests(unittest.TestCase):
         self.assertEqual(peft["entries"][0]["category"], "mlops/training")
         self.assertEqual(peft["entries"][0]["relative_path"], "mlops/training/peft")
         self.assertIsNone(peft["entries"][0]["runtime_loaded"])
-        self.assertEqual(peft["reconciliation_status"], "unverified")
+        self.assertEqual(peft["reconciliation_status"], "unrecorded")
         self.assertEqual(body["meta"]["discovery"]["kind"], "disk_installations")
 
     def test_inventory_same_name_adds_each_entry_including_aliases(self):

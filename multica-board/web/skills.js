@@ -38,23 +38,24 @@ export const BUCKETS = [
 export const TOOLS = [
   { id: "cursor", label: "Cursor" },
   { id: "codex", label: "Codex" },
-  { id: "claude", label: "Claude" },
-  { id: "hermes", label: "Hermes" },
-  { id: "gemini", label: "Gemini" },
+  { id: "claude", label: "Claude Code" },
+  { id: "hermes", label: "Hermes Agent" },
+  { id: "gemini", label: "Gemini CLI" },
   { id: "grok", label: "Grok CLI" },
   { id: "project", label: "仓库入口" },
 ];
 
 const STATUS_CLASS = {
   aligned: "ok",
-  stale: "muted",
+  stale: "review-pending",
   version_changed: "warn",
   modified: "bad",
   unverified: "info",
+  unrecorded: "info",
   missing: "bad",
 };
 
-export const RUNTIME_LEGEND = "● direct 直接入口 · ○ shared 经共享目录 · ✕ missing 入口或版本文件缺失 · ? unknown 无法确定 · 空白：已配置根未命中，仍可能从其他目录加载；未配置技能根：没有根配置。路径证据不代表当前会话实际加载。";
+export const RUNTIME_LEGEND = "● 直接入口 · ○ 经共享目录 · ✕ 入口或版本文件缺失 · ∅ 不适用（仅云端） · ? 无法确定（含未配置技能根） · 空白：已配置根未命中，仍可能从其他目录加载；云端列 — 表示数据未采集。路径证据不代表当前会话实际加载。";
 const MARK = { direct: "●", shared: "○", missing: "✕", unknown: "?" };
 const GROUP_LIMIT = 8;
 
@@ -121,10 +122,10 @@ export function badgeOf(payload) {
 function installStamp(payload) {
   const bits = [];
   for (const item of payload?.items || []) {
-    if (item.local_source?.updated_at) bits.push(`local:${item.name}:${item.local_source.updated_at}`);
+    if (item.local_source) bits.push(`local:${item.name}:${item.local_source.updated_at || ""}:${item.local_source.content_hash || ""}`);
     for (const install of item.workspace_installs || []) {
       const agents = (install.agents || []).map((agent) => `${agent.id}:${agent.enabled === false ? 0 : 1}`).join(",");
-      bits.push(`${item.name}:${install.workspace_id}:${install.id}:${install.updated_at || ""}:${agents}`);
+      bits.push(`${item.name}:${install.workspace_id}:${install.id}:${install.updated_at || ""}:${install.content_hash || ""}:${agents}`);
     }
   }
   return bits.join("\n");
@@ -235,6 +236,7 @@ function problemLine(statuses) {
     ["missing", "缺失"],
     ["modified", "已修改"],
     ["unverified", "未核实"],
+    ["unrecorded", "未登记"],
     ["stale", "未复核"],
     ["aligned", "一致"],
   ];
@@ -276,7 +278,7 @@ export function renderSkills(ctx) {
       "div",
       { class: "toolbar" },
       select(h, "来源", route.source, [["", "全部来源"], ...blocks.filter((block) => block.id !== "all").map((block) => [block.id, block.label])], (value) => ctx.setRoute({ source: value })),
-      select(h, "状态", route.skillStatus, [["", "全部状态"], ["aligned", "一致"], ["stale", "未复核"], ["version_changed", "版本已变"], ["modified", "已修改"], ["unverified", "未核实"], ["missing", "缺失"]], (value) => ctx.setRoute({ skillStatus: value })),
+      select(h, "状态", route.skillStatus, [["", "全部状态"], ["aligned", "一致"], ["stale", "未复核"], ["version_changed", "版本已变"], ["modified", "已修改"], ["unrecorded", "未登记"], ["unverified", "未核实"], ["missing", "缺失"]], (value) => ctx.setRoute({ skillStatus: value })),
       select(h, "工具", route.tool, [["", "全部工具"], ...tools.map((tool) => [tool.id, tool.label])], (value) => ctx.setRoute({ tool: value })),
       select(h, "分组", route.skillGroup || "source", [["source", "按来源"], ["tool", "按工具"], ["flat", "不分组"]], (value) => ctx.setRoute({ skillGroup: value })),
       h(
@@ -336,7 +338,7 @@ function legend(h) {
       "span",
       { class: "legend-group" },
       h("strong", null, "云端 "),
-      "各 Workspace 的安装，以及已启用的 Agent。本机 skills/ 新于云端时标云端较旧。云端筛选按云端安装记录（workspace_installs）判定，含仅存在于云端的条目；云端条目只有元数据，没有正文。",
+      "各 Workspace 的安装，以及已启用的 Agent。优先比较内容哈希；不同时提示云端内容不同，不推断新旧。缺少哈希时才按时间推断云端较旧，并注明依据；时间未知时仅比较完整描述。— 表示云端数据未采集。云端筛选包含仅云端条目；云端正文未采集。",
     ),
   );
 }
@@ -387,12 +389,12 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     "tr",
     null,
     h("th", null, "Skill"),
-    h("th", null, "来源 / 更新通道"),
+    h("th", { class: "channel-col" }, "来源 / 更新通道"),
     h("th", { title: "Multica 云端（跨 Workspace）" }, "云端"),
     h("th", null, "共享入口"),
     ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}\n${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
     projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, "仓库入口", h("small", null, String(visible.get(projectTool.id) || 0))) : null,
-    h("th", null, "版本（记录 → 实际）"),
+    h("th", { class: "version-col", title: "版本：记录 → 实际" }, "版本"),
     h("th", null, "对账"),
     h("th", null, "定制 · 约束"),
     h("th", null, "复核"),
@@ -453,14 +455,14 @@ function row(ctx, harness, projectTool, item, payload) {
         if (e.key === "Enter") ctx.openSkill(item, e.currentTarget);
       },
     },
-    h("td", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn" }, "云端较旧") : null),
-    h("td", null, h("div", null, item.channel_label), h("div", { class: "muted mono" }, item.channel_detail || "—")),
+    h("td", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
+    h("td", { class: "channel-col", title: [item.channel_label, item.channel_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, item.channel_label), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
     h("td", { class: "cloud-cell" }, cloudCell(h, item)),
     h("td", { class: "shared-entry", title: sharedTitle }, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
     ...harness.map((tool) => toolCell(h, item, tool)),
     projectTool ? h("td", { class: "repo-entries" }, repoCell(h, item, payload)) : null,
-    h("td", { class: "mono" }, versionCell(h, item)),
-    h("td", null, h("span", { class: `tag ${STATUS_CLASS[item.reconciliation_status] || ""}` }, item.status_label || item.reconciliation_status || "—")),
+    h("td", { class: "mono version-col", title: `记录：${item.current_version || "未记录"}\n实际：${item.observed_version || "未采集"}` }, h("div", { class: "cell-ellipsis" }, versionCell(h, item))),
+    h("td", null, h("span", { class: `tag ${STATUS_CLASS[item.reconciliation_status] || ""}`, title: item.reconciliation_status === "stale" ? (item.review_time ? "复核已过期，需要重新检查" : "从未复核：尚未建立人工复核记录") : "" }, item.reconciliation_status === "stale" && !item.review_time ? "从未复核" : item.status_label || item.reconciliation_status || "—")),
     h("td", null, customCell(h, item)),
     h("td", { class: "muted", title: item.review_time || "" }, relTime(item.review_time, ctx.ago)),
   );
@@ -498,15 +500,29 @@ export function cloudDrift(item) {
   const localMs = Date.parse(local.updated_at || "");
   const localSummary = normalizeText(local.summary);
   const stale = [];
+  const comparisons = [];
   for (const install of installs) {
-    const cloudMs = Date.parse(install.updated_at || "");
-    const timeKnown = !Number.isNaN(localMs) && !Number.isNaN(cloudMs);
-    const timeStale = !Number.isNaN(localMs) && (Number.isNaN(cloudMs) || localMs > cloudMs + 1000);
-    const summaryStale = !timeKnown && localSummary && normalizeText(install.description) && localSummary !== normalizeText(install.description);
-    if (timeStale || summaryStale) stale.push(install);
+    const hash = value => typeof value === "string" && /^[a-f0-9]{64}$/i.test(value) ? value.toLowerCase() : null;
+    const localHash = hash(local.content_hash), cloudHash = hash(install.content_hash);
+    let basis = null;
+    if (localHash && cloudHash) {
+      if (localHash !== cloudHash) basis = "hash";
+    } else {
+      const cloudMs = Date.parse(install.updated_at || "");
+      const timeKnown = !Number.isNaN(localMs) && !Number.isNaN(cloudMs);
+      const timeStale = timeKnown && localMs > cloudMs + 1000;
+      const summaryStale = !timeKnown && localSummary && normalizeText(install.description) && localSummary !== normalizeText(install.description);
+      if (timeStale) basis = "time";
+      else if (summaryStale) basis = "description";
+    }
+    if (basis) { stale.push(install); comparisons.push({ install, basis }); }
   }
   if (!stale.length) return null;
-  return { local, installs: stale };
+  const onlyTime = comparisons.every(row => row.basis === "time");
+  return { local, installs: stale, comparisons,
+    label: onlyTime ? "云端较旧（按时间推断）" : "云端内容不同",
+    explanation: comparisons.map(({install, basis}) => `${workspaceLabel(install)}：${basis === "hash" ? "内容哈希不同，无法据此判断新旧" : basis === "time" ? "缺少内容哈希，按时间推断；文件修改时间可能受 git pull 影响" : "缺少内容哈希且时间未知，完整描述不同，正文是否相同待确认"}`).join("\n"),
+  };
 }
 
 export function cloudPending(payload) {
@@ -529,7 +545,7 @@ function agentBrief(agents) {
 
 function cloudCell(h, item) {
   const installs = item.workspace_installs;
-  if (!Array.isArray(installs)) return h("span", { class: "muted" }, "—");
+  if (!Array.isArray(installs)) return h("span", { class: "muted", title: "云端数据未采集" }, "—");
   if (!installs.length) return h("span", { class: "muted" }, "未安装");
   const drift = cloudDrift(item);
   const stale = new Set((drift?.installs || []).map((install) => `${install.workspace_id}:${install.id}`));
@@ -571,7 +587,7 @@ function cloudQueue(ctx, payload) {
               "button",
               { type: "button", class: "queue-item", onclick: (e) => ctx.focusSkill(item.name, e.currentTarget) },
               h("span", { class: "mono" }, item.name),
-              h("span", null, "本机 skills/ 新于云端"),
+              h("span", { title: cloudDrift(item).explanation }, cloudDrift(item).label),
               h("span", { class: "muted" }, item.local_source?.updated_at ? relTime(item.local_source.updated_at, ctx.ago) : ""),
             ),
           ),
@@ -617,7 +633,7 @@ function cloudSection(h, item) {
     nodes.push(h("p", null, h("span", { class: "muted" }, "本机 "), h("span", { class: "mono" }, item.local_source.path), item.local_source.updated_at ? h("span", { class: "muted" }, ` · ${item.local_source.updated_at}`) : null));
     if (item.local_source.summary) nodes.push(h("p", null, h("span", { class: "muted" }, "本机摘要 "), item.local_source.summary));
   }
-  if (drift) nodes.push(h("p", { class: "tag warn" }, `云端较旧 · ${drift.installs.length} 个 Workspace`));
+  if (drift) nodes.push(h("p", { class: "tag warn", title: drift.explanation }, `${drift.label} · ${drift.installs.length} 个 Workspace`), h("p", null, drift.explanation));
   for (const install of installs) {
     const agents = install.agents || [];
     const enabled = agents.filter((agent) => agent.enabled !== false);
@@ -637,14 +653,17 @@ function cloudSection(h, item) {
   return nodes;
 }
 
+const EVIDENCE_TEXT = { tool_roots: "技能根配置", runtimes: "运行时清单", skill_evidence: "技能路径证据", disk_installations: "本机安装目录", observed: "已观测", unknown: "无法确定", no_match: "未命中", not_applicable: "不适用", local_installation_unobserved: "尚未观测到本机安装", skill_roots_unconfigured: "未配置技能根", cloud_only: "仅存在于云端，本机运行时不适用" };
+const evidenceText = value => EVIDENCE_TEXT[value] || "证据待确认";
 function columnEvidence(tool) {
-  return [tool.roots_state === "unconfigured" ? "未配置技能根" : "", ...(tool.sources || []).map(s => `${s.source} · ${s.collected_at || "采集时间未知"} · ${s.evidence_state}`)].filter(Boolean).join("\n");
+  return [tool.roots_state === "unconfigured" ? "未配置技能根，待确认" : "", ...(tool.sources || []).map(s => `${evidenceText(s.source)} · ${s.collected_at || "采集时间未知"} · ${evidenceText(s.evidence_state)}`)].filter(Boolean).join("\n");
 }
 
 function toolCell(h, item, tool) {
   const evidence = item.runtime_evidence?.[tool.id];
-  if (tool.roots_state === "unconfigured" && !displayMark(item, tool)) return h("td", { class: "tool-mark muted", title: `${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, h("small", null, "未配置技能根"));
-  if (evidence?.state === "unknown" && !displayMark(item, tool)) return h("td", { class: "tool-mark unknown", title: `${evidence.reason || "无法确定"}\n${columnEvidence(tool)}\n${RUNTIME_LEGEND}` }, "?");
+  if (evidence?.state === "not_applicable" || (item.origin === "cloud" && !item.entries?.length && !item.local_source)) return h("td", { class: "tool-mark not-applicable", title: `不适用：仅云端条目，没有本机安装记录\n${RUNTIME_LEGEND}` }, "∅");
+  if (tool.roots_state === "unconfigured" && !displayMark(item, tool)) return h("td", { class: "tool-mark unknown", title: `${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, "?");
+  if (evidence?.state === "unknown" && !displayMark(item, tool)) return h("td", { class: "tool-mark unknown", title: `${evidenceText(evidence.reason)}\n${columnEvidence(tool)}\n${RUNTIME_LEGEND}` }, "?");
   const mark = displayMark(item, tool);
   const records = (item.evidence || []).filter((record) => record.harness === tool.id);
   const lines = records.map((record) =>
@@ -653,7 +672,7 @@ function toolCell(h, item, tool) {
       : `链接目标 ${record.resolved || record.readlink || ""}${record.root ? ` (${record.root})` : ""}`,
   );
   const onlyTarget = records.length > 0 && records.every((record) => record.kind === "target");
-  const title = [markTitle(mark), columnEvidence(tool), evidence ? `${evidence.source} · ${evidence.collected_at || "采集时间未知"} · ${evidence.state}` : null, ...lines, lines.length ? "路径推导，未验证 runtime 实际加载" : null].filter(Boolean).join("\n");
+  const title = [markTitle(mark), columnEvidence(tool), evidence ? `${evidenceText(evidence.source)} · ${evidence.collected_at || "采集时间未知"} · ${evidenceText(evidence.state)}` : null, ...lines, lines.length ? "路径推导，未验证 runtime 实际加载" : null].filter(Boolean).join("\n");
   return h("td", { class: `tool-mark ${mark || "none"}${onlyTarget ? " via-target" : ""}`, title }, MARK[mark] || "", onlyTarget ? h("sup", null, "链") : null);
 }
 

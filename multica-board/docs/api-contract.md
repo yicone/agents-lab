@@ -284,6 +284,8 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 每条本地 skill 增加 `workspace_installs`：各 workspace 里同名的云端 skill，以及该 workspace 中挂载它的 agent（`id`、`name`、`enabled`）。云端 skill 来自 `multica skill list`，缓存在 `workspace_skills`（键 `server + workspace_id + id`）。
 
+ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-256；`summary` 保留完整描述。云端 `workspace_installs[].content_hash` 优先取列表，缺失时通过不带 `--with-content` 的 `skill get` 补采，仅缓存合法 SHA-256，不保存正文；同 workspace、skill ID、非空 updated_at 未变时复用。获取失败可返回 null，鉴权或 workspace 越界仍按原有隔离规则处理。前端优先比较哈希，相同即忽略 mtime；不同只说明内容不同。缺少哈希时才按时间推断并明确提示，时间未知时仅比较完整描述。`summary` 在合并仅云端条目后重算；未登记安装的 `reconciliation_status` 使用 `unrecorded`，卡片、行和状态筛选统一显示「未登记」，有记录但未核实仍为 `unverified`。
+
 ## `GET /api/runtimes`
 
 ```json
@@ -597,7 +599,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。
 
-每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` 或 null。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
+每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅云端、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。云端列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
 
 `tool_filter_ids` 与 tools 同源。前端路由收到列数据后使用 tools.id 生成筛选白名单；首次加载前仅暂存格式受限的 URL provider，避免 Grok/未来 provider 深链在数据到达前丢失。查看器、共享入口加载规则和无根标记的展示由阶段 2 消费。
 

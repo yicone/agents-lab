@@ -10,6 +10,24 @@ from multica_board.store import SCHEMA_VERSION, Store  # noqa: E402
 
 
 class StoreMigrationTests(unittest.TestCase):
+    def test_skill_hash_is_added_without_discarding_existing_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cache.sqlite3"
+            conn = sqlite3.connect(path)
+            conn.execute("CREATE TABLE workspace_skills (server TEXT, workspace_id TEXT, id TEXT, name TEXT, description TEXT, labels_json TEXT, updated_at TEXT, PRIMARY KEY(server, workspace_id, id))")
+            conn.execute("INSERT INTO workspace_skills (server,workspace_id,id,name) VALUES ('test','w','s','demo')")
+            conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+            conn.commit()
+            conn.close()
+            for _ in range(2):
+                store = Store(path)
+                try:
+                    row = store.query("SELECT * FROM workspace_skills")[0]
+                    self.assertEqual(row["name"], "demo")
+                    self.assertIsNone(row["content_hash"])
+                finally:
+                    store.close()
+
     def test_store_migrates_old_tasks_schema(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cache.sqlite3"

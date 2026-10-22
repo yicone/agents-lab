@@ -180,6 +180,7 @@ def build_workspace_installs(
                 "name": name,
                 "description": skill.get("description"),
                 "updated_at": skill.get("updated_at"),
+                "content_hash": skill.get("content_hash"),
                 "content": {"state": "uncollected", "source": "cloud", "collected_at": None,
                             "evidence_state": "unknown", "message": "云端正文未采集"},
                 "agents": agents,
@@ -1139,7 +1140,7 @@ class Views:
     # --- /api/skills --------------------------------------------------------
 
     def skills(self, review_days: int = 90) -> dict[str, Any]:
-        from .skills_view import parse_review_days, skills_document
+        from .skills_view import parse_review_days, skills_document, _summary
 
         try:
             days = parse_review_days(None if review_days == 90 else str(review_days))
@@ -1168,7 +1169,7 @@ class Views:
             if name in seen:
                 continue
             items.append(_cloud_only_item(name, installs[name]))
-        return runtime_columns({**document, "items": items}, self.runtimes(), roots)
+        return runtime_columns({**document, "items": items, "summary": _summary(items)}, self.runtimes(), roots)
 
     def skills_content(self, **arguments) -> dict[str, Any]:
         from .skill_content import read_content
