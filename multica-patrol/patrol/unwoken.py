@@ -79,6 +79,9 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
 
     for issue_id, entry in per_issue.items():
         issue = entry["issue"]
+        if issue_id in config.PERSISTENT_IDS or \
+                issue.get("identifier") in config.UNRESOLVED_RULE:
+            continue  # ledger/inbox/ACM-215 are never written to by this path
         f = entry.get("facts") or {}
         finding = next((x for x in (entry.get("findings") or [])
                         if x["reason"] == "unwoken_handoff" and not x.get("exempt")), None)

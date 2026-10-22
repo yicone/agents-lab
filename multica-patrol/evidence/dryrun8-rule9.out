@@ -1,0 +1,30 @@
+[patrol-batch:patrol:SGT2026102303 v2 manual:sidekick-rule9-v2]
+Patrol 2026-10-23 03:00 SGT · scan=full · discovered=43 deep=43 cache=0 errors=0 duration=47s
+
+## 候选异常（8）
+- [ACM-242](mention://issue/01a14afa-d6e6-776a-88ae-a7c2a7f6036c) `in_progress_no_active_run` age=5.0d last_progress=2026-10-17T17:56:16+00:00 — no active run and no progress; check whether the run died or the issue should be re-dispatched
+- [ACM-58](mention://issue/01a0cd9d-6beb-70dd-815d-74c9c0b838e1) `in_progress_no_assignee` age=29.4d last_progress=2026-09-23T09:34:32+00:00 — in progress without an assignee
+- [ACM-352](mention://issue/01a164c7-ba5e-73a2-be74-d8c4f9897d7b) `unwoken_handoff` age=? last_progress=2026-10-22T18:43:06+00:00 — 给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。
+- [ACM-355](mention://issue/01a164df-de7b-7d7e-8fa9-46d1e5929911) `unwoken_handoff` age=? last_progress=2026-10-22T18:35:52+00:00 — 给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。
+- [ACM-349](mention://issue/01a164b5-164f-7643-a7ff-a86b744c9eda) `unwoken_handoff` age=? last_progress=2026-10-22T18:19:41+00:00 — 给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。
+- [ACM-332](mention://issue/01a16327-c7de-77af-a4ca-83ac73157af2) `unwoken_handoff` age=? last_progress=2026-10-22T14:00:07+00:00 — 给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。
+- [ACM-277](mention://issue/01a151ac-f83c-7990-b740-d8cae307cc90) `in_review_stale/unwoken_handoff` age=3.7d last_progress=2026-10-19T01:03:24+00:00 — in review over 24h; needs a human/agent decision or status move
+- [ACM-329](mention://issue/01a162cf-730d-711d-a0b8-d9ff124bf623) `unwoken_handoff` age=? last_progress=2026-10-22T08:58:47+00:00 — 给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。
+
+## 豁免（1）
+- [ACM-216](mention://issue/01a14a4e-0c6b-745f-a168-948eade9f5f4) `in_progress_no_active_run` persistent
+
+## 未唤醒的交付补发
+- [ACM-352](mention://issue/01a164c7-ba5e-73a2-be74-d8c4f9897d7b) agent=Reviewer · Hermes comment_at=2026-10-22T18:43:06+00:00 action=would_send
+- [ACM-355](mention://issue/01a164df-de7b-7d7e-8fa9-46d1e5929911) agent=Reviewer · Hermes comment_at=2026-10-22T18:35:50+00:00 action=would_send
+- [ACM-349](mention://issue/01a164b5-164f-7643-a7ff-a86b744c9eda) agent=Builder · Codex comment_at=2026-10-22T18:19:41+00:00 action=would_send
+- [ACM-332](mention://issue/01a16327-c7de-77af-a4ca-83ac73157af2) agent=Builder · Codex comment_at=2026-10-22T14:00:07+00:00 action=would_send
+- [ACM-277](mention://issue/01a151ac-f83c-7990-b740-d8cae307cc90) agent=Vega comment_at=2026-10-19T01:03:21+00:00 action=would_send
+- [ACM-329](mention://issue/01a162cf-730d-711d-a0b8-d9ff124bf623) agent=Builder · Codex comment_at=2026-10-22T08:58:46+00:00 action=would_send
+
+dedupe 抑制：0（涉及 0 个 key）
+
+## 待用户口径（证据不足，阻塞）
+- [ACM-215](mention://issue/01a14a4c-1dd7-77d3-a4a1-43a5f2d7cfc7) 当前状态 `in_progress`：需要用户裁定归类为 shelved / persistent / normal。
+
+PATROL_RESULT {"batch_id":"patrol:SGT2026102303","slot_sgt":"2026102303","mode":"manual","scan":"full","coverage":{"issues_discovered":43,"deep_checked":43,"from_cache":0,"errors":0,"complete":true,"deadline_hit":false},"findings_count":8,"suppressed":0,"escalations":0,"ledger":{"status":"dry_run","comment_id":null},"self_failures_consecutive":0,"duration_s":47.1,"writes_attempted":0,"retries_sent":0,"retries_would_send":0,"error_escalations":0,"unwoken_sent":0,"unwoken_would_send":6}

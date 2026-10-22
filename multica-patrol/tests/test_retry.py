@@ -192,6 +192,15 @@ class TestRetryLifecycle(RetryCase):
         self.fake.now = now
         return invoke(self.fake, ["run", "--slot", slot], now=now, state_dir=self.state_dir)
 
+    def test_no_retry_write_on_unresolved_acm215(self):
+        issue, r1 = self.add_error_issue()
+        issue["identifier"] = "ACM-215"
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.retry_comments(issue), [])
+        self.assertEqual(len(self.fake.inbox_comments()), 0)
+        self.assertEqual(last_result(out)["retries_sent"], 0)
+
     def test_second_error_escalates_once_no_second_mention(self):
         issue, r1 = self.add_error_issue()
         self._run_at("2026102221")

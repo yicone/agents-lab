@@ -145,6 +145,9 @@ def process_error_retries(store, cli, state, per_issue: dict, now,
 
     for issue_id, entry in per_issue.items():
         issue = entry["issue"]
+        if issue_id in config.PERSISTENT_IDS or \
+                issue.get("identifier") in config.UNRESOLVED_RULE:
+            continue  # never retry/escalate-write on ledger, inbox, or ACM-215
         f = entry.get("facts") or {}
         pe = f.get("provider_error")
         rec = records.get(issue_id)

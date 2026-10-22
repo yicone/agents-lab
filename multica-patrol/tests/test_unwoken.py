@@ -267,6 +267,43 @@ class TestGuardsAndProtocol(UnwokenCase):
         self.assertIn("unwoken_deferred", self.fake.ledger_comments()[0]["content"])
 
 
+class TestExemptTargets(UnwokenCase):
+    def test_no_writes_on_inbox_ledger_or_unresolved(self):
+        # ACM-215 (UNRESOLVED_RULE), ACM-216, ACM-229: zero writes even with facts.
+        for ident, uid in (("ACM-215", None), ("ACM-216", config.INBOX_ISSUE_ID),
+                           ("ACM-229", config.LEDGER_ISSUE_ID)):
+            issue = self.add_handoff(ident, cid=f"lc-{ident}")
+            if uid:
+                issue["id"] = uid
+        code, out, err = self._run_at("2026102221")
+        total = sum(len(self.unwoken_comments(i)) for i in self.fake.issues)
+        self.assertEqual(total, 0)
+        self.assertEqual(last_result(out)["unwoken_sent"], 0)
+
+    def test_agent_name_in_body_and_list_failure_fallback(self):
+        issue = self.add_handoff()
+        code, out, err = self._run_at("2026102221")
+        self.assertIn("WorkerAgent", self.unwoken_comments(issue)[0]["content"])
+        # A failing `agent list` keeps old names and never fails the round.
+        self.tmp2 = tempfile.TemporaryDirectory()
+        self.state_dir = Path(self.tmp2.name)
+        self.fake = FakeMultica()
+        self.fake.issues = [
+            make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+        issue = self.add_handoff()
+        def fail_agents(argv):
+            if argv[1:3] == ["agent", "list"]:
+                return subprocess.CompletedProcess(argv, 1, "", "boom")
+            return None
+        self.fake.fail_handler = fail_agents
+        code, out, err = invoke(self.fake, ["run", "--slot", "2026102221"],
+                                state_dir=self.state_dir)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len(self.unwoken_comments(issue)), 1)
+        self.tmp2.cleanup()
+
+
 class TestScanLevel(unittest.TestCase):
     def test_cached_blocked_unassigned_refreshes_runs(self):
         from patrol.cli import PatrolCLI

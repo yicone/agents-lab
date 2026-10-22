@@ -236,6 +236,17 @@ def run_hourly(args, ctx) -> int:
         prior_pending = None if dry_run else state.get("pending_escalation")
         escalations_sent = []
 
+        # Refresh agent names for readable bodies; a failure must not fail the round.
+        try:
+            res = cli.run_json(["agent", "list", "--output", "json"])
+            agents = res.data if isinstance(res.data, list) else (res.data or {}).get("agents") or []
+            names = state.setdefault("agent_names", {})
+            for agent in agents:
+                if agent.get("id"):
+                    names[agent["id"]] = agent.get("name")
+        except Exception:
+            pass
+
         # Provider-error retry machine: re-reads and (non-dry) retry/escalation writes.
         err_res = retry.process_error_retries(
             store, cli, state, scanned["per_issue"], now, dry_run, ctx["sleep"])
