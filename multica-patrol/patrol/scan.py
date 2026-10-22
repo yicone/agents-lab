@@ -53,10 +53,22 @@ def _next_due_at(issue: dict, f: dict, now) -> object:
     return min(future)
 
 
-def discover(cli) -> tuple[list[dict], list[str]]:
+def is_shelved(issue: dict) -> bool:
+    for label in issue.get("labels") or []:
+        if isinstance(label, dict):
+            if label.get("id") == config.SHELVED_LABEL_ID or \
+                    label.get("name") == config.SHELVED_LABEL_NAME:
+                return True
+        elif str(label) == config.SHELVED_LABEL_NAME:
+            return True
+    return False
+
+
+def discover(cli) -> tuple[list[dict], list[str], set]:
     """Fully paginated issue list per scan status. Failed reads are never empty."""
     issues = []
     errors = []
+    shelved_ids = set()
     for status in config.SCAN_STATUSES:
         offset = 0
         collected = []
@@ -91,8 +103,12 @@ def discover(cli) -> tuple[list[dict], list[str]]:
         if isinstance(total, int) and total != len(collected):
             errors.append(f"issue list {status}: total={total} collected={len(collected)}")
             continue
-        issues.extend(collected)
-    return issues, errors
+        for issue in collected:
+            if is_shelved(issue):
+                shelved_ids.add(issue["id"])
+            else:
+                issues.append(issue)
+    return issues, errors, shelved_ids
 
 
 def needs_deep(issue: dict, cached: dict | None, full: bool, now) -> bool:
@@ -120,11 +136,15 @@ def _newest_live_id(runs: list[dict]) -> str | None:
 
 def run_scan(cli, state: dict, full: bool, now, monotonic) -> dict:
     """Returns {issues, per_issue: {id: {issue, facts, findings}}, coverage}."""
-    discovered, errors = discover(cli)
+    discovered, errors, shelved_ids = discover(cli)
     cache = state.setdefault("cache", {})
     universe_ids = {i["id"] for i in discovered}
-    for stale_id in [k for k in cache if k not in universe_ids]:
+    for stale_id in [k for k in cache if k not in universe_ids or k in shelved_ids]:
         del cache[stale_id]
+    index = state.get("issue_index")
+    if isinstance(index, dict):
+        for shelved_id in shelved_ids:
+            index.pop(shelved_id, None)
 
     per_issue = {}
     deep_jobs = []

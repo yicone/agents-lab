@@ -24,7 +24,7 @@ class Discovery(unittest.TestCase):
     def test_pagination_250_issues(self):
         fake = FakeMultica()
         fake.issues = [make_issue(f"ACM-{1000 + i}", "in_progress") for i in range(250)]
-        issues, errors = discover(make_cli(fake))
+        issues, errors, _ = discover(make_cli(fake))
         self.assertEqual(errors, [])
         self.assertEqual(len(issues), 250)
 
@@ -40,7 +40,7 @@ class Discovery(unittest.TestCase):
             return None
 
         fake.fail_handler = failer
-        issues, errors = discover(make_cli(fake))
+        issues, errors, _ = discover(make_cli(fake))
         self.assertTrue(errors)
         self.assertEqual(issues, [])  # partial page must not masquerade as a result
 
@@ -58,7 +58,7 @@ class Discovery(unittest.TestCase):
             return None
 
         fake.fail_handler = shrinker
-        issues, errors = discover(make_cli(fake))
+        issues, errors, _ = discover(make_cli(fake))
         self.assertTrue(any("total" in e for e in errors))
 
 

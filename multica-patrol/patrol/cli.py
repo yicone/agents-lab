@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from . import config
 from .redact import redact
 
 READ_COMMANDS: frozenset[tuple[str, ...]] = frozenset(
@@ -80,6 +81,32 @@ class PatrolCLI:
     _sleep: Callable = field(default=time.sleep, repr=False)
     writes_attempted: int = 0
     reads: int = 0
+    retry_permitted: set = field(default_factory=set)
+
+    def permit_retry(self, issue_id: str) -> None:
+        """Register one issue id as retry-writable for this run only.
+
+        Called by the code path that just completed all re-read guards; without
+        it, run_retry_write refuses before spawning a process.
+        """
+        self.retry_permitted.add(issue_id)
+
+    def run_retry_write(self, issue_id: str, content_file) -> CliResult:
+        """The provider-error retry comment. Permitted only for registered ids."""
+        if issue_id not in self.retry_permitted:
+            raise CommandNotAllowed(f"retry write not permitted for {issue_id}")
+        with open(content_file) as fh:
+            body = fh.read()
+        first = next((ln for ln in body.splitlines() if ln.strip()), "")
+        if not first.startswith(config.FIRST_LINE_NEXT):
+            raise CommandNotAllowed("retry body first line format invalid")
+        if config.RETRY_PREFIX not in body:
+            raise CommandNotAllowed("retry body lacks [patrol-retry: marker")
+        self.writes_attempted += 1
+        argv = [self.binary, "issue", "comment", "add", issue_id,
+                "--content-file", str(content_file), "--allow-external-file",
+                "--output", "json"]
+        return self._spawn(argv, write=True)
 
     def _check(self, args: list[str]) -> bool:
         for a in args:

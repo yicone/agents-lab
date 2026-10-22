@@ -68,7 +68,7 @@ class TestDailyPack(DailyCase):
 
 class TestDailyPost(DailyCase):
     def test_posts_and_idempotent(self):
-        self.body_file.write_text("daily analysis body")
+        self.body_file.write_text("需要你做：确认今日汇总\n\ndaily analysis body")
         code, out, err = invoke(self.fake, ["daily-post", "--file", str(self.body_file),
                                             "--slot", "20261022"],
                                 state_dir=self.state_dir)
@@ -76,8 +76,9 @@ class TestDailyPost(DailyCase):
         res = last_result(out)
         self.assertEqual(res["status"], "posted")
         self.assertEqual(len(self.fake.inbox_comments()), 1)
-        self.assertTrue(self.fake.inbox_comments()[0]["content"].startswith(
-            "[patrol-daily:daily:SGT20261022 v2]"))
+        content = self.fake.inbox_comments()[0]["content"].splitlines()
+        self.assertTrue(content[0].startswith("需要你做："))
+        self.assertEqual(content[1], "[patrol-daily:daily:SGT20261022 v2]")
         code, out, err = invoke(self.fake, ["daily-post", "--file", str(self.body_file),
                                             "--slot", "20261022"],
                                 state_dir=self.state_dir)
@@ -85,11 +86,19 @@ class TestDailyPost(DailyCase):
         self.assertEqual(len(self.fake.inbox_comments()), 1)
 
     def test_rejects_mention_body(self):
-        self.body_file.write_text("hello [@a](mention://member/xyz)")
+        self.body_file.write_text("需要你做：x\nhello [@a](mention://member/xyz)")
         code, out, err = invoke(self.fake, ["daily-post", "--file", str(self.body_file)],
                                 state_dir=self.state_dir)
         self.assertEqual(code, 2)
         self.assertIn("daily_body_invalid", err)
+        self.assertEqual(self.fake.comment_add_count, 0)
+
+    def test_rejects_bad_first_line(self):
+        self.body_file.write_text("summary without required first line\nbody")
+        code, out, err = invoke(self.fake, ["daily-post", "--file", str(self.body_file)],
+                                state_dir=self.state_dir)
+        self.assertEqual(code, 2)
+        self.assertIn("first line format", err)
         self.assertEqual(self.fake.comment_add_count, 0)
 
     def test_rejects_empty_body(self):
@@ -101,7 +110,7 @@ class TestDailyPost(DailyCase):
     def test_closed_inbox_refused(self):
         inbox = next(i for i in self.fake.issues if i["id"] == config.INBOX_ISSUE_ID)
         inbox["status"] = "done"
-        self.body_file.write_text("body")
+        self.body_file.write_text("需要你做：确认今日汇总\n\nbody")
         code, out, err = invoke(self.fake, ["daily-post", "--file", str(self.body_file)],
                                 state_dir=self.state_dir)
         self.assertEqual(code, 2)
@@ -109,7 +118,7 @@ class TestDailyPost(DailyCase):
         self.assertEqual(self.fake.comment_add_count, 0)
 
     def test_identity_required(self):
-        self.body_file.write_text("body")
+        self.body_file.write_text("需要你做：确认今日汇总\n\nbody")
         code, out, err = invoke(self.fake, ["daily-post", "--file", str(self.body_file)],
                                 env={}, state_dir=self.state_dir)
         self.assertEqual(code, 3)

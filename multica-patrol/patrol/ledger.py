@@ -49,7 +49,7 @@ SUGGESTIONS = {
 
 
 def render_batch(batch_id: str, mode_tag: str, slot: str, scan_kind: str, coverage: dict,
-                 rows: list[dict], exempt_rows: list[dict], shelved: list[str],
+                 rows: list[dict], exempt_rows: list[dict], provider_rows: list[dict],
                  suppressed: int, suppressed_keys: int, unresolved: list[dict],
                  prior_failures: list[dict], escalations: list[str],
                  duration_s: float, now_sgt) -> str:
@@ -90,9 +90,13 @@ def render_batch(batch_id: str, mode_tag: str, slot: str, scan_kind: str, covera
         for row in exempt_rows:
             nxt = f" next_review={row['next_review']}" if row.get("next_review") else ""
             lines.append(f"- {_mention(row['issue'])} `{row['reasons']}` {row['kind']}{nxt}")
-    if shelved:
+    if provider_rows:
         lines.append("")
-        lines.append(f"## 搁置（shelved，仅计数）：{len(shelved)} — {' '.join(sorted(shelved))}")
+        lines.append("## provider 报错重试")
+        for row in provider_rows:
+            lines.append(
+                f"- {_mention(row['issue'])} agent={row.get('agent_name') or '?'} "
+                f"run={row.get('run_id')} action={row['action']}")
     lines.append("")
     lines.append(f"dedupe 抑制：{suppressed}（涉及 {suppressed_keys} 个 key）")
     if unresolved:

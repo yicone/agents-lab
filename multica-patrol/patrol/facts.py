@@ -136,6 +136,7 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
         runs = runs_res.data if isinstance(runs_res.data, list) else []
 
     anchors = derive_anchors(issue, activities, comments, timeline_partial)
+    provider_error = _detect_provider_error(runs, comments, now)
     wakeups_small = [
         {"enabled": bool(w.get("enabled")), "expires_at": w.get("expires_at"),
          "kind": w.get("kind")}
@@ -153,9 +154,45 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
              "agent_id": r.get("agent_id")}
             for r in runs
         ],
+        "provider_error": provider_error,
         "wakeups": wakeups_small,
         "checked_at": iso(now),
     }
+
+
+def _detect_provider_error(runs: list[dict], comments: list[dict], now) -> dict | None:
+    """Newest non-cancelled run 'completed' + an [Error] comment by its agent."""
+    newest = None
+    for r in runs or []:
+        if r.get("status") != "cancelled":
+            newest = r
+            break
+    if not newest or newest.get("status") != "completed":
+        return None
+    completed = parse_ts(newest.get("completed_at"))
+    started = parse_ts(newest.get("started_at")) or completed
+    if completed is None:
+        return None
+    window_end = completed + timedelta(seconds=120)
+    agent_id = newest.get("agent_id")
+    hit = None
+    for c in comments or []:
+        if c.get("author_type") != "agent" or c.get("author_id") != agent_id:
+            continue
+        if not (c.get("content") or "").lstrip().startswith("[Error]"):
+            continue
+        ts = parse_ts(c.get("created_at"))
+        if ts is None or started is None or ts < started or ts > window_end:
+            continue
+        if hit is None or ts > hit[0]:
+            hit = (ts, c)
+    if hit is None:
+        return None
+    stale = (now - completed).total_seconds() > config.ERROR_RUN_WINDOW_S
+    return {"run_id": newest.get("id"), "agent_id": agent_id,
+            "comment_id": hit[1].get("id"), "error_at": iso(hit[0]),
+            "completed_at": iso(completed), "started_at": iso(started),
+            "stale": stale}
 
 
 def collect_light_facts(cli, issue: dict, now: datetime) -> dict:
@@ -185,6 +222,7 @@ def collect_light_facts(cli, issue: dict, now: datetime) -> dict:
         "evidence_partial": False,
         "active_runs": active_runs,
         "runs": runs,
+        "provider_error": None,
         "wakeups": [],
         "checked_at": iso(now),
     }

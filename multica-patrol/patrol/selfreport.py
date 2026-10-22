@@ -81,11 +81,30 @@ def mark_key_escalated(state: dict, key: str, now_iso: str) -> None:
         rec["escalated_at"] = now_iso
 
 
+def dispatcher_name(state: dict) -> str:
+    return (state.get("agent_names") or {}).get(config.DISPATCHER_AGENT_ID, "副调度")
+
+
+FIRST_LINES = {
+    "provider": "核对 {ident} 的 provider 报错并决定换 agent 或人工处理。",
+    "keys": "核对下列巡检升级事项并处理；处理不了会再向你升级。",
+    "self": "检查巡检为什么连续失败并恢复。",
+}
+
+
+def escalation_first_line(state: dict, kind: str, ident: str = "") -> str:
+    return (f"{config.FIRST_LINE_NEXT} {dispatcher_name(state)} 做："
+            + FIRST_LINES[kind].format(ident=ident))
+
+
 def render_escalation(marker: str, keys: list[str], state: dict,
-                      self_escalate: bool, now) -> str:
-    """Human-readable escalation body. Keys are `uuid|reason|anchor`."""
+                      self_escalate: bool, now, first_line: str) -> str:
+    """Human-readable escalation body. Keys are `uuid|reason|anchor`.
+
+    Line 1 is plain Chinese for the user; line 2 is the dedupe marker.
+    """
     index = state.get("issue_index") or {}
-    lines = [marker]
+    lines = [first_line, marker]
     for key in keys:
         issue_id, reason, _anchor = (key.split("|") + [""])[:3]
         ident = (index.get(issue_id) or {}).get("identifier") or issue_id

@@ -95,6 +95,10 @@ def evaluate(issue: dict, facts: dict, now) -> list[dict]:
             (now - entered).total_seconds() >= config.NO_ASSIGNEE_GRACE_S:
         add("in_progress_no_assignee", facts.get("entered_status_at"))
 
+    pe = facts.get("provider_error")
+    if pe:
+        add("completed_provider_error", pe.get("run_id"), provider_error=pe)
+
     return findings
 
 
@@ -106,10 +110,6 @@ def exemption_for(issue: dict, findings: list[dict], facts: dict, now) -> list[d
     if issue.get("id") in config.PERSISTENT_IDS:
         for finding in findings:
             finding["exempt"] = {"kind": "persistent"}
-        return findings
-    if identifier in config.SHELVED:
-        for finding in findings:
-            finding["exempt"] = {"kind": "shelved"}
         return findings
     for finding in findings:
         if finding["reason"] in ("in_progress_no_active_run", "in_review_stale", "blocked_stale"):

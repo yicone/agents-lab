@@ -155,11 +155,13 @@ class Exemptions(unittest.TestCase):
         self.assertTrue(findings)
         self.assertTrue(all(x["exempt"]["kind"] == "persistent" for x in findings))
 
-    def test_shelved(self):
+    def test_shelved_label_not_an_exemption(self):
+        # Shelving moved to a fetch-stage label filter (scan.is_shelved); the
+        # rules layer no longer special-cases identifiers.
         issue = make_issue("ACM-60", "blocked")
         f = facts(entered_status_at=iso(BASE_NOW - timedelta(days=5)))
         findings = rules.exemption_for(issue, rules.evaluate(issue, f, BASE_NOW), f, BASE_NOW)
-        self.assertTrue(all(x["exempt"]["kind"] == "shelved" for x in findings))
+        self.assertTrue(all(x["exempt"] is None for x in findings))
 
     def test_awaiting_wakeup(self):
         issue = make_issue("ACM-7", "in_review")

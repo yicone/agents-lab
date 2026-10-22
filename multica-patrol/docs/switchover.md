@@ -39,7 +39,7 @@
 6. 更新每小时 autopilot 描述：`multica autopilot update 2d84a985-978e-43ca-9b87-bd7b71fa2e0c --description "$(cat multica-patrol/docs/autopilot-hourly.description.md)"`，读回 `autopilot get` 核对描述与触发器未变。
 7. 新建每日分析 autopilot：`multica autopilot create --title "ACM Lab 每日卡点分析（09:00 SGT）" --agent 9bfe8713-ce7e-499b-830e-423223a64480 --mode run_only --project ad48897b-bd8e-4268-8ee7-e1ede97e48d8 --description "$(cat multica-patrol/docs/autopilot-daily.description.md)"`，再 `multica autopilot trigger-add <新id> --kind schedule --cron "0 9 * * *" --timezone Asia/Singapore --label "每日 09:00 SGT"`。autopilot 写入按发起用户授权，操作者必须是用户本人或获用户授权的 owner/admin。
 8. 不要为“测试”手动 trigger 生产 autopilot；如必须手动触发，运行必须带 manual 标记且不计入观察。
-9. 观察（不能用单测替代）：由非作者 Reviewer · Hermes 观察至少 2 个自然整点的台账与 1 次每日分析，核对：无重复评论、无误报、作者是副调度 agent、`scheduled` 标记正确、ACM-290 类“失败 run 无重试”能被抓到、搁置事项无提醒。观察期内保留 Grok routine，不由巡检建议停旧 routine 之外的动作。
+9. 观察（不能用单测替代）：由非作者 Reviewer · Hermes 观察至少 2 个自然整点的台账与 1 次每日分析，核对：无重复评论、无误报、作者是副调度 agent、`scheduled` 标记正确、ACM-290 类“失败 run 无重试”能被抓到、带「搁置」标签的 issue 不出现在台账和每日汇总（取数阶段已排除，可用 `--dry-run` 输出和 `grep` 核对）、provider 报错（completed + `[Error]`）首次重试一次且不重复 @、重试后再错升级 ACM-216、ACM-216 评论第一行是大白话下一步。观察期内保留 Grok routine，不由巡检建议停旧 routine 之外的动作。
 
 ### 4. 回滚
 
@@ -58,13 +58,18 @@
 
 ### 6. 需要用户决定
 
-1. **ACM-215 口径**：现状是 in_progress、副调度、无活动 run、自 10/17 无进展，历史台账里一会儿报一会儿豁免。当前没有找到用户的明确裁定，所以脚本既不报也不静默豁免，每 24h 单列“待用户口径”。请裁定为：搁置 / 持续入口 / 普通事项。裁定后只需改 `patrol/config.py` 的集合并合并。
+1. **ACM-215 口径**：现状是 in_progress、副调度、无活动 run、自 10/17 无进展，历史台账里一会儿报一会儿豁免。当前没有找到用户的明确裁定，所以脚本既不报也不静默豁免，每 24h 单列“待用户口径”。请裁定为：搁置 / 持续入口 / 普通事项。裁定为搁置只需给它打「搁置」标签；持续入口或普通事项需改 `patrol/config.py` 的集合并合并。
 2. **旧版 approved_unassigned 夜间派活例外是否退役**：机器层现在只对带「可开工」标签的候选只读上报，派活由每日分析按 playbook 第 3 节做；夜间（00–08 SGT）不再有任何派活动作。若要保留夜间自动派活需另行批准。
-3. **启动失败的即时告警**：见第 1 节已知限制，是否需要另做不依赖 agent 的告警通道。
-4. **推送、开 PR、合并、切换**各需单独批准；本次一律未执行。
+3. **历史搁置名单待确认**：ACM-80、82、92、83、55、118 在历史记录里被列为搁置，但本轮未获用户确认，没有打标签，也没有纳入排除，会按普通事项被巡检。需要用户确认后再打「搁置」标签。
+4. **启动失败的即时告警**：见第 1 节已知限制，是否需要另做不依赖 agent 的告警通道。
+5. **provider 报错重试是机器层第一个会写源 issue 的动作**（评论并 @ 原 agent，一次，条件和上限见 playbook 第 9 节）。这是用户已批准的规则，列在这里只是让审查者知道写入范围扩大了；写入范围受代码内白名单限制，其它 issue 的评论、状态、指派一律拒绝。
+6. **推送、开 PR、合并、切换**各需单独批准；本次一律未执行。
 
 ### 7. 已知限制
 
+- provider 报错检测依赖评论读取，只在深查时执行；已缓存且 run 未变化的 issue 上 `[Error]` 评论被原地编辑，要等下一次深查才能看到。超过 6 小时的旧错误只上报不重试，超过 14 天评论窗口的旧错误看不到。
+- 检测判据是“最新 run completed，且该 run 所属 agent 在 [开始, 结束+120 秒] 内最新的 `[Error]` 评论”；这是用 ACM-335 的真实数据校准的，换 provider 的报错格式不以 `[Error]` 开头则不会被识别。
+- 台账 ACM-229 是机器记录，首行保留批次标记，不套用“第一行大白话”格式；该格式只用于 ACM-216 的升级、每日汇总和源 issue 的重试评论。
 - 自然语言“用户已批准”的判断不在机器层；机器层只认「可开工」标签，其余交每日分析。
 - 业务进展的判定排除副调度自己的评论（视为派活/确认）。副调度若在某 issue 上做了真实交付，机器层会低估其进展，宁可多报不漏报。
 - 时间锚点：时间线被服务端截断时，用 `updated_at` 作保守下界并标“证据不全”，不捏造更早的时间。

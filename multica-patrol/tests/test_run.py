@@ -342,7 +342,10 @@ class TestEscalationBody(PatrolCase):
         code, out, _ = self.run_patrol("run", "--slot", "2026102222", now=later)
         self.assertEqual(code, 0)
         body = self.fake.inbox_comments()[0]["content"]
-        self.assertIn("[patrol-escalate:ESC-2026102222]", body)
+        esc_lines = body.splitlines()
+        self.assertEqual(esc_lines[0],
+                         "不需要你做，下一步由 副调度 做：核对下列巡检升级事项并处理；处理不了会再向你升级。")
+        self.assertEqual(esc_lines[1], "[patrol-escalate:ESC-2026102222]")
         self.assertIn("[ACM-50](mention://issue/uuid-ACM-50)", body)
         self.assertIn("reason=in_progress_no_active_run", body)
         self.assertIn("first_alerted=", body)
@@ -465,17 +468,46 @@ class TestInflightRecovery(PatrolCase):
 
 
 class TestExemptionsAndSections(PatrolCase):
-    def test_shelved_silent_count(self):
-        issue = make_issue("ACM-60", "blocked",
+    def _shelved_issue(self, status="blocked"):
+        return make_issue("ACM-60", status,
+                          labels=[{"id": config.SHELVED_LABEL_ID, "name": config.SHELVED_LABEL_NAME}],
+                          updated_at=BASE_NOW - timedelta(days=5),
+                          last_activity_at=BASE_NOW - timedelta(days=5))
+
+    def test_shelved_label_invisible_everywhere(self):
+        # Synthetic fixture: label 搁置 on a stale issue => zero per-issue calls,
+        # absent from ledger and daily output entirely.
+        for i, status in enumerate(("in_progress", "in_review", "blocked")):
+            self.fake = FakeMultica()
+            self.fake.issues = [
+                make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None),
+                self._shelved_issue(status),
+                stale_issue("ACM-55"),
+            ]
+            self.state_dir = Path(tempfile.mkdtemp())
+            code, out, err = self.run_patrol("run", "--slot", "2026102221")
+            self.assertEqual(code, 0, err)
+            called_ids = {w for argv in self.fake.calls for w in argv if "ACM-60" in str(w)}
+            self.assertEqual(called_ids, set())
+            body = self.fake.ledger_comments()[0]["content"]
+            self.assertNotIn("ACM-60", body)
+            self.assertIn("ACM-55", body)  # unlabelled identical sibling flagged
+            code, out, _ = self.run_patrol("daily-pack", "--format", "md")
+            self.assertNotIn("ACM-60", out)
+            self.assertIn("ACM-55", out)
+
+    def test_shelved_match_by_name_only_and_unlabel_recovers(self):
+        issue = make_issue("ACM-60", "blocked", labels=[{"id": "other", "name": "搁置"}],
                            updated_at=BASE_NOW - timedelta(days=5),
                            last_activity_at=BASE_NOW - timedelta(days=5))
         self.fake.issues.append(issue)
-        code, out, err = self.run_patrol("run", "--slot", "2026102221")
-        self.assertEqual(code, 0, err)
-        body = self.fake.ledger_comments()[0]["content"]
-        self.assertIn("搁置", body)
-        self.assertNotIn("mention://issue/uuid-ACM-60", body)
-        self.assertEqual(last_result(out)["findings_count"], 0)
+        self.run_patrol("run", "--slot", "2026102221")
+        self.assertNotIn("ACM-60", self.fake.ledger_comments()[0]["content"])
+        # Label removed -> back in scope next run, flagged normally.
+        issue["labels"] = []
+        self.run_patrol("run", "--slot", "2026102222")
+        self.assertIn("ACM-60", self.fake.ledger_comments()[-1]["content"])
 
     def test_awaiting_wakeup_exempt_listed(self):
         issue = make_issue("ACM-70", "in_review",

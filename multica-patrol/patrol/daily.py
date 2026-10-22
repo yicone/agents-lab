@@ -31,9 +31,11 @@ def build_pack(state: dict, agent_names: dict, coverage: dict | None, now) -> di
         issue = entry.get("issue") or {}
         if issue_id in config.PERSISTENT_IDS:
             continue
-        if issue.get("identifier") in config.SHELVED | config.UNRESOLVED_RULE:
+        if issue.get("identifier") in config.UNRESOLVED_RULE:
             continue
         for finding in entry.get("findings") or []:
+            if finding["reason"] == "completed_provider_error":
+                continue
             key = f"{issue_id}|{finding['reason']}|{finding.get('anchor')}"
             rec = alerted.get(key) or {}
             first = parse_ts(rec.get("first_at")) or parse_ts(finding.get("anchor"))
@@ -79,11 +81,6 @@ def build_pack(state: dict, agent_names: dict, coverage: dict | None, now) -> di
         for e in (state.get("cache") or {}).values()
         if (e.get("issue") or {}).get("identifier") in config.UNRESOLVED_RULE
     ]
-    shelved = sorted({
-        (e.get("issue") or {}).get("identifier")
-        for e in (state.get("cache") or {}).values()
-        if (e.get("issue") or {}).get("identifier") in config.SHELVED
-    } - {None})
     return {
         "generated_at": iso(now),
         "big_matters": big_matters,
@@ -91,7 +88,6 @@ def build_pack(state: dict, agent_names: dict, coverage: dict | None, now) -> di
         "escalated_48h": escalated_48,
         "self_failures_24h": self_failures,
         "unresolved": unresolved,
-        "shelved_count": len(shelved),
         "last_scan_coverage": coverage,
     }
 
@@ -128,14 +124,16 @@ def render_md(pack: dict) -> str:
         lines.append("## 待用户口径")
         for item in pack["unresolved"]:
             lines.append(f"- {item['identifier']} `{item['status']}` {item['note']}")
-    lines.append("")
-    lines.append(f"shelved: {pack['shelved_count']} (count only)")
     return "\n".join(lines) + "\n"
 
 
 def validate_daily_body(body: str) -> str | None:
     if not body or not body.strip():
         return "empty body"
+    first = next((ln for ln in body.splitlines() if ln.strip()), "")
+    if not (first.startswith(config.FIRST_LINE_NEED)
+            or first.startswith(config.FIRST_LINE_NEXT)):
+        return "first line format"
     if config.MENTION_RE.search(body):
         return "body contains agent/member mention"
     if len(body) > config.BODY_MAX_CHARS:

@@ -43,7 +43,10 @@ FULL_SCAN_MAX_AGE_S = 24 * 3600
 FULL_SCAN_SLOT_HOUR = 23
 LIGHT_RECHECK_S = 3600
 
-SHELVED = {"ACM-60", "ACM-235", "ACM-34", "ACM-35", "ACM-36", "ACM-37", "ACM-38", "ACM-224"}
+# Shelving is a LABEL, not an identifier list: labelled issues are dropped at
+# fetch time, cost no CLI calls, and appear nowhere (not even as counts).
+SHELVED_LABEL_ID = "6ddf2d23-8de1-4be1-975d-b112c9c91a44"
+SHELVED_LABEL_NAME = "搁置"
 UNRESOLVED_RULE = {"ACM-215"}
 PERSISTENT_IDS = frozenset({LEDGER_ISSUE_ID, INBOX_ISSUE_ID})
 APPROVED_LABELS = {"可开工"}
@@ -55,4 +58,10 @@ APPROVAL_WAIT_PATTERNS = [
 SELF_COMMENT_PREFIXES = ("[patrol-batch:", "[dispatch-batch:")
 ESCALATION_PREFIX = "[patrol-escalate:"
 DAILY_PREFIX = "[patrol-daily:"
+ERROR_RUN_WINDOW_S = 6 * 3600
+RETRY_NO_RUN_ESCALATE_S = 2 * 3600
+MAX_RETRIES_PER_RUN = 3
+RETRY_PREFIX = "[patrol-retry:"
+FIRST_LINE_NEED = "需要你做："
+FIRST_LINE_NEXT = "不需要你做，下一步由"
 MENTION_RE = re.compile(r"mention://(agent|member)/")

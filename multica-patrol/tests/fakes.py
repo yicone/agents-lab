@@ -62,11 +62,12 @@ def comment(content: str, at: datetime, *, author_type="member", author_id="u1",
 
 
 def run(status: str, *, rid=None, attempt=1, max_attempts=3,
+        started_at: datetime | None = None,
         completed_at: datetime | None = None, agent_id="agent-other") -> dict:
     return {"id": rid or f"r-{status}-{abs(hash((status, agent_id))) % 10**6}",
             "status": status, "attempt": attempt, "max_attempts": max_attempts,
             "created_at": iso(BASE_NOW - timedelta(hours=5)),
-            "started_at": iso(BASE_NOW - timedelta(hours=5)),
+            "started_at": iso(started_at or (BASE_NOW - timedelta(hours=5))),
             "completed_at": iso(completed_at) if completed_at else None,
             "error": None, "agent_id": agent_id, "kind": "assign",
             "trigger_comment_id": None}

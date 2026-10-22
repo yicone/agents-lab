@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import config, daily, ledger, rules, scan, selfreport
+from . import config, daily, ledger, retry, rules, scan, selfreport
 from .cli import CliError, PatrolCLI
 from .facts import SGT, iso, parse_ts
 from .identity import check_dispatcher_identity
@@ -174,7 +174,7 @@ def run_hourly(args, ctx) -> int:
                 "status": issue.get("status"),
             }
 
-        rows, exempt_rows, shelved_found, unresolved = [], [], set(), []
+        rows, exempt_rows, unresolved = [], [], []
         suppressed = 0
         suppressed_keys = set()
         active_keys = []
@@ -194,9 +194,6 @@ def run_hourly(args, ctx) -> int:
             f = entry.get("facts") or {}
             findings = rules.exemption_for(issue, entry.get("findings") or [], f, now)
             if not findings:
-                continue
-            if identifier in config.SHELVED:
-                shelved_found.add(identifier)
                 continue
             normal, exempted = [], []
             for finding in findings:
@@ -239,11 +236,27 @@ def run_hourly(args, ctx) -> int:
         prior_pending = None if dry_run else state.get("pending_escalation")
         escalations_sent = []
 
+        # Provider-error retry machine: re-reads and (non-dry) retry/escalation writes.
+        err_res = retry.process_error_retries(
+            store, cli, state, scanned["per_issue"], now, dry_run, ctx["sleep"])
+        result["retries_sent"] = err_res.retries_sent
+        result["retries_would_send"] = err_res.retries_would_send
+        result["error_escalations"] = err_res.error_escalations
+        if err_res.identity_violation and not dry_run:
+            state["identity_violation"] = {"at": iso(now),
+                                           "detail": err_res.identity_violation}
+            fail("identity_violation", err_res.identity_violation)
+            selfreport.prune_state(state, now)
+            store.save(state)
+            _err(err, f"identity_violation: {err_res.identity_violation}")
+            result["self_failures_consecutive"] = state["consecutive_failures"]
+            return finish(3, "held")
+
         duration = ctx["monotonic"]() - started
         now_sgt = now.astimezone(SGT)
         body = ledger.render_batch(
             batch_id, mode_tag, slot, result["scan"], coverage, rows, exempt_rows,
-            sorted(shelved_found), suppressed, len(suppressed_keys), unresolved,
+            err_res.actions, suppressed, len(suppressed_keys), unresolved,
             prior_failures,
             escalate_keys + (["self"] if self_escalate else []),
             duration, now_sgt)
@@ -292,22 +305,24 @@ def run_hourly(args, ctx) -> int:
             rec["last_at"] = iso(now)
 
         if prior_pending:
-            retry = ledger.publish(store, cli, state, config.INBOX_ISSUE_ID,
+            repub = ledger.publish(store, cli, state, config.INBOX_ISSUE_ID,
                                    prior_pending["marker"], prior_pending["body"],
                                    f"ESC-retry-{slot}", now, ctx["sleep"])
-            if retry["status"] in ("posted", "duplicate"):
+            if repub["status"] in ("posted", "duplicate"):
                 for key in prior_pending.get("keys") or []:
                     selfreport.mark_key_escalated(state, key, iso(now))
                 if prior_pending.get("self"):
                     state["self_escalated_at"] = iso(now)
                 state["pending_escalation"] = None
             else:
-                fail("escalation_write", f"pending escalation {retry['status']}")
+                fail("escalation_write", f"pending escalation {repub['status']}")
 
         if escalate_keys or self_escalate:
             esc_marker = f"[patrol-escalate:ESC-{slot}]"
-            esc_body = selfreport.render_escalation(esc_marker, escalate_keys, state,
-                                                    self_escalate, now)
+            esc_kind = "keys" if escalate_keys else "self"
+            esc_body = selfreport.render_escalation(
+                esc_marker, escalate_keys, state, self_escalate, now,
+                selfreport.escalation_first_line(state, esc_kind))
             esc = ledger.publish(store, cli, state, config.INBOX_ISSUE_ID, esc_marker,
                                  esc_body, f"ESC-{slot}", now, ctx["sleep"])
             if esc["status"] in ("posted", "duplicate"):
@@ -441,7 +456,11 @@ def cmd_daily_post(args, ctx) -> int:
             return 2
         batch_id = f"daily:SGT{date}"
         marker = f"[patrol-daily:{batch_id}"
-        full_body = f"[patrol-daily:{batch_id} v2]\n" + body
+        # Marker goes on line 2; line 1 is the user-facing Chinese first line.
+        lines = body.splitlines()
+        idx = next((i for i, ln in enumerate(lines) if ln.strip()), 0)
+        lines.insert(idx + 1, f"[patrol-daily:{batch_id} v2]")
+        full_body = "\n".join(lines) + "\n"
         pub = ledger.publish(store, cli, state, config.INBOX_ISSUE_ID, marker,
                              full_body, batch_id, now, ctx["sleep"])
         if pub["status"] == "identity_violation":
