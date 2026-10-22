@@ -174,7 +174,7 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 - 路由 `#/skills`。参数：`source`、`status`、`tool`、`custom=1`、`debt=1`、`group=source|tool|flat`。搜索框匹配名字、路径、来源、版本和发现代码。
 - 顶栏状态换成清单写入时间和 Git 短 SHA，加上漂移扫描年龄。下一行是数据源健康条：没接入或 SkilLock 回退用虚线灰点。
 - 来源汇总可点。一览表默认按来源分组，组内有待处理的在前，未复核且没有别的问题的行降低不透明度。每组先显示 8 行。工具列：`●` 直接入口，`○` 经共享目录可见，`✕` 入口不在。
-- 待处理栏和 `/api/skills/attention` 是同一份分桶。空桶写「无」。升级检查写「—」和原因。基线债在最底下，只计数，点一下在表里筛出这些行。复核阈值 30 / 90 / 180 存在 `localStorage` 键 `aa.skillReviewDays`，默认 90；真实接口会带上 `review_days`。
+- 待处理栏和 `/api/skills/attention` 是同一份分桶。空桶写「无」。升级检查在 `connected: false`（请求失败、限频未查完或无法比较）时写「—」和原因；核对成功且没有更新时写「无」。基线债在最底下，只计数，点一下在表里筛出这些行。复核阈值 30 / 90 / 180 存在 `localStorage` 键 `aa.skillReviewDays`，默认 90；真实接口会带上 `review_days`。
 - 点行打开右侧详情。`Esc` 关闭后焦点回到原来的行。详情里给可复制的命令，不在页面里改 skill。
 - 屏宽小于 1200px 时，待处理栏移到表格上方，收成一行桶计数。
 - mock：默认 `fixtures/skills.json` 是设计稿里的分布（版本已变 3、未登记 1、基线债 76）。`?mock=skills-missing`、`skills-drift`、`skills-gate`、`skills-fallback`、`skills-invalid` 覆盖这一份。打开时加上 `#/skills`。生成：`node multica-board/web/fixtures/write-skills.js`。

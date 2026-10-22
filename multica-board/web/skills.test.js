@@ -141,6 +141,38 @@ function renderCtx(payload, extra = {}) {
   };
 }
 
+test("upgrade failure stays a dash and a finished empty check stays 无", () => {
+  const failed = {
+    ...today,
+    attention: {
+      ...today.attention,
+      buckets: {
+        ...today.attention.buckets,
+        upgradable: { connected: false, reason: "上游请求失败，不能判断有没有更新", items: [] },
+      },
+    },
+  };
+  const failedView = { children: renderSkills(renderCtx(failed)) };
+  assert.equal(findText(failedView, "— 上游请求失败，不能判断有没有更新"), true);
+  const finished = {
+    ...today,
+    attention: {
+      ...today.attention,
+      buckets: {
+        ...today.attention.buckets,
+        upgradable: { connected: true, reason: "", items: [] },
+      },
+    },
+  };
+  const upgrade = queueModel(finished).find((bucket) => bucket.id === "upgradable");
+  assert.equal(upgrade.connected, true);
+  assert.equal(upgrade.items.length, 0);
+  const section = findAll({ children: renderSkills(renderCtx(finished)) }, (node) => node.tag === "section" && node.attrs.class === "skill-bucket")
+    .find((node) => findText(node, "可升级"));
+  assert.equal(findText(section, "无"), true);
+  assert.equal(findText(section, "不能判断有没有更新"), false);
+});
+
 function basePayload(items, tools) {
   return {
     ok: true,
