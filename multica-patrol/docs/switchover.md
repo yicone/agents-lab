@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | 1 | autopilot `2d84a985` | 描述改为启动器版本；调度 `0 * * * *` / Asia/Singapore、执行模式 run_only、assignee 副调度、project 都不变；触发器 label 建议同步改为“全天逐时，机器层” | `autopilot-hourly.description.md` |
 | 2 | 新 autopilot（每日分析） | 新建：副调度、run_only、同 project，cron `0 9 * * *` Asia/Singapore | `autopilot-daily.description.md` |
-| 3 | playbook `~/multica-handoff/fu-diaodu/playbook.md` | 新增第 9 节 | `playbook.patch`（`patch -p1` 可直接应用；已对当前 playbook 干跑通过） |
+| 3 | playbook `~/multica-handoff/fu-diaodu/playbook.md` | §13/§14 的最小修改 | `playbook.patch`（基于 `rollback/playbook.base.md`，sha256 `6a22fe23…b6dca`；`patch -p1` 已对当前 playbook 干跑通过） |
 | 4 | ACM-227 描述 | 替换为 v2 规则说明 | `acm-227.description.md` |
 | 5 | ACM-229 描述 | 替换为 v2 台账说明 | `acm-229.description.md` |
 
@@ -34,7 +34,7 @@
 1. 部署：`cd ~/Workspace/agents-lab && git checkout main && git pull --ff-only`；`cd multica-patrol && /opt/homebrew/bin/python3 -m unittest discover -s tests -v` 必须全绿。
 2. 只读冒烟（不写评论）：`cd ~/Workspace/agents-lab/multica-patrol && PATROL_STATE_DIR=$(mktemp -d) /opt/homebrew/bin/python3 -m patrol run --dry-run --manual smoke`，核对 `PATROL_RESULT` 中 `writes_attempted:0`、coverage 完整。
 3. 备份当前状态（已在 `rollback/`；若切换时 autopilot 描述又变过，先重新导出：`multica autopilot get 2d84a985-978e-43ca-9b87-bd7b71fa2e0c --output json`）。
-4. 更新 playbook：在 `~/multica-handoff/fu-diaodu/` 先 `cp playbook.md playbook.md.bak-<日期>`，再 `patch -p1 < <repo>/multica-patrol/docs/playbook.patch`。
+4. 更新 playbook：在 `~/multica-handoff/fu-diaodu/` 先 `cp playbook.md playbook.md.bak-<日期>`，再 `patch -p1 < <repo>/multica-patrol/docs/playbook.patch`。live playbook 可能在切换前又被改过：应用前必须先 `patch --dry-run -p1 playbook.md < playbook.patch`，失败就按 `rollback/playbook.base.md` 重新生成 patch，不可直接强打。
 5. 更新 ACM-227 / ACM-229 描述：`multica issue update <id> --description-file <文件>`（文件放在执行者自己的工作目录内）。
 6. 更新每小时 autopilot 描述：`multica autopilot update 2d84a985-978e-43ca-9b87-bd7b71fa2e0c --description "$(cat multica-patrol/docs/autopilot-hourly.description.md)"`，读回 `autopilot get` 核对描述与触发器未变。
 7. 新建每日分析 autopilot：`multica autopilot create --title "ACM Lab 每日卡点分析（09:00 SGT）" --agent 9bfe8713-ce7e-499b-830e-423223a64480 --mode run_only --project ad48897b-bd8e-4268-8ee7-e1ede97e48d8 --description "$(cat multica-patrol/docs/autopilot-daily.description.md)"`，再 `multica autopilot trigger-add <新id> --kind schedule --cron "0 9 * * *" --timezone Asia/Singapore --label "每日 09:00 SGT"`。autopilot 写入按发起用户授权，操作者必须是用户本人或获用户授权的 owner/admin。
@@ -62,8 +62,9 @@
 2. **旧版 approved_unassigned 夜间派活例外是否退役**：机器层现在只对带「可开工」标签的候选只读上报，派活由每日分析按 playbook 第 3 节做；夜间（00–08 SGT）不再有任何派活动作。若要保留夜间自动派活需另行批准。
 3. **历史搁置名单待确认**：ACM-80、82、92、83、55、118 在历史记录里被列为搁置，但本轮未获用户确认，没有打标签，也没有纳入排除，会按普通事项被巡检。需要用户确认后再打「搁置」标签。
 4. **启动失败的即时告警**：见第 1 节已知限制，是否需要另做不依赖 agent 的告警通道。
-5. **provider 报错重试和未唤醒交付补发是机器层仅有的两个会写源 issue 的动作**（重试评论并 @ 原 agent 一次；补发评论并 @副调度，每 issue 24h 一次；条件和上限见 playbook 第 9 节）。这是用户已批准的规则，列在这里只是让审查者知道写入范围扩大了；写入范围受代码内白名单限制，其它 issue 的评论、状态、指派一律拒绝。
-6. **推送、开 PR、合并、切换**各需单独批准；本次一律未执行。
+5. **provider 报错重试和未唤醒交付补发是机器层仅有的两个会写源 issue 的动作**（重试评论并 @ 原 agent 一次；补发评论并 @副调度，每 issue 24h 一次；条件和上限见 `playbook.patch` 对 §13 的修改）。规则 8（provider 报错重试）已在手册 §13（用户 10-23 01:17 批准的重写）；规则 9（未唤醒交付补发）来自副调度在 ACM-343 的要求，尚未见用户批准，切换时需一并确认。写入范围受代码内白名单限制，其它 issue 的评论、状态、指派一律拒绝。
+6. **「已批准未派出」的派活从巡检挪走**：§13 旧文写由巡检全天派执行人；机器层只上报，派活挪到 §14 每日分析（需用户确认）。
+7. **推送、开 PR、合并、切换**各需单独批准；本次一律未执行。
 
 ### 7. 已知限制
 

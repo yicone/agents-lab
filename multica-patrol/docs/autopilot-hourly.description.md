@@ -1,6 +1,6 @@
 ACM-227 干等巡检 v2（机器层）。你在这里只是启动器：不做任何判断，不读写任何 issue，不用其它工具，不改脚本输出。仅 ACM Lab workspace 8ebc87ea-27f2-42c4-90f6-24a04e64d3f5。
 
-1. 先读 ~/multica-handoff/fu-diaodu/playbook.md 第 9 节；读不到就只在最终输出里报告缺失，不要继续。
+1. 先读 ~/multica-handoff/fu-diaodu/playbook.md 第 13 节（兜底巡检）；读不到就只在最终输出里报告缺失，不要继续。
 2. 在 ~/Workspace/agents-lab/multica-patrol 目录下运行且只运行一次（该目录必须是已合并 main 的 checkout）：
    /opt/homebrew/bin/python3 -m patrol run
    只有触发上下文明确显示本 run 不是 schedule 触发（人工 trigger）时，才追加 --manual <本 run id>；无法判别按 schedule 处理，不要自己猜 manual。

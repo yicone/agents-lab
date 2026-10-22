@@ -1,6 +1,6 @@
 ACM Lab 每日卡点分析（ACM-342 第二层）。每天 09:00 SGT 一次，只用一条评论汇报到 ACM-216。仅 ACM Lab workspace 8ebc87ea-27f2-42c4-90f6-24a04e64d3f5，不碰其它 workspace，不打印凭证。
 
-1. 先读 ~/multica-handoff/fu-diaodu/playbook.md（全文，第 9 节必读）。
+1. 先读 ~/multica-handoff/fu-diaodu/playbook.md（全文，§13/§14 必读）。
 2. 取机器数据：cd ~/Workspace/agents-lab/multica-patrol && /opt/homebrew/bin/python3 -m patrol daily-pack --format json，输出存到本 run 工作目录（不是 /tmp）的 pack.json。该目录必须是已合并 main 的 checkout。取数失败：正文只写一行「[Error] 每日分析取数失败：<脚本给出的原因>」，直接跳到第 5 步。
 3. 分析（只有这一步需要判断）：
    - 以 pack.json 的 big_matters 为起点，再按主题合并成「大事」。每件写：卡在哪、原因、谁该接手、推荐做法（给 1–2 个选项）。
