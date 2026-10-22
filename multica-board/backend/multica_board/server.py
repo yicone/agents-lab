@@ -152,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
                 body = views.skills(self._review_days())
             elif path == "/api/skills/meta":
                 body = views.skills_meta(self._review_days())
+            elif path == "/api/skills/content":
+                body = views.skills_content(**self._skill_content_args())
             elif path in STATIC_ROUTES:
                 body = STATIC_ROUTES[path](views)
             elif path == "/api/changes":
@@ -176,6 +178,23 @@ class Handler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal", "internal error")
             return
         self._json(HTTPStatus.OK, body)
+
+    def _skill_content_args(self) -> dict:
+        try:
+            query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=6)
+        except ValueError as exc:
+            raise BadRequest("invalid skill content query") from exc
+        if set(query) - {"name", "path", "file", "tree", "source"} or any(len(v) != 1 for v in query.values()):
+            raise BadRequest("invalid or repeated skill content parameter")
+        args = {key: values[0] for key, values in query.items()}
+        if not args.get("name") or args.get("source", "local") not in {"local", "cloud"}:
+            raise BadRequest("name and valid source are required")
+        if args.get("source", "local") == "local" and not args.get("path"):
+            raise BadRequest("local content requires an exposed path")
+        if args.get("tree", "0") not in {"0", "1"}:
+            raise BadRequest("tree must be 0 or 1")
+        args["tree"] = args.get("tree") == "1"
+        return args
 
     def _review_days(self) -> int:
         from .skills_view import parse_review_days

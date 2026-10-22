@@ -1,7 +1,7 @@
-/** Skill 正文读取。纯逻辑，不碰 DOM；后端接口仍是提议契约（见 docs/api-contract.md）。 */
+/** Skill 正文读取。纯逻辑，不碰 DOM；只读接口契约（见 docs/api-contract.md）。 */
 
-export function contentKey(name, path) {
-  return `${name}\n${path}`;
+export function contentKey(name, path, file = "SKILL.md") {
+  return `${name}\n${path}${file === "SKILL.md" ? "" : `\n${file}`}`;
 }
 
 /**
@@ -19,11 +19,14 @@ export function classifyContentResponse({ status, body, networkError }) {
     return { state: "error", message: `HTTP ${status ?? "?"}` };
   }
   if (!body || typeof body !== "object") return { state: "error", message: "响应不是 JSON 对象" };
+  const metadata = { file: body.file, files: body.files, truncated: body.truncated, source: body.source, collected_at: body.collected_at, evidence_state: body.evidence_state, bytes: body.bytes, content: body.content };
+  if (body.state === "ok" && Array.isArray(body.files)) return { ...metadata, state: "ok" };
   switch (body.state) {
     case "ok":
       if (typeof body.content !== "string") return { state: "error", message: "响应缺少正文 content" };
-      if (body.content === "") return { state: "empty", name: body.name, path: body.path };
+      if (body.content === "") return { ...metadata, state: "empty", name: body.name, path: body.path };
       return {
+        ...metadata,
         state: "ok",
         name: body.name,
         path: body.path,
@@ -33,7 +36,10 @@ export function classifyContentResponse({ status, body, networkError }) {
         content: body.content,
       };
     case "empty":
-      return { state: "empty", name: body.name, path: body.path };
+      return { ...metadata, state: "empty", name: body.name, path: body.path };
+    case "uncollected":
+    case "unsupported":
+      return { ...metadata, state: body.state, message: body.message };
     case "missing":
       return { state: "missing", message: body.message || "文件不存在" };
     case "denied":
@@ -47,8 +53,8 @@ export function classifyContentResponse({ status, body, networkError }) {
   }
 }
 
-export async function loadSkillContent(fetchImpl, name, path) {
-  const url = `/api/skills/content?name=${encodeURIComponent(name)}&path=${encodeURIComponent(path)}`;
+export async function loadSkillContent(fetchImpl, name, path, file = "SKILL.md") {
+  const url = `/api/skills/content?name=${encodeURIComponent(name)}&path=${encodeURIComponent(path)}${file === "@tree" ? "&tree=1" : file === "SKILL.md" ? "" : `&file=${encodeURIComponent(file)}`}`;
   try {
     const res = await fetchImpl(url, { cache: "no-store", headers: { Accept: "application/json" } });
     let body = null;
@@ -62,6 +68,8 @@ export async function loadSkillContent(fetchImpl, name, path) {
 }
 
 export const CONTENT_LABEL = {
+  uncollected: { label: "云端正文未采集", cls: "muted" },
+  unsupported: { label: "二进制或非 UTF-8 文本，不预览", cls: "muted" },
   loading: { label: "读取中…", cls: "muted" },
   ok: { label: "ok", cls: "ok" },
   empty: { label: "文件为空", cls: "muted" },

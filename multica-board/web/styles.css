@@ -987,3 +987,17 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 /* Neutral identity badge inherits theme foreground/background; status dots stay separate. */
 .runtime-mark { display: inline-flex; box-sizing: border-box; width: 16px; height: 16px; flex: none; align-items: center; justify-content: center; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--muted); border-radius: 4px; background: var(--panel-2); color: var(--text); font: 650 10px/1 var(--mono); }
 .usage-card h4, .usage-signal { overflow-wrap: anywhere; }
+
+.skill-markdown { line-height: 1.65; overflow-wrap: anywhere; }
+.skill-markdown pre, .skill-markdown table { max-width: 100%; overflow-x: auto; }
+.skill-markdown pre { padding: 12px; background: var(--bg); white-space: pre-wrap; }
+.skill-markdown blockquote { border-left: 3px solid var(--line); margin-left: 0; padding-left: 12px; }
+.skill-markdown table { display: block; border-collapse: collapse; }
+.skill-files, .skill-comparisons { margin: 12px 0; }
+.skill-file-tree { list-style: none; padding-left: 0; }
+.skill-file-tree li { margin: 8px 0; overflow-wrap: anywhere; }
+.skill-content summary { cursor: pointer; }
+.skill-comparisons pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool-mark small { display: inline-block; max-width: 6em; white-space: normal; font-size: 10px; }
+.skill-markdown th, .skill-markdown td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.skill-content > div > p .mono { white-space: pre-wrap; }

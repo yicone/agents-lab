@@ -11,11 +11,11 @@ import {
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
-import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
 import { mapPlanDetail, mapPlanList } from "./plan-api.js";
 import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
-import { placeChildren } from "./view-mount.js";
+import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
@@ -26,6 +26,9 @@ const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
 const MOCK = MOCK_PARAM !== null;
 const MOCK_SCENARIO = MOCK && /^[a-z][a-z-]*$/.test(MOCK_PARAM) ? MOCK_PARAM : "";
 const META_POLL_MS = 15_000;
+const SKILLS_LIST_SCROLL = ".table-wrap.sticky-head";
+let renderedView = "";
+let scrollRestoreGen = 0;
 const STALE_DAY_OPTIONS = [1, 3, 7, 14];
 const QUOTA_KINDS = new Set(["quota", "rate_limit"]);
 const CLOSED_CATEGORIES = new Set(["done", "cancelled", "canceled"]);
@@ -308,6 +311,10 @@ async function refresh(force = false) {
       }
     }
     state.skills = await skillsPromise;
+    if (state.skills?.tools) {
+      setSkillTools(state.skills.tools);
+      if (state.route.view === "skills") state.route.tool = parseHash(location.hash).tool;
+    }
     state.bots = await botsPromise;
     state.instructionSources = await sourcesPromise;
     state.usage = await usagePromise;
@@ -563,6 +570,10 @@ async function setReviewDays(days) {
   state.reviewDays = days;
   localStorage.setItem("aa.skillReviewDays", String(days));
   state.skills = await loadSkills();
+  if (state.skills?.tools) {
+    setSkillTools(state.skills.tools);
+    if (state.route.view === "skills") state.route.tool = parseHash(location.hash).tool;
+  }
   render();
 }
 
@@ -581,13 +592,13 @@ function openSkill(item, opener) {
   document.querySelector("#drawer .drawer-close")?.focus();
 }
 
-async function loadSkillContent(name, path) {
-  const key = skillContentKey(name, path);
-  const token = (state.skillContentReq.get(key) || 0) + 1;
+async function loadSkillContent(name, path, file = "SKILL.md") {
+  const key = skillContentKey(name, path, file);
+  const token = Symbol(key);
   state.skillContentReq.set(key, token);
   state.skillContent.set(key, { state: "loading" });
   renderDrawer();
-  const result = MOCK ? { state: "unavailable", message: "mock 模式没有正文接口" } : await requestSkillContent(fetch, name, path);
+  const result = MOCK ? { state: "unavailable", message: "mock 模式没有正文接口" } : await requestSkillContent(fetch, name, path, file);
   if (state.skillContentReq.get(key) !== token) return;
   state.skillContent.set(key, result);
   if (state.drawer?.kind === "skill" && state.drawer.skill?.name === name) renderDrawer();
@@ -1056,7 +1067,11 @@ function renderDrawer() {
     return;
   }
   if (d.kind === "skill") {
+    const scrollTop = el.scrollTop;
+    const opened = new Set([...el.querySelectorAll("details[data-skill-detail][open]")].map(node => node.dataset.skillDetail));
     el.replaceChildren(...renderSkillDrawer({ ...atlasCtx(), closeDrawer }, d.skill));
+    for (const node of el.querySelectorAll("details[data-skill-detail]")) node.open = opened.has(node.dataset.skillDetail);
+    el.scrollTop = scrollTop;
     return;
   }
   if (d.kind === "plan") {
@@ -1962,12 +1977,17 @@ function atlasCtx() {
 
 function renderMain() {
   const main = document.getElementById("main");
+  const view = state.route.view;
+  const sameView = renderedView === view;
+  const listScroll = sameView ? captureScroll(main, SKILLS_LIST_SCROLL) : [];
+  const windowScroll = sameView ? { top: window.scrollY || 0, left: window.scrollX || 0 } : null;
+  renderedView = view;
   const empty = emptyState();
   if (empty) {
     main.replaceChildren(h("div", { class: "empty big" }, empty));
+    restoreViewScroll(main, listScroll, windowScroll);
     return;
   }
-  const view = state.route.view;
   const ctx = atlasCtx();
   const parts =
     view === "agents" && state.route.planPage
@@ -1986,6 +2006,20 @@ function renderMain() {
               ? renderMap(ctx)
               : renderIssues();
   placeChildren(main, parts);
+  restoreViewScroll(main, listScroll, windowScroll);
+}
+
+function restoreViewScroll(main, listScroll, windowScroll) {
+  const gen = ++scrollRestoreGen;
+  const apply = () => {
+    restoreScroll(main, listScroll, SKILLS_LIST_SCROLL);
+    if (windowScroll && (windowScroll.top || windowScroll.left)) window.scrollTo(windowScroll.left, windowScroll.top);
+  };
+  apply();
+  requestAnimationFrame(() => {
+    if (gen !== scrollRestoreGen) return;
+    apply();
+  });
 }
 
 function render() {

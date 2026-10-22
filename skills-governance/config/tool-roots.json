@@ -9,14 +9,16 @@
     {"id": "hermes", "label": "Hermes"},
     {"id": "gemini", "label": "Gemini"},
     {"id": "grok", "label": "Grok CLI"},
+    {"id": "copilot", "label": "Copilot"},
+    {"id": "opencode", "label": "OpenCode"},
     {"id": "project", "label": "仓库入口"}
   ],
   "roots": [
     {
       "path": "~/.agents/skills",
-      "tools": ["cursor", "codex"],
+      "tools": ["cursor", "codex", "gemini", "copilot", "opencode"],
       "kind": "shared",
-      "evidence": "2026-10-17 核实：Codex 的 ~/.codex/config.toml 里 [[skills.config]] 指向 ~/.agents/skills 下的具体 SKILL.md，所以 Codex 会读这个共享目录。Cursor 的用户技能根是 ~/.cursor/skills（本机目录在，目前是空的）加上 Agent Skills 共享目录 ~/.agents/skills；本机没有证据表明 Claude、Hermes、Gemini 会把整个 ~/.agents/skills 当用户技能根。Hermes 只在项目里读 <repo>/.agents/skills（见下方 repo 根）。"
+      "evidence": "ACM-331 2026-10-22 调查及用户同意方案：Cursor、Codex、Gemini CLI、Copilot、OpenCode 支持用户共享根 ~/.agents/skills。仅标注目录入口证据，未验证 runtime 当前会话加载；Claude、Hermes、Grok、Devin、Oh-My-Pi 不从此规则推断。"
     },
     {"path": "~/.cursor/skills", "tools": ["cursor"], "kind": "direct"},
     {"path": "~/.cursor/plugins", "tools": ["cursor"], "kind": "direct"},
@@ -25,6 +27,7 @@
     {"path": "~/.claude/skills", "tools": ["claude"], "kind": "direct"},
     {"path": "~/.claude/plugins", "tools": ["claude"], "kind": "direct"},
     {"path": "~/.hermes/skills", "tools": ["hermes"], "kind": "direct"},
+    {"path": "~/.gemini/skills", "tools": ["gemini"], "kind": "direct"},
     {"path": "~/.gemini/config/skills", "tools": ["gemini"], "kind": "direct"},
     {"path": "~/.gemini/antigravity/global_skills", "tools": ["gemini"], "kind": "direct"},
     {"path": "~/.gemini/antigravity-cli/skills", "tools": ["gemini"], "kind": "direct"},

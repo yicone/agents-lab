@@ -180,6 +180,8 @@ def build_workspace_installs(
                 "name": name,
                 "description": skill.get("description"),
                 "updated_at": skill.get("updated_at"),
+                "content": {"state": "uncollected", "source": "cloud", "collected_at": None,
+                            "evidence_state": "unknown", "message": "云端正文未采集"},
                 "agents": agents,
             }
         )
@@ -1144,9 +1146,15 @@ class Views:
         except ValueError as exc:
             raise BadRequest(str(exc)) from exc
         document = skills_document(days)
+        from .skills_view import _load_tool_roots, TOOL_ROOTS_PATH, REPO_ROOT
+        from .skill_runtimes import runtime_columns
+        try:
+            roots, _ = _load_tool_roots(TOOL_ROOTS_PATH, REPO_ROOT)
+        except (OSError, ValueError, TypeError, KeyError):
+            roots = []
         installs = self._workspace_installs()
         if installs is None:
-            return document
+            return runtime_columns(document, self.runtimes(), roots)
         items = []
         seen: set[str] = set()
         for item in document.get("items") or []:
@@ -1160,7 +1168,15 @@ class Views:
             if name in seen:
                 continue
             items.append(_cloud_only_item(name, installs[name]))
-        return {**document, "items": items}
+        return runtime_columns({**document, "items": items}, self.runtimes(), roots)
+
+    def skills_content(self, **arguments) -> dict[str, Any]:
+        from .skill_content import read_content
+        from .skills_view import REPO_ROOT, skills_document
+        # Cloud selection never consults local files. Only the local inventory
+        # (not workspace metadata) can authorize a filesystem read.
+        document = {} if arguments.get("source") == "cloud" else skills_document()
+        return read_content(document, repo_root=REPO_ROOT, **arguments)
 
     def _workspace_installs(self) -> dict[str, list[dict[str, Any]]] | None:
         """None when the ACM-291 cache table is not on this board yet."""
@@ -1184,6 +1200,7 @@ class Views:
             "meta": document.get("meta"),
             "summary": document.get("summary"),
             "tools": document.get("tools"),
+            "tool_filter_ids": document.get("tool_filter_ids"),
         }
 
     def skills_attention(self, review_days: int = 90) -> dict[str, Any]:
