@@ -1,3 +1,4 @@
+import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
@@ -40,6 +41,7 @@ export const TOOLS = [
   { id: "claude", label: "Claude" },
   { id: "hermes", label: "Hermes" },
   { id: "gemini", label: "Gemini" },
+  { id: "grok", label: "Grok CLI" },
   { id: "project", label: "仓库入口" },
 ];
 
@@ -52,6 +54,7 @@ const STATUS_CLASS = {
   missing: "bad",
 };
 
+export const RUNTIME_LEGEND = "● direct 直接入口 · ○ shared 经共享目录 · ✕ missing 入口或版本文件缺失 · ? unknown 无法确定 · 空白：已配置根未命中，仍可能从其他目录加载；未配置技能根：没有根配置。路径证据不代表当前会话实际加载。";
 const MARK = { direct: "●", shared: "○", missing: "✕", unknown: "?" };
 const GROUP_LIMIT = 8;
 
@@ -326,7 +329,7 @@ function legend(h) {
       "span",
       { class: "legend-group" },
       h("strong", null, "Harness "),
-      "● 直接入口 ○ 经共享目录 ✕ 入口缺失 ? 无法确定（路径推导，非 runtime 加载验证）",
+      RUNTIME_LEGEND,
     ),
     h("span", { class: "legend-group" }, h("strong", null, "仓库入口 "), "仓库名 + 入口位置（.agents / .codex / .cursor）"),
     h(
@@ -387,7 +390,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     h("th", null, "来源 / 更新通道"),
     h("th", { title: "Multica 云端（跨 Workspace）" }, "云端"),
     h("th", null, "共享入口"),
-    ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
+    ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}\n${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
     projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, "仓库入口", h("small", null, String(visible.get(projectTool.id) || 0))) : null,
     h("th", null, "版本（记录 → 实际）"),
     h("th", null, "对账"),
@@ -634,7 +637,14 @@ function cloudSection(h, item) {
   return nodes;
 }
 
+function columnEvidence(tool) {
+  return [tool.roots_state === "unconfigured" ? "未配置技能根" : "", ...(tool.sources || []).map(s => `${s.source} · ${s.collected_at || "采集时间未知"} · ${s.evidence_state}`)].filter(Boolean).join("\n");
+}
+
 function toolCell(h, item, tool) {
+  const evidence = item.runtime_evidence?.[tool.id];
+  if (tool.roots_state === "unconfigured" && !displayMark(item, tool)) return h("td", { class: "tool-mark muted", title: `${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, h("small", null, "未配置技能根"));
+  if (evidence?.state === "unknown" && !displayMark(item, tool)) return h("td", { class: "tool-mark unknown", title: `${evidence.reason || "无法确定"}\n${columnEvidence(tool)}\n${RUNTIME_LEGEND}` }, "?");
   const mark = displayMark(item, tool);
   const records = (item.evidence || []).filter((record) => record.harness === tool.id);
   const lines = records.map((record) =>
@@ -643,7 +653,7 @@ function toolCell(h, item, tool) {
       : `链接目标 ${record.resolved || record.readlink || ""}${record.root ? ` (${record.root})` : ""}`,
   );
   const onlyTarget = records.length > 0 && records.every((record) => record.kind === "target");
-  const title = [markTitle(mark), ...lines, lines.length ? "路径推导，未验证 runtime 实际加载" : null].filter(Boolean).join("\n");
+  const title = [markTitle(mark), columnEvidence(tool), evidence ? `${evidence.source} · ${evidence.collected_at || "采集时间未知"} · ${evidence.state}` : null, ...lines, lines.length ? "路径推导，未验证 runtime 实际加载" : null].filter(Boolean).join("\n");
   return h("td", { class: `tool-mark ${mark || "none"}${onlyTarget ? " via-target" : ""}`, title }, MARK[mark] || "", onlyTarget ? h("sup", null, "链") : null);
 }
 
@@ -694,7 +704,7 @@ function markTitle(mark) {
   if (mark === "shared") return "经共享目录可见";
   if (mark === "missing") return "入口或版本文件不在";
   if (mark === "unknown") return "路径无法确定（权限或读取失败）";
-  return "不可见";
+  return "已配置的根未命中，仍可能从其他目录加载";
 }
 
 function versionCell(h, item) {
@@ -889,24 +899,22 @@ function contentTargets(item) {
   return targets;
 }
 
-function contentPanel(h, ctx, item, target, result) {
+function contentPanel(h, ctx, item, target, result, requestedFile = "SKILL.md") {
   const meta = CONTENT_LABEL[result.state] || CONTENT_LABEL.error;
-  if (result.state === "ok") {
-    return h(
-      "div",
-      null,
-      h(
-        "p",
-        { class: "muted" },
-        h("span", { class: "mono" }, result.path || target.path),
-        result.bytes != null ? ` · ${result.bytes} 字节` : "",
-        result.sha256 ? ` · ${String(result.sha256).slice(0, 12)}` : "",
-        ` · ${result.format || "markdown"}`,
-      ),
-      h("pre", { class: "instr-body skill-body" }, result.content),
+  if (result.state === "ok" || result.state === "empty") {
+    const raw = result.content || "";
+    const { fields, body, error } = splitFrontmatter(raw);
+    const fieldNodes = Object.entries(fields).map(([key, value]) => line(h, key, typeof value === "string" ? value : JSON.stringify(value)));
+    return h("div", null,
+      h("p", { class: "muted" }, `${result.source || "local"} · ${target.path} · ${requestedFile} · ${result.bytes ?? 0} 字节 · ${result.collected_at || "采集时间未知"} · ${result.evidence_state || "证据状态未知"}${result.sha256 ? ` · ${result.sha256.slice(0, 12)}` : ""}`),
+      result.state === "empty" ? h("p", { class: "muted" }, "文件为空") : null,
+      ...fieldNodes,
+      error ? h("p", { class: "warn" }, error) : null,
+      result.format === "text" ? h("pre", { class: "instr-body skill-body" }, raw) : h("div", { class: "skill-markdown" }, ...markdownNodes(h, body)),
+      h("details", { dataset: { skillDetail: `raw:${target.path}:${requestedFile}` } }, h("summary", null, "查看原文"), h("pre", { class: "instr-body skill-body" }, raw)),
     );
   }
-  const retry = result.state === "loading" ? null : h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path) }, "重试");
+  const retry = result.state === "loading" ? null : h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path, requestedFile) }, "重试");
   return h("p", null, h("span", { class: `tag ${meta.cls}` }, meta.label), result.message ? h("span", { class: "muted" }, ` ${result.message}`) : null, retry ? " " : null, retry);
 }
 
@@ -929,13 +937,40 @@ function contentSection(h, ctx, item) {
           h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path) }, "查看正文"),
         ),
         result ? contentPanel(h, ctx, item, target, result) : null,
+        fileTree(h, ctx, item, target),
       ),
     );
+  }
+  const loaded = targets.map(target => ({ target, result: ctx.skillContent?.get(contentKey(item.name, target.path)) })).filter(row => ["ok", "empty"].includes(row.result?.state));
+  if (targets.length > 1) {
+    nodes.push(h("p", { class: "muted" }, "同名多来源只读对比：先加载两份正文；仅对比本机已读取内容。"));
+    if (loaded.length > 1) nodes.push(h("div", { class: "skill-comparisons" }, ...loaded.slice(1).map(row => {
+      const before = loaded[0];
+      const diff = lineDiff(before.result.content || "", row.result.content || "");
+      return h("details", { dataset: { skillDetail: `diff:${before.target.path}:${row.target.path}` } }, h("summary", null, `只读 diff：${before.target.path} → ${row.target.path}`),
+        diff.error ? h("p", null, diff.error) : h("pre", { class: "diff-block" }, ...(diff.parts || []).map(part => h("span", { class: part.added ? "diff-add" : part.removed ? "diff-del" : "diff-same" }, `${part.added ? "+ " : part.removed ? "- " : "  "}${part.value}`))));
+    })));
   }
   const installs = item.workspace_installs;
   if (!Array.isArray(installs)) nodes.push(h("p", { class: "muted" }, "这份清单还没有云端安装数据。"));
   else for (const install of installs) nodes.push(h("p", { class: "muted" }, `${workspaceLabel(install)} · 云端正文未采集（云端清单只含元数据，后端尚未采集正文）${install.id ? ` · ${install.id}` : ""}`));
   return nodes;
+}
+
+function fileTree(h, ctx, item, target) {
+  const tree = ctx.skillContent?.get(contentKey(item.name, target.path, "@tree"));
+  const request = file => ctx.loadSkillContent(item.name, target.path, file);
+  return h("details", { class: "skill-files", dataset: { skillDetail: `tree:${target.path}` } }, h("summary", null, "目录文件"),
+    h("p", { class: "muted" }, `来源：local · ${target.path}${tree?.collected_at ? ` · ${tree.collected_at}` : ""}`),
+    h("button", { type: "button", onclick: () => request("@tree") }, tree ? "刷新文件树" : "读取文件树"),
+    tree?.state === "ok" ? h("ul", { class: "skill-file-tree" }, ...(tree.files || []).map(file => {
+      const content = ctx.skillContent?.get(contentKey(item.name, target.path, file.path));
+      return h("li", null,
+        file.type === "file" && file.readable ? h("button", { type: "button", class: "text-btn mono", onclick: () => request(file.path) }, file.path) : h("span", { class: "mono" }, file.path),
+        h("span", { class: "muted" }, ` · ${file.type} · ${file.bytes ?? "未知"} 字节${file.type === "directory" ? "" : file.readable ? " · UTF-8 文本按需读取，二进制不预览" : " · 不预览"}${file.state ? ` · ${file.state}` : ""}`),
+        content && file.path !== "SKILL.md" ? contentPanel(h, ctx, item, target, content, file.path) : null);
+    })) : tree ? h("p", null, (CONTENT_LABEL[tree.state] || CONTENT_LABEL.error).label, tree.message || "") : null,
+    tree?.truncated ? h("p", { class: "warn" }, "文件树已达上限，仅显示部分条目") : null);
 }
 
 function customSection(h, item) {

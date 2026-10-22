@@ -7,7 +7,12 @@ const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
 const FILTER_LAYERS = new Set([...LAYER_IDS, "outside", "unassigned"]);
 const SKILL_SOURCES = new Set(["skills_cli_managed", "local_custom", "runtime_plugin", "runtime_builtin", "third_party_unmanaged", "unrecorded", "multica_cloud", "cloud"]);
 const SKILL_STATUSES = new Set(["aligned", "stale", "version_changed", "modified", "unverified", "missing"]);
-const SKILL_TOOLS = new Set(["cursor", "codex", "claude", "hermes", "gemini", "project"]);
+// Before the first payload, retain a bounded provider token from a deep link.
+// Once loaded, the API's column data is the only tool whitelist.
+let skillTools = null;
+export function setSkillTools(tools) {
+  skillTools = new Set((tools || []).map((tool) => tool.id));
+}
 const PLAN_BUCKETS = new Set(["approvable", "blocked", "skip", "unchanged"]);
 
 function agentsPlan(path) {
@@ -175,7 +180,7 @@ export function parseHash(hash) {
     const status = params.get("status");
     route.skillStatus = SKILL_STATUSES.has(status) ? status : "";
     const tool = params.get("tool");
-    route.tool = SKILL_TOOLS.has(tool) ? tool : "";
+    route.tool = (skillTools ? skillTools.has(tool) : /^[a-z0-9][a-z0-9_.-]{0,127}$/i.test(tool || "")) ? tool : "";
     route.custom = flag(params, "custom");
     route.debt = flag(params, "debt");
     const group = params.get("group");

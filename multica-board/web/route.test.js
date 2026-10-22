@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyPatch, formatHash, historyWrite, parseHash, redirectHash, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, formatHash, historyWrite, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+
+test("runtime deep links survive initial load and whitelist follows payload columns", () => {
+  assert.equal(parseHash("#/skills?tool=grok").tool, "grok");
+  setSkillTools([{ id: "codex" }, { id: "grok" }, { id: "new-runtime" }]);
+  assert.equal(parseHash("#/skills?tool=grok").tool, "grok");
+  assert.equal(parseHash("#/skills?tool=new-runtime").tool, "new-runtime");
+  assert.equal(parseHash("#/skills?tool=unconfigured").tool, "");
+  setSkillTools([{ id: "codex" }]);
+  assert.equal(parseHash("#/skills?tool=grok").tool, "");
+});
 
 test("#/issues stays", () => {
   assert.equal(redirectHash("#/issues"), null);

@@ -583,14 +583,23 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 每个 skill 只进一个桶，优先级是上面的桶代码顺序。`version_changed` 是记录的插件版本目录不在、同级有新版本。`modified` 同时收 `unverified`。升级检查第一期没有数据源，桶在 JSON 里 `connected: false`。
 
-## 提议：`GET /api/skills/content`（未实现，ACM-312 缺口）
+## `GET /api/skills/content`（ACM-336）
 
-**当前后端没有此接口。** 前端 Skill 抽屉的「Skill 正文」区按下面的契约写好，接口缺席时显示缺口态，绝不伪造正文。
+- `?name=<skill>&path=<已暴露入口>&file=<相对文件>`，`file` 默认 `SKILL.md`。`path` 必须与同名 skill 的 `entries[].path` 或 `local_source.path`（也接受其绝对形式）匹配；入口为目录或 `SKILL.md`。版本通配入口只使用扫描已解析的 `resolved`，不展开请求中的通配符。已知目录链接的规范目标定义读取边界；扫描后已改目标的入口拒绝。目录内链接一律拒读，包括指向目录内的链接，文件树仍标出链接本身，不输出目标。
+- `?name=<skill>&path=<入口>&tree=1` 返回 `{ok:true,state:"ok",files:[{path,type,bytes,readable}],truncated,max_bytes}`。路径相对技能目录，`type=file|directory|symlink|special|unknown`，bytes 为 lstat 字节数；探测失败 bytes 为 null。`readable` 只表示普通文件且未超大小上限，UTF-8 检查仍在读取时执行。目录访问失败附 `state:"unknown"`。最多 2000 项、递归 16 层，触限 `truncated:true`。
+- 正文响应 `{ok:true,state:"ok"|"empty",name,path,file,format:"markdown"|"text",bytes,sha256,content,source:"local",collected_at,evidence_state:"observed"}`。UTF-8 原文保留（含 frontmatter、换行、HTML 字面文本），空文件 `content:""`。单文件上限 512 KiB，不预览二进制、非 UTF-8、FIFO 等特殊文件。
+- 读取失败仍 HTTP 200：`{ok:false,state:"missing"|"denied"|"too_large"|"unsupported"|"error",name,path,source,collected_at,evidence_state:"unknown",message}`。路径穿越、绝对 `file`、链接及非普通文件为 denied；错误不包含底层异常或额外本机路径。重复/未知查询参数、缺 name/path、非法 tree/source 为 HTTP 400 标准 error 对象。沿用回环、同源与 GET/HEAD 安全门禁。
+- `?name=<skill>&source=cloud` 不读取本机目录，返回 `{ok:false,state:"uncollected",source:"cloud",collected_at:null,evidence_state:"unknown",message,...}`。`workspace_installs[].content` 同样明确标注此未采集状态；云端更新时间不等于正文采集时间。
 
-- `GET /api/skills/content?name=<skill>&path=<绝对路径>`。`path` 取自 `item.local_source.path` 或 `item.entries[].path`，即清单已经暴露过的路径；后端只应服务这些已知路径、且必须是普通文件，并设大小上限。
-- 200 响应：`{ok:true, state:"ok", name, path, format:"markdown", bytes, sha256, content}`；空文件用 `{ok:true, state:"empty", ...}`（无 `content`）。
-- 失败响应：`{ok:false, state:"missing"|"denied"|"too_large"|"error", message}`。
-- 前端语义：`empty` 只表示后端确认读到空文件，不作其它失败的兜底；接口 404 `unknown endpoint` / 405 归类为 `unavailable`（后端未提供正文接口），是产品缺口而不是读取失败。
+### 动态 Runtime 列
+
+`GET /api/skills` 和 `/api/skills/meta` 的 `tools` 取已配置工具 ∪ `/api/runtimes` 缓存 provider ∪ 安装证据 harness。provider 去空格并转小写后去重，保留任意新 provider；缺失 provider 归 `unknown` 并保留实例引用。`project` 仍是配置中的仓库入口。
+
+每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。
+
+每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` 或 null。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
+
+`tool_filter_ids` 与 tools 同源。前端路由收到列数据后使用 tools.id 生成筛选白名单；首次加载前仅暂存格式受限的 URL provider，避免 Grok/未来 provider 深链在数据到达前丢失。查看器、共享入口加载规则和无根标记的展示由阶段 2 消费。
 
 ## 变更记录
 

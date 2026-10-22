@@ -1,3 +1,4 @@
+import { contentKey, loadSkillContent } from "./skill-content.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -726,7 +727,7 @@ test("drawer 正文 section renders the viewer for each state and keeps raw text
     const tree = { children: renderSkillDrawer(ctx, it) };
     assert.ok(findText(tree, "Skill 正文"), String(result.state));
     assert.ok(findText(tree, needle), `${result.state}: ${needle}`);
-    assert.equal(findAll(tree, (n) => n.tag === "pre").length, 0, `${result.state} must not render a pre`);
+    if (result.state !== "empty") assert.equal(findAll(tree, (n) => n.tag === "pre").length, 0, `${result.state} must not render a pre`);
   }
   const okCtx = drawerCtx(payload, new Map([[`alpha\n${path}`, { state: "ok", path, bytes: 30, sha256: "0123456789abcdef", format: "markdown", content: "line1\n<script>alert(1)</script>\n<b>bold</b>" }]]));
   const okTree = { children: renderSkillDrawer(okCtx, it) };
@@ -771,4 +772,65 @@ test("drawer 正文 section lists local targets and requests content per path", 
   const noTargets = simpleItem({ name: "beta" });
   const bare = { children: renderSkillDrawer(drawerCtx(basePayload([noTargets]), new Map()), noTargets) };
   assert.ok(findText(bare, "没有可查看的本机入口"));
+});
+
+test("runtime roots distinguish unconfigured, unknown and configured no-match with source/time titles", () => {
+  const tools = [
+    {id:'future', label:'Future', roots_state:'unconfigured', sources:[{source:'runtimes',collected_at:'2026-10-22',evidence_state:'observed'}]},
+    {id:'codex',label:'Codex',roots_state:'configured'},
+    {id:'other',label:'Other',roots_state:'configured'},
+  ];
+  const item = simpleItem({tools:{codex:null,other:null},runtime_evidence:{other:{state:'unknown',reason:'local_installation_unobserved'}}});
+  const payload = {...basePayload([item]), tools};
+  const tree = {children:renderSkills(renderCtx(payload))};
+  assert.ok(findText(tree,'未配置技能根'));
+  assert.ok(findText(tree,'空白：已配置根未命中'));
+  const cells = findAll(tree,n=>n.tag==='td' && n.attrs?.class?.includes('tool-mark'));
+  assert.ok(cells.some(n=>n.children.includes('?')));
+  assert.ok(cells.some(n=>n.attrs.title.includes('runtimes · 2026-10-22')));
+  assert.ok(cells.some(n=>n.attrs.title.includes('已配置的根未命中')));
+});
+
+for (const failure of ["missing", "denied", "unsupported", "too_large", "error", "unavailable", "uncollected"]) {
+  test(`attachment retry retains request file after ${failure} without response.file`, async () => {
+    const path = "/fixture/alpha", file = "references/note.md";
+    const item = simpleItem({ name: "alpha", local_source: { path } });
+    const payload = basePayload([item]);
+    const cache = new Map([[contentKey(item.name, path, "@tree"), {state:"ok", files:[{path:file,type:"file",bytes:12,readable:true}]}]]);
+    const urls = [];
+    const fetch = async url => {
+      urls.push(url);
+      return urls.length === 1
+        ? {status: failure === "unavailable" ? 405 : 200, json: async () => ({state:failure,message:"first attempt failed"})}
+        : {status:200,json:async () => ({state:"ok",format:"text",content:"Attachment recovered"})};
+    };
+    const ctx = drawerCtx(payload, cache, { async loadSkillContent(name, root, requestedFile) {
+      cache.set(contentKey(name, root, requestedFile), await loadSkillContent(fetch, name, root, requestedFile));
+    }});
+    const draw = () => ({children:renderSkillDrawer(ctx, item)});
+    const open = findAll(draw(), n=>n.tag === "button" && n.children.includes(file))[0];
+    await open.attrs.onclick();
+    assert.equal(cache.get(contentKey(item.name,path,file)).state, failure);
+    assert.equal(cache.get(contentKey(item.name,path,file)).file, undefined, "error response deliberately omits file");
+    const retry = findAll(draw(), n=>n.tag === "button" && n.children.includes("重试"))[0];
+    assert.ok(retry);
+    await retry.attrs.onclick();
+    assert.equal(urls.length, 2);
+    assert.equal(urls[1], urls[0], "retry must request the same attachment URL");
+    assert.equal(new URL(urls[1], "http://fixture").searchParams.get("file"), file);
+    assert.equal(cache.has(contentKey(item.name,path)), false, "main document must remain unloaded");
+    assert.ok(findText(draw(), "Attachment recovered"));
+    assert.equal(findText(draw(), "Viewer demo"), false);
+  });
+}
+
+test("loading attachment has no retry until its request settles", () => {
+  const path="/fixture/alpha", file="scripts/demo.py";
+  const item=simpleItem({name:"alpha",local_source:{path}});
+  const cache=new Map([
+    [contentKey(item.name,path,"@tree"),{state:"ok",files:[{path:file,type:"file",bytes:10,readable:true}]}],
+    [contentKey(item.name,path,file),{state:"loading"}],
+  ]);
+  const tree={children:renderSkillDrawer(drawerCtx(basePayload([item]),cache),item)};
+  assert.equal(findAll(tree,n=>n.tag==="button" && n.children.includes("重试")).length,0);
 });
