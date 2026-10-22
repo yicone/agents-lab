@@ -34,7 +34,9 @@ import argparse
 import json
 import os
 import re
+import stat
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -841,6 +843,27 @@ def render_text(summary: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def write_inventory_atomic(path: Path, text: str) -> None:
+    """Replace ``path`` from a temp file in the same directory.
+
+    ``os.replace`` is atomic on the same filesystem. A failure while writing,
+    flushing, or replacing leaves the original file unchanged and deletes the
+    temp file. The replacement keeps the original permission bits.
+    """
+    mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def emit(summary: dict, fmt: str, output: Path | None) -> None:
     text = json.dumps(summary, indent=2, ensure_ascii=False) + "\n" if fmt == "json" else render_text(summary)
     if output is None:
@@ -902,7 +925,7 @@ def main(argv: list[str] | None = None) -> int:
             summary["counts"]["applied"] = False
             emit(summary, args.format, args.output)
             return 2
-        inventory_path.write_text(json.dumps(updated, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write_inventory_atomic(inventory_path, json.dumps(updated, indent=2, ensure_ascii=False) + "\n")
         summary["counts"]["applied"] = True
     else:
         summary["counts"]["applied"] = False

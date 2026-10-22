@@ -2,6 +2,8 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -150,6 +152,7 @@ class SyncInventoryTests(unittest.TestCase):
             json.dumps({"schema": "skills-inventory/v1", "updated_at": "2026-10-16T00:00:00Z", "skills": []}),
             encoding="utf-8",
         )
+        os.chmod(inventory, 0o640)
         roots = self.root / "tool-roots.json"
         roots.write_text(
             json.dumps({"roots": [{"path": str(self.root / "installed"), "tools": ["cursor"], "kind": "direct"}]}),
@@ -171,11 +174,75 @@ class SyncInventoryTests(unittest.TestCase):
                 ]
             )
         self.assertEqual(status, 0)
+        self.assertEqual(stat.S_IMODE(inventory.stat().st_mode), 0o640)
         written = json.loads(inventory.read_text(encoding="utf-8"))
         self.assertEqual(written["skills"][0]["name"], "fresh-skill")
         self.assertIsNone(written["skills"][0]["review_time"])
         self.assertNotEqual(written["updated_at"], "2026-10-16T00:00:00Z")
         self.assertTrue(json.loads(buffer.getvalue())["counts"]["applied"])
+
+    def test_interrupted_apply_keeps_inventory_and_removes_temp(self):
+        write_skill(self.root, "installed/fresh-skill", "fresh-skill")
+        inventory = self.root / "inventory.json"
+        inventory.write_text(
+            json.dumps({"schema": "skills-inventory/v1", "updated_at": "2026-10-16T00:00:00Z", "skills": []}),
+            encoding="utf-8",
+        )
+        os.chmod(inventory, 0o640)
+        original = inventory.read_bytes()
+        roots = self.root / "tool-roots.json"
+        roots.write_text(
+            json.dumps({"roots": [{"path": str(self.root / "installed"), "tools": ["cursor"], "kind": "direct"}]}),
+            encoding="utf-8",
+        )
+        real_fdopen = self.module.os.fdopen
+
+        def failing_fdopen(fd, mode="r", **kwargs):
+            handle = real_fdopen(fd, mode, **kwargs)
+
+            class Partial:
+                def write(self, data):
+                    if data:
+                        handle.write(data[:1])
+                    raise OSError("interrupted")
+
+                def flush(self):
+                    handle.flush()
+
+                def fileno(self):
+                    return handle.fileno()
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, exc_type, exc, tb):
+                    handle.close()
+                    return False
+
+            return Partial()
+
+        self.module.os.fdopen = failing_fdopen
+        try:
+            with self.assertRaises(OSError):
+                self.module.main(
+                    [
+                        "--inventory",
+                        str(inventory),
+                        "--repo-root",
+                        str(self.root),
+                        "--tool-roots",
+                        str(roots),
+                        "--apply",
+                        "--format",
+                        "json",
+                    ]
+                )
+        finally:
+            self.module.os.fdopen = real_fdopen
+        self.assertEqual(inventory.read_bytes(), original)
+        self.assertEqual(stat.S_IMODE(inventory.stat().st_mode), 0o640)
+        leftovers = [path.name for path in inventory.parent.iterdir() if path.name.startswith(".inventory.json.")]
+        self.assertEqual(leftovers, [])
 
     def test_missing_install_is_marked_unknown_and_kept(self):
         row = self.record()
