@@ -1,6 +1,6 @@
 /** Hash routes for Agent Atlas. Legacy hashes redirect with location.replace. */
 
-export const VIEWS = ["map", "decide", "issues", "agents", "skills", "usage"];
+export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "usage"];
 
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
@@ -14,6 +14,7 @@ export function setSkillTools(tools) {
   skillTools = new Set((tools || []).map((tool) => tool.id));
 }
 const PLAN_BUCKETS = new Set(["approvable", "blocked", "skip", "unchanged"]);
+const MCP_ISSUES = new Set(["problems", "ignored", "shadowed", "may_fail", "hidden", "unused", "disabled_only"]);
 
 function agentsPlan(path) {
   if (path === "agents/plan/new") return { planPage: "new", planId: "" };
@@ -30,7 +31,7 @@ function fieldToken(raw) {
 }
 
 export function viewForKey(key) {
-  return { 1: "map", 2: "decide", 3: "issues", 4: "agents", 5: "skills" }[key] || null;
+  return { 1: "map", 2: "decide", 3: "issues", 4: "agents", 5: "skills", 6: "mcp" }[key] || null;
 }
 
 /** `[` moves up the map (toward L5); `]` moves down (toward L1). Wraps L1↔L5. */
@@ -60,7 +61,7 @@ function withQuery(path, params) {
  */
 export function redirectHash(hash) {
   const { path, params } = splitHash(hash);
-  if (path === "issues" || path === "agents" || path === "skills" || path === "decide" || path === "usage") return null;
+  if (path === "issues" || path === "agents" || path === "skills" || path === "mcp" || path === "decide" || path === "usage") return null;
   if (agentsPlan(path)) return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
@@ -71,6 +72,7 @@ export function redirectHash(hash) {
   if (path === "l5/attention") return "#/issues";
   if (path === "l2/agents") return "#/agents";
   if (path === "l3/skills") return "#/skills";
+  if (path === "l3/mcp") return "#/mcp";
   if (path === "gov") return "#/map/all?gov=1";
 
   const legacy = /^l([1-5])(?:\/(.*))?$/i.exec(path);
@@ -115,6 +117,8 @@ export function emptyRoute() {
     debt: false,
     skillGroup: "source",
     kind: "",
+    mcpView: "",
+    issue: "",
     hasInstructions: false,
     botLinked: false,
     planMode: false,
@@ -148,6 +152,7 @@ export function parseHash(hash) {
   else if (path === "issues") route.view = "issues";
   else if (path === "agents") route.view = "agents";
   else if (path === "skills") route.view = "skills";
+  else if (path === "mcp") route.view = "mcp";
   else if (path === "usage") route.view = "usage";
   else route.view = "map";
 
@@ -185,6 +190,10 @@ export function parseHash(hash) {
     route.debt = flag(params, "debt");
     const group = params.get("group");
     route.skillGroup = group === "tool" || group === "flat" ? group : "source";
+  } else if (route.view === "mcp") {
+    route.mcpView = params.get("view") === "list" ? "list" : "";
+    route.issue = MCP_ISSUES.has(params.get("issue")) ? params.get("issue") : "";
+    route.archived = flag(params, "archived");
   } else if (route.view === "agents") {
     route.sel = params.get("sel") || "";
     route.fromPlan = params.get("from") || "";
@@ -262,6 +271,10 @@ export function formatHash(route) {
     if (r.custom) p.set("custom", "1");
     if (r.debt) p.set("debt", "1");
     if (r.skillGroup === "tool" || r.skillGroup === "flat") p.set("group", r.skillGroup);
+  } else if (path === "mcp") {
+    if (r.mcpView === "list") p.set("view", "list");
+    if (r.issue && MCP_ISSUES.has(r.issue)) p.set("issue", r.issue);
+    if (r.archived) p.set("archived", "1");
   }
   return withQuery(path, p);
 }
@@ -304,6 +317,11 @@ export function applyPatch(route, patch) {
       next.custom = false;
       next.debt = false;
       next.skillGroup = "source";
+    }
+    if (patch.view !== "mcp") {
+      next.mcpView = "";
+      next.issue = "";
+      next.archived = false;
     }
     if (patch.view !== "agents") {
       next.kind = "";

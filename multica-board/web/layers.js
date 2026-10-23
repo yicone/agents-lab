@@ -34,6 +34,7 @@ export const MAP_TOOLS = {
   ],
   l3: [
     { label: "Skills", kind: "page", href: "#/skills", signal: "skills" },
+    { label: "MCP", kind: "page", href: "#/mcp", signal: "mcp" },
     { label: "Instructions", kind: "page", href: "#/agents?has_instructions=1", signal: "instructions" },
     { label: "Spec", kind: "gap", gap: "未建" },
   ],

@@ -1,0 +1,759 @@
+{
+ "generated_at": "2026-10-23T08:59:40Z",
+ "mcp_schema": 1,
+ "mcp_every_rounds": 5,
+ "support": {
+  "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
+  "providers": {
+   "codex": {
+    "loads": "yes",
+    "channel": "codex_home_config",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "hermes": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "cursor": {
+    "loads": "yes",
+    "channel": "workdir_cursor_mcp_json",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": "oauth_needs_auth_source"
+   },
+   "mcode": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "claude": {
+    "loads": "yes",
+    "channel": "claude_mcp_config_file",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "grok": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "opencode": {
+    "loads": "conditional",
+    "channel": "opencode_config_content",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": "v2_task_fails"
+   },
+   "omp": {
+    "loads": "yes",
+    "channel": "workdir_config",
+    "native_merge": "no",
+    "remote_filter": false,
+    "note": null
+   },
+   "antigravity": {
+    "loads": "no",
+    "channel": null,
+    "native_merge": null,
+    "remote_filter": false,
+    "note": null
+   },
+   "copilot": {
+    "loads": "no",
+    "channel": null,
+    "native_merge": null,
+    "remote_filter": false,
+    "note": null
+   },
+   "codebuddy": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "codearts": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "kimi": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "reasonix": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "dsh": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "kiro": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "openclaw": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "pi": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "qoder": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "qoderclicn": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "qwen": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "qwenpaw": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "traecli": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   },
+   "dim": {
+    "loads": "yes",
+    "channel": null,
+    "native_merge": "unknown",
+    "remote_filter": false,
+    "note": "backend_unverified"
+   }
+  }
+ },
+ "workspaces": [
+  {
+   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "slug": "alpha-lab",
+   "name": "Alpha Lab",
+   "library_state": "ok",
+   "library_collected_at": "2026-10-23T08:59:40Z",
+   "library_error": null,
+   "bindings_state": "ok",
+   "bindings_collected_at": "2026-10-23T08:59:40Z",
+   "servers": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0001-linear",
+     "id": "srv-0001-linear",
+     "name": "linear",
+     "transport": "http",
+     "agent_count": 3,
+     "enabled_count": 2,
+     "disabled_count": 1,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0002-sentry",
+     "id": "srv-0002-sentry",
+     "name": "sentry",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0003-fs",
+     "id": "srv-0003-fs",
+     "name": "fs",
+     "transport": "stdio",
+     "agent_count": 2,
+     "enabled_count": 0,
+     "disabled_count": 2,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0004-idle",
+     "id": "srv-0004-idle",
+     "name": "idle-srv",
+     "transport": "stdio",
+     "agent_count": 0,
+     "enabled_count": 0,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    }
+   ]
+  },
+  {
+   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "library_state": "ok",
+   "library_collected_at": "2026-10-23T08:59:40Z",
+   "library_error": null,
+   "bindings_state": "ok",
+   "bindings_collected_at": "2026-10-23T08:59:40Z",
+   "servers": [
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0100-tool0",
+     "id": "srv-0100-tool0",
+     "name": "tool0",
+     "transport": "stdio",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0101-tool1",
+     "id": "srv-0101-tool1",
+     "name": "tool1",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0102-tool2",
+     "id": "srv-0102-tool2",
+     "name": "tool2",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0103-tool3",
+     "id": "srv-0103-tool3",
+     "name": "tool3",
+     "transport": "stdio",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0104-tool4",
+     "id": "srv-0104-tool4",
+     "name": "tool4",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0105-tool5",
+     "id": "srv-0105-tool5",
+     "name": "tool5",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0106-tool6",
+     "id": "srv-0106-tool6",
+     "name": "tool6",
+     "transport": "stdio",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0107-tool7",
+     "id": "srv-0107-tool7",
+     "name": "tool7",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0108-tool8",
+     "id": "srv-0108-tool8",
+     "name": "tool8",
+     "transport": "http",
+     "agent_count": 1,
+     "enabled_count": 1,
+     "disabled_count": 0,
+     "config_visible": false,
+     "created_at": "2026-10-01T00:00:00Z",
+     "updated_at": "2026-10-20T00:00:00Z"
+    }
+   ]
+  }
+ ],
+ "agents": [
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:d5a63351-5878-42af-b6f3-2f5824d15a2d",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "d5a63351-5878-42af-b6f3-2f5824d15a2d",
+   "name": "Steward",
+   "archived": false,
+   "runtime_id": "0ed1d832-9c11-4b25-ad64-9627242293f4",
+   "provider": "antigravity",
+   "runtime_loads": "no",
+   "own_config": {
+    "state": "none",
+    "servers": []
+   },
+   "bindings_state": "ok",
+   "bindings": [
+    {
+     "server_id": "srv-0001-linear",
+     "name": "linear",
+     "enabled": true,
+     "shadowed": false
+    }
+   ],
+   "effective": {
+    "state": "known",
+    "servers": [
+     {
+      "name": "linear",
+      "from": "library",
+      "transport": "http"
+     }
+    ]
+   }
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
+   "name": "Reviewer",
+   "archived": false,
+   "runtime_id": "0f9788e3-261b-44a9-96fb-25b9118e6fc7",
+   "provider": "hermes",
+   "runtime_loads": "yes",
+   "own_config": {
+    "state": "managed",
+    "servers": [
+     {
+      "name": "linear",
+      "transport": "stdio",
+      "env": {
+       "set": true,
+       "count": 2
+      },
+      "headers": {
+       "set": false,
+       "count": 0
+      }
+     }
+    ]
+   },
+   "bindings_state": "ok",
+   "bindings": [
+    {
+     "server_id": "srv-0001-linear",
+     "name": "linear",
+     "enabled": true,
+     "shadowed": true
+    },
+    {
+     "server_id": "srv-0002-sentry",
+     "name": "sentry",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0003-fs",
+     "name": "fs",
+     "enabled": false,
+     "shadowed": false
+    }
+   ],
+   "effective": {
+    "state": "known",
+    "servers": [
+     {
+      "name": "linear",
+      "from": "own",
+      "transport": "stdio"
+     },
+     {
+      "name": "sentry",
+      "from": "library",
+      "transport": "http"
+     }
+    ]
+   }
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
+   "name": "Repo Analyst",
+   "archived": false,
+   "runtime_id": "dd26ccd7-7e22-4912-ac43-201f9595f31b",
+   "provider": "opencode",
+   "runtime_loads": "conditional",
+   "own_config": {
+    "state": "none",
+    "servers": []
+   },
+   "bindings_state": "ok",
+   "bindings": [
+    {
+     "server_id": "srv-0001-linear",
+     "name": "linear",
+     "enabled": true,
+     "shadowed": false
+    }
+   ],
+   "effective": {
+    "state": "known",
+    "servers": [
+     {
+      "name": "linear",
+      "from": "library",
+      "transport": "http"
+     }
+    ]
+   }
+  },
+  {
+   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:f0905037-380b-485a-b5ba-fb5b3c593843",
+   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "id": "f0905037-380b-485a-b5ba-fb5b3c593843",
+   "name": "Knowledge Archivist",
+   "archived": false,
+   "runtime_id": "11a43d90-8a53-42d1-b710-05d812dd6870",
+   "provider": "claude",
+   "runtime_loads": "yes",
+   "own_config": {
+    "state": "hidden",
+    "servers": []
+   },
+   "bindings_state": "ok",
+   "bindings": [
+    {
+     "server_id": "srv-0003-fs",
+     "name": "fs",
+     "enabled": false,
+     "shadowed": null
+    }
+   ],
+   "effective": {
+    "state": "partial",
+    "servers": []
+   }
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:75b39498-04f8-4714-8b63-baf90462ee16",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "75b39498-04f8-4714-8b63-baf90462ee16",
+   "name": "Reviewer",
+   "archived": false,
+   "runtime_id": null,
+   "provider": "codex",
+   "runtime_loads": "yes",
+   "own_config": {
+    "state": "none",
+    "servers": []
+   },
+   "bindings_state": "ok",
+   "bindings": [
+    {
+     "server_id": "srv-0100-tool0",
+     "name": "tool0",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0101-tool1",
+     "name": "tool1",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0102-tool2",
+     "name": "tool2",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0103-tool3",
+     "name": "tool3",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0104-tool4",
+     "name": "tool4",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0105-tool5",
+     "name": "tool5",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0106-tool6",
+     "name": "tool6",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0107-tool7",
+     "name": "tool7",
+     "enabled": true,
+     "shadowed": false
+    },
+    {
+     "server_id": "srv-0108-tool8",
+     "name": "tool8",
+     "enabled": true,
+     "shadowed": false
+    }
+   ],
+   "effective": {
+    "state": "known",
+    "servers": [
+     {
+      "name": "tool0",
+      "from": "library",
+      "transport": "stdio"
+     },
+     {
+      "name": "tool1",
+      "from": "library",
+      "transport": "http"
+     },
+     {
+      "name": "tool2",
+      "from": "library",
+      "transport": "http"
+     },
+     {
+      "name": "tool3",
+      "from": "library",
+      "transport": "stdio"
+     },
+     {
+      "name": "tool4",
+      "from": "library",
+      "transport": "http"
+     },
+     {
+      "name": "tool5",
+      "from": "library",
+      "transport": "http"
+     },
+     {
+      "name": "tool6",
+      "from": "library",
+      "transport": "stdio"
+     },
+     {
+      "name": "tool7",
+      "from": "library",
+      "transport": "http"
+     },
+     {
+      "name": "tool8",
+      "from": "library",
+      "transport": "http"
+     }
+    ]
+   }
+  },
+  {
+   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:0e7f6baf-34bb-4202-b599-803b9f27ae71",
+   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "id": "0e7f6baf-34bb-4202-b599-803b9f27ae71",
+   "name": "Steward",
+   "archived": false,
+   "runtime_id": "c55b545e-4ef0-4149-abbc-8c0b4928c511",
+   "provider": null,
+   "runtime_loads": "unbound",
+   "own_config": {
+    "state": "managed",
+    "servers": [
+     {
+      "name": "notes",
+      "transport": "stdio",
+      "env": {
+       "set": true,
+       "count": 1
+      },
+      "headers": {
+       "set": false,
+       "count": 0
+      }
+     }
+    ]
+   },
+   "bindings_state": "ok",
+   "bindings": [],
+   "effective": {
+    "state": "known",
+    "servers": [
+     {
+      "name": "notes",
+      "from": "own",
+      "transport": "stdio"
+     }
+    ]
+   }
+  }
+ ],
+ "attention": {
+  "badge": 4,
+  "counts": {
+   "ignored": 2,
+   "shadowed": 1,
+   "may_fail": 1,
+   "hidden": 1,
+   "unused": 1,
+   "disabled_only": 1
+  },
+  "buckets": {
+   "ignored": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:d5a63351-5878-42af-b6f3-2f5824d15a2d",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "agent_id": "d5a63351-5878-42af-b6f3-2f5824d15a2d",
+     "server_id": null,
+     "name": "Steward",
+     "reason": "runtime_no_mcp"
+    },
+    {
+     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:0e7f6baf-34bb-4202-b599-803b9f27ae71",
+     "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+     "agent_id": "0e7f6baf-34bb-4202-b599-803b9f27ae71",
+     "server_id": null,
+     "name": "Steward",
+     "reason": "runtime_unbound"
+    }
+   ],
+   "shadowed": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:ad8a8338-ba0e-45b2-8f2f-6d90d339d56a:srv-0001-linear",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "agent_id": "ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
+     "server_id": "srv-0001-linear",
+     "name": "linear",
+     "reason": "own_config_same_name"
+    }
+   ],
+   "may_fail": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "agent_id": "7c28ebcf-58eb-4791-a027-d3dd52e81d8e",
+     "server_id": null,
+     "name": "Repo Analyst",
+     "reason": "opencode_v2_unsupported"
+    }
+   ],
+   "hidden": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:f0905037-380b-485a-b5ba-fb5b3c593843",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "agent_id": "f0905037-380b-485a-b5ba-fb5b3c593843",
+     "server_id": null,
+     "name": "Knowledge Archivist",
+     "reason": "config_redacted"
+    }
+   ],
+   "unused": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0004-idle",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "agent_id": null,
+     "server_id": "srv-0004-idle",
+     "name": "idle-srv",
+     "reason": "no_agents"
+    }
+   ],
+   "disabled_only": [
+    {
+     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0003-fs",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "agent_id": null,
+     "server_id": "srv-0003-fs",
+     "name": "fs",
+     "reason": "all_disabled"
+    }
+   ]
+  }
+ }
+}

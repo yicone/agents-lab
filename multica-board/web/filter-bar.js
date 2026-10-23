@@ -5,7 +5,7 @@ export const SKILLS_SCOPE = "范围：本机技能、Multica Workspace 安装与
 
 /** "shared" shows the filter. "decide" / "skills" show a fixed scope. "none" shows neither. */
 export function filterChrome(view) {
-  if (view === "issues" || view === "agents") return "shared";
+  if (view === "issues" || view === "agents" || view === "mcp") return "shared";
   if (view === "decide") return "decide";
   if (view === "skills") return "skills";
   return "none";

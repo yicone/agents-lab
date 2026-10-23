@@ -171,10 +171,12 @@ function toolLine(ctx, tool) {
       tool.note ? h("span", { class: "muted" }, tool.note) : null,
     );
   }
+  const alert = (tool.signal === "skills" && ctx.skillsAlert) || (tool.signal === "usage" && ctx.usageAlert) || (tool.signal === "mcp" && ctx.mcpAlert);
+  const absent = tool.signal === "mcp" && ctx.mcpAbsent;
   return h(
     "a",
     { class: "tool", href: tool.href },
-    h("i", { class: (tool.signal === "skills" && ctx.skillsAlert) || (tool.signal === "usage" && ctx.usageAlert) ? "dot bad" : "dot live" }),
+    h("i", { class: alert ? "dot bad" : absent ? "dot off" : "dot live" }),
     h("span", null, tool.label),
     h("span", { class: "muted" }, ctx.toolSignal(tool.signal)),
   );

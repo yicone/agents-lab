@@ -34,5 +34,8 @@
  "skills-fallback": ["skills"],
  "skills-invalid": ["skills"],
  "skills-cloud": ["skills"],
- "skills-grok": ["skills"]
+ "skills-grok": ["skills"],
+ "mcp": ["mcp"],
+ "mcp-empty": ["mcp"],
+ "mcp-partial": ["mcp"]
 }
