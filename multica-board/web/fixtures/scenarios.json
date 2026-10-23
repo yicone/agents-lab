@@ -33,5 +33,6 @@
  "skills-gate": ["skills"],
  "skills-fallback": ["skills"],
  "skills-invalid": ["skills"],
- "skills-cloud": ["skills"]
+ "skills-cloud": ["skills"],
+ "skills-grok": ["skills"]
 }

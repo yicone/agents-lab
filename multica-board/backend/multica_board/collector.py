@@ -214,7 +214,13 @@ def norm_workspace_skill(s: dict[str, Any]) -> dict[str, Any]:
         "description": _plain_text(s.get("description")),
         "labels_json": json.dumps(_skill_labels(s.get("labels")), ensure_ascii=False),
         "updated_at": updated if isinstance(updated, str) and updated else None,
+        "content_hash": skill_content_hash(s.get("content_hash")),
     }
+
+
+def skill_content_hash(value: Any) -> str | None:
+    """Only accept SHA-256 metadata, never cache bodies or arbitrary strings."""
+    return value.lower() if isinstance(value, str) and re.fullmatch(r"[0-9a-fA-F]{64}", value) else None
 
 
 def enabled_skill_names(raw: Any) -> list[str]:
@@ -495,6 +501,29 @@ class Collector:
         items = _as_list(res.data, "skills")
         self._check_scope(ws, items)
         rows = [norm_workspace_skill(s) for s in items if s.get("id")]
+        previous = {row["id"]: row for row in self.store.query(
+            "SELECT id, updated_at, content_hash FROM workspace_skills WHERE server=? AND workspace_id=?",
+            (self.server, ws),
+        )}
+        for row in rows:
+            if row["content_hash"]:
+                continue
+            old = previous.get(row["id"], {})
+            if row["updated_at"] and old.get("updated_at") == row["updated_at"] and old.get("content_hash"):
+                row["content_hash"] = old["content_hash"]
+                continue
+            try:
+                # Default get returns the hash without fetching SKILL.md or attachment bodies.
+                detail = self.runner.run(["skill", "get", row["id"]], workspace_id=ws).data
+            except CliError as exc:
+                if _kind(exc) == "auth":
+                    raise
+                continue  # Older CLI / unavailable detail: explicit time inference in the UI.
+            if not isinstance(detail, dict):
+                continue
+            self._check_scope(ws, [detail])
+            if detail.get("id") == row["id"] and detail.get("updated_at") == row["updated_at"]:
+                row["content_hash"] = skill_content_hash(detail.get("content_hash"))
         self.store.replace_snapshot(self.server, ws, "workspace_skills", rows)
         return len(rows), True, None
 

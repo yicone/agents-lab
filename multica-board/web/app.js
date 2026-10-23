@@ -16,7 +16,7 @@ import { mapPlanDetail, mapPlanList } from "./plan-api.js";
 import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
-import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey } from "./skills.js";
+import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey, skillKey, skillRowId } from "./skills.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 import { agentQueryFields, instructionCell, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillsCell } from "./agents-view.js";
@@ -617,7 +617,7 @@ function focusSkill(name, opener) {
   if (!item) return;
   state.expandedSkills.add(item.source_class || "unknown");
   setRoute({ view: "skills", source: "", skillStatus: "", tool: "", custom: false, debt: false, q: "" });
-  const row = document.getElementById(`skill-${name}`);
+  const row = document.getElementById(skillRowId(item));
   if (row) row.scrollIntoView({ block: "center" });
   openSkill(item, opener || row);
 }
@@ -1977,7 +1977,7 @@ function atlasCtx() {
     skills: state.skills,
     reviewDays: state.reviewDays,
     expandedSkills: state.expandedSkills,
-    drawerSkill: state.drawer?.kind === "skill" ? state.drawer.skill?.name : "",
+    drawerSkill: state.drawer?.kind === "skill" ? skillKey(state.drawer.skill) : "",
     openSkill,
     focusSkill,
     skillContent: state.skillContent,

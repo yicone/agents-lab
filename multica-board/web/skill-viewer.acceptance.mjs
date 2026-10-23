@@ -31,7 +31,7 @@ export async function run(page, outputDir) {
   check('binary bytes never rendered', await page.evaluate(() => ![...document.querySelectorAll('.skill-body')].some(n=>n.textContent.includes('\u0000'))));
   await page.click('loc=css:.skill-file-tree button:text-is("empty.txt")');
   await page.waitForFunction(() => document.querySelector('.skill-file-tree').textContent.includes('文件为空'));
-  check('cloud remains explicitly uncollected', await page.evaluate(() => document.querySelector('#drawer').textContent.includes('云端正文未采集')));
+  check('cloud remains explicitly uncollected', await page.evaluate(() => document.querySelector('#drawer').textContent.includes('Multica Workspace 正文未采集')));
   await page.screenshot({path:`${outputDir}/skills-files.png`});
   await page.click('.skill-comparisons summary');
   await page.click('.skill-comparisons summary');

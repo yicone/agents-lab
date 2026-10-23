@@ -1,0 +1,4416 @@
+{
+  "ok": true,
+  "error": null,
+  "generated_at": "2026-10-20T09:40:00Z",
+  "skills_schema": 2,
+  "items": [
+    {
+      "name": "colgrep-search",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "repo",
+      "channel_label": "自建",
+      "channel_detail": "skills/colgrep-search",
+      "canonical_path": "skills/colgrep-search",
+      "repo_is_source": true,
+      "reconciliation_status": "stale",
+      "status_label": "未复核",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "link",
+        "label": "链接",
+        "detail": "共享目录里的链接"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "7429b890-91e9-4731-97b3-6468d3b75029",
+          "name": "colgrep-search",
+          "description": "Use when a coding agent needs to find code by behavior or meaning, when a text search would return too much to read, or when colgrep --agent is being considered for a coding task and colgrep is on PATH.",
+          "updated_at": "2026-10-16T08:08:13Z",
+          "agents": [
+            {
+              "id": "a916556c-1e70-4710-ab68-80d7f057970d",
+              "name": "Builder · Cursor",
+              "enabled": true
+            },
+            {
+              "id": "09bf1839-6450-40e1-b183-9c69cedef991",
+              "name": "Reviewer · Devin free",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "local_source": {
+        "path": "skills/colgrep-search/SKILL.md",
+        "updated_at": "2026-10-16T17:29:06Z",
+        "summary": "Use when a coding agent needs to find code by behavior or meaning, when a text search would return too much to read, or when colgrep --agent is being considered for a coding task and colgrep is on PATH."
+      },
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "de-ai-chinese-x-copy",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "f359fc29-5277-4b52-b025-bf773801366a",
+          "name": "de-ai-chinese-x-copy",
+          "description": "Draft or review Chinese X copy for @yicone / isolation accounts; strip AI marketing cadence before publish.",
+          "updated_at": "2026-09-23T17:21:37Z",
+          "agents": []
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "hermes-async-delegation",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "7b39ec85-f668-402a-9159-20e84bae5d0e",
+          "name": "hermes-async-delegation",
+          "description": "Hermes 子任务默认异步，不能跨会话或重启后存活。需要继续的工作必须建 Multica 子 issue，不要用顶层 delegate_task 硬等结果。",
+          "updated_at": "2026-10-16T01:00:43Z",
+          "agents": [
+            {
+              "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+              "name": "Knowledge Archivist",
+              "enabled": true
+            },
+            {
+              "id": "f2757059-c19f-4758-8541-41d30a273f61",
+              "name": "Reviewer · Hermes",
+              "enabled": true
+            },
+            {
+              "id": "8fb83cbf-700e-4c53-97fe-889878e2e70b",
+              "name": "Vega",
+              "enabled": true
+            },
+            {
+              "id": "b9edc8e1-9b8e-4612-9577-c86d63ee7b0d",
+              "name": "存储",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "knowledge-routing",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "0007dbfa-2372-4552-80cb-31b8645faab9",
+          "name": "knowledge-routing",
+          "description": "Route information between Logseq, Nowledge Mem, both, or neither.",
+          "updated_at": "2026-05-13T18:13:31Z",
+          "agents": [
+            {
+              "id": "a916556c-1e70-4710-ab68-80d7f057970d",
+              "name": "Builder · Cursor",
+              "enabled": true
+            },
+            {
+              "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+              "name": "Knowledge Archivist",
+              "enabled": true
+            },
+            {
+              "id": "cd9cf2e1-7afb-42de-9048-912b625bcb17",
+              "name": "Repo Analyst",
+              "enabled": true
+            },
+            {
+              "id": "f2757059-c19f-4758-8541-41d30a273f61",
+              "name": "Reviewer · Hermes",
+              "enabled": true
+            },
+            {
+              "id": "8fb83cbf-700e-4c53-97fe-889878e2e70b",
+              "name": "Vega",
+              "enabled": true
+            },
+            {
+              "id": "b9edc8e1-9b8e-4612-9577-c86d63ee7b0d",
+              "name": "存储",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "logseq-curation",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "a0c66254-c996-4001-aaad-35a364f76080",
+          "name": "logseq-curation",
+          "description": "Keep Logseq write-backs structured, concise, and link-friendly.",
+          "updated_at": "2026-05-13T18:13:32Z",
+          "agents": [
+            {
+              "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+              "name": "Knowledge Archivist",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "mem-distill",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "e78e4f8d-1087-4a3e-9781-96f702a05490",
+          "name": "mem-distill",
+          "description": "Distill long context into short, reusable memories for Nowledge Mem.",
+          "updated_at": "2026-05-13T18:13:34Z",
+          "agents": [
+            {
+              "id": "a916556c-1e70-4710-ab68-80d7f057970d",
+              "name": "Builder · Cursor",
+              "enabled": true
+            },
+            {
+              "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+              "name": "Knowledge Archivist",
+              "enabled": true
+            },
+            {
+              "id": "cd9cf2e1-7afb-42de-9048-912b625bcb17",
+              "name": "Repo Analyst",
+              "enabled": true
+            },
+            {
+              "id": "09bf1839-6450-40e1-b183-9c69cedef991",
+              "name": "Reviewer · Devin free",
+              "enabled": true
+            },
+            {
+              "id": "f2757059-c19f-4758-8541-41d30a273f61",
+              "name": "Reviewer · Hermes",
+              "enabled": true
+            },
+            {
+              "id": "8fb83cbf-700e-4c53-97fe-889878e2e70b",
+              "name": "Vega",
+              "enabled": true
+            },
+            {
+              "id": "b9edc8e1-9b8e-4612-9577-c86d63ee7b0d",
+              "name": "存储",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "project-closeout",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "c34ec9ce-f6e6-47f0-9907-2f0919d73d3c",
+          "name": "project-closeout",
+          "description": "Close out only meaningful completed work and sync durable knowledge to Logseq and Nowledge Mem.",
+          "updated_at": "2026-05-13T18:55:45Z",
+          "agents": [
+            {
+              "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+              "name": "Knowledge Archivist",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "video-to-longform",
+      "origin": "cloud",
+      "source_class": "multica_cloud",
+      "source_label": "Multica Workspace",
+      "scope": "workspace",
+      "channel_label": "Multica Workspace",
+      "channel_detail": "1 个 Workspace",
+      "canonical_path": null,
+      "repo_is_source": false,
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
+      "tools": {},
+      "entries": [],
+      "evidence": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
+      },
+      "workspace_installs": [
+        {
+          "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+          "workspace_slug": "acm-lab",
+          "workspace_name": "ACM Lab",
+          "id": "b49eb917-4b22-4037-98ee-25213c44c597",
+          "name": "video-to-longform",
+          "description": "YouTube/Bilibili keep → 中文阅读版精读长文；字幕优先、mlx_whisper 兜底、写 vault 并回写 JSONL。ACM-69 执行用。",
+          "updated_at": "2026-09-23T17:01:04Z",
+          "agents": [
+            {
+              "id": "8b931db7-eba5-4fac-9aca-d4e907f353d9",
+              "name": "Knowledge Archivist",
+              "enabled": true
+            }
+          ]
+        }
+      ],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "cloud_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "name": "computer-use",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "user",
+      "channel_label": "自建",
+      "channel_detail": "~/.agents/skills/computer-use",
+      "reconciliation_status": "aligned",
+      "status_label": "一致",
+      "tools": {
+        "grok": "direct"
+      },
+      "entries": [
+        {
+          "path": "~/.grok/skills/computer-use",
+          "present": true,
+          "symlink": true,
+          "target": "../../.agents/skills/computer-use",
+          "tools": [
+            "grok"
+          ],
+          "mark": "direct",
+          "location": "~/.grok/skills"
+        }
+      ],
+      "evidence": [
+        {
+          "harness": "grok",
+          "kind": "entry",
+          "attribution": "direct",
+          "state": "present",
+          "path": "~/.grok/skills/computer-use",
+          "readlink": "../../.agents/skills/computer-use",
+          "root": "~/.grok/skills"
+        }
+      ],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "baseline_debt": false,
+      "quiet": false,
+      "shared_entry": {
+        "state": "dir",
+        "label": "目录",
+        "detail": "共享目录下的目录"
+      },
+      "workspace_installs": [],
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": "direct",
+          "state": "observed",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "no_match",
+          "reason": null,
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:AI%20%E5%95%86%E5%9F%8E%E4%BA%A7%E5%93%81%20PM%20%E4%B8%8A%E6%89%8B",
+      "name": "AI 商城产品 PM 上手",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:Brand%20multi-format%20covers",
+      "name": "Brand multi-format covers",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:Multica%20on%20mini",
+      "name": "Multica on mini",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:agent-steward-getting-started",
+      "name": "agent-steward-getting-started",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:ego-browser",
+      "name": "ego-browser",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:video-to-longform",
+      "name": "video-to-longform",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": "video-to-longform",
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:wechatide-skill",
+      "name": "wechatide-skill",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    },
+    {
+      "key": "grok_bot:%E5%BA%97%E9%93%BA%E5%86%85%E5%AE%B9%E5%8F%A3%E5%BE%84%E5%AE%A1%E7%A8%BF",
+      "name": "店铺内容口径审稿",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "scope": "bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "Agent Steward、EO-PM、ClipVibe PM、English Study Assistant Bot、Healthcare、macOS、macOS 执委会、Multica 转发、Notebook、Product Researcher、SaaS DNS Bot、Stock、UI 平面设计 Bot、X 运营、个人品牌 PM、信息获取 Bot、存储、小秘书、小红书文案 Bot、支付方式 Bot、爱买 AI PM、网络管家、育儿辅导",
+      "grok_bots": [
+        {
+          "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
+          "name": "Agent Steward",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
+          "name": "EO-PM",
+          "evidence_state": "observed",
+          "evidence_label": "ACM-298 已实测（历史证据）"
+        },
+        {
+          "id": "3dc41a7c-b376-461e-975d-a3ee8846d5cc",
+          "name": "ClipVibe PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "6cf9727c-1a08-4efa-bd9f-e33d41148a19",
+          "name": "English Study Assistant Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
+          "name": "Healthcare",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f8e3aff8-ceb1-4558-b782-b558b91407aa",
+          "name": "macOS",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
+          "name": "macOS 执委会",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "20f3ddaf-1c35-407a-bf67-6c5812709c83",
+          "name": "Multica 转发",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b6d2d688-588d-447e-ac28-805c03cb6a5b",
+          "name": "Notebook",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "f49216ec-c7be-4f72-9a04-c0ebd5345b49",
+          "name": "Product Researcher",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "3a5815fa-4747-4dc6-b34e-280f26bbd701",
+          "name": "SaaS DNS Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "57be16ea-6d90-4483-8e2a-d806b9722848",
+          "name": "Stock",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "4ff20134-3be8-497a-857e-ff79d7f47e94",
+          "name": "UI 平面设计 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
+          "name": "X 运营",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "8c4174ee-d9b0-4dc2-a3b2-6a4537142e0b",
+          "name": "个人品牌 PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
+          "name": "信息获取 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "63ba4c28-58f8-4019-8668-c8345e9c460a",
+          "name": "存储",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
+          "name": "小秘书",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "1a59f518-d6b1-4665-9b2e-769ffff1907f",
+          "name": "小红书文案 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "47978533-56ba-4b34-a1fb-3779505a2738",
+          "name": "支付方式 Bot",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+          "name": "爱买 AI PM",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "a1ecdba8-0f91-473f-b9b7-d941db9f426c",
+          "name": "网络管家",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        },
+        {
+          "id": "35099577-a7e0-4c38-a73a-7302966a5860",
+          "name": "育儿辅导",
+          "evidence_state": "inferred",
+          "evidence_label": "按共享机制推断，未逐一实测"
+        }
+      ],
+      "evidence_detail": "Agent Steward、EO-PM：ACM-298 已实测（历史证据）；其余 21 个 Bot 按共享机制推断，未逐一实测。不代表当前会话加载。",
+      "manifest_path": "instructions-governance/grok-bots-manifest.json",
+      "content": {
+        "state": "not_applicable",
+        "message": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "current_version": null,
+      "observed_version": null,
+      "reconciliation_status": null,
+      "status_label": "名称声明",
+      "review_time": null,
+      "entries": [],
+      "evidence": [],
+      "tools": {},
+      "shared_entry": {
+        "state": "not_applicable",
+        "label": "∅",
+        "detail": "仅有 Grok Bot 技能名称声明；正文、版本及本机 Runtime 不适用"
+      },
+      "bucket": null,
+      "baseline_debt": false,
+      "quiet": false,
+      "command": null,
+      "constraints": [],
+      "findings": [],
+      "constraint_count": 0,
+      "related_skill_name": null,
+      "runtime_evidence": {
+        "cursor": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "codex": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "claude": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "hermes": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "gemini": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "grok": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "copilot": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "opencode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "antigravity": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "mcode": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "omp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "factory": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "amp": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        },
+        "project": {
+          "mark": null,
+          "state": "not_applicable",
+          "reason": "grok_bot_names_only",
+          "source": "disk_installations",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "runtime_loaded": null
+        }
+      }
+    }
+  ],
+  "summary": [
+    {
+      "id": "all",
+      "label": "全部",
+      "count": 17,
+      "statuses": {
+        "stale": 1,
+        "unrecorded": 7,
+        "aligned": 1,
+        "unknown": 8
+      }
+    },
+    {
+      "id": "skills_cli_managed",
+      "label": "Skills CLI",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "local_custom",
+      "label": "自建",
+      "count": 2,
+      "statuses": {
+        "stale": 1,
+        "aligned": 1
+      }
+    },
+    {
+      "id": "runtime_plugin",
+      "label": "运行时插件",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "runtime_builtin",
+      "label": "运行时内置",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "third_party_unmanaged",
+      "label": "第三方未托管",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "unrecorded",
+      "label": "未登记",
+      "count": 0,
+      "statuses": {}
+    },
+    {
+      "id": "grok_bot",
+      "label": "Grok Bot",
+      "count": 8,
+      "statuses": {
+        "unknown": 8
+      }
+    }
+  ],
+  "tools": [
+    {
+      "id": "cursor",
+      "provider": "cursor",
+      "label": "Cursor",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".cursor/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.cursor/plugins",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        },
+        {
+          "path": "~/.cursor/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "codex",
+      "provider": "codex",
+      "label": "Codex",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".codex/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        },
+        {
+          "path": "~/.codex/plugins",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.codex/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "claude",
+      "provider": "claude",
+      "label": "Claude Code",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".claude/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.claude/plugins/cache",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.claude/plugins",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.claude/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "hermes",
+      "provider": "hermes",
+      "label": "Hermes Agent",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".agents/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.hermes/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "provider": "gemini",
+      "label": "Gemini CLI",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": "~/.gemini/config/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        },
+        {
+          "path": "~/.gemini/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "grok",
+      "provider": "grok",
+      "label": "Grok CLI",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        },
+        {
+          "source": "skill_evidence",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".grok/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.grok/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "copilot",
+      "provider": "copilot",
+      "label": "GitHub Copilot CLI",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": "~/.copilot/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        }
+      ]
+    },
+    {
+      "id": "opencode",
+      "provider": "opencode",
+      "label": "OpenCode",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".opencode/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".claude/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.config/opencode/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        },
+        {
+          "path": "~/.claude/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "antigravity",
+      "provider": "antigravity",
+      "label": "Antigravity",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": "~/.gemini/antigravity/global_skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.gemini/antigravity-cli/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "mcode",
+      "provider": "mcode",
+      "label": "Devin CLI",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".cognition/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".agents/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".devin/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.config/cognition/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.config/devin/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        }
+      ]
+    },
+    {
+      "id": "omp",
+      "provider": "omp",
+      "label": "Oh My Pi",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".omp/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.omp/agent/managed-skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.omp/agent/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "factory",
+      "provider": "factory",
+      "label": "Factory Droid",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".factory/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".agents/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.factory/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        }
+      ]
+    },
+    {
+      "id": "amp",
+      "provider": "amp",
+      "label": "Amp",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".agents/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".claude/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.config/agents/skills",
+          "kind": "shared"
+        },
+        {
+          "path": "~/.claude/plugins/cache",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.config/amp/skills",
+          "kind": "direct"
+        },
+        {
+          "path": "~/.agents/skills",
+          "kind": "shared"
+        },
+        {
+          "path": "~/.claude/skills",
+          "kind": "direct"
+        }
+      ]
+    },
+    {
+      "id": "project",
+      "provider": "project",
+      "label": "仓库入口",
+      "sources": [
+        {
+          "source": "tool_roots",
+          "collected_at": "2026-10-20T09:40:00Z",
+          "evidence_state": "observed"
+        }
+      ],
+      "runtime_ids": [],
+      "runtime_loaded": null,
+      "roots_state": "configured",
+      "roots": [
+        {
+          "path": ".cognition/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".opencode/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".factory/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".agents/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".cursor/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".claude/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".codex/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".devin/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".grok/skills",
+          "kind": "direct"
+        },
+        {
+          "path": ".omp/skills",
+          "kind": "direct"
+        }
+      ]
+    }
+  ],
+  "attention": {
+    "badge": 0,
+    "baseline_debt": 0,
+    "counts": {},
+    "buckets": {}
+  },
+  "shared_root": {
+    "path": "~/.agents/skills",
+    "state": "ok",
+    "detail": "共享目录已配置"
+  },
+  "repos": [],
+  "meta": {
+    "inventory_updated_at": "2026-10-16T17:35:00Z",
+    "drift_scanned_at": "2026-10-20T09:40:00Z",
+    "sources": [
+      {
+        "id": "grok_bot",
+        "label": "Grok Bot",
+        "path": "instructions-governance/grok-bots-manifest.json",
+        "state": "ok",
+        "detail": "Git 清单 · 23 个 Bot · 8 个技能名称；实测与推断见各条提示",
+        "collected_at": "2026-10-22T17:43:37Z"
+      }
+    ]
+  },
+  "tool_filter_ids": [
+    "cursor",
+    "codex",
+    "claude",
+    "hermes",
+    "gemini",
+    "grok",
+    "copilot",
+    "opencode",
+    "antigravity",
+    "mcode",
+    "omp",
+    "factory",
+    "amp",
+    "project"
+  ]
+}

@@ -199,7 +199,7 @@ const unrecorded = item({
   install_path: "~/.agents/skills/colgrep-search",
   current_version: null,
   observed_version: null,
-  reconciliation_status: "missing",
+  reconciliation_status: "unrecorded",
   status_label: "未登记",
   findings: [{ code: "unrecorded", label: "清单里没有这条安装" }],
   bucket: "unrecorded",

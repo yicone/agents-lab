@@ -180,8 +180,9 @@ def build_workspace_installs(
                 "name": name,
                 "description": skill.get("description"),
                 "updated_at": skill.get("updated_at"),
+                "content_hash": skill.get("content_hash"),
                 "content": {"state": "uncollected", "source": "cloud", "collected_at": None,
-                            "evidence_state": "unknown", "message": "云端正文未采集"},
+                            "evidence_state": "unknown", "message": "Multica Workspace 正文未采集"},
                 "agents": agents,
             }
         )
@@ -273,14 +274,14 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
         "name": name,
         "origin": "cloud",
         "source_class": "multica_cloud",
-        "source_label": "Multica 云端",
+        "source_label": "Multica Workspace",
         "scope": "workspace",
         "ownership": None,
         "source_authority": None,
         "update_authority": None,
         "canonical_path": None,
         "repo_is_source": False,
-        "channel_label": "Multica 云端",
+        "channel_label": "Multica Workspace",
         "channel_detail": f"{len(installs)} 个 Workspace",
         "current_version": None,
         "observed_version": None,
@@ -288,8 +289,8 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
         "baseline_subject": None,
         "baseline_ref": None,
         "review_time": None,
-        "reconciliation_status": "unverified",
-        "status_label": "仅云端",
+        "reconciliation_status": "unrecorded",
+        "status_label": "未登记",
         "findings": [],
         "customization_mode": None,
         "constraints": [],
@@ -312,7 +313,7 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
             "path": None,
             "target": None,
             "resolved": None,
-            "detail": "云端技能不在本机清单，共享入口未检查",
+            "detail": "Multica Workspace 技能不在本机清单，共享入口未检查",
         },
         "workspace_installs": installs,
     }
@@ -1160,7 +1161,7 @@ class Views:
     # --- /api/skills --------------------------------------------------------
 
     def skills(self, review_days: int = 90) -> dict[str, Any]:
-        from .skills_view import parse_review_days, skills_document
+        from .skills_view import parse_review_days, skills_document, _summary
 
         try:
             days = parse_review_days(None if review_days == 90 else str(review_days))
@@ -1169,27 +1170,40 @@ class Views:
         document = skills_document(days)
         from .skills_view import _load_tool_roots, TOOL_ROOTS_PATH, REPO_ROOT
         from .skill_runtimes import runtime_columns
+        from .skill_grok_bots import grok_bot_skills
         try:
             roots, _ = _load_tool_roots(TOOL_ROOTS_PATH, REPO_ROOT)
         except (OSError, ValueError, TypeError, KeyError):
             roots = []
         installs = self._workspace_installs()
-        if installs is None:
-            return runtime_columns(document, self.runtimes(), roots)
         items = []
         seen: set[str] = set()
         for item in document.get("items") or []:
             copied = dict(item)
             key = _skill_name_key(item.get("name")) or ""
-            copied["workspace_installs"] = installs.get(key, [])
+            if installs is not None:
+                copied["workspace_installs"] = installs.get(key, [])
             if key:
                 seen.add(key)
             items.append(copied)
-        for name in sorted(installs):
+        for name in sorted(installs or {}):
             if name in seen:
                 continue
             items.append(_cloud_only_item(name, installs[name]))
-        return runtime_columns({**document, "items": items}, self.runtimes(), roots)
+        bot_items, bot_source = grok_bot_skills()
+        # Keep declarations separate even when a disk/Workspace skill has the same name.
+        local_names = {_skill_name_key(item.get("name")) for item in items}
+        for item in bot_items:
+            item["related_skill_name"] = item["name"] if item["name"] in local_names else None
+        items.extend(bot_items)
+        summary = _summary(items)
+        for block in summary:
+            if block["id"] == "grok_bot":
+                block["uncollected"] = bot_source["state"] != "ok"
+                block["detail"] = bot_source["detail"]
+        meta = {**(document.get("meta") or {})}
+        meta["sources"] = [*(meta.get("sources") or []), bot_source]
+        return runtime_columns({**document, "items": items, "summary": summary, "meta": meta}, self.runtimes(), roots)
 
     def skills_content(self, **arguments) -> dict[str, Any]:
         from .skill_content import read_content

@@ -328,7 +328,7 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(installs[1]["agents"][0]["id"], "bg1")
         document = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60).skills()
         self.assertIn("items", document)
-        self.assertTrue(all("workspace_installs" in item for item in document["items"]))
+        self.assertTrue(all("workspace_installs" in item for item in document["items"] if item.get("origin") != "grok_bot"))
         named = [item for item in document["items"] if item.get("name") == "mem-distill"]
         if named:
             self.assertEqual([row["id"] for row in named[0]["workspace_installs"]], ["cloud1", "cloud2"])

@@ -1,46 +1,352 @@
 {
   "schema": "skills-tool-roots/v1",
-  "verified_at": "2026-10-17",
-  "note": "路径根到工具的映射。kind=shared 在工具列显示为空心圆（经共享目录可见）；kind=direct 显示为实心圆。前端不硬编码这张表。",
+  "verified_at": "2026-10-23",
+  "note": "路径根到工具的映射。kind=shared 在工具列显示为空心圆（经共享目录可见）；kind=direct 显示为实心圆。前端不硬编码这张表。 新增根均附 evidence；路径可见不等于启用或会话已加载。mcode 的 MiniMax 原生根待确认，当前映射有本机 Devin profile 证据。",
   "tools": [
-    {"id": "cursor", "label": "Cursor"},
-    {"id": "codex", "label": "Codex"},
-    {"id": "claude", "label": "Claude"},
-    {"id": "hermes", "label": "Hermes"},
-    {"id": "gemini", "label": "Gemini"},
-    {"id": "grok", "label": "Grok CLI"},
-    {"id": "copilot", "label": "Copilot"},
-    {"id": "opencode", "label": "OpenCode"},
-    {"id": "project", "label": "仓库入口"}
+    {
+      "id": "cursor",
+      "label": "Cursor"
+    },
+    {
+      "id": "codex",
+      "label": "Codex"
+    },
+    {
+      "id": "claude",
+      "label": "Claude Code"
+    },
+    {
+      "id": "hermes",
+      "label": "Hermes Agent"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini CLI"
+    },
+    {
+      "id": "grok",
+      "label": "Grok CLI"
+    },
+    {
+      "id": "copilot",
+      "label": "GitHub Copilot CLI"
+    },
+    {
+      "id": "opencode",
+      "label": "OpenCode"
+    },
+    {
+      "id": "antigravity",
+      "label": "Antigravity"
+    },
+    {
+      "id": "mcode",
+      "label": "Devin CLI"
+    },
+    {
+      "id": "omp",
+      "label": "Oh My Pi"
+    },
+    {
+      "id": "factory",
+      "label": "Factory Droid"
+    },
+    {
+      "id": "amp",
+      "label": "Amp"
+    },
+    {
+      "id": "project",
+      "label": "仓库入口"
+    }
   ],
   "roots": [
     {
       "path": "~/.agents/skills",
-      "tools": ["cursor", "codex", "gemini", "copilot", "opencode"],
+      "tools": [
+        "cursor",
+        "codex",
+        "gemini",
+        "copilot",
+        "opencode",
+        "mcode",
+        "amp",
+        "factory"
+      ],
       "kind": "shared",
-      "evidence": "ACM-331 2026-10-22 调查及用户同意方案：Cursor、Codex、Gemini CLI、Copilot、OpenCode 支持用户共享根 ~/.agents/skills。仅标注目录入口证据，未验证 runtime 当前会话加载；Claude、Hermes、Grok、Devin、Oh-My-Pi 不从此规则推断。"
+      "evidence": "ACM-331 2026-10-22 调查及用户同意方案：Cursor、Codex、Gemini CLI、Copilot、OpenCode 支持用户共享根 ~/.agents/skills。仅标注目录入口证据，未验证 runtime 当前会话加载；Claude、Hermes、Grok、Devin、Oh-My-Pi 不从此规则推断。 2026-10-23：当前 mcode 自定义 profile 实际为 Devin CLI 3000.11.92，devin skills paths 明列此根；Amp https://ampcode.com/docs/customize/skills；Factory Droid https://docs.factory.com/harness/skills。Oh My Pi 外部用户根受 enabledProviders 控制，不默认推断共享可见。"
     },
-    {"path": "~/.cursor/skills", "tools": ["cursor"], "kind": "direct"},
-    {"path": "~/.cursor/plugins", "tools": ["cursor"], "kind": "direct"},
-    {"path": "~/.codex/skills", "tools": ["codex"], "kind": "direct"},
-    {"path": "~/.codex/plugins", "tools": ["codex"], "kind": "direct"},
-    {"path": "~/.claude/skills", "tools": ["claude"], "kind": "direct"},
-    {"path": "~/.claude/plugins", "tools": ["claude"], "kind": "direct"},
-    {"path": "~/.hermes/skills", "tools": ["hermes"], "kind": "direct"},
-    {"path": "~/.gemini/skills", "tools": ["gemini"], "kind": "direct"},
-    {"path": "~/.gemini/config/skills", "tools": ["gemini"], "kind": "direct"},
-    {"path": "~/.gemini/antigravity/global_skills", "tools": ["gemini"], "kind": "direct"},
-    {"path": "~/.gemini/antigravity-cli/skills", "tools": ["gemini"], "kind": "direct"},
-    {"path": "~/.grok/skills", "tools": ["grok"], "kind": "direct"},
+    {
+      "path": "~/.cursor/skills",
+      "tools": [
+        "cursor"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.cursor/plugins",
+      "tools": [
+        "cursor"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.codex/skills",
+      "tools": [
+        "codex"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.codex/plugins",
+      "tools": [
+        "codex"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.claude/skills",
+      "tools": [
+        "claude",
+        "amp",
+        "opencode"
+      ],
+      "kind": "direct",
+      "evidence": "https://ampcode.com/docs/customize/skills：Skill Sources and Precedence；兼容根可能由设置禁用，路径证据不代表实际加载。 https://opencode.ai/docs/skills/"
+    },
+    {
+      "path": "~/.claude/plugins",
+      "tools": [
+        "claude"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.hermes/skills",
+      "tools": [
+        "hermes"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.gemini/skills",
+      "tools": [
+        "gemini"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.gemini/config/skills",
+      "tools": [
+        "gemini"
+      ],
+      "kind": "direct"
+    },
+    {
+      "path": "~/.gemini/antigravity/global_skills",
+      "tools": [
+        "antigravity"
+      ],
+      "kind": "direct",
+      "evidence": "2026-10-23 本机实测：该目录存在，目前无一级 SKILL.md 入口；保留原有 Antigravity IDE 安装目录映射，不代表当前会话加载。"
+    },
+    {
+      "path": "~/.gemini/antigravity-cli/skills",
+      "tools": [
+        "antigravity"
+      ],
+      "kind": "direct",
+      "evidence": "2026-10-23 本机实测：该目录存在并含 SKILL.md；Antigravity CLI 本机 agy 1.4.5。此为安装路径证据，不代表当前会话加载。"
+    },
+    {
+      "path": "~/.grok/skills",
+      "tools": [
+        "grok"
+      ],
+      "kind": "direct"
+    },
     {
       "path": ".agents/skills",
-      "tools": ["project", "hermes"],
+      "tools": [
+        "project",
+        "hermes",
+        "mcode",
+        "amp",
+        "factory"
+      ],
       "kind": "direct",
       "repo": true,
-      "evidence": "Hermes skill_utils.PROJECT_SKILLS_SUBDIRS 包含 <repo>/.agents/skills。"
+      "evidence": "Hermes skill_utils.PROJECT_SKILLS_SUBDIRS 包含 <repo>/.agents/skills。 2026-10-23 devin skills paths；https://ampcode.com/docs/customize/skills；https://docs.factory.com/harness/skills。"
     },
-    {"path": ".codex/skills", "tools": ["project", "codex"], "kind": "direct", "repo": true},
-    {"path": ".cursor/skills", "tools": ["project", "cursor"], "kind": "direct", "repo": true},
-    {"path": ".grok/skills", "tools": ["project", "grok"], "kind": "direct", "repo": true}
+    {
+      "path": ".codex/skills",
+      "tools": [
+        "project",
+        "codex"
+      ],
+      "kind": "direct",
+      "repo": true
+    },
+    {
+      "path": ".cursor/skills",
+      "tools": [
+        "project",
+        "cursor"
+      ],
+      "kind": "direct",
+      "repo": true
+    },
+    {
+      "path": ".grok/skills",
+      "tools": [
+        "project",
+        "grok"
+      ],
+      "kind": "direct",
+      "repo": true
+    },
+    {
+      "path": "~/.config/devin/skills",
+      "tools": [
+        "mcode"
+      ],
+      "kind": "direct",
+      "evidence": "2026-10-23 本机 Devin CLI 3000.11.92：devin skills paths 明列此根。Multica runtime list 当前 mcode provider 为自定义 Devin profile（launch_header=mcode acp）；仅针对该 profile，原生 MiniMax MCode 技能路径待确认，不推断 ~/.minimax/skills。"
+    },
+    {
+      "path": "~/.config/cognition/skills",
+      "tools": [
+        "mcode"
+      ],
+      "kind": "direct",
+      "evidence": "2026-10-23 本机 Devin CLI 3000.11.92：devin skills paths 明列此根。Multica runtime list 当前 mcode provider 为自定义 Devin profile（launch_header=mcode acp）；仅针对该 profile，原生 MiniMax MCode 技能路径待确认，不推断 ~/.minimax/skills。"
+    },
+    {
+      "path": ".devin/skills",
+      "tools": [
+        "project",
+        "mcode"
+      ],
+      "kind": "direct",
+      "evidence": "2026-10-23 本机 Devin CLI 3000.11.92：devin skills paths 明列此根。Multica runtime list 当前 mcode provider 为自定义 Devin profile（launch_header=mcode acp）；仅针对该 profile，原生 MiniMax MCode 技能路径待确认，不推断 ~/.minimax/skills。",
+      "repo": true
+    },
+    {
+      "path": ".cognition/skills",
+      "tools": [
+        "project",
+        "mcode"
+      ],
+      "kind": "direct",
+      "evidence": "2026-10-23 本机 Devin CLI 3000.11.92：devin skills paths 明列此根。Multica runtime list 当前 mcode provider 为自定义 Devin profile（launch_header=mcode acp）；仅针对该 profile，原生 MiniMax MCode 技能路径待确认，不推断 ~/.minimax/skills。",
+      "repo": true
+    },
+    {
+      "path": "~/.omp/agent/skills",
+      "tools": [
+        "omp"
+      ],
+      "kind": "direct",
+      "evidence": "https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage.md 与 packages/coding-agent/examples/sdk/04-skills.ts：原生技能目录；默认 profile ~/.omp/agent，命名 profile 和 PI_CODING_AGENT_DIR 覆盖需另行确认。"
+    },
+    {
+      "path": ".omp/skills",
+      "tools": [
+        "project",
+        "omp"
+      ],
+      "kind": "direct",
+      "evidence": "https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage.md 与 packages/coding-agent/examples/sdk/04-skills.ts：原生技能目录；默认 profile ~/.omp/agent，命名 profile 和 PI_CODING_AGENT_DIR 覆盖需另行确认。",
+      "repo": true
+    },
+    {
+      "path": "~/.omp/agent/managed-skills",
+      "tools": [
+        "omp"
+      ],
+      "kind": "direct",
+      "evidence": "https://github.com/can1357/oh-my-pi/blob/main/docs/skills.md：omp-managed 自动学习技能根。"
+    },
+    {
+      "path": "~/.factory/skills",
+      "tools": [
+        "factory"
+      ],
+      "kind": "direct",
+      "evidence": "https://docs.factory.com/harness/skills：Factory 的 Droid，Personal / Project 技能根。"
+    },
+    {
+      "path": ".factory/skills",
+      "tools": [
+        "project",
+        "factory"
+      ],
+      "kind": "direct",
+      "evidence": "https://docs.factory.com/harness/skills：Factory 的 Droid，Personal / Project 技能根。",
+      "repo": true
+    },
+    {
+      "path": "~/.config/amp/skills",
+      "tools": [
+        "amp"
+      ],
+      "kind": "direct",
+      "evidence": "https://ampcode.com/docs/customize/skills：Skill Sources and Precedence；兼容根可能由设置禁用，路径证据不代表实际加载。"
+    },
+    {
+      "path": "~/.config/agents/skills",
+      "tools": [
+        "amp"
+      ],
+      "kind": "shared",
+      "evidence": "https://ampcode.com/docs/customize/skills：Skill Sources and Precedence；兼容根可能由设置禁用，路径证据不代表实际加载。"
+    },
+    {
+      "path": ".claude/skills",
+      "tools": [
+        "project",
+        "claude",
+        "amp",
+        "opencode"
+      ],
+      "kind": "direct",
+      "evidence": "https://ampcode.com/docs/customize/skills：Skill Sources and Precedence；兼容根可能由设置禁用，路径证据不代表实际加载。 https://opencode.ai/docs/skills/",
+      "repo": true
+    },
+    {
+      "path": "~/.copilot/skills",
+      "tools": [
+        "copilot"
+      ],
+      "kind": "direct",
+      "evidence": "https://docs.github.com/en/copilot/concepts/agents/about-agent-skills"
+    },
+    {
+      "path": "~/.config/opencode/skills",
+      "tools": [
+        "opencode"
+      ],
+      "kind": "direct",
+      "evidence": "https://opencode.ai/docs/skills/"
+    },
+    {
+      "path": "~/.claude/plugins/cache",
+      "tools": [
+        "claude",
+        "amp"
+      ],
+      "kind": "direct",
+      "evidence": "https://ampcode.com/docs/customize/skills：Claude-compatible cache skills，可由 amp.skills.disableClaudeCodeSkills 禁用。"
+    },
+    {
+      "path": ".opencode/skills",
+      "tools": [
+        "project",
+        "opencode"
+      ],
+      "kind": "direct",
+      "repo": true,
+      "evidence": "https://opencode.ai/docs/skills/"
+    }
   ]
 }

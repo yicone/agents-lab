@@ -62,14 +62,14 @@
       "name": "de-ai-chinese-x-copy",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -79,9 +79,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -100,14 +100,14 @@
       "name": "hermes-async-delegation",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -117,9 +117,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -159,14 +159,14 @@
       "name": "knowledge-routing",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -176,9 +176,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -228,14 +228,14 @@
       "name": "logseq-curation",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -245,9 +245,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -272,14 +272,14 @@
       "name": "mem-distill",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -289,9 +289,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -346,14 +346,14 @@
       "name": "project-closeout",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -363,9 +363,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -390,14 +390,14 @@
       "name": "video-to-longform",
       "origin": "cloud",
       "source_class": "multica_cloud",
-      "source_label": "Multica 云端",
+      "source_label": "Multica Workspace",
       "scope": "workspace",
-      "channel_label": "Multica 云端",
+      "channel_label": "Multica Workspace",
       "channel_detail": "1 个 Workspace",
       "canonical_path": null,
       "repo_is_source": false,
-      "reconciliation_status": "stale",
-      "status_label": "仅云端",
+      "reconciliation_status": "unrecorded",
+      "status_label": "未登记",
       "tools": {},
       "entries": [],
       "evidence": [],
@@ -407,9 +407,9 @@
       "baseline_debt": false,
       "quiet": false,
       "shared_entry": {
-"state": "none",
-      "label": "未检查",
-      "detail": "云端技能不在本机清单，共享入口未检查"
+        "state": "none",
+        "label": "未检查",
+        "detail": "Multica Workspace 技能不在本机清单，共享入口未检查"
       },
       "workspace_installs": [
         {
@@ -485,19 +485,28 @@
       "id": "all",
       "label": "全部",
       "count": 9,
-      "statuses": {}
+      "statuses": {
+        "stale": 1,
+        "unrecorded": 7,
+        "aligned": 1
+      }
     },
     {
       "id": "local_custom",
       "label": "自建",
       "count": 2,
-      "statuses": {}
+      "statuses": {
+        "stale": 1,
+        "aligned": 1
+      }
     },
     {
       "id": "multica_cloud",
-      "label": "Multica 云端",
+      "label": "Multica Workspace",
       "count": 7,
-      "statuses": {}
+      "statuses": {
+        "unrecorded": 7
+      }
     }
   ],
   "tools": [

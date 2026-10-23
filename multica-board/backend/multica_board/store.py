@@ -114,6 +114,7 @@ _COLUMNS: dict[str, list[str]] = {}
 # migrations additive and idempotent so existing caches remain readable.
 _ADDITIVE_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
     "tasks": (("failure_reason", "TEXT"),),
+    "workspace_skills": (("content_hash", "TEXT"),),
 }
 
 
