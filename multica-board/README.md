@@ -11,6 +11,7 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `web/fixtures/`：契约样例响应（虚构数据），`generate.py` 重新生成。
 - `docs/api-contract.md`：前后端只读 API 契约（v0.5）。改契约先在 ACM-163 说。
 - `docs/frontend-design.md`：信息架构与交互设计。
+- `docs/design-system.md`：信息结构、版式模式、组件与视觉规范，以及新板块设计检查清单（新板块从这里开始）。
 
 ## 运行
 
