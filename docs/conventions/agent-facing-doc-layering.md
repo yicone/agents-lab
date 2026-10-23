@@ -1,6 +1,10 @@
 # Agent-Facing Document Layering
 
-This document defines how agent-facing skills and docs in `agents-lab` should reference each other.
+Current placement standard (ACM-384, implemented by ACM-387): short repository-wide constraints belong in the root `AGENTS.md`; subproject constraints belong in nested `AGENTS.md` files without repeating the root. Multi-step workflows belong in repository skills, with canonical sources in `skills/` and symlink entrypoints in `.agents/skills/`. Agent instructions define roles, permissions, and delivery; `docs/` holds explanations, contracts, and historical material, rather than an additional normative entrypoint.
+
+The older “principles in docs” template and mandatory-startup examples below are historical reference only. They do not require loading `session-start.md` for every conversation or override the current placement standard.
+
+The following records the earlier rationale for how agent-facing skills and docs reference each other.
 
 The goal is not perfect elegance. The goal is reliable execution under current agent limits.
 

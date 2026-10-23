@@ -1,21 +1,20 @@
 # agents-lab docs
 
-This directory is the durable system of record for repository rules that agents need during work.
-The rules here should stay tool-agnostic by default so they remain usable across multiple coding-agent runtimes.
+This directory indexes explanations, contracts, and historical material. Repository-wide constraints live in [AGENTS.md](../AGENTS.md), subproject constraints in nested `AGENTS.md` files, and task workflows in repository skills (`skills/` sources with `.agents/skills/` symlink entrypoints). Agent instructions define roles, permissions, and delivery.
 
 ## Structure
 
-- `context/`: durable context the agent should respect across tasks
-- `workflows/`: ordered procedures the agent should follow
+- `context/`: durable project context and memory reference material
+- `workflows/`: workflow reference material, used when relevant
 - `conventions/`: writing and organization conventions
 - `../skills-governance/`: local-machine Skills governance package
 - `api-gateway-cache-probe/`: reusable notes for testing caching behavior on AI gateways
 
-## Start Here
+## Reference Index
 
-- Session bootstrap: [workflows/session-start.md](workflows/session-start.md)
-- Memory rules: [context/memory.md](context/memory.md)
-- Research loop: [workflows/research-loop.md](workflows/research-loop.md)
+- Optional session context: [workflows/session-start.md](workflows/session-start.md)
+- Shared Memory reference: [context/memory.md](context/memory.md)
+- Research loop reference (execution entrypoint: [agent-research](../skills/agent-research/SKILL.md)): [workflows/research-loop.md](workflows/research-loop.md)
 - Cross-project agent collaboration patterns: [conventions/agent-collaboration-generalizations.md](conventions/agent-collaboration-generalizations.md)
 - Agent-facing doc layering: [conventions/agent-facing-doc-layering.md](conventions/agent-facing-doc-layering.md)
 - Skills governance package: [../skills-governance/README.md](../skills-governance/README.md)
@@ -36,4 +35,4 @@ The rules here should stay tool-agnostic by default so they remain usable across
 
 ## Maintenance Rule
 
-If a rule is likely to outlive one task, document it here instead of expanding `AGENTS.md`.
+Keep explanations, contracts, and historical evidence here. Put short repository-wide constraints in the root `AGENTS.md`, subproject constraints in the corresponding nested `AGENTS.md`, and multi-step task workflows in skills. Do not make this index an additional normative entrypoint.
