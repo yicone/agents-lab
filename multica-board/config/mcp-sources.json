@@ -1,0 +1,107 @@
+{
+  "schema": "mcp-sources/v1",
+  "verified_at": "2026-10-24",
+  "note": "后端只读本文件列出的路径：global.path 相对 home，project[].path 相对 repo_root。不跟随 include、不做通配。format：json / jsonc（注释与尾逗号）/ toml（tomllib）/ yaml（受限读取器，只取 container 块）。evidence 记录实现时对各工具当前文档的核对结果，不保证路径仍被该工具最新版本使用。",
+  "tools": [
+    {
+      "id": "cursor",
+      "label": "Cursor",
+      "short_label": "Cursor",
+      "global": { "path": ".cursor/mcp.json", "container": "mcpServers", "format": "json" },
+      "evidence": "Cursor 官方文档（cursor.com/docs 的 MCP 页）：全局 ~/.cursor/mcp.json，顶层 mcpServers，JSON。"
+    },
+    {
+      "id": "codex",
+      "label": "Codex",
+      "short_label": "Codex",
+      "global": { "path": ".codex/config.toml", "container": "mcp_servers", "format": "toml" },
+      "evidence": "OpenAI Codex 官方文档（developers.openai.com/codex/config）：~/.codex/config.toml，[mcp_servers.<name>] 表，TOML。"
+    },
+    {
+      "id": "claude",
+      "label": "Claude Code",
+      "short_label": "Claude",
+      "global": { "path": ".claude.json", "container": "mcpServers", "format": "json" },
+      "evidence": "Claude Code 官方文档（code.claude.com / docs.anthropic.com 的 MCP 页）：~/.claude.json 顶层 mcpServers，其他键不读。"
+    },
+    {
+      "id": "hermes",
+      "label": "Hermes Agent",
+      "short_label": "Hermes",
+      "global": { "path": ".hermes/config.yaml", "container": "mcp_servers", "format": "yaml" },
+      "evidence": "Hermes 官方文档 hermes-agent.nousresearch.com/docs/user-guide/features/mcp：~/.hermes/config.yaml 的 mcp_servers 块，块状 YAML。"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini CLI",
+      "short_label": "Gemini",
+      "global": { "path": ".gemini/settings.json", "container": "mcpServers", "format": "jsonc" },
+      "evidence": "Gemini CLI 官方文档（github.com/google-gemini/gemini-cli 的 docs）：~/.gemini/settings.json 的 mcpServers；url 走 SSE、httpUrl 走 HTTP；settings.json 允许注释与尾逗号。"
+    },
+    {
+      "id": "mcode",
+      "label": "Devin CLI",
+      "short_label": "Devin",
+      "global": { "path": ".config/devin/mcp_config.json", "container": "mcpServers", "format": "json" },
+      "evidence": "Devin 官方文档（docs.devin.ai 的 Cascade MCP 页）：macOS/Linux ~/.config/devin/mcp_config.json（或 $XDG_CONFIG_HOME/devin/mcp_config.json），mcpServers。"
+    },
+    {
+      "id": "antigravity",
+      "label": "Antigravity",
+      "short_label": "Antigravity",
+      "global": { "path": ".gemini/antigravity/mcp_config.json", "container": "mcpServers", "format": "json" },
+      "evidence": "github-mcp-server 安装文档给出 ~/.gemini/antigravity/mcp_config.json（IDE 路径）；Antigravity 官方文档 antigravity.google/docs/mcp 现写 CLI 全局 ~/.gemini/config/mcp_config.json。按设计稿声明表保留本路径，差异见交付说明。"
+    },
+    {
+      "id": "windsurf",
+      "label": "Windsurf",
+      "short_label": "Windsurf",
+      "global": { "path": ".codeium/windsurf/mcp_config.json", "container": "mcpServers", "format": "json" },
+      "evidence": "Windsurf 官方文档 docs.windsurf.com（Cascade MCP 集成）：~/.codeium/windsurf/mcp_config.json，mcpServers。"
+    },
+    {
+      "id": "opencode",
+      "label": "OpenCode",
+      "short_label": "OpenCode",
+      "global": { "path": ".config/opencode/opencode.json", "container": "mcp", "format": "jsonc" },
+      "evidence": "OpenCode 官方文档 opencode.ai/docs/config 与 /docs/mcp-servers：全局 ~/.config/opencode/opencode.json，mcp 容器；opencode.json(c) 允许注释。"
+    }
+  ],
+  "project": [
+    {
+      "path": ".mcp.json",
+      "location": ".mcp.json",
+      "container": "mcpServers",
+      "format": "json",
+      "evidence": "通用项目级 MCP 文件（Claude Code 项目作用域与多个工具共用约定）：仓库根 .mcp.json，mcpServers。"
+    },
+    {
+      "path": ".cursor/mcp.json",
+      "location": ".cursor",
+      "container": "mcpServers",
+      "format": "json",
+      "evidence": "Cursor 官方文档的项目级路径 <project>/.cursor/mcp.json，mcpServers。"
+    },
+    {
+      "path": ".codex/config.toml",
+      "location": ".codex",
+      "container": "mcp_servers",
+      "format": "toml",
+      "evidence": "Codex 项目级约定 .codex/config.toml（同全局容器 mcp_servers，TOML）。"
+    },
+    {
+      "path": ".gemini/settings.json",
+      "location": ".gemini",
+      "container": "mcpServers",
+      "format": "jsonc",
+      "evidence": "Gemini CLI 项目级约定 .gemini/settings.json（同全局容器 mcpServers）。"
+    },
+    {
+      "path": "opencode.json",
+      "location": "opencode.json",
+      "container": "mcp",
+      "format": "jsonc",
+      "evidence": "OpenCode 官方文档的项目级路径 <project>/opencode.json(c)，mcp 容器。"
+    }
+  ]
+}

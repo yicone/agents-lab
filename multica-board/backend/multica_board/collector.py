@@ -18,7 +18,15 @@ from typing import Any
 
 from .changes import CHANGE_RETENTION_DAYS, diff_issues, diff_runtimes, events_for_tasks
 from .cli_runner import CliError, CliRunner
-from .mcp_summary import norm_library_transport, plain_text as _mcp_name, summarize_mcp_config
+from .mcp_local import McpContext, fingerprints, load_fingerprint_key, row_id
+from .mcp_summary import (
+    SUMMARY_KEYS,
+    SUMMARY_SERVER_KEYS,
+    norm_library_transport,
+    own_entry_records,
+    plain_text as _mcp_name,
+    summarize_mcp_config,
+)
 from .redact import classify_error, redact
 from .store import Store
 
@@ -265,6 +273,8 @@ def norm_agent(a: dict[str, Any]) -> dict[str, Any]:
     try:
         # Only the summary may be stored; the raw config never reaches the cache or logs.
         summary = summarize_mcp_config(a.get("mcp_config"), a.get("mcp_config_redacted"))
+        assert set(summary) <= SUMMARY_KEYS
+        assert all(set(s) <= SUMMARY_SERVER_KEYS for s in summary["servers"])
     except Exception:
         log.warning("mcp_config summary failed for one agent")
         summary = {"state": "invalid", "servers": []}
@@ -314,11 +324,13 @@ def norm_task(t: dict[str, Any]) -> dict[str, Any]:
 
 
 class Collector:
-    def __init__(self, runner: CliRunner, store: Store, server: str, opts: CollectOptions):
+    def __init__(self, runner: CliRunner, store: Store, server: str, opts: CollectOptions,
+                 mcp_ctx: McpContext | None = None):
         self.runner = runner
         self.store = store
         self.server = server
         self.opts = opts
+        self.mcp_ctx = mcp_ctx
 
     # --- top level ------------------------------------------------------------
 
@@ -517,7 +529,44 @@ class Collector:
         self._check_scope(ws, items)
         rows = [norm_agent(a) for a in items if a.get("id")]
         self.store.replace_snapshot(self.server, ws, "agents", rows)
+        self._record_own(ws, items)
         return len(rows), True, rows
+
+    def _record_own(self, ws: str, items: list[dict[str, Any]]) -> None:
+        """Fingerprint each agent's raw mcp_config into OwnFingerprints (§3.5).
+
+        Raw configs and raw server names stay in process memory; the store only
+        gets the whitelisted summary written by norm_agent. Counts only in logs.
+        """
+        ctx = self.mcp_ctx
+        if ctx is None:
+            return
+        own = ctx.own
+        keep: set[str] = set()
+        key_res = load_fingerprint_key(ctx.data_dir, geteuid=ctx.geteuid)
+        own.sync_key(key_res["stamp"])
+        key = key_res["key"]
+        at = iso(utcnow())
+        for a in items:
+            aid = a.get("id")
+            if not aid or a.get("archived_at"):
+                continue
+            keep.add(aid)
+            config = a.get("mcp_config")
+            if key is None or not isinstance(config, dict):
+                continue
+            recs = own_entry_records(config)
+            order: list[str] = []
+            servers: dict[str, dict[str, bytes]] = {}
+            for rec in recs:
+                rid = row_id(ctx.salt, rec["raw"])
+                order.append(rid)
+                if rec["fp_inputs"] is not None:
+                    servers[rid] = fingerprints(rec["fp_inputs"], key)
+            own.record_agent(ws, aid, agent_updated_at=a.get("updated_at"),
+                             collected_at=at, servers=servers, order=order)
+        own.prune_agents(ws, keep)
+        log.info("own fingerprints: %d agents", len(own.agents))
 
     def _workspace_skills(self, ws: str):
         res = self.runner.run(["skill", "list"], workspace_id=ws)
@@ -585,18 +634,26 @@ class Collector:
         items = _as_list(res.data, "servers")
         self._check_scope(ws, items)
         rows = []
+        lib_ids: list[tuple[str, str]] = []
         for s in items:
             if not s.get("id"):
                 continue
             count = s.get("agent_count")
+            raw_name = s.get("name") if isinstance(s.get("name"), str) else ""
+            display = _mcp_name(raw_name)
             rows.append({
                 "id": s["id"],
-                "name": _mcp_name(s.get("name")),
+                "name": display,
+                "name_exact": int(display == raw_name and display is not None),
                 "transport": norm_library_transport(s.get("transport")),
                 "agent_count": count if isinstance(count, int) and not isinstance(count, bool) and count >= 0 else 0,
                 "created_at": s.get("created_at") if isinstance(s.get("created_at"), str) else None,
                 "updated_at": s.get("updated_at") if isinstance(s.get("updated_at"), str) else None,
             })
+            if self.mcp_ctx is not None:
+                lib_ids.append((s["id"], row_id(self.mcp_ctx.salt, raw_name)))
+        if self.mcp_ctx is not None:
+            self.mcp_ctx.own.record_library(ws, lib_ids)
         self.store.replace_snapshot(self.server, ws, "mcp_servers", rows)
         self.store.record_sync(self.server, ws, "mcp_library", at=at, ok=True, count=len(rows))
 
@@ -608,6 +665,8 @@ class Collector:
             self._set_mcp_state(ws, {"fingerprint": None, "rounds": 0, "bindings_state": "none",
                                      "bindings_collected_at": prev.get("bindings_collected_at")})
             self.store.record_sync(self.server, ws, "mcp_bindings", at=at, ok=True, count=0)
+            if self.mcp_ctx is not None:
+                self.mcp_ctx.own.workspaces.add(ws)
             return
 
         fingerprint = hashlib.sha256(
@@ -618,6 +677,7 @@ class Collector:
             not prev.get("fingerprint")
             or prev["fingerprint"] != fingerprint
             or rounds >= max(1, self.opts.mcp_every)
+            or (self.mcp_ctx is not None and ws not in self.mcp_ctx.own.workspaces)
         )
         if not refresh:
             self._set_mcp_state(ws, {**prev, "rounds": rounds})
@@ -666,6 +726,8 @@ class Collector:
               "state": ("error" if a["id"] in failures else ("ok" if collected.get(a["id"]) else "none"))}
              for a in active],
         )
+        if self.mcp_ctx is not None and not failures:
+            self.mcp_ctx.own.workspaces.add(ws)
         if not failures:
             state = "ok"
         elif len(failures) == len(active):
