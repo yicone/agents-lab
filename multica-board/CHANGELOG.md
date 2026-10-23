@@ -1,0 +1,98 @@
+# Changelog
+
+记录已合入 `main` 的用户可感知变化，采用 Keep a Changelog 的分类方式。无正式版本号，以下日期为 PR 合并日期（UTC），**不是部署或上线日期**。核对基线：`537e5fec07d239504cd86592d4a1caa55a1ff341`（2026-10-24 核对）。未逐项核实部署记录，以下历史条目部署状态均待补证，不据合并推断已上线。纯文档、纯测试、内部重构及已撤回的图标方案不单列。
+
+## Unreleased
+
+暂无在本核对基线之后确认合入的用户可感知变更；不在此收录未合并分支。
+
+## 2026-10-23
+
+### 新增
+
+- 增加只读 MCP 板块，展示 workspace 库、agent 分配、待处理问题及详情。（[PR #73](https://github.com/yicone/agents-lab/pull/73)；[合并提交 `268e4ad`](https://github.com/yicone/agents-lab/commit/268e4ad064fa62ea59b37f9d2ed4fba5126fa13d)；ACM-370）
+- Skills 可升级栏接入只读 npm / GitHub 版本检查，失败或不可比较时保留未知状态。（[PR #67](https://github.com/yicone/agents-lab/pull/67)；[合并提交 `b667131`](https://github.com/yicone/agents-lab/commit/b667131f53ccda2709080399da634898431f7f55)；ACM-358）
+- Agents 支持用户手动补采其他 workspace 的 agent 清单，并显示快照来源和失败状态。（[PR #69](https://github.com/yicone/agents-lab/pull/69)；[合并提交 `01e8a22`](https://github.com/yicone/agents-lab/commit/01e8a228569c0f3bd9cc9ed068fadb870decafd4)；ACM-332）
+
+### 修复
+
+- 恢复窗口和跨站顶层页面导航不再被误拦截，API、子资源及 Host/Origin 防护保留。（[PR #75](https://github.com/yicone/agents-lab/pull/75)；[合并提交 `d00aabb`](https://github.com/yicone/agents-lab/commit/d00aabbbd686707c895b0e2a89a5102db6525787)；ACM-375）
+- Skills 优先比较内容指纹，修正未登记项计数和状态，明确 Multica Workspace 与 Grok Bot 来源。（[PR #71](https://github.com/yicone/agents-lab/pull/71)；[合并提交 `5f60a64`](https://github.com/yicone/agents-lab/commit/5f60a642bd51d082a585d596109d73eecb974be1)；ACM-349）
+
+## 2026-10-22
+
+### 新增
+
+- Skills 支持 Markdown 正文、文件树、有限来源 diff 和动态 runtime 列，修复附件重试与刷新状态丢失。（[PR #65](https://github.com/yicone/agents-lab/pull/65)；[合并提交 `2fae0d2`](https://github.com/yicone/agents-lab/commit/2fae0d2524c94bf4b2909a64e3cd9908a81cfb99)；ACM-337 / ACM-336 / ACM-331）
+
+## 2026-10-21
+
+### 新增
+
+- Skills 增加固定表头、云端安装来源筛选和正文查看器，缺接口时明确报错。（[PR #61](https://github.com/yicone/agents-lab/pull/61)；[合并提交 `0bbcfe2`](https://github.com/yicone/agents-lab/commit/0bbcfe20e338cd83f9fb1a4dd50b5257f2d0f793)；ACM-312）
+
+### 变更
+
+- 统一 runtime 标识，明确地图工具告警与所属列。（[PR #60](https://github.com/yicone/agents-lab/pull/60)；[合并提交 `06de079`](https://github.com/yicone/agents-lab/commit/06de0790ec0615f48ef9ff5c7c7db3d472fb241d)；ACM-311）
+
+### 修复
+
+- 启动采集时避开工作目录中的 queue.py，避免看板无法启动。（[PR #63](https://github.com/yicone/agents-lab/pull/63)；[合并提交 `5dfb305`](https://github.com/yicone/agents-lab/commit/5dfb305248b4e5d58a313f52707d1a673c1a3f55)；ACM-324）
+- Skills 保留递归目录与同名条目，避免安装可见性被治理去重吞掉。（[PR #62](https://github.com/yicone/agents-lab/pull/62)；[合并提交 `95408d3`](https://github.com/yicone/agents-lab/commit/95408d33aeeff02bc4524d05d99044493c35d1cc)；ACM-307）
+
+## 2026-10-20
+
+### 新增
+
+- 用量页分列展示 Multica 用量、外部配额和失败信息。（[PR #57](https://github.com/yicone/agents-lab/pull/57)；[合并提交 `69b59f5`](https://github.com/yicone/agents-lab/commit/69b59f5e3f4057e7b861148a208b8689eed7a378)；ACM-299 / ACM-301）
+- Skills 页展示 Multica 云端 Skills 与本地跨层漂移。（[PR #55](https://github.com/yicone/agents-lab/pull/55)；[合并提交 `20bbfa1`](https://github.com/yicone/agents-lab/commit/20bbfa1d99eb9802695f6271d9a0c1ce3eaeaff0)；ACM-292）
+- Agents 增加 Grok Bots 子视图及脱敏 Instructions / Skills 详情。（[PR #54](https://github.com/yicone/agents-lab/pull/54)；[合并提交 `bf0cf7d`](https://github.com/yicone/agents-lab/commit/bf0cf7d743fab40dd94a1f605a645e88cde1e7e4)；ACM-293；采集后端见 PR #53 / ACM-291）
+
+## 2026-10-19
+
+### 新增
+
+- 增加切换计划列表、审阅页与两个只读 GET，执行操作保持禁用。（[PR #50](https://github.com/yicone/agents-lab/pull/50)；[合并提交 `250023b`](https://github.com/yicone/agents-lab/commit/250023b97c5583f5460596b8ee78e0d1da0ebead)；ACM-285）
+
+### 修复
+
+- 进入切换计划列表或详情时重新读取数据，并清除多余 null 文本。（[PR #51](https://github.com/yicone/agents-lab/pull/51)；[合并提交 `e0f9530`](https://github.com/yicone/agents-lab/commit/e0f9530afbecf1e22716d06720a58d3bdf94dc08)；ACM-286）
+
+## 2026-10-18
+
+### 变更
+
+- Skills 展示共享目录入口多态与多来源证据，修正 Harness 路径归属。（[PR #48](https://github.com/yicone/agents-lab/pull/48)；[合并提交 `a6dde1f`](https://github.com/yicone/agents-lab/commit/a6dde1f359ce6363ae5757c8dd4cf4b0ad4d0ec1)；ACM-232）
+
+### 修复
+
+- Skills 按词法路径去重仓库条目，修复窄屏溢出和 null 渲染。（[PR #49](https://github.com/yicone/agents-lab/pull/49)；[合并提交 `ae49528`](https://github.com/yicone/agents-lab/commit/ae49528da486343073baa5c8fd9e2acdcf849790)；ACM-232）
+- workspace 与页签筛选逐步进入浏览历史，支持逐步回退和窄屏页签。（[PR #47](https://github.com/yicone/agents-lab/pull/47)；[合并提交 `c9591bf`](https://github.com/yicone/agents-lab/commit/c9591bf2720d4f1d4c8ac5ea3f08018530b3182d)；ACM-260）
+
+## 2026-10-17
+
+### 新增
+
+- 增加只读 Skills 清单、来源与待处理信息。（[PR #44](https://github.com/yicone/agents-lab/pull/44)；[合并提交 `6ded569`](https://github.com/yicone/agents-lab/commit/6ded5690e6489b4955c05c0a73925d91a255fa0b)；ACM-182）
+- 增加只读用量快照，显示配额、token 用量及采集失败状态。（[PR #32](https://github.com/yicone/agents-lab/pull/32)；[合并提交 `6d7ca36`](https://github.com/yicone/agents-lab/commit/6d7ca36286b9c96df62f3a87641a7e744e1f3d58)；ACM 单号未在 PR 标题或正文标注，待补证）
+- 增加 Agent Atlas 地图、层视图及 Issues 层筛选。（[PR #31](https://github.com/yicone/agents-lab/pull/31)；[合并提交 `efb90bf`](https://github.com/yicone/agents-lab/commit/efb90bfaa65228561ac4bc6a77357314f4dd91bc)；ACM-193；层解析后端见 PR #30 / ACM-192）
+- 增加 ACM Lab「待你决定」队列。（[PR #29](https://github.com/yicone/agents-lab/pull/29)；[合并提交 `e37c7cc`](https://github.com/yicone/agents-lab/commit/e37c7ccd34a789972c7d812704a9233207f98ba9)；ACM-191）
+
+### 修复
+
+- Issues 和 Agents 保留共用 workspace 筛选及清除入口。（[PR #46](https://github.com/yicone/agents-lab/pull/46)；[合并提交 `7b318fd`](https://github.com/yicone/agents-lab/commit/7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1)；ACM 单号未在 PR 标题或正文标注，待补证）
+- 自动补齐旧缓存缺少的任务失败原因字段，避免读取失败。（[PR #33](https://github.com/yicone/agents-lab/pull/33)；[合并提交 `dcc5d7a`](https://github.com/yicone/agents-lab/commit/dcc5d7a05536251f015239b8c8cf7b334ca4b9f2)；ACM-197）
+
+## 2026-10-16
+
+### 新增
+
+- 待处理摘要纳入未被状态提醒覆盖的 agent 交付。（[PR #24](https://github.com/yicone/agents-lab/pull/24)；[合并提交 `49ab669`](https://github.com/yicone/agents-lab/commit/49ab669f735f8c3e86035ef5ae5b1edba26b676b)；ACM-179）
+- 待处理摘要提示缺少异步委派技能的 Hermes agent。（[PR #19](https://github.com/yicone/agents-lab/pull/19)；[合并提交 `3a9b506`](https://github.com/yicone/agents-lab/commit/3a9b506b9c71dd485d1b37cbda49fa5b7b33159a)；ACM-174）
+
+## 2026-10-15
+
+### 新增
+
+- 增加待处理摘要、增量变更流和失败统计，并采用叠层看板图标 B。（[PR #12](https://github.com/yicone/agents-lab/pull/12)；[合并提交 `b715b0c`](https://github.com/yicone/agents-lab/commit/b715b0c3536c9c04489b5174fd148a177fd25a1e)；ACM-165 / ACM-166 / ACM-167 / ACM-170）
+- 提供跨 workspace 只读看板、采集健康状态、Issues / Agents 视图及运行历史抽屉。（[PR #11](https://github.com/yicone/agents-lab/pull/11)；[合并提交 `bda4ed4`](https://github.com/yicone/agents-lab/commit/bda4ed4ad9572392c15432c4f3f986425655d955)；ACM-161 / ACM-162 / ACM-163）

@@ -42,3 +42,4 @@ At the start of each new conversation:
 - Keep this file short.
 - Put durable details in `docs/`.
 - If a rule needs examples, troubleshooting, or step-by-step instructions, add or update a doc page and link it here.
+- [multica-board/docs/maintenance.md](multica-board/docs/maintenance.md): Agent Atlas maintenance rules
