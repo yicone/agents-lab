@@ -80,7 +80,9 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 | `--db` | `~/.multica-board/board.sqlite` | 删掉即重置缓存；schema 变化时自动重建 |
 | `--refresh` | `60` | 两轮采集之间的秒数，即 `/api/meta` 的 `collect_interval_s`；`0` 只读缓存 |
 | `--full-every` | `30` | 每 N 轮做一次 run 历史全量校对，其余轮次增量 |
-| `--mcp-every` | `5` | 库指纹不变时，每 N 轮重读一次各 agent 的 MCP 分配 |
+| `--mcp-every` | `5` | 库指纹不变时，每 N 轮重读一次各 agent 的 MCP 分配（首个含自有配置的轮次例外，强制读一次） |
+
+`/api/mcp`（schema 2，见 `docs/mcp-redesign.md`）另读 `config/mcp-sources.json` 声明的本地 MCP 配置文件；该文件自带逐工具来源说明。
 | `--run-days` | `14` | run 缓存窗口（`latest_run=null` 表示窗口内没有 run） |
 | `--max-task-pages` | `10` | 每个 agent 每轮最多翻几页（每页 200 条） |
 | `--concurrency` / `--max-cli` | `3` / `4` | 并行的 workspace（及 agent）数 / 同时运行的 `multica` 进程上限 |
@@ -108,7 +110,7 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 
 - **只监听回环地址**：只能绑定 `127.0.0.1` / `::1`。`Host` 只接受 `127.0.0.1:<port>`（绑 `::1` 时为 `[::1]:<port>`），其它返回 `421`。跨源 `Origin` 或 `Sec-Fetch-Site: cross-site` 返回 `403`。不发 CORS 头。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。
 - **没有写接口**：HTTP 只有 GET/HEAD。CLI 只能执行精确白名单（`workspace list`、`workspace member list`、`issue list`、`project list`、`agent list`、`agent tasks`、`runtime list`、`property list`），白名单外的命令在启动进程前就被拒绝；调用方也不能注入 `--profile` / `--workspace-id` / `--server-url`。没有“立即刷新”接口。`suggest_layers` 另外只允许 `issue list`、`project list`、`property list`，用来出回填建议，不写属性。
-- **token 不外泄**：后端不读 CLI 配置或 token。子进程 env 去掉 `MULTICA_TOKEN`、`MULTICA_SERVER_URL`、`MULTICA_TASK_*`、`MULTICA_WORKSPACE_ID`，加 `GODEBUG=tlsmlkem=0`，每次调用都带 `--profile <p> --workspace-id <id>`。子进程 cwd 固定为一个空的私有临时目录：CLI 会从 cwd 向上查找 `.multica` 并覆盖 `--profile`，所以从哪个目录启动看板都不影响采集。不缓存：issue 正文、agent instructions、custom_env/args、mcp_config、runtime_config、launch_header、run 输出与 workdir、成员邮箱。错误文本脱敏（Bearer/PAT/`m??_` token、`sk-`、`ghp_`、JWT、`key=value`、长 hex/base64、home 路径）。缓存目录 `0700`，文件 `0600`。
+- **MCP 配置文件只按声明读**：后端只读 `config/mcp-sources.json` 声明的本机/项目级 MCP 配置文件（相对路径，逐目录 fd 打开、`O_NOFOLLOW` 不跟随符号链接、只读固定白名单字段、值只在内存里解析；不入 SQLite、不进 API、不进日志）。指纹比较用 `<db 目录>/mcp-fingerprint.key`（0600、属主/链接/长度校验，拒绝就停用指纹）；自有配置指纹只在进程内存。不读 CLI 配置或 token。子进程 env 去掉 `MULTICA_TOKEN`、`MULTICA_SERVER_URL`、`MULTICA_TASK_*`、`MULTICA_WORKSPACE_ID`，加 `GODEBUG=tlsmlkem=0`，每次调用都带 `--profile <p> --workspace-id <id>`。子进程 cwd 固定为一个空的私有临时目录：CLI 会从 cwd 向上查找 `.multica` 并覆盖 `--profile`，所以从哪个目录启动看板都不影响采集。不缓存：issue 正文、agent instructions、custom_env/args、mcp_config、runtime_config、launch_header、run 输出与 workdir、成员邮箱。错误文本脱敏（Bearer/PAT/`m??_` token、`sk-`、`ghp_`、JWT、`key=value`、长 hex/base64、home 路径）。缓存目录 `0700`，文件 `0600`。
 - **workspace 隔离**：返回行的 `workspace_id` 和请求的不一致时，整批丢弃，该 workspace 标 `collect_state=error`、`kind=auth`（"CLI identity scoped to another workspace"）。一个 workspace 失败不影响其他 workspace，旧缓存保留并标为过期，不会显示成 0 条。
 
 ## 不在本期

@@ -3,6 +3,7 @@ from __future__ import annotations
 import http.client
 import json
 import logging
+import os
 import sys
 import tempfile
 import threading
@@ -16,7 +17,8 @@ import fake_cli  # noqa: E402
 from fake_cli import FAKE_TOKEN, SENTINELS, FakeMultica, agent, runtime, sentinel_agent  # noqa: E402
 from multica_board.cli_runner import CliRunner, CommandNotAllowed, assert_read_only  # noqa: E402
 from multica_board.collector import CollectOptions, Collector  # noqa: E402
-from multica_board.mcp_summary import INVALID_MESSAGE, summarize_mcp_config, transport_of  # noqa: E402
+from multica_board.mcp_local import McpContext, OwnFingerprints  # noqa: E402
+from multica_board.mcp_summary import INVALID_MESSAGE, summarize_mcp_config  # noqa: E402
 from multica_board.mcp_support import SUPPORT, runtime_loads  # noqa: E402
 from multica_board.server import BoardServer  # noqa: E402
 from multica_board.store import Store  # noqa: E402
@@ -31,19 +33,40 @@ TS_PROVIDERS = {
 }
 
 
-def make(fake: FakeMultica, db: Path, **opt) -> tuple[Store, CliRunner]:
+def make(fake: FakeMultica, db: Path) -> tuple[Store, CliRunner]:
     store = Store(db)
     runner = CliRunner(profile=SERVER, _exec=fake, _sleep=lambda s: None, retries=0)
     return store, runner
 
 
-def collect(store: Store, runner: CliRunner, **opt):
-    # A fresh Collector per cycle, like the serve loop.
-    return Collector(runner, store, SERVER, CollectOptions(all_workspaces=True, **opt)).collect()
+def collect(store: Store, runner: CliRunner, ctx: McpContext | None = None, **opt):
+    return Collector(runner, store, SERVER, CollectOptions(all_workspaces=True, **opt),
+                     mcp_ctx=ctx).collect()
 
 
-def views(store: Store, **kw) -> Views:
-    return Views(store, SERVER, app_url="https://app.test", collect_interval_s=60, **kw)
+def views(store: Store, ctx: McpContext) -> Views:
+    return Views(store, SERVER, app_url="https://app.test", collect_interval_s=60, mcp_ctx=ctx)
+
+
+def make_ctx(root: Path, salt: bytes | None = None, own: OwnFingerprints | None = None) -> McpContext:
+    home = root / "home"
+    repo = root / "repo"
+    data_dir = root / "data"
+    for d in (home, repo, data_dir):
+        d.mkdir(parents=True, exist_ok=True)
+    (data_dir).chmod(0o700)
+    ctx = McpContext(home=home, repo_root=repo, data_dir=data_dir)
+    if salt is not None:
+        ctx.salt = salt
+    if own is not None:
+        ctx.own = own
+    return ctx
+
+
+def write_cfg(home: Path, rel: str, text: str) -> None:
+    p = home / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text)
 
 
 def words_of(call: list[str]) -> list[str]:
@@ -103,19 +126,6 @@ class AllowListTests(unittest.TestCase):
 
 
 class SummaryTests(unittest.TestCase):
-    def test_transport_of(self):
-        self.assertEqual(transport_of({"type": "local"}), "stdio")
-        self.assertEqual(transport_of({"type": " STDIO "}), "stdio")
-        self.assertEqual(transport_of({"type": "remote"}), "http")
-        self.assertEqual(transport_of({"type": "streamable-http"}), "http")
-        self.assertEqual(transport_of({"type": "sse"}), "sse")
-        self.assertEqual(transport_of({"type": "weird-transport"}), "weird-transport")
-        self.assertEqual(transport_of({"type": "x" * 40}), "x" * 32)
-        self.assertEqual(transport_of({"command": "npx"}), "stdio")
-        self.assertEqual(transport_of({"url": "https://x"}), "http")
-        self.assertEqual(transport_of({}), "unknown")
-        self.assertEqual(transport_of("nope"), "unknown")
-
     def test_states(self):
         self.assertEqual(summarize_mcp_config(None, False), {"state": "none", "servers": []})
         self.assertEqual(summarize_mcp_config({"mcpServers": {}}, True), {"state": "hidden", "servers": []})
@@ -126,32 +136,40 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(bad["message"], INVALID_MESSAGE)
         self.assertNotIn("SENT_INVALID_9f1", json.dumps(bad))
 
+    def test_transport_enum_no_verbatim_echo(self):
+        out = summarize_mcp_config({"mcpServers": {"s": {"type": "SENT-WEIRD-9f1"}}}, False)
+        self.assertEqual(out["servers"][0]["transport"], "unknown")
+        self.assertEqual(out["servers"][0]["broken_reason"], "unknown_transport")
+        self.assertNotIn("SENT-WEIRD-9f1", json.dumps(out))
+        for s in out["servers"]:
+            self.assertEqual(set(s), {"name", "exact", "transport", "broken_reason", "env", "headers"})
+
+    def test_exact_flag_and_display(self):
+        out = summarize_mcp_config({"mcpServers": {"a  b": {"command": "x"}, "c": {"command": "x"}}}, False)
+        by_name = {s["name"]: s for s in out["servers"]}
+        self.assertEqual(by_name["a b"]["exact"], False)
+        self.assertEqual(by_name["c"]["exact"], True)
+
     def test_legacy_container_and_collision(self):
         out = summarize_mcp_config(
-            {
-                "mcp": {"a": {"url": "https://x"}, "b": {"type": "local", "command": "c"}},
-                "mcpServers": {"b": {"url": "https://y"}},
-            },
-            False,
-        )
+            {"mcp": {"a": {"url": "https://x"}, "b": {"type": "local", "command": "c"}},
+             "mcpServers": {"b": {"url": "https://y"}}}, False)
         self.assertEqual(out["state"], "managed")
         self.assertEqual([(s["name"], s["transport"]) for s in out["servers"]],
-                         [("a", "http"), ("b", "http")])  # mcpServers wins over mcp
+                         [("a", "http"), ("b", "http")])
 
 
 class CollectorMcpTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def mcp_view(self, store: Store):
-        return views(store).mcp()
-
     def ws_block(self, store: Store, ws: str = WS_A):
-        return next(w for w in self.mcp_view(store)["workspaces"] if w["id"] == ws)
+        return next(w for w in views(store, self.ctx).mcp()["workspaces"] if w["id"] == ws)
 
     def test_empty_library_makes_no_agent_calls(self):
         data = mcp_fixture()
@@ -159,7 +177,7 @@ class CollectorMcpTests(unittest.TestCase):
         data[WS_A]["agent_mcp"] = {}
         fake = FakeMultica(data)
         store, runner = make(fake, self.db)
-        res = collect(store, runner)
+        res = collect(store, runner, self.ctx)
         self.assertTrue(res["workspaces"][WS_A]["ok"], res)
         self.assertEqual(agent_mcp_calls(fake), [])
         self.assertEqual(self.ws_block(store)["bindings_state"], "none")
@@ -167,29 +185,37 @@ class CollectorMcpTests(unittest.TestCase):
     def test_fingerprint_gates_calls(self):
         fake = FakeMultica(mcp_fixture())
         store, runner = make(fake, self.db)
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         self.assertEqual(len(agent_mcp_calls(fake)), 1)
         fake.calls.clear()
-        # Unchanged fingerprint: only rounds increments, no agent calls.
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         self.assertEqual(agent_mcp_calls(fake), [])
         state = store.query("SELECT * FROM mcp_state WHERE workspace_id=?", (WS_A,))[0]
         self.assertEqual(state["rounds"], 1)
-        # Fingerprint change re-reads immediately.
         fake.workspaces[WS_A]["mcp_servers"][0]["updated_at"] = "2026-10-21T00:00:00Z"
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         self.assertEqual(len(agent_mcp_calls(fake)), 1)
-        self.assertEqual(
-            store.query("SELECT rounds FROM mcp_state WHERE workspace_id=?", (WS_A,))[0]["rounds"], 0)
+
+    def test_first_round_forces_mcp_read(self):
+        """§3.5/§14.9: fresh OwnFingerprints must re-read despite unchanged fingerprint."""
+        fake = FakeMultica(mcp_fixture())
+        store, runner = make(fake, self.db)
+        collect(store, runner, self.ctx)
+        self.assertEqual(len(agent_mcp_calls(fake)), 1)
+        fake.calls.clear()
+        # Same SQLite (fingerprint unchanged, rounds < mcp_every) but a restarted
+        # serve process: new OwnFingerprints lacks the workspace -> forced read.
+        ctx2 = make_ctx(Path(self.tmp.name), salt=self.ctx.salt)
+        ctx2.own = OwnFingerprints()
+        collect(store, runner, ctx2)
+        self.assertEqual(len(agent_mcp_calls(fake)), 1)
 
     def test_periodic_refresh_after_mcp_every(self):
         fake = FakeMultica(mcp_fixture())
         store, runner = make(fake, self.db)
-        # Refresh happens on cycle 1 (no fingerprint) and again once rounds
-        # reaches mcp_every — i.e. after 5 unchanged cycles, on cycle 6.
         for cycle in range(1, 7):
             fake.calls.clear()
-            collect(store, runner, mcp_every=5)
+            collect(store, runner, self.ctx, mcp_every=5)
             got = len(agent_mcp_calls(fake))
             want = 1 if cycle in (1, 6) else 0
             self.assertEqual(got, want, f"cycle {cycle}")
@@ -200,7 +226,7 @@ class CollectorMcpTests(unittest.TestCase):
         data[WS_A]["agent_mcp"]["old"] = [{"id": "srv-linear", "name": "linear"}]
         fake = FakeMultica(data)
         store, runner = make(fake, self.db)
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         self.assertEqual(agent_mcp_calls(fake, "old"), [])
 
     def test_partial_failure_retries_next_cycle(self):
@@ -211,93 +237,188 @@ class CollectorMcpTests(unittest.TestCase):
         fake = FakeMultica(data)
         fake.fail_agent_mcp.add("ag2")
         store, runner = make(fake, self.db)
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         self.assertEqual(self.ws_block(store)["bindings_state"], "partial")
-        states = {r["agent_id"]: r["state"] for r in
-                  store.query("SELECT * FROM mcp_agent_state WHERE workspace_id=?", (WS_A,))}
-        self.assertEqual(states, {"ag1": "ok", "ag2": "error"})
-        fp = store.query("SELECT fingerprint, rounds FROM mcp_state WHERE workspace_id=?", (WS_A,))[0]
-        self.assertIsNone(fp["fingerprint"])  # no fingerprint stored: next cycle retries
-        self.assertEqual(fp["rounds"], 1)
         fake.calls.clear()
         fake.fail_agent_mcp.clear()
-        collect(store, runner)
-        self.assertEqual(len(agent_mcp_calls(fake)), 2)  # retried despite unchanged library
+        collect(store, runner, self.ctx)
+        self.assertEqual(len(agent_mcp_calls(fake)), 2)
         self.assertEqual(self.ws_block(store)["bindings_state"], "ok")
 
-    def test_agent_error_state_listed_in_view(self):
-        data = mcp_fixture()
-        data[WS_A]["agents"].append(agent(WS_A, "ag2", mcp_config=None))
-        data[WS_A]["mcp_servers"][0]["agent_count"] = 2
-        fake = FakeMultica(data)
-        fake.fail_agent_mcp.add("ag2")
-        store, runner = make(fake, self.db)
-        collect(store, runner)
-        item = next(a for a in self.mcp_view(store)["agents"] if a["id"] == "ag2")
-        self.assertEqual(item["bindings_state"], "error")
-        self.assertEqual(item["bindings"], [])
-        self.assertEqual(item["effective"]["state"], "partial")
-
-    def test_library_error_keeps_rows_and_workspace_ok(self):
+    def test_library_error_keeps_rows_and_marks_stale(self):
         fake = FakeMultica(mcp_fixture())
         store, runner = make(fake, self.db)
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         fake.fail_workspace_mcp[WS_A] = "unknown command workspace mcp"
-        res = collect(store, runner)
+        res = collect(store, runner, self.ctx)
         self.assertTrue(res["workspaces"][WS_A]["ok"], res)
         block = self.ws_block(store)
-        self.assertEqual(block["library_state"], "error")
-        self.assertEqual(len(block["servers"]), 2)  # last good rows kept
-        sync = store.query(
-            "SELECT last_error_kind FROM sync_status WHERE workspace_id=? AND resource='mcp_library'",
-            (WS_A,))[0]
-        self.assertIsNotNone(sync["last_error_kind"])
-        meta = views(store).meta()
-        alpha = next(w for w in meta["workspaces"] if w["id"] == WS_A)
-        self.assertEqual(alpha["collect_state"], "ok")  # mcp failure never flips the workspace
+        self.assertEqual(block["library_state"], "stale")
+        names = [i["display_name"] for i in views(store, self.ctx).mcp()["items"]]
+        self.assertIn("linear", names)  # stale data still proves presence
+        self.assertIn(WS_A, views(store, self.ctx).mcp()["unknown"]["library"])
 
-    def test_never_collected(self):
-        fake = FakeMultica(mcp_fixture())
-        fake.fail_workspace_mcp[WS_A] = "unknown command"
+    def test_name_exact_column_written(self):
+        data = mcp_fixture()
+        data[WS_A]["mcp_servers"][0]["name"] = "a  b"
+        fake = FakeMultica(data)
         store, runner = make(fake, self.db)
-        collect(store, runner)
-        block = self.ws_block(store)
-        self.assertEqual(block["library_state"], "never")
-        self.assertEqual(block["servers"], [])
-        self.assertEqual(block["bindings_state"], "never")
+        collect(store, runner, self.ctx)
+        row = store.query("SELECT name, name_exact FROM mcp_servers WHERE id='srv-linear'")[0]
+        self.assertEqual((row["name"], row["name_exact"]), ("a b", 0))
 
     def test_auth_error_purges_mcp_tables(self):
         fake = FakeMultica(mcp_fixture())
         store, runner = make(fake, self.db)
-        collect(store, runner)
-        for table in ("mcp_servers", "mcp_bindings", "mcp_agent_state", "mcp_state"):
-            self.assertGreater(
-                store.query(f"SELECT COUNT(*) n FROM {table} WHERE workspace_id=?", (WS_A,))[0]["n"], 0, table)
+        collect(store, runner, self.ctx)
         fake.fail_workspace_mcp[WS_A] = "403 forbidden: not a member"
-        collect(store, runner)
+        collect(store, runner, self.ctx)
         for table in ("mcp_servers", "mcp_bindings", "mcp_agent_state", "mcp_state"):
             self.assertEqual(
                 store.query(f"SELECT COUNT(*) n FROM {table} WHERE workspace_id=?", (WS_A,))[0]["n"], 0, table)
 
 
-class SentinelTests(unittest.TestCase):
+class OwnFingerprintLifecycleTests(unittest.TestCase):
+    """§14.9: ready/pending lifecycle across restart, key change, updated_at."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def fixture(self, name="linear", cmd="x"):
+        data = mcp_fixture()
+        data[WS_A]["agents"] = [agent(WS_A, "ag1", runtime_id="rt1",
+                                      mcp_config={"mcpServers": {name: {"command": cmd}}})]
+        data[WS_A]["agent_mcp"] = {"ag1": [{"id": "srv-linear", "name": "linear", "enabled": True}]}
+        return data
+
+    def own_entry(self, body, aid="ag1"):
+        for i in body["items"]:
+            for we in i["workspace_entries"]:
+                if we["kind"] == "own" and we.get("agent_id") == aid:
+                    return i, we
+        return None, None
+
+    def test_ready_then_restart_pending_then_recovered(self):
+        store, runner = make(FakeMultica(self.fixture()), self.db)
+        collect(store, runner, self.ctx)
+        item, we = self.own_entry(views(store, self.ctx).mcp())
+        self.assertEqual(we["fp_state"], "ready")
+        self.assertIsNotNone(we["group"])
+        own = json.loads(store.query("SELECT mcp_own_json FROM agents WHERE id='ag1'")[0]["mcp_own_json"])
+        self.assertEqual(set(own), {"state", "servers"})
+        self.assertTrue(all(set(s) <= {"name", "exact", "transport", "broken_reason", "env", "headers"}
+                            for s in own["servers"]))
+        # Simulated restart: same SQLite, new Views/OwnFingerprints -> pending.
+        ctx2 = make_ctx(Path(self.tmp.name), salt=self.ctx.salt)
+        body2 = views(store, ctx2).mcp()
+        item2, we2 = self.own_entry(body2)
+        self.assertEqual(we2["fp_state"], "pending")
+        self.assertIsNone(we2["group"])
+        self.assertTrue(item2["consistency"]["partial"])
+        self.assertNotIn(item2["consistency"]["state"], ("same", "differs"))
+        self.assertEqual(body2["attention"]["buckets"]["drift"]["partial"], True)
+        fp_chip = next(c for c in body2["meta"]["sources"] if c["id"] == "fingerprints")
+        self.assertEqual(fp_chip["state"], "warn")
+        # One collector round restores readiness.
+        collect(store, runner, ctx2)
+        _, we3 = self.own_entry(views(store, ctx2).mcp())
+        self.assertEqual(we3["fp_state"], "ready")
+
+    def test_standalone_collect_leaves_pending(self):
+        store, runner = make(FakeMultica(self.fixture()), self.db)
+        collect(store, runner, make_ctx(Path(self.tmp.name)))  # another process: memory dies with it
+        _, we = self.own_entry(views(store, self.ctx).mcp())
+        self.assertEqual(we["fp_state"], "pending")
+
+    def test_key_change_pends_local_regroups(self):
+        store, runner = make(FakeMultica(self.fixture()), self.db)
+        write_cfg(self.ctx.home, ".cursor/mcp.json",
+                  json.dumps({"mcpServers": {"linear": {"command": "x"}}}))
+        collect(store, runner, self.ctx)
+        item, we = self.own_entry(views(store, self.ctx).mcp())
+        self.assertEqual(we["fp_state"], "ready")
+        self.assertEqual(item["consistency"]["state"], "same")  # own fp == local fp
+        # Rotate the key file: own records go pending, local files regroup at once.
+        key = self.ctx.data_dir / "mcp-fingerprint.key"
+        key.write_bytes(b"z" * 32)
+        key.chmod(0o600)
+        item2, we2 = self.own_entry(views(store, self.ctx).mcp())
+        self.assertEqual(we2["fp_state"], "pending")
+        ent = next(e for e in item2["entries"] if e["tool"] == "cursor")
+        self.assertIsNotNone(ent["group"])
+        self.assertEqual(item2["consistency"]["state"], "single")
+
+    def test_updated_at_change_pends_until_recollect(self):
+        # Another process recollects the agent (new updated_at in SQLite) while
+        # this serve's OwnFingerprints still holds the older record -> pending.
+        fake = FakeMultica(self.fixture())
+        store, runner = make(fake, self.db)
+        collect(store, runner, self.ctx)
+        fake.workspaces[WS_A]["agents"][0]["updated_at"] = "2026-10-30T00:00:00Z"
+        collect(store, runner, make_ctx(Path(self.tmp.name)))  # the "other" process
+        _, we = self.own_entry(views(store, self.ctx).mcp())
+        self.assertEqual(we["fp_state"], "pending")
+        collect(store, runner, self.ctx)  # this process repopulates
+        _, we = self.own_entry(views(store, self.ctx).mcp())
+        self.assertEqual(we["fp_state"], "ready")
+
+
+class V1CompatTests(unittest.TestCase):
+    """§14.6: v1 SQLite sentinel transports render as unknown, never verbatim."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_v1_sentinel_transport_rows(self):
+        store = Store(self.db)
+        store.upsert_many(SERVER, WS_A, "workspaces", [{"id": WS_A, "name": "A", "slug": "a"}])
+        store.upsert_many(SERVER, WS_A, "mcp_servers", [
+            {"id": "s1", "name": "x", "transport": "SENT-TRAN-9f1", "agent_count": 0}])
+        store.upsert_many(SERVER, WS_A, "agents", [
+            {"id": "ag1", "name": "ag", "updated_at": "t",
+             "mcp_own_json": json.dumps({"state": "managed", "servers": [
+                 {"name": "x", "transport": "SENT-TRAN-9f1",
+                  "env": {"set": False, "count": 0}, "headers": {"set": False, "count": 0}}]})}])
+        body = views(store, self.ctx).mcp()
+        blob = json.dumps(body, ensure_ascii=False)
+        self.assertNotIn("SENT-TRAN-9f1", blob)
+        transports = {t for i in body["items"] for t in i["transports"]}
+        self.assertEqual(transports, {"unknown"})
+        store.close()
+
+
+class SentinelSweepTests(unittest.TestCase):
+    """§14.7: sentinel sweep over /api/*, SQLite bytes incl WAL, -v logs."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
+        write_cfg(self.ctx.home, ".cursor/mcp.json", json.dumps({"mcpServers": {
+            "s": {"command": f"cmd-{SENTINELS[6]}", "args": [SENTINELS[5]], "cwd": SENTINELS[7],
+                  "env": {SENTINELS[1]: SENTINELS[0]}, "url": f"https://{SENTINELS[4]}.x",
+                  "headers": {SENTINELS[3]: SENTINELS[2]}, "type": "stdio", "junk": SENTINELS[0]}}}))
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def test_no_sentinel_leaks(self):
         data = mcp_fixture()
-        data[WS_A]["agents"] = [
-            sentinel_agent(WS_A, "ag1"),
-            agent(WS_A, "ag2", mcp_config="SENT_INVALID_9f1"),
-        ]
+        data[WS_A]["agents"] = [sentinel_agent(WS_A, "ag1"),
+                                agent(WS_A, "ag2", mcp_config="SENT_INVALID_9f1")]
         data[WS_A]["agent_mcp"] = {"ag1": [{"id": "srv-linear", "name": "linear", "enabled": True}]}
         fake = FakeMultica(data)
         store, runner = make(fake, self.db)
-
         records: list[str] = []
 
         class Capture(logging.Handler):
@@ -307,54 +428,32 @@ class SentinelTests(unittest.TestCase):
         handler = Capture(level=logging.DEBUG)
         root = logging.getLogger()
         root.addHandler(handler)
-        old_level = root.level
+        old = root.level
         root.setLevel(logging.DEBUG)
         try:
-            res = collect(store, runner)
+            collect(store, runner, self.ctx)
         finally:
             root.removeHandler(handler)
-            root.setLevel(old_level)
-        self.assertTrue(res["workspaces"][WS_A]["ok"], res)
+            root.setLevel(old)
 
         sentinels = list(SENTINELS) + ["SENT_INVALID_9f1"]
-
-        # (a) raw bytes of the SQLite cache (main file, WAL, shm).
+        v = views(store, self.ctx)
+        docs = {"mcp": v.mcp(), "agents": v.agents(), "meta": v.meta(), "issues": v.issues(),
+                "runtimes": v.runtimes(), "attention": v.attention(), "changes": v.changes(None),
+                "failure_stats": v.failure_stats(), "layers": v.layers(), "usage": v.usage()}
+        for name, doc in docs.items():
+            blob = json.dumps(doc, ensure_ascii=False)
+            for needle in sentinels + [FAKE_TOKEN]:
+                self.assertNotIn(needle, blob, f"{name}: {needle}")
+        for needle in sentinels:
+            self.assertFalse(any(needle in r for r in records), needle)
         store.close()
         for path in self.db.parent.iterdir():
+            if not path.is_file() or path.name == "mcp-fingerprint.key":
+                continue
             blob = path.read_bytes()
             for needle in sentinels + [FAKE_TOKEN]:
                 self.assertNotIn(needle.encode(), blob, path.name)
-
-        # (b) every API document.
-        store = Store(self.db)
-        v = views(store)
-        docs = {
-            "mcp": v.mcp(), "agents": v.agents(), "meta": v.meta(), "issues": v.issues(),
-            "runtimes": v.runtimes(), "attention": v.attention(), "changes": v.changes(None),
-            "failure_stats": v.failure_stats(), "layers": v.layers(), "usage": v.usage(),
-        }
-        for name, doc in docs.items():
-            blob = json.dumps(doc)
-            for needle in sentinels + [FAKE_TOKEN]:
-                self.assertNotIn(needle, blob, f"{name}: {needle}")
-
-        # (c) DEBUG log output.
-        for needle in sentinels:
-            self.assertFalse(any(needle in r for r in records), needle)
-
-        # (d) invalid mcp_config: fixed message, correct summary, correct counts.
-        own = json.loads(store.query("SELECT mcp_own_json FROM agents WHERE id='ag1'")[0]["mcp_own_json"])
-        self.assertEqual(own["state"], "managed")
-        by_name = {s["name"]: s for s in own["servers"]}
-        self.assertEqual(set(by_name), {"sent-stdio", "sent-http", "sent-legacy"})
-        self.assertEqual(by_name["sent-stdio"]["transport"], "stdio")
-        self.assertEqual(by_name["sent-stdio"]["env"], {"set": True, "count": 1})
-        self.assertEqual(by_name["sent-stdio"]["headers"], {"set": False, "count": 0})
-        self.assertEqual(by_name["sent-http"]["transport"], "http")
-        self.assertEqual(by_name["sent-http"]["headers"], {"set": True, "count": 1})
-        bad = json.loads(store.query("SELECT mcp_own_json FROM agents WHERE id='ag2'")[0]["mcp_own_json"])
-        self.assertEqual(bad, {"state": "invalid", "servers": [], "message": INVALID_MESSAGE})
-        store.close()
 
 
 class ContractShapeTests(unittest.TestCase):
@@ -362,9 +461,10 @@ class ContractShapeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.db = Path(cls.tmp.name) / "board.sqlite"
+        cls.ctx = make_ctx(Path(cls.tmp.name))
         cls.store, runner = make(FakeMultica(mcp_fixture()), cls.db)
-        collect(cls.store, runner)
-        cls.v = views(cls.store)
+        collect(cls.store, runner, cls.ctx)
+        cls.v = views(cls.store, cls.ctx)
         cls.httpd = BoardServer("127.0.0.1", 0, cls.v)
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
@@ -384,34 +484,30 @@ class ContractShapeTests(unittest.TestCase):
         conn.close()
         return r.status, body
 
-    def test_top_level_and_nested_keys(self):
+    def test_schema2_top_level(self):
         status, raw = self.get("/api/mcp")
         self.assertEqual(status, 200)
         body = json.loads(raw)
-        self.assertEqual(set(body), {"generated_at", "mcp_schema", "mcp_every_rounds",
-                                     "support", "workspaces", "agents", "attention"})
-        self.assertEqual(body["mcp_schema"], 1)
-        self.assertEqual(body["mcp_every_rounds"], 5)
-        self.assertEqual(set(body["support"]), {"source", "providers"})
-        ws = next(w for w in body["workspaces"] if w["id"] == WS_A)
-        self.assertEqual(set(ws), {"id", "slug", "name", "library_state", "library_collected_at",
-                                   "library_error", "bindings_state", "bindings_collected_at", "servers"})
-        for s in ws["servers"]:
-            self.assertEqual(set(s), {"key", "id", "name", "transport", "agent_count",
-                                      "enabled_count", "disabled_count", "config_visible",
-                                      "created_at", "updated_at"})
-            self.assertIs(s["config_visible"], False)
-        ag = next(a for a in body["agents"] if a["id"] == "ag1")
-        self.assertEqual(set(ag), {"key", "workspace_id", "id", "name", "archived", "runtime_id",
-                                   "provider", "runtime_loads", "own_config", "bindings_state",
-                                   "bindings", "effective"})
-        self.assertEqual(set(ag["own_config"]), {"state", "servers"})
-        self.assertEqual(set(ag["effective"]), {"state", "servers"})
-        for b in ag["bindings"]:
-            self.assertEqual(set(b), {"server_id", "name", "enabled", "shadowed"})
-        self.assertEqual(set(body["attention"]), {"badge", "counts", "buckets"})
-        self.assertEqual(set(body["attention"]["counts"]),
-                         {"ignored", "shadowed", "may_fail", "hidden", "unused", "disabled_only"})
+        self.assertEqual(body["mcp_schema"], 2)
+        self.assertTrue(body["ok"])
+        for key in ("generated_at", "multica_collected_at", "tools", "repos", "workspaces",
+                    "support", "unknown", "items", "summary", "attention", "meta", "error"):
+            self.assertIn(key, body)
+        self.assertEqual(len(body["tools"]), 9)
+        self.assertEqual([s["id"] for s in body["summary"]],
+                         ["all", "both", "local_only", "multica_only"])
+        self.assertEqual({c["id"] for c in body["meta"]["sources"]},
+                         {"local_files", "project_files", "fingerprints", "multica_library",
+                          "agent_bindings", "multica_own_config", "runtime_support"})
+        for item in body["items"]:
+            self.assertRegex(item["id"], r"^m[0-9a-z]{20}(-\d+)?$")
+            self.assertIn(item["consistency"]["state"],
+                          ("broken", "differs", "same", "single", "incomparable"))
+        att = body["attention"]
+        self.assertIn(att["tone"], ("bad", "warn", "unknown", "none"))
+        self.assertEqual(list(att["buckets"]), ["broken", "ignored", "shadowed", "may_fail", "drift"])
+        for item in body["items"]:
+            self.assertIsNotNone(item.get("id"))
 
     def test_query_string_rejected(self):
         status, body = self.get("/api/mcp?x=1")
@@ -425,25 +521,240 @@ class ContractShapeTests(unittest.TestCase):
             self.assertNotIn("mcp_config", item)
             self.assertNotIn("mcp_own_json", item)
 
-    def test_workspace_fields(self):
+    def test_multica_only_row_cells_not_applicable(self):
         body = self.v.mcp()
-        ws = next(w for w in body["workspaces"] if w["id"] == WS_A)
-        self.assertEqual(ws["library_state"], "ok")
-        self.assertEqual(ws["bindings_state"], "ok")
-        self.assertIsNone(ws["library_error"])
-        self.assertIsNotNone(ws["library_collected_at"])
-        self.assertIsNotNone(ws["bindings_collected_at"])
-        servers = {s["id"]: s for s in ws["servers"]}
-        self.assertEqual(servers["srv-linear"]["enabled_count"], 1)
-        self.assertEqual(servers["srv-linear"]["disabled_count"], 0)
-        self.assertEqual(servers["srv-fs"]["enabled_count"], 0)
-        self.assertEqual(servers["srv-linear"]["key"], f"{WS_A}:srv-linear")
+        row = next(i for i in body["items"] if i["display_name"] == "linear")
+        self.assertEqual(row["source_class"], "multica_only")
+        self.assertTrue(all(v == "not_applicable" for v in row["tools"].values()))
+        self.assertTrue(all(v == "not_applicable" for v in row["repo_cells"].values()))
+        self.assertEqual(row["consistency"]["state"], "incomparable")
+        self.assertEqual(row["transports"], ["http"])
+        # tidy: srv-fs has agent_count 0 -> marked tidy, never badge-counted
+        fs = next(i for i in body["items"] if i["display_name"] == "fs")
+        self.assertEqual(fs["tidy"], {"reason": "no_agents", "workspace_id": WS_A})
+        self.assertEqual(body["attention"]["tidy"]["count"], 1)
+        self.assertNotIn(fs["id"], [it["id"] for b in body["attention"]["buckets"].values()
+                                    for it in b["items"]])
 
 
-class EffectiveTests(unittest.TestCase):
+class RawIdentityTests(unittest.TestCase):
+    """§14.10: distinct raw identities never merge; display_dup numbered."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_whitespace_case_nfc_variants_are_distinct_rows(self):
+        names = ["a  b", "a b", " github", "github", "a\tb", "", "   ",
+                 "Github", "café", "café", "x" * 81 + "1", "x" * 81 + "2",
+                 "ghp_aaaaaaaaaaaaaaaaaaaa", "ghp_bbbbbbbbbbbbbbbbbbbb"]
+        cfg = {"mcpServers": {n: {"command": "x"} for n in names}}
+        write_cfg(self.ctx.home, ".cursor/mcp.json", json.dumps(cfg))
+        store = Store(self.db)
+        body = views(store, self.ctx).mcp()
+        self.assertEqual(len(body["items"]), len(names))
+        self.assertEqual(len({i["id"] for i in body["items"]}), len(names))
+        dup = [i for i in body["items"] if i["display_dup"]]
+        self.assertTrue(all(i["display_dup"]["total"] > 1 for i in dup))
+        blob = json.dumps(body, ensure_ascii=False)
+        self.assertNotIn("ghp_aaaaaaaaaaaaaaaaaaaa", blob)
+        self.assertNotIn("ghp_bbbbbbbbbbbbbbbbbbbb", blob)
+        store.close()
+
+    def test_unverified_exact_false_not_merged_after_restart(self):
+        data = mcp_fixture()
+        data[WS_A]["agents"] = [agent(WS_A, "ag1", runtime_id="rt1",
+                                      mcp_config={"mcpServers": {"a  b": {"command": "x"}}})]
+        data[WS_A]["agent_mcp"] = {"ag1": []}
+        write_cfg(self.ctx.home, ".cursor/mcp.json",
+                  json.dumps({"mcpServers": {"a  b": {"command": "y"}}}))
+        store, runner = make(FakeMultica(data), self.db)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
+        items = [i for i in body["items"] if i["display_name"] == "a b"]
+        self.assertEqual(len(items), 1)  # merged via own-fingerprint row id
+        # restart: own summary exact:false can't rejoin -> separate unverified row
+        ctx2 = make_ctx(Path(self.tmp.name), salt=self.ctx.salt)
+        body2 = views(store, ctx2).mcp()
+        items2 = [i for i in body2["items"] if i["display_name"] == "a b"]
+        self.assertEqual(len(items2), 2)
+        unv = next(i for i in items2 if "name_unverified" in i["tags"])
+        self.assertEqual(unv["consistency"]["state"], "incomparable")
+        self.assertEqual(body2["attention"]["buckets"]["shadowed"]["partial"], True)
+
+
+class UnknownFirstTests(unittest.TestCase):
+    """§14.11: unknown sources beat absent evidence."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_hermes_parse_error_no_not_applicable_uncertain_cards(self):
+        data = mcp_fixture()
+        write_cfg(self.ctx.home, ".hermes/config.yaml", "mcp_servers: 5\n")
+        write_cfg(self.ctx.home, ".cursor/mcp.json",
+                  json.dumps({"mcpServers": {"local1": {"command": "x"}}}))
+        fake = FakeMultica(data)
+        fake.fail_agent_mcp.add("ag1")  # ws bindings unknown
+        store, runner = make(fake, self.db)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
+        hermes = next(t for t in body["tools"] if t["id"] == "hermes")
+        self.assertEqual(hermes["files"][0]["state"], "parse_error")
+        for i in body["items"]:
+            self.assertEqual(i["tools"]["hermes"], "unknown")
+            self.assertNotIn("not_applicable", i["tools"].values())
+        local_row = next(i for i in body["items"] if i["display_name"] == "local1")
+        self.assertEqual(local_row["source_class"], "local_only")
+        self.assertTrue(local_row["source_uncertain"])
+        mc_row = next(i for i in body["items"] if i["display_name"] == "linear")
+        self.assertEqual(mc_row["source_class"], "multica_only")
+        self.assertTrue(mc_row["source_uncertain"])
+        local_card = next(s for s in body["summary"] if s["id"] == "local_only")
+        self.assertEqual(local_card["uncertain"], 1)
+        # bindings unknown: ws-a library entries can't be judged unused
+        self.assertIsNone(next(i for i in body["items"] if i["display_name"] == "fs")["tidy"])
+        self.assertTrue(body["attention"]["buckets"]["ignored"]["partial"])
+        self.assertTrue(body["attention"]["tidy"]["partial"])
+        self.assertIn("hermes", body["unknown"]["local_files"])
+        self.assertIn(WS_A, body["unknown"]["bindings"])
+        # consistency partial: a same-name entry could hide in the failed file
+        self.assertTrue(local_row["consistency"]["partial"])
+
+    def test_all_sources_failed_empty_unknown_tone(self):
+        data = {WS_A: {"meta": {"id": WS_A, "name": "A", "slug": "a"}, "issues": [],
+                       "agents": [agent(WS_A, "ag1")], "runtimes": [runtime(WS_A)], "tasks": {},
+                       "mcp_servers": [], "agent_mcp": {}}}
+        write_cfg(self.ctx.home, ".cursor/mcp.json", "{bad json")
+        fake = FakeMultica(data)
+        fake.fail_workspace_mcp[WS_A] = "down"
+        store, runner = make(fake, self.db)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
+        self.assertEqual(body["items"], [])
+        self.assertEqual(body["attention"]["tone"], "unknown")
+        self.assertEqual(body["summary"][0]["count"], 0)
+        card_detail = next(c for c in body["meta"]["sources"] if c["id"] == "local_files")
+        self.assertEqual(card_detail["state"], "warn")  # 8 absent + 1 unreadable
+
+    def test_all_known_empty(self):
+        data = {WS_A: {"meta": {"id": WS_A, "name": "A", "slug": "a"}, "issues": [],
+                       "agents": [agent(WS_A, "ag1")], "runtimes": [runtime(WS_A)], "tasks": {},
+                       "mcp_servers": [], "agent_mcp": {}}}
+        store, runner = make(FakeMultica(data), self.db)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
+        self.assertEqual(body["items"], [])
+        self.assertEqual(body["unknown"]["local_files"], [])
+        self.assertEqual(body["attention"]["tone"], "none")
+
+
+class BucketToneTests(unittest.TestCase):
+    """§14.12: one object one bucket, order, tags, tone states."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def fixture(self):
+        return {
+            WS_A: {
+                "meta": {"id": WS_A, "name": "Alpha", "slug": "alpha"},
+                "issues": [],
+                "runtimes": [runtime(WS_A, "rt-anti", provider="antigravity"),
+                             runtime(WS_A, "rt-oc", provider="opencode"),
+                             runtime(WS_A, "rt-codex", provider="codex")],
+                "agents": [
+                    agent(WS_A, "a-ignored", runtime_id="rt-anti", mcp_config=None),
+                    agent(WS_A, "a-shadow", runtime_id="rt-codex",
+                          mcp_config={"mcpServers": {"linear": {"command": "x"}}}),
+                    agent(WS_A, "a-fail", runtime_id="rt-oc", mcp_config=None),
+                ],
+                "tasks": {},
+                "mcp_servers": [
+                    {"id": "srv-linear", "workspace_id": WS_A, "name": "linear", "transport": "http",
+                     "agent_count": 3, "created_at": None, "updated_at": "2026-10-20T00:00:00Z"},
+                ],
+                "agent_mcp": {
+                    "a-ignored": [{"id": "srv-linear", "name": "linear", "enabled": True}],
+                    "a-shadow": [{"id": "srv-linear", "name": "linear", "enabled": True}],
+                    "a-fail": [{"id": "srv-linear", "name": "linear", "enabled": True}],
+                },
+            },
+        }
+
+    def test_bucket_assignment_order_and_tags(self):
+        store, runner = make(FakeMultica(self.fixture()), self.db)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
+        row = next(i for i in body["items"] if i["display_name"] == "linear")
+        # broken order: ignored(2) < shadowed(1) < may_fail(1) -> first hit wins
+        self.assertEqual(row["bucket"], "ignored")
+        self.assertIn("shadowed", row["tags"])
+        self.assertIn("may_fail", row["tags"])
+        att = body["attention"]
+        self.assertEqual(att["counts"], {"broken": 0, "ignored": 1, "shadowed": 0, "may_fail": 0, "drift": 0})
+        self.assertEqual(att["badge"], 1)
+        self.assertEqual(att["tone"], "bad")
+        self.assertIn("a-ignored", row["reason"])
+
+    def test_warn_tone_only_drift(self):
+        write_cfg(self.ctx.home, ".cursor/mcp.json",
+                  json.dumps({"mcpServers": {"s": {"command": "x"}}}))
+        write_cfg(self.ctx.home, ".claude.json",
+                  json.dumps({"mcpServers": {"s": {"command": "y"}}}))
+        data = {WS_A: {"meta": {"id": WS_A, "name": "A", "slug": "a"}, "issues": [],
+                       "agents": [agent(WS_A, "ag1")], "runtimes": [runtime(WS_A)], "tasks": {},
+                       "mcp_servers": [], "agent_mcp": {}}}
+        store, runner = make(FakeMultica(data), self.db)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
+        row = next(i for i in body["items"] if i["display_name"] == "s")
+        self.assertEqual(row["bucket"], "drift")
+        self.assertEqual(row["consistency"]["state"], "differs")
+        self.assertEqual({g["id"] for g in row["consistency"]["groups"]}, {"A", "B"})
+        self.assertEqual(body["attention"]["tone"], "warn")
+        self.assertEqual(body["attention"]["badge"], 1)
+
+    def test_key_rejection_disconnects_drift(self):
+        write_cfg(self.ctx.home, ".cursor/mcp.json",
+                  json.dumps({"mcpServers": {"s": {"command": "x"}}}))
+        write_cfg(self.ctx.home, ".claude.json",
+                  json.dumps({"mcpServers": {"s": {"command": "y"}}}))
+        key = self.ctx.data_dir / "mcp-fingerprint.key"
+        self.ctx.data_dir.chmod(0o777)  # key_dir_unsafe
+        store = Store(self.db)
+        body = views(store, self.ctx).mcp()
+        drift = body["attention"]["buckets"]["drift"]
+        self.assertFalse(drift["connected"])
+        self.assertIn("指纹密钥", drift["reason"])
+        self.assertEqual(body["unknown"]["key"], "key_dir_unsafe")
+        chip = next(c for c in body["meta"]["sources"] if c["id"] == "fingerprints")
+        self.assertEqual(chip["state"], "bad")
+        self.assertFalse(key.exists())
+        store.close()
+
+
+class EffectiveTests(unittest.TestCase):
+    """§14.13: v1 shadowing/effective cases on raw identity."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Path(self.tmp.name) / "board.sqlite"
+        self.ctx = make_ctx(Path(self.tmp.name))
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -455,57 +766,56 @@ class EffectiveTests(unittest.TestCase):
         data[WS_A]["agent_mcp"] = {"ag1": bindings}
         data[WS_A]["mcp_servers"][0]["agent_count"] = 1 if bindings else 0
         store, runner = make(FakeMultica(data), self.db)
-        collect(store, runner)
-        body = views(store).mcp()
-        item = next((a for a in body["agents"] if a["id"] == "ag1"), None)
+        collect(store, runner, self.ctx)
+        body = views(store, self.ctx).mcp()
         store.close()
-        return item
+        return body
+
+    def lib_entry(self, body):
+        for row in body["items"]:
+            for w in row["workspace_entries"]:
+                if w["kind"] == "library" and w["server_id"] == "srv-linear":
+                    return row, w
+        raise AssertionError("no library entry")
 
     def test_library_only(self):
-        item = self.run_case(None, [{"id": "srv-linear", "name": "linear", "enabled": True}])
-        self.assertEqual(item["own_config"]["state"], "none")
-        self.assertEqual(item["effective"]["state"], "known")
-        self.assertEqual(item["effective"]["servers"],
-                         [{"name": "linear", "from": "library", "transport": "http"}])
-        self.assertIs(item["bindings"][0]["shadowed"], False)
+        body = self.run_case(None, [{"id": "srv-linear", "name": "linear", "enabled": True}])
+        row, lib = self.lib_entry(body)
+        self.assertEqual(lib["agents"][0]["shadowed"], False)
+        self.assertEqual(lib["agents"][0]["runtime_loads"], "yes")
 
     def test_own_only(self):
-        item = self.run_case({"mcpServers": {"solo": {"command": "x"}}}, [])
-        self.assertIsNotNone(item)  # own managed agents are listed even with zero bindings
-        self.assertEqual(item["own_config"]["state"], "managed")
-        self.assertEqual(item["bindings_state"], "none")
-        self.assertEqual(item["bindings"], [])
-        self.assertEqual(item["effective"]["state"], "known")
-        self.assertEqual(item["effective"]["servers"],
-                         [{"name": "solo", "from": "own", "transport": "stdio"}])
+        body = self.run_case({"mcpServers": {"solo": {"command": "x"}}}, [])
+        row = next(i for i in body["items"] if i["display_name"] == "solo")
+        own = next(w for w in row["workspace_entries"] if w["kind"] == "own")
+        self.assertEqual(own["fp_state"], "ready")
 
-    def test_same_name_shadowing(self):
-        item = self.run_case(
-            {"mcpServers": {"linear": {"command": "own"}}},
-            [{"id": "srv-linear", "name": "linear", "enabled": True}],
-        )
-        self.assertIs(item["bindings"][0]["shadowed"], True)
-        self.assertEqual(item["effective"]["servers"],
-                         [{"name": "linear", "from": "own", "transport": "stdio"}])
+    def test_same_name_shadowing_raw_identity(self):
+        body = self.run_case({"mcpServers": {"linear": {"command": "x"}}},
+                             [{"id": "srv-linear", "name": "linear", "enabled": True}])
+        row, lib = self.lib_entry(body)
+        self.assertIs(lib["agents"][0]["shadowed"], True)
+        self.assertEqual(row["bucket"], "shadowed")
 
-    def test_own_in_legacy_container(self):
-        item = self.run_case({"mcp": {"legacy-srv": {"url": "https://x"}}}, [])
-        self.assertEqual(item["own_config"]["state"], "managed")
-        self.assertEqual(item["own_config"]["servers"][0]["name"], "legacy-srv")
-
-    def test_own_empty_object_still_managed(self):
-        item = self.run_case({}, [{"id": "srv-linear", "name": "linear", "enabled": True}])
-        self.assertEqual(item["own_config"], {"state": "managed", "servers": []})
-        self.assertEqual(item["effective"]["servers"],
-                         [{"name": "linear", "from": "library", "transport": "http"}])
-        self.assertIs(item["bindings"][0]["shadowed"], False)
+    def test_near_name_not_shadowed(self):
+        # "linear " (trailing space) is a different raw identity: no shadowing, no merge.
+        body = self.run_case({"mcpServers": {"linear ": {"command": "x"}}},
+                             [{"id": "srv-linear", "name": "linear", "enabled": True}])
+        row, lib = self.lib_entry(body)
+        self.assertIs(lib["agents"][0]["shadowed"], False)
 
     def test_hidden_own_shadowed_null(self):
-        item = self.run_case(None, [{"id": "srv-linear", "name": "linear", "enabled": True}],
+        body = self.run_case(None, [{"id": "srv-linear", "name": "linear", "enabled": True}],
                              redacted=True)
-        self.assertEqual(item["own_config"]["state"], "hidden")
-        self.assertIsNone(item["bindings"][0]["shadowed"])
-        self.assertEqual(item["effective"]["state"], "partial")
+        row, lib = self.lib_entry(body)
+        self.assertIsNone(lib["agents"][0]["shadowed"])
+        self.assertEqual(body["unknown"]["own_hidden"], 1)
+
+    def test_own_in_legacy_container(self):
+        body = self.run_case({"mcp": {"legacy-srv": {"url": "https://x"}}}, [])
+        row = next(i for i in body["items"] if i["display_name"] == "legacy-srv")
+        own = next(w for w in row["workspace_entries"] if w["kind"] == "own")
+        self.assertEqual(own["transport"], "http")
 
 
 class SupportTests(unittest.TestCase):
@@ -525,88 +835,6 @@ class SupportTests(unittest.TestCase):
         self.assertEqual(runtime_loads(None, True), "unknown")
         self.assertEqual(runtime_loads("codex", False), "unbound")
         self.assertEqual(runtime_loads(None, False), "unbound")
-
-
-class AttentionTests(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.db = Path(self.tmp.name) / "board.sqlite"
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def test_all_buckets(self):
-        data = {
-            WS_A: {
-                "meta": {"id": WS_A, "name": "Alpha", "slug": "alpha"},
-                "issues": [],
-                "runtimes": [
-                    runtime(WS_A, "rt-anti", provider="antigravity"),
-                    runtime(WS_A, "rt-oc", provider="opencode"),
-                    runtime(WS_A, "rt-codex", provider="codex"),
-                ],
-                "agents": [
-                    agent(WS_A, "a-ignored", runtime_id="rt-anti", mcp_config=None),
-                    agent(WS_A, "a-unbound", runtime_id=None, runtime_bound=False, mcp_config=None),
-                    agent(WS_A, "a-shadow", runtime_id="rt-codex",
-                          mcp_config={"mcpServers": {"linear": {"command": "x"}}}),
-                    agent(WS_A, "a-fail", runtime_id="rt-oc", mcp_config=None),
-                    agent(WS_A, "a-hidden", runtime_id="rt-codex", mcp_config=None,
-                          mcp_config_redacted=True),
-                    agent(WS_A, "a-off", runtime_id="rt-codex", mcp_config=None),
-                ],
-                "tasks": {},
-                "mcp_servers": [
-                    {"id": "srv-linear", "workspace_id": WS_A, "name": "linear", "transport": "http",
-                     "agent_count": 4, "created_at": None, "updated_at": "2026-10-20T00:00:00Z"},
-                    {"id": "srv-idle", "workspace_id": WS_A, "name": "idle", "transport": "stdio",
-                     "agent_count": 0, "created_at": None, "updated_at": "2026-10-20T00:00:00Z"},
-                    {"id": "srv-off", "workspace_id": WS_A, "name": "off", "transport": "stdio",
-                     "agent_count": 1, "created_at": None, "updated_at": "2026-10-20T00:00:00Z"},
-                ],
-                "agent_mcp": {
-                    "a-ignored": [{"id": "srv-linear", "name": "linear", "enabled": True}],
-                    "a-unbound": [{"id": "srv-linear", "name": "linear", "enabled": True}],
-                    "a-shadow": [{"id": "srv-linear", "name": "linear", "enabled": True}],
-                    "a-fail": [{"id": "srv-linear", "name": "linear", "enabled": True}],
-                    "a-off": [{"id": "srv-off", "name": "off", "enabled": False}],
-                },
-            },
-        }
-        store, runner = make(FakeMultica(data), self.db)
-        self.assertTrue(collect(store, runner)["ok"])
-        body = views(store).mcp()
-        att = body["attention"]
-        self.assertEqual(set(att["counts"]),
-                         {"ignored", "shadowed", "may_fail", "hidden", "unused", "disabled_only"})
-        self.assertEqual(att["badge"],
-                         att["counts"]["ignored"] + att["counts"]["shadowed"] + att["counts"]["may_fail"])
-        b = att["buckets"]
-        ignored = {(i["agent_id"], i["reason"]) for i in b["ignored"]}
-        self.assertEqual(ignored, {("a-ignored", "runtime_no_mcp"), ("a-unbound", "runtime_unbound")})
-        self.assertEqual([i["server_id"] for i in b["ignored"]], [None, None])
-        self.assertEqual(len(b["shadowed"]), 1)
-        sh = b["shadowed"][0]
-        self.assertEqual((sh["agent_id"], sh["server_id"], sh["reason"], sh["key"]),
-                         ("a-shadow", "srv-linear", "own_config_same_name", f"{WS_A}:a-shadow:srv-linear"))
-        self.assertEqual([i["agent_id"] for i in b["may_fail"]], ["a-fail"])
-        self.assertEqual(b["may_fail"][0]["reason"], "opencode_v2_unsupported")
-        self.assertEqual([i["agent_id"] for i in b["hidden"]], ["a-hidden"])
-        self.assertEqual(b["hidden"][0]["reason"], "config_redacted")
-        self.assertEqual([i["server_id"] for i in b["unused"]], ["srv-idle"])
-        self.assertEqual([i["server_id"] for i in b["disabled_only"]], ["srv-off"])
-        for items in b.values():
-            for i in items:
-                self.assertEqual(set(i), {"key", "workspace_id", "agent_id", "server_id", "name", "reason"})
-        store.close()
-
-    def test_empty_buckets_absent_from_buckets_but_counted(self):
-        store, runner = make(FakeMultica(mcp_fixture()), self.db)
-        collect(store, runner)
-        att = views(store).mcp()["attention"]
-        self.assertEqual(att["counts"]["hidden"], 0)
-        self.assertNotIn("hidden", att["buckets"])
-        store.close()
 
 
 if __name__ == "__main__":

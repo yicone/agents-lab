@@ -1,6 +1,6 @@
-# Multica Board 只读 API 契约（v0.6）
+# Multica Board 只读 API 契约（v0.10）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。v0.6（ACM-182）新增 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。v0.9（ACM-370）新增 `GET /api/mcp`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。v0.6（ACM-182）新增 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。v0.9（ACM-370）新增 `GET /api/mcp`；v0.10（ACM-403，ACM-378 设计）把它重写为 schema 2：本机与项目级声明文件即时读取、指纹比对、行级条目与来源健康条。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -611,112 +611,82 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 
 `summary` 含 `grok_bot` 来源卡片，全部计数包含这些独立条目；Bot 名称可搜索，来源可筛选。清单缺失或格式无效通过 `meta.sources[id=grok_bot]` 显式标注，来源卡片显示未采集，不能把读取失败视作 0 个技能。用户文案统一为「Multica Workspace」；历史 API 标识 `cloud` / `multica_cloud` 继续兼容。
 
-## `GET /api/mcp`（ACM-370）
+## `GET /api/mcp`（ACM-370，schema 2 由 ACM-403 重写）
 
-各 workspace 的 MCP 库、agent 分配和 agent 自有配置的摘要。只读缓存。设计和交互见 `mcp-design.md`。走和其它 `/api/*` 相同的 Host / 跨源校验与安全头。没有查询参数；带任何参数返回 `400`。
+同名 MCP server 在本机各工具、仓库项目级和各 Multica workspace 的对账视图。本机/项目级文件按 `config/mcp-sources.json` 的声明即时读取（fd 安全打开、不跟随符号链接、值不入库），Multica 侧走只读缓存。设计见 `mcp-redesign.md`（§4 有完整 JSON 例子）。没有查询参数；带任何参数返回 `400`。`mcp-sources.json` 声明无效时返回 `ok:false`，仍带 `mcp_schema` 与单项 `meta.sources`。
 
 ```json
 {
-  "generated_at": "2026-10-23T09:00:00Z",
-  "mcp_schema": 1,
-  "mcp_every_rounds": 5,
-  "support": {
-    "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
-    "providers": {
-      "codex": { "loads": "yes", "channel": "codex_home_config", "native_merge": "yes", "remote_filter": false, "note": null },
-      "hermes": { "loads": "yes", "channel": "acp_session", "native_merge": "unknown", "remote_filter": true, "note": null },
-      "cursor": { "loads": "yes", "channel": "workdir_cursor_mcp_json", "native_merge": "yes", "remote_filter": false, "note": "oauth_needs_auth_source" },
-      "antigravity": { "loads": "no", "channel": null, "native_merge": null, "remote_filter": false, "note": null },
-      "mcode": { "loads": "yes", "channel": "acp_session", "native_merge": "unknown", "remote_filter": true, "note": null },
-      "opencode": { "loads": "conditional", "channel": "opencode_config_content", "native_merge": "yes", "remote_filter": false, "note": "v2_task_fails" }
-    }
-  },
-  "workspaces": [
-    {
-      "id": "ws-uuid",
-      "slug": "acm-lab",
-      "name": "ACM Lab",
-      "library_state": "ok",
-      "library_collected_at": "2026-10-23T08:59:40Z",
-      "library_error": null,
-      "bindings_state": "ok",
-      "bindings_collected_at": "2026-10-23T08:55:10Z",
-      "servers": [
-        {
-          "key": "ws-uuid:srv-uuid",
-          "id": "srv-uuid",
-          "name": "linear",
-          "transport": "http",
-          "agent_count": 3,
-          "enabled_count": 2,
-          "disabled_count": 1,
-          "config_visible": false,
-          "created_at": "...",
-          "updated_at": "..."
-        }
-      ]
-    }
-  ],
-  "agents": [
-    {
-      "key": "ws-uuid:agent-uuid",
-      "workspace_id": "ws-uuid",
-      "id": "agent-uuid",
-      "name": "Reviewer · Hermes",
-      "archived": false,
-      "runtime_id": "rt-uuid",
-      "provider": "hermes",
-      "runtime_loads": "yes",
-      "own_config": {
-        "state": "managed",
-        "servers": [
-          {
-            "name": "linear",
-            "transport": "stdio",
-            "env": { "set": true, "count": 2 },
-            "headers": { "set": false, "count": 0 }
-          }
-        ]
-      },
-      "bindings_state": "ok",
-      "bindings": [
-        { "server_id": "srv-uuid", "name": "linear", "enabled": true, "shadowed": true }
-      ],
-      "effective": {
-        "state": "known",
-        "servers": [
-          { "name": "linear", "from": "own", "transport": "stdio" }
-        ]
-      }
-    }
-  ],
-  "attention": {
-    "badge": 2,
-    "counts": { "ignored": 1, "shadowed": 1, "may_fail": 0, "hidden": 0, "unused": 0, "disabled_only": 0 },
-    "buckets": {
-      "ignored": [ { "key": "ws-uuid:agent-uuid", "workspace_id": "ws-uuid", "agent_id": "agent-uuid", "server_id": null, "name": "调研 · Antigravity", "reason": "runtime_no_mcp" } ],
-      "shadowed": [ { "key": "ws-uuid:agent-uuid:srv-uuid", "workspace_id": "ws-uuid", "agent_id": "agent-uuid", "server_id": "srv-uuid", "name": "linear", "reason": "own_config_same_name" } ]
-    }
-  }
+  "ok": true, "error": null, "mcp_schema": 2,
+  "generated_at": "…", "multica_collected_at": "… | null",
+  "tools": [ { "id": "cursor", "label": "Cursor", "short_label": "Cursor",
+               "files": [ { "path": "~/.cursor/mcp.json", "scope": "global",
+                            "state": "ok", "detail": "已读", "entry_count": 3 } ] } ],
+  "repos": [ { "id": "agents-lab", "label": "agents-lab",
+               "files": [ { "path": ".mcp.json", "location": ".mcp.json",
+                            "state": "ok", "detail": "已读", "entry_count": 1 } ] } ],
+  "workspaces": [ { "id": "…", "slug": "…", "name": "…",
+                    "library_state": "ok", "library_error": null,
+                    "bindings_state": "ok", "collected_at": "…" } ],
+  "support": { "source": "…", "providers": { "…": {} } },
+  "unknown": { "local_files": [], "project_files": [], "library": [], "bindings": [],
+               "own_hidden": 0, "own_invalid": 0, "own_pending": 0,
+               "key": "ok", "multica": "collected" },
+  "items": [ { "id": "m…（20 字符，进程盐 HMAC）",
+    "display_name": "github", "display_dup": null,
+    "source_class": "both", "source_uncertain": false, "source_label": "本机 + Multica",
+    "in_project": false, "presence": { "local": 4, "project": 0, "library": 1, "own": 0 },
+    "transports": ["stdio"],
+    "tools": { "cursor": "direct" }, "repo_cells": { ".mcp.json": "direct" },
+    "entries": [ { "scope": "global", "tool": "cursor", "path": "~/.cursor/mcp.json",
+                   "state": "ok", "broken_reason": null, "disabled": false,
+                   "transport": "stdio",
+                   "env": { "set": true, "count": 2 },
+                   "headers": { "set": false, "count": 0 }, "group": "A" } ],
+    "workspace_entries": [ { "kind": "library", "workspace_id": "…",
+      "workspace_name": "…", "server_id": "srv-…", "transport": "stdio",
+      "agent_count": 2, "updated_at": "…", "stale": false, "bindings_known": true,
+      "agents": [ { "id": "…", "name": "…", "enabled": true, "shadowed": null,
+                    "provider": "codex", "runtime_loads": "yes" } ] } ],
+    "consistency": { "state": "differs", "partial": false, "pending": 0,
+      "groups": [ { "id": "A", "members": ["Cursor", "Claude Code"] } ],
+      "parts": { "launch": "same", "env": "differs", "headers": "same" } },
+    "tidy": null, "bucket": "drift", "tags": [], "reason": "…",
+    "quiet": false, "command": "\"${EDITOR:-vi}\" ~/.codex/config.toml" } ],
+  "summary": [ { "id": "all", "label": "全部", "count": 13, "uncertain": 0,
+                 "statuses": { "broken": 1, "differs": 2, "same": 4, "single": 3, "incomparable": 3 } } ],
+  "attention": { "badge": 6, "tone": "bad", "partial": false,
+    "counts": { "broken": 1, "ignored": 1, "shadowed": 1, "may_fail": 1, "drift": 2 },
+    "buckets": { "broken": { "connected": true, "partial": false, "unknown_sources": [],
+      "reason": "", "items": [ { "id": "m…", "title": "…", "status": "broken",
+      "time": "…", "source_class": "local_only", "tags": [] } ] } },
+    "tidy": { "count": 2, "partial": false, "unknown_sources": [], "connected": true, "reason": "" } },
+  "meta": { "sources": [ { "id": "local_files", "label": "本机配置",
+                           "state": "ok", "detail": "4 已读 · 5 不存在" } ] }
 }
 ```
 
-- **脱敏白名单**（本接口最重要的约定）：库条目只有上面的字段，`config_visible` 恒为 `false`，因为 Multica 不向任何人返回库条目的配置。agent 自有配置只输出 server 名、`transport`，以及 `env` / `headers` 的 `set` 与 `count`。不输出 env 和 headers 的 key 名与值，也不输出 `url`、`command`、`args`、`cwd` 或条目里的其它字段。原始 `mcp_config` 只在采集进程内存里解析，不入库、不进日志、不进错误信息。`/api/agents` 仍然不输出 `mcp_config`。
-- `support.providers`：后端常量，键是小写的 provider。`loads` 为 `yes` | `no` | `conditional` | `unknown`。`native_merge`（daemon 是否把 runtime 本机配置合并进来）为 `yes` | `no` | `unknown` | `null`（不加载时）。`remote_filter: true` 表示 runtime 没声明能力时会丢掉 http/sse 条目。`note` 是固定代码或 `null`。不在表里的 provider，`runtime_loads` 为 `unknown`。
-- `library_state`：`ok` | `error` | `never`。`error` 时 `servers` 保留上次成功的数据，`library_error` 为 `{kind, message}`（已脱敏、截断到 200 字符）。`never` 时 `servers` 为 `[]`，前端显示「未加载」，不显示「库为空」。
-- `bindings_state`（workspace 级）：`ok` | `none`（库为空或 `agent_count` 之和为 0，确定没有分配，没有调用 `agent mcp list`）| `partial`（部分 agent 读取失败）| `error` | `never`。
-- `transport`：`stdio` | `http` | `sse` | `unknown`，或原样保留的其它显式 `type`（截断到 32 字符）。库条目取 CLI 返回值，自有配置按 Multica `mcpTransportOf` 的规则由后端判断。
-- `enabled_count` / `disabled_count`：由各 agent 的 `agent mcp list` 汇总，只计未归档 agent。`bindings_state` 不是 `ok` 时为 `null`，`agent_count` 仍取 CLI 原值。
-- `agents[]`：只列有分配、自有配置（`own_config.state` 不是 `none`）或 `bindings_state` 为 `error` 的 agent；其它 agent 不出现，前端用 `/api/agents` 的总数算出「其余 N 个」。包含归档 agent（`archived: true`），前端默认隐藏。
-- `provider`：按 `runtime_id` join `/api/runtimes`，转成小写。没绑 runtime 或 runtime 不在缓存时为 `null`，此时 `runtime_loads` 为 `unbound` 或 `unknown`。
-- `own_config.state`：`none`（`mcp_config` 为 `null`，且 `mcp_config_redacted` 不为 `true`）| `managed`（任意对象，包括 `{}` 和空 `mcpServers`；`servers` 可以为空）| `hidden`（`mcp_config_redacted: true`）| `invalid`（解析失败）。只有 `managed` 带 `servers`，其它状态为 `[]`。`mcpServers` 和旧的 `mcp` 容器都读，同名时以 `mcpServers` 为准。
-- `bindings`：该 agent 的 `agent mcp list` 结果。`bindings_state`（agent 级）为 `ok` | `none` | `error` | `never`；不是 `ok` 时 `bindings` 为 `[]`，前端显示 `?`。`shadowed` 表示与自有配置里的 server 同名。自有配置是 `hidden` 时，`shadowed` 为 `null`（判断不了）。
-- `effective`：按 Multica 的优先级（已启用的库分配 < 自有配置）算出的下一次任务的 server 列表，不含 runtime 本机配置和单次任务的集成 overlay。`state`：`known` | `partial`（分配没读到或自有配置是 `hidden`）| `unknown`。`from`：`library` | `own`。
-- `attention`：桶代码与条件见 `mcp-design.md`。`badge` 等于 `ignored`、`shadowed`、`may_fail` 三个桶的条数之和。`reason` 为固定代码：`runtime_no_mcp`、`runtime_unbound`、`own_config_same_name`、`opencode_v2_unsupported`、`config_redacted`、`no_agents`、`all_disabled`。空桶不出现在 `buckets` 里，但 `counts` 里照样是 `0`。
-- 撤权（`auth`）时，该 workspace 的 MCP 缓存与其它资源一起清空。
+- **脱敏白名单**（本接口最重要的约定）：`entries[]` 只有上面列的字段（`scope`/`tool`/`location`/`path`/`state`/`broken_reason`/`disabled`/`transport`/`env`/`headers`/`group`）；`env`、`headers` 只有 `{set,count}`；`workspace_entries` 的自有配置同理只出名字、传输方式和 env/headers 计数。不输出 `url`、`command`、`args`、`cwd`、env/header 的键名和值、token。`consistency` 只比较进程内指纹（本机密钥加盐 HMAC），指纹本身不出现在响应里。`reason`、`title` 是固定措辞；`error.message` 不含路径细节之外的任何取值。
+- `file.state`（tools[].files / repos[].files）：`ok` | `absent`（确定没有）| `denied` | `symlink` | `not_regular` | `too_large` | `parse_error` | `unsupported` | `io_error` | `platform_unsupported`。除 `ok`/`absent` 外都算「没读到」。`detail` 是固定中文措辞，不含异常文本。
+- `transport`：只有 `stdio` | `http` | `sse` | `unknown`。v1 历史数据里的原样 `type` 一律渲染为 `unknown`。
+- 单元格（`items[].tools` / `repo_cells`）：`direct`（有同名可用条目）| `off`（显式停用）| `missing`（条目损坏）| `unknown`（文件没读到）| `not_applicable`（确定只在 Multica）| `null`（已读但没有，显示空白）。`unknown` 优先于 `not_applicable`。
+- `source_class`：`both` | `local_only` | `multica_only`；`source_uncertain` 表示另一侧有来源没读到，行可能也在那边。
+- `entries[].scope`：`global`（本机工具）| `project`（仓库项目级；此时带 `location`，如 `.mcp.json`、`.cursor`）。
+- `workspace_entries[]`：`kind=library`（库条目，`agents` 为已分配 agent 数组；`bindings_known=false` 或分配没读到时为 `null`）或 `kind=own`（agent 自有配置，`fp_state`：`pending` 本次启动后未采集，不参与比对 | `ready`）。`agents[].shadowed`：`true` 同名自有配置覆盖、`false` 确定没有、`null` 判断不了（自有配置 hidden/invalid）。`stale` 表示库读取失败、显示上次数据。
+- `consistency.state`：`broken` | `differs` | `same` | `single` | `incomparable`（库条目只写不读时）；`partial` 表示有来源没读到或待采集，结论只覆盖已读；`pending` 是自有配置指纹待采集的个数；`groups` 按成员数、再按工具序排 A、B、…；`parts` 三项各为 `same` | `differs`。
+- `bucket`：五桶 `broken` | `ignored` | `shadowed` | `may_fail` | `drift`，一条只进第一个命中的桶，其余命中进 `tags`；`name_unverified` 也进 `tags`。`tidy`（`reason`：`no_agents` | `all_disabled`）与桶并列、不计入角标。
+- `summary`：固定 `all` / `both` / `local_only` / `multica_only` 四块；「仓库项目级」卡由前端按 `in_project` 合成。`uncertain` 只统计 `source_uncertain` 行数。
+- `attention.badge` = 五桶条数之和；`tone`：`bad`（红桶非空）| `warn`（仅 drift 或待清理）| `unknown`（badge 为 0 但有来源没读到，灰 `?`）| `none`（隐藏）。`buckets` 五桶恒在；`connected:false` 加 `reason` 表示从没连上，`partial` 加 `unknown_sources` 表示可能漏条。`tidy.connected` 同理。
+- `unknown`：`local_files`/`project_files` 是没读到的文件（工具 id / 仓库 location）；`library`/`bindings` 是没读到的 workspace id；`own_hidden`/`own_invalid`/`own_pending` 是计数；`key`：`ok` 或密钥拒绝代码（`key_dir_unsafe|key_symlink|key_not_regular|key_owner|key_mode|key_links|key_length`）；`multica`：`collected` | `never`。
+- `meta.sources`：固定七个健康片 `local_files`、`project_files`、`fingerprints`、`multica_library`、`agent_bindings`、`multica_own_config`、`runtime_support`，`state`：`ok` | `warn` | `bad`。
+- `workspaces[]`：`library_state`：`ok` | `error`（保留上次数据，`library_error` 为 `{kind,message}` 已脱敏）| `never`；`bindings_state`：`ok` | `none` | `partial` | `error` | `never`。
+- `support.providers`：后端常量，键是小写 provider；`loads` 为 `yes` | `no` | `conditional` | `unknown`；`native_merge` 为 `yes` | `no` | `unknown` | `null`；`remote_filter` 表示 runtime 没声明能力时会丢掉 http/sse 条目；不在表里的 provider `runtime_loads` 为 `unknown`。
+- 与 §4 例子的差异：`error` 是 `{code,message}` 对象（`sources_invalid` 时为 `{"code":"sources_invalid","message":"mcp-sources.json 无效"}`）；行 `id` 只在本次进程内稳定，重启即变，不能跨请求当键或写进 URL。
+- v1 的 `workspaces[].servers`、`agents[]`、`effective`、平铺桶数组都已删除；`/api/agents` 仍然不输出 `mcp_config`。
 
 ## 变更记录
 
+- v0.10（2026-10-24）：ACM-403（ACM-378 设计）把 `GET /api/mcp` 重写为 `mcp_schema: 2`：行按原名合并，本机/项目级文件按 `config/mcp-sources.json` 声明即时安全读取，指纹只在本进程内比较，前端列序、桶、角标 tone 与抽屉内容见 `mcp-redesign.md`。
 - v0.9（2026-10-23）：ACM-370 增加 `GET /api/mcp`（workspace MCP 库、agent 分配、自有配置摘要、各 runtime 是否加载、待处理分桶）。CLI 白名单只增加 `workspace mcp list` 与 `agent mcp list`。
 - v0.8（2026-10-23）：ACM-358 把升级检查接到只读的 npm registry / GitHub API。网络失败或无法比较时数据源为 `fallback`，可升级桶在没有确认结果时保持 `connected: false`。
 - v0.7（2026-10-20）：ACM-291 增加 `GET /api/bots`。`GET /api/agents` 增加 `description`、`instructions`、`instructions_sha256`、`skills`、`disabled_runtime_skills`。`GET /api/skills` 的每条增加 `workspace_installs`。

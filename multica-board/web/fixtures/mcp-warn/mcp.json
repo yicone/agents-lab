@@ -1,0 +1,601 @@
+{
+ "ok": true,
+ "error": null,
+ "mcp_schema": 2,
+ "generated_at": "2026-10-24T02:01:00Z",
+ "multica_collected_at": "2026-10-24T01:58:00Z",
+ "tools": [
+  {
+   "id": "cursor",
+   "label": "Cursor",
+   "short_label": "Cursor",
+   "files": [
+    {
+     "path": "~/.cursor/mcp.json",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 3
+    }
+   ]
+  },
+  {
+   "id": "codex",
+   "label": "Codex",
+   "short_label": "Codex",
+   "files": [
+    {
+     "path": "~/.codex/config.toml",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 2
+    }
+   ]
+  },
+  {
+   "id": "claude",
+   "label": "Claude Code",
+   "short_label": "Claude",
+   "files": [
+    {
+     "path": "~/.claude.json",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 2
+    }
+   ]
+  },
+  {
+   "id": "hermes",
+   "label": "Hermes Agent",
+   "short_label": "Hermes",
+   "files": [
+    {
+     "path": "~/.hermes/config.yaml",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 1
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini CLI",
+   "short_label": "Gemini",
+   "files": [
+    {
+     "path": "~/.gemini/settings.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "mcode",
+   "label": "Devin CLI",
+   "short_label": "Devin",
+   "files": [
+    {
+     "path": "~/.config/devin/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "antigravity",
+   "label": "Antigravity",
+   "short_label": "Antigravity",
+   "files": [
+    {
+     "path": "~/.gemini/antigravity/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "windsurf",
+   "label": "Windsurf",
+   "short_label": "Windsurf",
+   "files": [
+    {
+     "path": "~/.codeium/windsurf/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "opencode",
+   "label": "OpenCode",
+   "short_label": "OpenCode",
+   "files": [
+    {
+     "path": "~/.config/opencode/opencode.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  }
+ ],
+ "repos": [
+  {
+   "id": "agents-lab",
+   "label": "agents-lab",
+   "files": [
+    {
+     "path": ".mcp.json",
+     "location": ".mcp.json",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 1
+    },
+    {
+     "path": ".cursor/mcp.json",
+     "location": ".cursor",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": ".codex/config.toml",
+     "location": ".codex",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": ".gemini/settings.json",
+     "location": ".gemini",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": "opencode.json",
+     "location": "opencode.json",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    }
+   ]
+  }
+ ],
+ "workspaces": [
+  {
+   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "slug": "alpha-lab",
+   "name": "Alpha Lab",
+   "library_state": "ok",
+   "library_error": null,
+   "bindings_state": "ok",
+   "collected_at": "2026-10-24T01:58:00Z"
+  },
+  {
+   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "library_state": "ok",
+   "library_error": null,
+   "bindings_state": "ok",
+   "collected_at": "2026-10-24T01:58:00Z"
+  }
+ ],
+ "support": {
+  "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
+  "providers": {
+   "codex": {
+    "loads": "yes",
+    "channel": "codex_home_config",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "hermes": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "cursor": {
+    "loads": "yes",
+    "channel": "workdir_cursor_mcp_json",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "mcode": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "claude": {
+    "loads": "yes",
+    "channel": "claude_mcp_config_file",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "grok": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "opencode": {
+    "loads": "conditional",
+    "channel": "opencode_config_content",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": "v2_task_fails"
+   },
+   "antigravity": {
+    "loads": "no",
+    "channel": null,
+    "native_merge": null,
+    "remote_filter": false,
+    "note": null
+   },
+   "copilot": {
+    "loads": "no",
+    "channel": null,
+    "native_merge": null,
+    "remote_filter": false,
+    "note": null
+   }
+  }
+ },
+ "unknown": {
+  "local_files": [],
+  "project_files": [],
+  "library": [],
+  "bindings": [],
+  "own_hidden": 0,
+  "own_invalid": 0,
+  "own_pending": 0,
+  "key": "ok",
+  "multica": "collected"
+ },
+ "items": [
+  {
+   "id": "mhubo3ivcp4jwdq5kxer6",
+   "display_name": "github",
+   "display_dup": null,
+   "source_class": "both",
+   "source_uncertain": false,
+   "source_label": "本机 + Multica",
+   "in_project": false,
+   "presence": {
+    "local": 2,
+    "project": 0,
+    "library": 1,
+    "own": 0
+   },
+   "transports": [
+    "stdio"
+   ],
+   "tools": {
+    "cursor": "direct",
+    "codex": "direct"
+   },
+   "repo_cells": {},
+   "entries": [
+    {
+     "scope": "global",
+     "tool": "cursor",
+     "path": "~/.cursor/mcp.json",
+     "state": "ok",
+     "broken_reason": null,
+     "disabled": false,
+     "transport": "stdio",
+     "env": {
+      "set": true,
+      "count": 2
+     },
+     "headers": {
+      "set": false,
+      "count": 0
+     },
+     "group": "A"
+    },
+    {
+     "scope": "global",
+     "tool": "codex",
+     "path": "~/.codex/config.toml",
+     "state": "ok",
+     "broken_reason": null,
+     "disabled": false,
+     "transport": "stdio",
+     "env": {
+      "set": true,
+      "count": 3
+     },
+     "headers": {
+      "set": false,
+      "count": 0
+     },
+     "group": "B"
+    }
+   ],
+   "workspace_entries": [
+    {
+     "kind": "library",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "workspace_name": "Alpha Lab",
+     "server_id": "srv-github",
+     "transport": "stdio",
+     "agent_count": 1,
+     "updated_at": "2026-10-20T08:00:00Z",
+     "stale": false,
+     "bindings_known": true,
+     "agents": [
+      {
+       "id": "a-0001-0000-4000-8000-000000000001",
+       "name": "Builder · Codex",
+       "enabled": true,
+       "shadowed": null,
+       "provider": "codex",
+       "runtime_loads": "yes"
+      }
+     ]
+    }
+   ],
+   "consistency": {
+    "state": "differs",
+    "partial": false,
+    "pending": 0,
+    "groups": [
+     {
+      "id": "A",
+      "members": [
+       "Cursor"
+      ]
+     },
+     {
+      "id": "B",
+      "members": [
+       "Codex"
+      ]
+     }
+    ],
+    "parts": {
+     "launch": "same",
+     "env": "differs",
+     "headers": "same"
+    }
+   },
+   "tidy": null,
+   "bucket": "drift",
+   "tags": [],
+   "reason": "Cursor 与 Codex 的 env 不同",
+   "quiet": false,
+   "command": "\"${EDITOR:-vi}\" ~/.codex/config.toml"
+  },
+  {
+   "id": "mo3ivcp4jwdq5kxer6lyf",
+   "display_name": "slack",
+   "display_dup": null,
+   "source_class": "local_only",
+   "source_uncertain": false,
+   "source_label": "仅本机",
+   "in_project": false,
+   "presence": {
+    "local": 1,
+    "project": 0,
+    "library": 0,
+    "own": 0
+   },
+   "transports": [
+    "stdio"
+   ],
+   "tools": {
+    "claude": "direct"
+   },
+   "repo_cells": {},
+   "entries": [
+    {
+     "scope": "global",
+     "tool": "claude",
+     "path": "~/.claude.json",
+     "state": "ok",
+     "broken_reason": null,
+     "disabled": false,
+     "transport": "stdio",
+     "env": {
+      "set": false,
+      "count": 0
+     },
+     "headers": {
+      "set": false,
+      "count": 0
+     },
+     "group": "A"
+    }
+   ],
+   "workspace_entries": [],
+   "consistency": {
+    "state": "single",
+    "partial": false,
+    "pending": 0,
+    "groups": [],
+    "parts": {
+     "launch": "same",
+     "env": "same",
+     "headers": "same"
+    }
+   },
+   "tidy": null,
+   "bucket": null,
+   "tags": [],
+   "reason": null,
+   "quiet": false,
+   "command": null
+  }
+ ],
+ "summary": [
+  {
+   "id": "all",
+   "label": "全部",
+   "count": 2,
+   "uncertain": 0,
+   "statuses": {
+    "differs": 1,
+    "single": 1
+   }
+  },
+  {
+   "id": "both",
+   "label": "本机 + Multica",
+   "count": 1,
+   "uncertain": 0,
+   "statuses": {
+    "differs": 1
+   }
+  },
+  {
+   "id": "local_only",
+   "label": "仅本机",
+   "count": 1,
+   "uncertain": 0,
+   "statuses": {
+    "single": 1
+   }
+  },
+  {
+   "id": "multica_only",
+   "label": "仅 Multica",
+   "count": 0,
+   "uncertain": 0,
+   "statuses": {}
+  }
+ ],
+ "attention": {
+  "badge": 1,
+  "tone": "warn",
+  "partial": false,
+  "counts": {
+   "broken": 0,
+   "ignored": 0,
+   "shadowed": 0,
+   "may_fail": 0,
+   "drift": 1
+  },
+  "buckets": {
+   "broken": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "ignored": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "shadowed": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "may_fail": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "drift": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": [
+     {
+      "id": "mhubo3ivcp4jwdq5kxer6",
+      "title": "Cursor 与 Codex 的 env 不同",
+      "status": "drift",
+      "time": "2026-10-24T02:01:00Z",
+      "source_class": "both",
+      "tags": []
+     }
+    ]
+   }
+  },
+  "tidy": {
+   "count": 0,
+   "partial": false,
+   "unknown_sources": [],
+   "connected": true,
+   "reason": ""
+  }
+ },
+ "meta": {
+  "sources": [
+   {
+    "id": "local_files",
+    "label": "本机配置",
+    "state": "warn",
+    "detail": "8 已读 · 1 读不出"
+   },
+   {
+    "id": "project_files",
+    "label": "仓库项目级",
+    "state": "ok",
+    "detail": "1 有 · 4 不存在"
+   },
+   {
+    "id": "fingerprints",
+    "label": "配置指纹",
+    "state": "ok",
+    "detail": "只比哈希"
+   },
+   {
+    "id": "multica_library",
+    "label": "Multica 库",
+    "state": "ok",
+    "detail": "2 个 Workspace"
+   },
+   {
+    "id": "agent_bindings",
+    "label": "Agent 分配",
+    "state": "warn",
+    "detail": "2 个 Workspace · 1 个没读到"
+   },
+   {
+    "id": "multica_own_config",
+    "label": "Agent 自有配置",
+    "state": "ok",
+    "detail": "全部可见"
+   },
+   {
+    "id": "runtime_support",
+    "label": "Runtime 加载表",
+    "state": "ok",
+    "detail": "v0.6.5"
+   }
+  ]
+ }
+}

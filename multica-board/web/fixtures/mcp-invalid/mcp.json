@@ -1,0 +1,160 @@
+{
+ "ok": false,
+ "error": {
+  "code": "sources_invalid",
+  "message": "mcp-sources.json 无效"
+ },
+ "mcp_schema": 2,
+ "generated_at": "2026-10-24T02:01:00Z",
+ "multica_collected_at": null,
+ "tools": [],
+ "repos": [],
+ "workspaces": [],
+ "support": {
+  "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
+  "providers": {
+   "codex": {
+    "loads": "yes",
+    "channel": "codex_home_config",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "hermes": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "cursor": {
+    "loads": "yes",
+    "channel": "workdir_cursor_mcp_json",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "mcode": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "claude": {
+    "loads": "yes",
+    "channel": "claude_mcp_config_file",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": null
+   },
+   "grok": {
+    "loads": "yes",
+    "channel": "acp_session",
+    "native_merge": "unknown",
+    "remote_filter": true,
+    "note": null
+   },
+   "opencode": {
+    "loads": "conditional",
+    "channel": "opencode_config_content",
+    "native_merge": "yes",
+    "remote_filter": false,
+    "note": "v2_task_fails"
+   },
+   "antigravity": {
+    "loads": "no",
+    "channel": null,
+    "native_merge": null,
+    "remote_filter": false,
+    "note": null
+   },
+   "copilot": {
+    "loads": "no",
+    "channel": null,
+    "native_merge": null,
+    "remote_filter": false,
+    "note": null
+   }
+  }
+ },
+ "unknown": {
+  "local_files": [],
+  "project_files": [],
+  "library": [],
+  "bindings": [],
+  "own_hidden": 0,
+  "own_invalid": 0,
+  "own_pending": 0,
+  "key": "ok",
+  "multica": "collected"
+ },
+ "items": [],
+ "summary": [],
+ "attention": {
+  "badge": 0,
+  "tone": "unknown",
+  "partial": true,
+  "counts": {
+   "broken": 0,
+   "ignored": 0,
+   "shadowed": 0,
+   "may_fail": 0,
+   "drift": 0
+  },
+  "buckets": {
+   "broken": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "ignored": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "shadowed": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "may_fail": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "drift": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   }
+  },
+  "tidy": {
+   "count": 0,
+   "partial": false,
+   "unknown_sources": [],
+   "connected": true,
+   "reason": ""
+  }
+ },
+ "meta": {
+  "sources": [
+   {
+    "id": "sources",
+    "label": "文件清单",
+    "state": "bad",
+    "detail": "mcp-sources.json 无效"
+   }
+  ]
+ }
+}

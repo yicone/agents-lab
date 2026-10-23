@@ -1,5 +1,7 @@
 # MCP 板块设计（ACM-370）
 
+> ACM-378 重做后，版式、采集范围、接口和待处理分桶以 `mcp-redesign.md` 为准。本文的事实依据、各 runtime 是否加载、生效优先级和命令表继续有效。
+
 回答三个问题：
 
 1. 每个 workspace 的 MCP 库里有什么，分给了谁？
@@ -156,7 +158,7 @@ CLI 白名单只增加 `workspace mcp list` 和 `agent mcp list` 两条只读命
 ### 以后再做（不在 v1）
 
 - 页面内执行写操作：需要独立的 POST 接口、每次会话的随机 token、逐条确认和审计日志，另开 issue 讨论。
-- runtime 本机的 MCP 配置清单：Multica 有这份脱敏清单（只有名字、传输方式、来源），但 CLI 0.6.5 没有读取它的命令。不允许 Atlas 自己去读 `~/.cursor/mcp.json` 这类文件，因为里面有明文密钥。
+- runtime 本机的 MCP 配置清单：Multica 有这份脱敏清单（只有名字、传输方式、来源），但 CLI 0.6.5 没有读取它的命令。Atlas 对本机/项目级 MCP 配置文件的读取规则见 `mcp-redesign.md` §3（只读 `config/mcp-sources.json` 声明的路径，fd 安全打开，不跟随符号链接，值只出指纹和状态，不落库、不进 API、不进日志）。
 - 给 Steward 的 `/api/mcp/attention?format=text`。
 - 按 OpenCode 的大版本收窄 `may_fail`。
 

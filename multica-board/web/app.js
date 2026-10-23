@@ -17,7 +17,8 @@ import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey, skillKey, skillRowId } from "./skills.js";
-import { badgeOf as mcpBadgeOf, renderMcp, renderMcpAgentDrawer, renderMcpCellDrawer, renderMcpServerDrawer } from "./mcp.js";
+import { badgeOf as mcpBadgeOf, badgeTitle as mcpBadgeTitle, badgeTone as mcpBadgeTone, copyWithFallback, mcpRowId, renderMcp, renderMcpDrawer } from "./mcp.js";
+import { setMcpTools } from "./route.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 import { agentQueryFields, instructionCell, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillsCell } from "./agents-view.js";
@@ -98,6 +99,7 @@ const state = {
   route: parseHash(location.hash),
   staleDays: Number(localStorage.getItem("mb.staleDays")) || 3,
   drawer: null,
+  expandedMcp: new Set(),
   expandedLanes: new Set(),
   changes: null,
   changesNote: null,
@@ -248,11 +250,11 @@ function mcpRefreshKey(payload) {
   return [
     payload.ok === false ? "bad" : "ok",
     payload.absent ? "1" : "",
-    payload.error || "",
+    JSON.stringify(payload.error || ""),
     payload.generated_at || "",
     payload.attention?.badge ?? "",
-    JSON.stringify(payload.workspaces || []),
-    JSON.stringify(payload.agents || []),
+    payload.attention?.tone || "",
+    JSON.stringify(payload.items || []),
   ].join("|");
 }
 
@@ -351,6 +353,10 @@ async function refresh(force = false) {
     const mcp = await mcpPromise;
     // A failed MCP read keeps the last good payload, dimmed with the error attached.
     state.mcp = mcp?.ok === false && !mcp.absent && state.mcp?.workspaces ? { ...state.mcp, ok: false, error: mcp.error } : mcp;
+    if (state.mcp?.tools) {
+      setMcpTools(state.mcp.tools);
+      if (state.route.view === "mcp") state.route.tool = parseHash(location.hash).tool;
+    }
     const agentSnapshot = await agentsPromise;
     state.agents = agentSnapshot.items ?? [];
     state.ownerInventory = agentSnapshot.owner_inventory ?? {};
@@ -582,8 +588,12 @@ function mcpSnapshot() {
   const payload = state.mcp;
   if (!payload) return { level: "idle", text: "MCP …", title: "" };
   if (payload.absent) return { level: "idle", text: "MCP 未接入", title: "后端还没有 MCP 采集" };
-  if (payload.ok === false) return { level: "warn", text: `MCP 读取失败 · 显示 ${ago(payload.generated_at)}的数据`, title: payload.error || "" };
-  return { level: "ok", text: `MCP 快照 ${ago(payload.generated_at)}`, title: absTime(payload.generated_at) };
+  const scan = payload.generated_at;
+  const coll = payload.multica_collected_at;
+  const text = `MCP 快照 ${ago(coll) || "—"} · 本机扫描 ${ago(scan) || "—"}`;
+  const title = `Multica ${absTime(coll) || "从未"} · 本机扫描 ${absTime(scan) || "从未"}`;
+  if (payload.ok === false) return { level: "warn", text: `MCP 读取失败 · ${text}`, title: payload.error?.message || payload.error || "" };
+  return { level: "ok", text, title };
 }
 
 function skillsSnapshot() {
@@ -597,6 +607,20 @@ function skillsSnapshot() {
     text: `清单 ${ago(meta.inventory_updated_at) || "—"}${sha} · 扫描 ${ago(meta.drift_scanned_at) || "刚刚"}`,
     title: `清单 ${absTime(meta.inventory_updated_at) || "—"} · 扫描 ${absTime(meta.drift_scanned_at) || "—"}`,
   };
+}
+
+function mcpSources() {
+  const sources = state.mcp?.meta?.sources || [];
+  if (!sources.length) return [h("span", { class: "muted" }, state.mcp?.ok === false ? "数据无效" : "数据源还没有返回")];
+  return sources.map((source) =>
+    h(
+      "span",
+      { class: `src-chip state-${source.state}`, title: source.detail || "" },
+      h("span", { class: "dot" }),
+      source.label,
+      source.detail ? h("span", { class: "chip-detail" }, source.detail) : null,
+    ),
+  );
 }
 
 function skillSources() {
@@ -693,35 +717,6 @@ function workspaceChip(ws) {
   );
 }
 
-/** MCP page workspace chips: the label is the MCP collection state, not the issue snapshot state. */
-function mcpWorkspaceChip(ws) {
-  const active = state.route.ws === ws.slug;
-  const entry = (state.mcp?.workspaces || []).find((w) => w.id === ws.id);
-  let detail = "未加载";
-  let st = "never";
-  if (entry) {
-    if (entry.library_state === "never") { detail = "未加载"; st = "never"; }
-    else if (entry.library_state === "error") { detail = `库读取失败 · ${entry.library_error?.kind || ""}`.replace(/ ·\s*$/, ""); st = "error"; }
-    else if (entry.bindings_state === "error") { detail = "分配读取失败"; st = "error"; }
-    else if (entry.bindings_state === "partial") { detail = "分配部分失败"; st = "stale"; }
-    else { detail = `库 ${(entry.servers || []).length}`; st = "ok"; }
-  }
-  return h(
-    "button",
-    {
-      type: "button",
-      class: `ws-chip state-${st}${active ? " active" : ""}`,
-      style: { "--ws-hue": hueOf(ws.slug) },
-      title: `${ws.name}（${ws.slug}）\nMCP 采集：${entry?.library_error?.message || detail}\n${active ? "点击取消筛选" : "点击只看此 workspace"}`,
-      "aria-pressed": active ? "true" : "false",
-      onclick: () => setRoute({ ws: active ? "" : ws.slug }),
-    },
-    h("span", { class: "dot" }),
-    ws.name,
-    h("span", { class: "chip-detail" }, detail),
-  );
-}
-
 function renderChrome() {
   document.querySelectorAll(".tab").forEach((t) => {
     const active = t.dataset.view === state.route.view;
@@ -738,10 +733,14 @@ function renderChrome() {
   }
   const mcpBadge = document.getElementById("mcp-badge");
   if (mcpBadge) {
+    const tone = mcpBadgeTone(state.mcp);
     const total = mcpBadgeOf(state.mcp);
-    mcpBadge.hidden = total === 0;
-    mcpBadge.textContent = total ? String(total) : "";
-    mcpBadge.title = total ? `MCP 待处理 ${total} 条` : "";
+    const title = mcpBadgeTitle(state.mcp);
+    mcpBadge.hidden = tone === "none" || (!total && tone !== "unknown");
+    mcpBadge.textContent = tone === "unknown" ? "?" : total ? String(total) : "";
+    mcpBadge.className = `tab-badge${tone === "bad" ? " tone-bad" : tone === "unknown" ? " tone-unknown" : ""}`;
+    mcpBadge.title = title;
+    mcpBadge.setAttribute("aria-label", title);
   }
   const skillsBadge = document.getElementById("skills-badge");
   if (skillsBadge) {
@@ -783,6 +782,10 @@ function renderChrome() {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "Skills 清单范围");
     healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("skills")), ...skillSources());
+  } else if (chrome === "mcp") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "MCP 范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("mcp")), ...mcpSources());
   } else if (chrome === "decide") {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "待你决定范围");
@@ -795,7 +798,7 @@ function renderChrome() {
       ...workspaceFilterBar(h, {
         workspaces: state.meta?.workspaces ?? [],
         activeSlug: slug,
-        chip: state.route.view === "mcp" ? mcpWorkspaceChip : workspaceChip,
+        chip: workspaceChip,
         onClear: () => setRoute({ ws: "" }),
       }),
     );
@@ -1050,7 +1053,7 @@ function closeDrawer() {
   const opener = state.drawer.opener;
   const planAgent = state.drawer.kind === "plan" ? state.drawer.row.agent_id : "";
   const rowId = state.drawer.rowId || "";
-  const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan" || state.drawer.kind === "agent" || state.drawer.kind === "bot";
+  const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan" || state.drawer.kind === "agent" || state.drawer.kind === "bot" || state.drawer.kind === "mcp";
   state.drawer = null;
   state.skillContent = new Map();
   state.skillContentReq = new Map();
@@ -1099,7 +1102,7 @@ function renderDrawer() {
   const el = document.getElementById("drawer");
   const d = state.drawer;
   el.hidden = !d;
-  const drawerLabel = { skill: "skill 详情", plan: "计划行详情", agent: "agent 详情", bot: "bot 详情", "mcp-agent": "MCP agent 详情", "mcp-server": "MCP server 详情", "mcp-cell": "MCP 分配详情" };
+  const drawerLabel = { skill: "skill 详情", plan: "计划行详情", agent: "agent 详情", bot: "bot 详情", "mcp": "MCP server 详情" };
   el.setAttribute("aria-label", drawerLabel[d?.kind] || "issue 详情");
   document.body.classList.toggle("drawer-open", !!d);
   if (!d) {
@@ -1162,16 +1165,16 @@ function renderDrawer() {
     el.replaceChildren(...renderPlanDrawer(h, { ...planActions(), closeDrawer }, d.row));
     return;
   }
-  if (d.kind === "mcp-agent") {
-    el.replaceChildren(...renderMcpAgentDrawer(h, { ...mcpCtx(), closeDrawer }, d.data));
-    return;
-  }
-  if (d.kind === "mcp-server") {
-    el.replaceChildren(...renderMcpServerDrawer(h, { ...mcpCtx(), closeDrawer }, d.data));
-    return;
-  }
-  if (d.kind === "mcp-cell") {
-    el.replaceChildren(...renderMcpCellDrawer(h, { ...mcpCtx(), closeDrawer }, d.data));
+  if (d.kind === "mcp") {
+    const item = (state.mcp?.items || []).find((row) => row.id === d.id);
+    if (!item) {
+      // id 消失（如后端重启后盐变了）：关闭抽屉，焦点回到表格顶部
+      state.drawer = null;
+      renderDrawer();
+      document.querySelector(".table-wrap")?.focus();
+      return;
+    }
+    el.replaceChildren(...renderMcpDrawer({ ...mcpCtx(), closeDrawer }, item));
     return;
   }
   if (!d.opener) d.opener = document.activeElement;
@@ -1993,11 +1996,25 @@ function skillAlert() {
   return (counts.missing || 0) + (counts.modified || 0) + (counts.version_changed || 0) > 0;
 }
 
-function openMcpDrawer(kind, data, opener) {
-  state.drawer = { kind: `mcp-${kind}`, data, rowId: opener?.id || "", opener: opener || document.activeElement };
+function openMcp(id, opener) {
+  const rowId = `mcp-row-${id}`;
+  state.drawer = { kind: "mcp", id, rowId, opener: opener || document.activeElement };
   render();
   renderDrawer();
-  document.querySelector("#drawer .drawer-close")?.focus();
+  // 不能在 Enter keydown 里同步聚焦关闭按钮：同一个 Enter 的 keypress
+  // 会激活刚聚焦的按钮，把抽屉立刻关掉。等这个按键序列结束再聚焦。
+  setTimeout(() => document.querySelector("#drawer .drawer-close")?.focus(), 0);
+}
+
+function focusMcp(id, opener) {
+  const item = (state.mcp?.items || []).find((row) => row.id === id);
+  if (!item) return;
+  const group = state.route.mcpGroup || "source";
+  state.expandedMcp.add(group === "tool" ? (item.source_class === "multica_only" ? "multica_only" : group) : item.source_class || "multica_only");
+  setRoute({ view: "mcp", source: "", mcpStatus: "", tool: "", mcpAssigned: false, mcpTidy: false, q: "" });
+  const row = document.getElementById(mcpRowId(item));
+  if (row) row.scrollIntoView({ block: "center" });
+  openMcp(id, opener || row);
 }
 
 function mcpCtx() {
@@ -2005,26 +2022,23 @@ function mcpCtx() {
     h,
     route: state.route,
     mcp: state.mcp,
-    agentsPayload: { items: state.agents },
     setRoute,
     ago,
     absTime,
-    copyCommand: (button, command) => {
-      copyText(command).then(
-        () => { button.textContent = "已复制"; },
-        () => { button.textContent = "复制失败"; },
-      );
-    },
-    openMcpDrawer,
+    copyWithFallback: (text) => copyWithFallback(text),
+    openMcp,
+    focusMcp,
+    toggleMcpGroup,
+    expandedMcp: state.expandedMcp,
+    drawerMcp: state.drawer?.kind === "mcp" ? state.drawer.id : "",
     closeDrawer,
-    confirmDelete: (key) => {
-      if (state.drawer) {
-        state.drawer.deleteConfirmed = key;
-        renderDrawer();
-      }
-    },
-    deleteConfirmed: state.drawer?.deleteConfirmed || "",
   };
+}
+
+function toggleMcpGroup(id) {
+  if (state.expandedMcp.has(id)) state.expandedMcp.delete(id);
+  else state.expandedMcp.add(id);
+  render();
 }
 
 function toolSignal(signal) {
@@ -2068,9 +2082,20 @@ function toolSignal(signal) {
   if (signal === "mcp") {
     const payload = state.mcp;
     if (!payload || payload.absent) return "还没接上";
-    const servers = (payload.workspaces || []).reduce((n, w) => n + (w.servers || []).length, 0);
-    const badge = mcpBadgeOf(payload);
-    return `库 ${servers} · 待处理 ${badge}`;
+    if (payload.ok === false) return "MCP 数据无效";
+    const n = payload.items?.length ?? 0;
+    const att = payload.attention || {};
+    const counts = att.counts || {};
+    const broken = (counts.broken || 0) + (counts.ignored || 0) + (counts.shadowed || 0) + (counts.may_fail || 0);
+    const pending = counts.drift || 0;
+    const u = payload.unknown || {};
+    const unread = (u.local_files || []).length + (u.project_files || []).length + (u.library || []).length + (u.bindings || []).length + (u.own_hidden || 0) + (u.own_invalid || 0) + (u.key && u.key !== "ok" ? 1 : 0) + (u.multica && u.multica !== "collected" ? 1 : 0);
+    if (unread) {
+      const bits = [`${n} 个 server`, `坏了 ${broken}`, `待处理 ${pending}`];
+      return `${bits.join(" · ")} · ${unread} 个来源没读到`;
+    }
+    if (broken || pending) return `${n} 个 server · 坏了 ${broken} · 待处理 ${pending}`;
+    return `${n} 个 server · 无待处理`;
   }
   if (signal === "usage") return usageSignal(state.usage);
   return "";
@@ -2173,6 +2198,7 @@ function render() {
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
   const view = state.route.view;
   search.placeholder =
+    state.route.view === "mcp" ? "搜索 server / 工具 / workspace / agent" :
     view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();

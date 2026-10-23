@@ -92,7 +92,9 @@ def cmd_workspaces(a: argparse.Namespace) -> int:
 
 def cmd_collect(a: argparse.Namespace) -> int:
     store = _open_store(a.db)
-    result = Collector(_runner(a), store, a.profile, _opts(a, full=a.full)).collect()
+    from .mcp_local import McpContext, REPO_ROOT
+    mcp_ctx = McpContext(home=Path.home(), repo_root=REPO_ROOT, data_dir=a.db.parent)
+    result = Collector(_runner(a), store, a.profile, _opts(a, full=a.full), mcp_ctx=mcp_ctx).collect()
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 2
 
@@ -130,8 +132,10 @@ def cmd_serve(a: argparse.Namespace) -> int:
     except (CliError, KeyError, TypeError):
         origin = None
     store = _open_store(a.db)
+    from .mcp_local import McpContext, REPO_ROOT
+    mcp_ctx = McpContext(home=Path.home(), repo_root=REPO_ROOT, data_dir=a.db.parent)
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh,
-                  server_identity=origin, mcp_every=a.mcp_every)
+                  server_identity=origin, mcp_every=a.mcp_every, mcp_ctx=mcp_ctx)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
     httpd = BoardServer(a.host, a.port, views, static_dir=static, plan_dir=a.plan_dir)
     stop = threading.Event()
@@ -141,7 +145,7 @@ def cmd_serve(a: argparse.Namespace) -> int:
         while not stop.is_set():
             full = cycle % max(1, a.full_every) == 0
             try:
-                res = Collector(_runner(a), store, a.profile, _opts(a, full=full)).collect()
+                res = Collector(_runner(a), store, a.profile, _opts(a, full=full), mcp_ctx=mcp_ctx).collect()
                 log.info("collect cycle %d (%s) ok=%s", cycle, "full" if full else "incremental", res.get("ok"))
             except Exception as exc:
                 log.exception("collect cycle failed")

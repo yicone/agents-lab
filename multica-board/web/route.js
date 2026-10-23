@@ -14,7 +14,13 @@ export function setSkillTools(tools) {
   skillTools = new Set((tools || []).map((tool) => tool.id));
 }
 const PLAN_BUCKETS = new Set(["approvable", "blocked", "skip", "unchanged"]);
-const MCP_ISSUES = new Set(["problems", "ignored", "shadowed", "may_fail", "hidden", "unused", "disabled_only"]);
+const MCP_SOURCES = new Set(["both", "local_only", "multica_only", "project"]);
+const MCP_STATUSES = new Set(["broken", "differs", "same", "single", "incomparable"]);
+const MCP_GROUPS = new Set(["source", "tool", "flat"]);
+let mcpTools = null;
+export function setMcpTools(tools) {
+  mcpTools = new Set([...(tools || []).map((tool) => tool.id), "repo"]);
+}
 
 function agentsPlan(path) {
   if (path === "agents/plan/new") return { planPage: "new", planId: "" };
@@ -117,8 +123,10 @@ export function emptyRoute() {
     debt: false,
     skillGroup: "source",
     kind: "",
-    mcpView: "",
-    issue: "",
+    mcpStatus: "",
+    mcpGroup: "source",
+    mcpAssigned: false,
+    mcpTidy: false,
     hasInstructions: false,
     botLinked: false,
     planMode: false,
@@ -191,9 +199,17 @@ export function parseHash(hash) {
     const group = params.get("group");
     route.skillGroup = group === "tool" || group === "flat" ? group : "source";
   } else if (route.view === "mcp") {
-    route.mcpView = params.get("view") === "list" ? "list" : "";
-    route.issue = MCP_ISSUES.has(params.get("issue")) ? params.get("issue") : "";
-    route.archived = flag(params, "archived");
+    // Legacy view=list / issue= / archived=1 are dropped on normalize (§9).
+    const source = params.get("source");
+    route.source = MCP_SOURCES.has(source) ? source : "";
+    const status = params.get("status");
+    route.mcpStatus = MCP_STATUSES.has(status) ? status : "";
+    const tool = params.get("tool");
+    route.tool = (mcpTools ? mcpTools.has(tool) : /^[a-z0-9][a-z0-9_.-]{0,127}$/i.test(tool || "")) ? tool : "";
+    const group = params.get("group");
+    route.mcpGroup = MCP_GROUPS.has(group) ? group : "source";
+    route.mcpAssigned = flag(params, "assigned");
+    route.mcpTidy = flag(params, "tidy");
   } else if (route.view === "agents") {
     route.sel = params.get("sel") || "";
     route.fromPlan = params.get("from") || "";
@@ -272,9 +288,12 @@ export function formatHash(route) {
     if (r.debt) p.set("debt", "1");
     if (r.skillGroup === "tool" || r.skillGroup === "flat") p.set("group", r.skillGroup);
   } else if (path === "mcp") {
-    if (r.mcpView === "list") p.set("view", "list");
-    if (r.issue && MCP_ISSUES.has(r.issue)) p.set("issue", r.issue);
-    if (r.archived) p.set("archived", "1");
+    if (r.source && MCP_SOURCES.has(r.source)) p.set("source", r.source);
+    if (r.mcpStatus && MCP_STATUSES.has(r.mcpStatus)) p.set("status", r.mcpStatus);
+    if (r.tool) p.set("tool", r.tool);
+    if (r.mcpGroup && r.mcpGroup !== "source") p.set("group", r.mcpGroup);
+    if (r.mcpAssigned) p.set("assigned", "1");
+    if (r.mcpTidy) p.set("tidy", "1");
   }
   return withQuery(path, p);
 }
@@ -319,9 +338,10 @@ export function applyPatch(route, patch) {
       next.skillGroup = "source";
     }
     if (patch.view !== "mcp") {
-      next.mcpView = "";
-      next.issue = "";
-      next.archived = false;
+      next.mcpStatus = "";
+      next.mcpGroup = "source";
+      next.mcpAssigned = false;
+      next.mcpTidy = false;
     }
     if (patch.view !== "agents") {
       next.kind = "";

@@ -1,7 +1,200 @@
 {
- "generated_at": "2026-10-23T08:59:40Z",
- "mcp_schema": 1,
- "mcp_every_rounds": 5,
+ "ok": true,
+ "error": null,
+ "mcp_schema": 2,
+ "generated_at": "2026-10-24T02:01:00Z",
+ "multica_collected_at": "2026-10-24T01:58:00Z",
+ "tools": [
+  {
+   "id": "cursor",
+   "label": "Cursor",
+   "short_label": "Cursor",
+   "files": [
+    {
+     "path": "~/.cursor/mcp.json",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 3
+    }
+   ]
+  },
+  {
+   "id": "codex",
+   "label": "Codex",
+   "short_label": "Codex",
+   "files": [
+    {
+     "path": "~/.codex/config.toml",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 2
+    }
+   ]
+  },
+  {
+   "id": "claude",
+   "label": "Claude Code",
+   "short_label": "Claude",
+   "files": [
+    {
+     "path": "~/.claude.json",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 2
+    }
+   ]
+  },
+  {
+   "id": "hermes",
+   "label": "Hermes Agent",
+   "short_label": "Hermes",
+   "files": [
+    {
+     "path": "~/.hermes/config.yaml",
+     "scope": "global",
+     "state": "parse_error",
+     "detail": "解析失败，未读取",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini CLI",
+   "short_label": "Gemini",
+   "files": [
+    {
+     "path": "~/.gemini/settings.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "mcode",
+   "label": "Devin CLI",
+   "short_label": "Devin",
+   "files": [
+    {
+     "path": "~/.config/devin/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "antigravity",
+   "label": "Antigravity",
+   "short_label": "Antigravity",
+   "files": [
+    {
+     "path": "~/.gemini/antigravity/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "windsurf",
+   "label": "Windsurf",
+   "short_label": "Windsurf",
+   "files": [
+    {
+     "path": "~/.codeium/windsurf/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "opencode",
+   "label": "OpenCode",
+   "short_label": "OpenCode",
+   "files": [
+    {
+     "path": "~/.config/opencode/opencode.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  }
+ ],
+ "repos": [
+  {
+   "id": "agents-lab",
+   "label": "agents-lab",
+   "files": [
+    {
+     "path": ".mcp.json",
+     "location": ".mcp.json",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 1
+    },
+    {
+     "path": ".cursor/mcp.json",
+     "location": ".cursor",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": ".codex/config.toml",
+     "location": ".codex",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": ".gemini/settings.json",
+     "location": ".gemini",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": "opencode.json",
+     "location": "opencode.json",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    }
+   ]
+  }
+ ],
+ "workspaces": [
+  {
+   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "slug": "alpha-lab",
+   "name": "Alpha Lab",
+   "library_state": "ok",
+   "library_error": null,
+   "bindings_state": "ok",
+   "collected_at": "2026-10-24T01:58:00Z"
+  },
+  {
+   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "library_state": "ok",
+   "library_error": null,
+   "bindings_state": "partial",
+   "collected_at": "2026-10-24T01:58:00Z"
+  }
+ ],
  "support": {
   "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
   "providers": {
@@ -24,7 +217,7 @@
     "channel": "workdir_cursor_mcp_json",
     "native_merge": "yes",
     "remote_filter": false,
-    "note": "oauth_needs_auth_source"
+    "note": null
    },
    "mcode": {
     "loads": "yes",
@@ -54,13 +247,6 @@
     "remote_filter": false,
     "note": "v2_task_fails"
    },
-   "omp": {
-    "loads": "yes",
-    "channel": "workdir_config",
-    "native_merge": "no",
-    "remote_filter": false,
-    "note": null
-   },
    "antigravity": {
     "loads": "no",
     "channel": null,
@@ -74,269 +260,358 @@
     "native_merge": null,
     "remote_filter": false,
     "note": null
-   },
-   "codebuddy": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "codearts": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "kimi": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "reasonix": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "dsh": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "kiro": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "openclaw": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "pi": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qoder": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qoderclicn": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qwen": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qwenpaw": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "traecli": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "dim": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
    }
   }
  },
- "workspaces": [
+ "unknown": {
+  "local_files": [
+   "hermes"
+  ],
+  "project_files": [],
+  "library": [],
+  "bindings": [
+   "aa134a90-6b63-413d-8b4e-d4df0384aa16"
+  ],
+  "own_hidden": 0,
+  "own_invalid": 0,
+  "own_pending": 0,
+  "key": "ok",
+  "multica": "collected"
+ },
+ "items": [
   {
-   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "slug": "alpha-lab",
-   "name": "Alpha Lab",
-   "library_state": "error",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": {
-    "kind": "timeout",
-    "message": "CLI timed out after 60s"
+   "id": "mhubo3ivcp4jwdq5kxer6",
+   "display_name": "github",
+   "display_dup": null,
+   "source_class": "both",
+   "source_uncertain": false,
+   "source_label": "本机 + Multica",
+   "in_project": false,
+   "presence": {
+    "local": 2,
+    "project": 0,
+    "library": 1,
+    "own": 0
    },
-   "bindings_state": "ok",
-   "bindings_collected_at": "2026-10-23T08:59:40Z",
-   "servers": [
+   "transports": [
+    "stdio"
+   ],
+   "tools": {
+    "cursor": "direct",
+    "codex": "direct",
+    "hermes": "unknown"
+   },
+   "repo_cells": {},
+   "entries": [
     {
-     "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:srv-0001-linear",
-     "id": "srv-0001-linear",
-     "name": "linear",
-     "transport": "http",
+     "scope": "global",
+     "tool": "cursor",
+     "path": "~/.cursor/mcp.json",
+     "state": "ok",
+     "broken_reason": null,
+     "disabled": false,
+     "transport": "stdio",
+     "env": {
+      "set": false,
+      "count": 0
+     },
+     "headers": {
+      "set": false,
+      "count": 0
+     },
+     "group": "A"
+    },
+    {
+     "scope": "global",
+     "tool": "codex",
+     "path": "~/.codex/config.toml",
+     "state": "ok",
+     "broken_reason": null,
+     "disabled": false,
+     "transport": "stdio",
+     "env": {
+      "set": false,
+      "count": 0
+     },
+     "headers": {
+      "set": false,
+      "count": 0
+     },
+     "group": "A"
+    }
+   ],
+   "workspace_entries": [
+    {
+     "kind": "library",
+     "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+     "workspace_name": "Alpha Lab",
+     "server_id": "srv-github",
+     "transport": "stdio",
      "agent_count": 1,
-     "enabled_count": 1,
-     "disabled_count": 0,
-     "config_visible": false,
-     "created_at": "2026-10-01T00:00:00Z",
-     "updated_at": "2026-10-20T00:00:00Z"
+     "updated_at": "2026-10-20T08:00:00Z",
+     "stale": false,
+     "bindings_known": true,
+     "agents": [
+      {
+       "id": "a-0001-0000-4000-8000-000000000001",
+       "name": "Builder · Codex",
+       "enabled": true,
+       "shadowed": null,
+       "provider": "codex",
+       "runtime_loads": "yes"
+      }
+     ]
     }
-   ]
+   ],
+   "consistency": {
+    "state": "same",
+    "partial": true,
+    "pending": 0,
+    "groups": [],
+    "parts": {
+     "launch": "same",
+     "env": "same",
+     "headers": "same"
+    }
+   },
+   "tidy": null,
+   "bucket": null,
+   "tags": [],
+   "reason": null,
+   "quiet": false,
+   "command": null
   },
   {
-   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
-   "slug": "beta-coach",
-   "name": "Beta 辅导",
-   "library_state": "ok",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": null,
-   "bindings_state": "partial",
-   "bindings_collected_at": "2026-10-23T08:59:40Z",
-   "servers": [
+   "id": "mo3ivcp4jwdq5kxer6lyf",
+   "display_name": "docs-search",
+   "display_dup": null,
+   "source_class": "local_only",
+   "source_uncertain": true,
+   "source_label": "仅本机",
+   "in_project": false,
+   "presence": {
+    "local": 1,
+    "project": 0,
+    "library": 1,
+    "own": 0
+   },
+   "transports": [
+    "stdio"
+   ],
+   "tools": {
+    "cursor": "direct",
+    "codex": null,
+    "claude": null,
+    "hermes": "unknown",
+    "gemini": null,
+    "mcode": null,
+    "antigravity": null,
+    "windsurf": null,
+    "opencode": null
+   },
+   "repo_cells": {},
+   "entries": [
     {
-     "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:srv-0201-wiki",
-     "id": "srv-0201-wiki",
-     "name": "wiki",
+     "scope": "global",
+     "tool": "cursor",
+     "path": "~/.cursor/mcp.json",
+     "state": "ok",
+     "broken_reason": null,
+     "disabled": false,
      "transport": "http",
-     "agent_count": 2,
-     "enabled_count": null,
-     "disabled_count": null,
-     "config_visible": false,
-     "created_at": "2026-10-01T00:00:00Z",
-     "updated_at": "2026-10-20T00:00:00Z"
+     "env": {
+      "set": false,
+      "count": 0
+     },
+     "headers": {
+      "set": false,
+      "count": 0
+     },
+     "group": "A"
     }
-   ]
-  },
-  {
-   "id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
-   "slug": "gamma-oasis",
-   "name": "Gamma Oasis",
-   "library_state": "never",
-   "library_collected_at": null,
-   "library_error": null,
-   "bindings_state": "none",
-   "bindings_collected_at": null,
-   "servers": []
+   ],
+   "workspace_entries": [
+    {
+     "kind": "library",
+     "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+     "workspace_name": "Beta 辅导",
+     "server_id": "srv-docs",
+     "transport": "stdio",
+     "agent_count": 0,
+     "updated_at": "2026-10-20T08:00:00Z",
+     "stale": false,
+     "bindings_known": false,
+     "agents": null
+    }
+   ],
+   "consistency": {
+    "state": "incomparable",
+    "partial": true,
+    "pending": 0,
+    "groups": [],
+    "parts": {
+     "launch": "same",
+     "env": "same",
+     "headers": "same"
+    }
+   },
+   "tidy": null,
+   "bucket": null,
+   "tags": [],
+   "reason": null,
+   "quiet": false,
+   "command": null
   }
  ],
- "agents": [
+ "summary": [
   {
-   "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
-   "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "id": "ad8a8338-ba0e-45b2-8f2f-6d90d339d56a",
-   "name": "Reviewer",
-   "archived": false,
-   "runtime_id": "0f9788e3-261b-44a9-96fb-25b9118e6fc7",
-   "provider": "hermes",
-   "runtime_loads": "yes",
-   "own_config": {
-    "state": "none",
-    "servers": []
-   },
-   "bindings_state": "ok",
-   "bindings": [
-    {
-     "server_id": "srv-0001-linear",
-     "name": "linear",
-     "enabled": true,
-     "shadowed": false
-    }
-   ],
-   "effective": {
-    "state": "known",
-    "servers": [
-     {
-      "name": "linear",
-      "from": "library",
-      "transport": "http"
-     }
-    ]
+   "id": "all",
+   "label": "全部",
+   "count": 2,
+   "uncertain": 1,
+   "statuses": {
+    "same": 1,
+    "incomparable": 1
    }
   },
   {
-   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:75b39498-04f8-4714-8b63-baf90462ee16",
-   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
-   "id": "75b39498-04f8-4714-8b63-baf90462ee16",
-   "name": "Reviewer",
-   "archived": false,
-   "runtime_id": null,
-   "provider": "codex",
-   "runtime_loads": "yes",
-   "own_config": {
-    "state": "none",
-    "servers": []
-   },
-   "bindings_state": "ok",
-   "bindings": [
-    {
-     "server_id": "srv-0201-wiki",
-     "name": "wiki",
-     "enabled": true,
-     "shadowed": false
-    }
-   ],
-   "effective": {
-    "state": "partial",
-    "servers": [
-     {
-      "name": "wiki",
-      "from": "library",
-      "transport": "http"
-     }
-    ]
+   "id": "both",
+   "label": "本机 + Multica",
+   "count": 1,
+   "uncertain": 0,
+   "statuses": {
+    "same": 1
    }
   },
   {
-   "key": "aa134a90-6b63-413d-8b4e-d4df0384aa16:0e7f6baf-34bb-4202-b599-803b9f27ae71",
-   "workspace_id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
-   "id": "0e7f6baf-34bb-4202-b599-803b9f27ae71",
-   "name": "Steward",
-   "archived": false,
-   "runtime_id": "c55b545e-4ef0-4149-abbc-8c0b4928c511",
-   "provider": "codex",
-   "runtime_loads": "yes",
-   "own_config": {
-    "state": "none",
-    "servers": []
-   },
-   "bindings_state": "error",
-   "bindings": [],
-   "effective": {
-    "state": "partial",
-    "servers": []
+   "id": "local_only",
+   "label": "仅本机",
+   "count": 1,
+   "uncertain": 1,
+   "statuses": {
+    "incomparable": 1
    }
+  },
+  {
+   "id": "multica_only",
+   "label": "仅 Multica",
+   "count": 0,
+   "uncertain": 0,
+   "statuses": {}
   }
  ],
  "attention": {
   "badge": 0,
+  "tone": "unknown",
+  "partial": true,
   "counts": {
+   "broken": 0,
    "ignored": 0,
    "shadowed": 0,
    "may_fail": 0,
-   "hidden": 0,
-   "unused": 0,
-   "disabled_only": 0
+   "drift": 0
   },
-  "buckets": {}
+  "buckets": {
+   "broken": {
+    "connected": true,
+    "partial": true,
+    "unknown_sources": [
+     "本机 Hermes Agent"
+    ],
+    "reason": "",
+    "items": []
+   },
+   "ignored": {
+    "connected": true,
+    "partial": true,
+    "unknown_sources": [
+     "Beta 辅导"
+    ],
+    "reason": "",
+    "items": []
+   },
+   "shadowed": {
+    "connected": true,
+    "partial": true,
+    "unknown_sources": [
+     "Beta 辅导"
+    ],
+    "reason": "",
+    "items": []
+   },
+   "may_fail": {
+    "connected": true,
+    "partial": true,
+    "unknown_sources": [
+     "Beta 辅导"
+    ],
+    "reason": "",
+    "items": []
+   },
+   "drift": {
+    "connected": true,
+    "partial": true,
+    "unknown_sources": [
+     "本机 Hermes Agent"
+    ],
+    "reason": "",
+    "items": []
+   }
+  },
+  "tidy": {
+   "count": 0,
+   "partial": true,
+   "unknown_sources": [
+    "Beta 辅导"
+   ],
+   "connected": true,
+   "reason": ""
+  }
+ },
+ "meta": {
+  "sources": [
+   {
+    "id": "local_files",
+    "label": "本机配置",
+    "state": "warn",
+    "detail": "8 已读 · 1 读不出"
+   },
+   {
+    "id": "project_files",
+    "label": "仓库项目级",
+    "state": "ok",
+    "detail": "1 有 · 4 不存在"
+   },
+   {
+    "id": "fingerprints",
+    "label": "配置指纹",
+    "state": "ok",
+    "detail": "只比哈希"
+   },
+   {
+    "id": "multica_library",
+    "label": "Multica 库",
+    "state": "ok",
+    "detail": "2 个 Workspace"
+   },
+   {
+    "id": "agent_bindings",
+    "label": "Agent 分配",
+    "state": "warn",
+    "detail": "2 个 Workspace · 1 个没读到"
+   },
+   {
+    "id": "multica_own_config",
+    "label": "Agent 自有配置",
+    "state": "ok",
+    "detail": "全部可见"
+   },
+   {
+    "id": "runtime_support",
+    "label": "Runtime 加载表",
+    "state": "ok",
+    "detail": "v0.6.5"
+   }
+  ]
  }
 }
