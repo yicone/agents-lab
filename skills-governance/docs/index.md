@@ -16,6 +16,7 @@ This note is a lightweight index for the core governance workflows. Read `../REA
 - `skills-governance-audit`
   - for read-only scanning of source authority, ownership drift, conflict signals, provenance gaps, update drift, and naming-taxonomy issues before choosing another workflow
   - run `skills-governance/scripts/drift_report.py` for the inventory drift report (`review_time`, `baseline_ref`, `current_version`)
+  - run `skills-governance/scripts/sync_skills_inventory.py` to preview registry updates; it writes the inventory only with `--apply`, and it does not fill `review_time`, `customization_mode`, or `compatibility_constraints`
   - run `skills-governance/scripts/conflict_report.py` for name collision, responsibility overlap, behavior divergence, scope shadowing, dependency conflicts, and trigger ambiguity
   - run `skills-governance/scripts/token_footprint.py` for eager-token budget warnings; referenced docs are quantified separately and report-only
   - run `skills-governance/scripts/capability_contract.py` for SKILL.md capability declarations checked against the SkilLock behavior map, plus quarantine / policy_exclusion promotion blocks; see [capability-declaration.md](capability-declaration.md)

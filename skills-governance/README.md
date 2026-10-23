@@ -17,7 +17,7 @@ It also covers locally customized copies of non-local Skills. Visibility in a ru
 - `docs/`: durable governance rules, operating guides, and state-note conventions
 - `config/`: source classes, the machine-readable skills inventory (`skills-inventory.json`), and the customization record schema
 - `customizations/`: records of local deltas on non-local Skills (`<skill>/customization.json` plus overlay payloads under `<skill>/delta/`); upstream baselines are never stored here
-- `scripts/`: inventory validation, the read-only drift report, the read-only conflict report, the read-only token footprint report, the read-only capability-declaration check, customization record check and overlay apply, local.patch create/rebase for patch-style overlays (`skill_patch.py`), plus snapshot, stage, diff, gate, activate, and rollback commands
+- `scripts/`: inventory validation, the inventory sync (`sync_skills_inventory.py`, dry-run unless `--apply`), the read-only drift report, the read-only conflict report, the read-only token footprint report, the read-only capability-declaration check, customization record check and overlay apply, local.patch create/rebase for patch-style overlays (`skill_patch.py`), plus snapshot, stage, diff, gate, activate, and rollback commands
 - `tests/`: focused tests for the safety commands. Representative conflict cases live in `tests/fixtures/conflicts/`.
 - `changelog/`: append-only per-skill JSONL entries written by `activate`; the drift report flags changes it cannot match here
 - `backlog.md`: pointer only; Multica issue ACM-122 is the source of truth for backlog status
@@ -70,3 +70,14 @@ to explicitly retired entries are removed. Only active/staged skills may be reli
 links remain reported for manual review. Directory aliases are resolved before
 deduplication, and name matching applies only to top-level adapters. Healthy links
 are preserved; an individual repair failure does not stop other repairs.
+
+### Inventory sync
+
+`python3 skills-governance/scripts/sync_skills_inventory.py` prints a dry-run
+summary. `--apply` writes `config/skills-inventory.json` only when that result
+still validates. New installs record a name, path, source, and hash or
+`baseline_ref`. The command does not set `review_time`, and it does not change
+`customization_mode` or `compatibility_constraints`. A hash or provider-version
+change stays on the recorded baseline and is reported as needs-review. A
+missing install is marked `status: unknown` and kept. This command does not
+install a schedule.

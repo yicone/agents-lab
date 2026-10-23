@@ -2,6 +2,10 @@
 
 Notes that do not belong in a new inventory field.
 
+## 2026-10-23
+
+- ACM-350 adds `skills-governance/scripts/sync_skills_inventory.py`. The default run is a dry-run summary. `--apply` writes the inventory only when the result still validates, via a same-directory temp file and `os.replace`. A failed write leaves the original file and its permissions in place and removes the temp file. A new install records name, path, source class, and a hash or `baseline_ref`. `review_time` is not given a timestamp. `customization_mode` and `compatibility_constraints` are not changed; a new row uses `unknown` and `[]` because nobody has reviewed it. A content-hash or provider-version change stays on the old baseline and is reported as needs-review; an existing review timestamp is cleared to null. An install whose recorded paths are gone is marked `status: unknown` and kept. Plugin caches are one row per package. Marketplace clones, nested skills, and recorded bundle children are not separate rows. No launchd job, git hook, or autopilot is installed.
+
 ## 2026-10-17
 
 - ACM-158 checks `SKILL.md` `capabilities.network`, `capabilities.secrets`, and `capabilities.filesystem` against the SkilLock `behavior` map (`network_urls`, `file_reads`, `file_writes`, `shell_commands`, `allowed_tools`). `skill_guard` records overreach as `capability_overreach` and does not activate, so no changelog line is written. `conflict_markers` from ACM-156 stays a separate gate signal. `capability_contract.py` is the read-only audit. When SkilLock behavior is unmeasured and `capabilities` is absent, the existing `network_behavior` / `secret_access` detectors mark the skill high-risk. High-risk skills with no `review_time` must already be `quarantined` or `policy_exclusion`; both states fail `--promote`. `vaultwarden-secret-migration` declares network, secrets, and filesystem write and is `quarantined` with `review_time` still null. `skills-governance-audit` `baseline_ref` moved with that skill text.
