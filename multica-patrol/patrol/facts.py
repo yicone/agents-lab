@@ -179,6 +179,14 @@ def _excluded_comment(comment: dict) -> bool:
             or config.NOWAKE_PREFIX in content)
 
 
+def is_dispatch_class(first: str, content: str) -> bool:
+    if config.PROGRESS_CLASS_RE.search(first) and \
+            not config.DISPATCH_CLASS_RE.search(first):
+        return False
+    return bool(first.startswith((config.FIRST_LINE_NEED, config.FIRST_LINE_NEXT))
+                or config.DISPATCH_CLASS_RE.search(content))
+
+
 def _last_comment(comments: list[dict]) -> dict | None:
     """Newest real comment — patrol/dispatch-infra comments never count."""
     best = None
@@ -200,9 +208,7 @@ def _last_comment(comments: list[dict]) -> dict | None:
             "has_valid_mention": bool(config.UUID_MENTION_RE.search(content)),
             "mentioned_agent_ids": [u.lower() for u in
                                     config.AGENT_MENTION_RE.findall(content)],
-            "dispatch_class": bool(
-                first.startswith((config.FIRST_LINE_NEED, config.FIRST_LINE_NEXT))
-                or config.DISPATCH_CLASS_RE.search(content)),
+            "dispatch_class": is_dispatch_class(first, content),
             "first_line_target_name": target.group("name") if target else None}
 
 

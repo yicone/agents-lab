@@ -6,6 +6,7 @@ import unittest
 from datetime import timedelta
 
 from patrol import config, rules
+from patrol import facts as facts_mod
 from tests.fakes import BASE_NOW, iso, make_issue, run
 
 
@@ -268,6 +269,57 @@ class DispatchClassRegex(unittest.TestCase):
                   "[Error] provider timeout",
                   "summary of findings"):
             self.assertFalse(config.DISPATCH_CLASS_RE.search(s), s)
+
+
+class DispatchClassFacts(unittest.TestCase):
+    """is_dispatch_class: progress reports are not dispatch, real dispatch is."""
+
+    PROGRESS_01a16665 = (
+        "不需要你做，下一步由 Builder · Devin fusion 做：ACM-365 run 仍在运行。\n\n"
+        "- 当前状态：`in_progress`。\n"
+        "- active run：`01a16660-61d9-7a9f-aa96-4172ba3f6fac`。\n"
+        "- 未收到交付评论，未进入验收。\n"
+        "- 未推送、未开 PR、未合并、未部署。")
+
+    def _cls(self, content):
+        first = next((ln.strip() for ln in content.splitlines() if ln.strip()), "")
+        return facts_mod.is_dispatch_class(first, content)
+
+    def test_progress_comments_not_dispatch(self):
+        for c in (self.PROGRESS_01a16665,
+                  "不需要你做，下一步由 Builder 做：执行进度回报，run 仍在运行。",
+                  "状态更新：ACM-9 保持 in_progress，等待交付。\n\n批准后再开工。",
+                  "不需要你做，下一步由 Builder 做：任务执行中，尚未交付。"):
+            self.assertFalse(self._cls(c), c)
+
+    def test_real_dispatch_still_dispatch(self):
+        for c in ("不需要你做，下一步由 Builder 做：实现 X。",
+                  "需要你做：批准 1-3。",
+                  "不需要你做，下一步由 Builder 做：批准后执行 ACM-365。",
+                  "不需要你做，下一步由 Builder 做：返工，上次进度不合格。",
+                  "不需要你做，下一步由 Reviewer 做：请复验，当前状态见评论。",
+                  "派活给 WorkerAgent：实现 X",
+                  "请按原计划执行"):
+            self.assertTrue(self._cls(c), c)
+
+    def test_last_comment_01a16665_end_to_end(self):
+        lc = facts_mod._last_comment([{
+            "type": "comment", "id": "01a16665-6a16-7d57-8afe-465cf98889a3",
+            "author_type": "agent", "author_id": config.DISPATCHER_AGENT_ID,
+            "created_at": iso(BASE_NOW - timedelta(minutes=30)),
+            "content": self.PROGRESS_01a16665}])
+        self.assertFalse(lc["dispatch_class"])
+
+    def test_progress_comment_does_not_fire_rule10(self):
+        lc = {"id": "c1", "author_type": "agent",
+              "author_id": config.DISPATCHER_AGENT_ID,
+              "created_at": iso(BASE_NOW - timedelta(minutes=30)),
+              "has_valid_mention": False, "mentioned_agent_ids": [],
+              "dispatch_class": self._cls(self.PROGRESS_01a16665),
+              "first_line_target_name": None}
+        issue = make_issue("ACM-365", "in_progress", assignee_id="a1")
+        got = reasons(rules.evaluate(issue, facts(last_comment=lc, runs=[]), BASE_NOW))
+        self.assertNotIn("dispatch_no_wake", got)
 
 
 class Exemptions(unittest.TestCase):
