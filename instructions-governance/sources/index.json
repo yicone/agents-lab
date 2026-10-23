@@ -22,7 +22,7 @@
       "workspace_slug": "acm-lab",
       "workspace_name": "ACM Lab",
       "id": "cd9cf2e1-7afb-42de-9048-912b625bcb17",
-      "name": "Repo Analyst",
+      "name": "Repo Analyst · Antigravity",
       "path": "agents/acm-lab/cd9cf2e1-7afb-42de-9048-912b625bcb17.md"
     },
     {
@@ -168,6 +168,38 @@
       "id": "1f78b893-990b-4a05-8b94-8b67d2e0d4bd",
       "name": "前端实现 · Codex",
       "path": "agents/acm-lab/1f78b893-990b-4a05-8b94-8b67d2e0d4bd.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "26fa49a0-1ea5-4e21-9dbb-3bac37f34a64",
+      "name": "调研 · Grok",
+      "path": "agents/acm-lab/26fa49a0-1ea5-4e21-9dbb-3bac37f34a64.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "0504cfc0-068f-41ba-be02-3ea6d48ce78a",
+      "name": "产品体验研究员 · Grok",
+      "path": "agents/acm-lab/0504cfc0-068f-41ba-be02-3ea6d48ce78a.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "b7ec8c67-18bb-441c-b84b-7d0c77be70b1",
+      "name": "运维部署 · Devin free",
+      "path": "agents/acm-lab/b7ec8c67-18bb-441c-b84b-7d0c77be70b1.md"
+    },
+    {
+      "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+      "workspace_slug": "acm-lab",
+      "workspace_name": "ACM Lab",
+      "id": "b58801e3-4372-4a4b-aa35-7d4fc931596a",
+      "name": "Builder · Devin fusion+",
+      "path": "agents/acm-lab/b58801e3-4372-4a4b-aa35-7d4fc931596a.md"
     }
   ],
   "bots": [
