@@ -119,7 +119,15 @@ class Handler(BaseHTTPRequestHandler):
         if origin and urlsplit(origin).netloc.lower() not in self.server.allowed_hosts:
             self._error(HTTPStatus.FORBIDDEN, "cross_origin", "cross-origin requests are not allowed")
             return False
-        if (self.headers.get("Sec-Fetch-Site") or "").lower() == "cross-site":
+        path = urlsplit(self.path).path
+        is_api = path == "/api" or path.startswith("/api/")
+        page_navigation = (
+            not is_api
+            and self.command in ("GET", "HEAD")
+            and (self.headers.get("Sec-Fetch-Mode") or "").lower() == "navigate"
+            and self.headers.get("Sec-Fetch-Dest", "document").lower() == "document"
+        )
+        if (self.headers.get("Sec-Fetch-Site") or "").lower() == "cross-site" and not page_navigation:
             self._error(HTTPStatus.FORBIDDEN, "cross_origin", "cross-site requests are not allowed")
             return False
         return True

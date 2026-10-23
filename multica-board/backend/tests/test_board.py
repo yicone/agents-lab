@@ -11,6 +11,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -846,6 +847,44 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(r.status, 403)
         r, _ = self.req("GET", "/api/meta", {"Origin": f"http://127.0.0.1:{self.port}"})
         self.assertEqual(r.status, 200)
+
+    def test_cross_site_page_navigation(self):
+        headers = {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate"}
+        # Fragments are browser-local; /#... sends the same / request.
+        for url in ("/", "/#atlas"):
+            for method in ("GET", "HEAD"):
+                for dest in (None, "document"):
+                    with self.subTest(url=url, method=method, dest=dest):
+                        request_headers = dict(headers)
+                        if dest is not None:
+                            request_headers["Sec-Fetch-Dest"] = dest
+                        r, body = self.req(method, urlsplit(url).path, request_headers)
+                        self.assertEqual(r.status, 200)
+                        self.assertEqual(body, b"<h1>board</h1>" if method == "GET" else b"")
+                        self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+
+    def test_cross_site_navigation_keeps_guards(self):
+        headers = {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate",
+                   "Sec-Fetch-Dest": "document"}
+        for method in ("GET", "HEAD"):
+            for path in ("/api", "/api/meta", "/api/mcp", "/api/meta?x=1"):
+                with self.subTest(method=method, path=path):
+                    r, _ = self.req(method, path, headers)
+                    self.assertEqual(r.status, 403)
+                    self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
+        for overrides in ({"Sec-Fetch-Mode": "no-cors"},
+                          {"Sec-Fetch-Mode": ""},
+                          {"Sec-Fetch-Dest": ""},
+                          {"Sec-Fetch-Dest": "iframe"},
+                          {"Sec-Fetch-Dest": "script"}):
+            r, _ = self.req("GET", "/app.js", {**headers, **overrides})
+            self.assertEqual(r.status, 403)
+        r, body = self.req("GET", "/", {**headers, "Origin": "https://attacker.test"})
+        self.assertEqual(r.status, 403)
+        self.assertEqual(json.loads(body)["error"]["code"], "cross_origin")
+        r, body = self.req("GET", "/", {**headers, "Host": "attacker.test"})
+        self.assertEqual(r.status, 421)
+        self.assertEqual(json.loads(body)["error"]["code"], "bad_host")
 
     def test_static(self):
         r, body = self.req("GET", "/?mock=1")
