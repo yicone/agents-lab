@@ -57,7 +57,7 @@
 
 ### 修复
 
-- 修正计划组装命令的 API origin 读取，runtime 下拉按名称去重并使用各 workspace 对应 UUID。（[PR #52](https://github.com/yicone/agents-lab/pull/52)；[合并提交 `d855930`](https://github.com/yicone/agents-lab/commit/d8559309624a2dc7caf894def30b467013f33904)；ACM 关联待补证（PR、提交与已查 G1 issue 评论未发现明确关联，不猜编号））
+- 修正计划组装命令的 API origin 读取，runtime 下拉按名称去重并使用各 workspace 对应 UUID。（[PR #52](https://github.com/yicone/agents-lab/pull/52)；[合并提交 `d855930`](https://github.com/yicone/agents-lab/commit/d8559309624a2dc7caf894def30b467013f33904)；历史 ACM 关联未查明；单条例外批准见文末）
 - 进入切换计划列表或详情时重新读取数据，并清除多余 null 文本。（[PR #51](https://github.com/yicone/agents-lab/pull/51)；[合并提交 `e0f9530`](https://github.com/yicone/agents-lab/commit/e0f9530afbecf1e22716d06720a58d3bdf94dc08)；ACM-286）
 
 ## 2026-10-18
@@ -103,5 +103,5 @@
 
 - PR #32：ACM-185 评论 `01a1499a-8316-748e-9e1b-264475347702`（2026-10-17 11:23:45 UTC）由用户确认 main `6d7ca36` 已合并且 Atlas 已重启；当时 usage collector launchd 尚未安装，不能据此称其已启用。关联实现 ACM-187。
 - PR #46：ACM-244 描述将 PR #46 / 完整 SHA `7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1` 明确关联 ACM-230；评论 `01a14b05-0e00-70e2-bbf2-95921f8dd62b`（2026-10-17 17:59:44 UTC）记录 main 同步到该 SHA、Board 重启、HTTP 200 和真实 UI 复验。记录中的本地启动时间不替代 UTC 评论时间。
-- PR #52：已补用户可见变化、已合并 PR 与 SHA，但具体 ACM 关联仍待补证；不因所属 G1 功能就猜作某个子单。
+- PR #52：历史 ACM 关联未查明；已核实 PR、完整 merge SHA `d8559309624a2dc7caf894def30b467013f33904` 与 UTC 合并日期 `2026-10-19`。用户在 ACM-381 评论 `01a169f5-3720-7dfd-ae32-9bf96338167f`（2026-10-23 18:10:40 UTC）批准仅此条缺 ACM 关联的例外，其他条目不豁免；该批准不证明当时未开单，也不授权推送、开 PR、合并或部署。
 - 其余条目部署日期与结果尚未逐项核实；不得作为完整的已上线清单。以上均为历史记录引用，本轮未重启服务或重做线上验收。
