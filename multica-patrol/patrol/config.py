@@ -72,6 +72,15 @@ NOWAKE_PREFIX = "[patrol-nowake:"
 # wording. Plain status notes must not match.
 DISPATCH_CLASS_RE = re.compile(
     r"派活|开工|批准后|批准执行|返工|复验|重验|重新验收|补改|请现在|按.*(?:执行|开工)")
+# Progress/status reports (e.g. the dispatcher's "run still running" note)
+# also use the plain-language first-line marker, so the marker alone is not
+# dispatch evidence. A progress-worded first line without explicit dispatch
+# wording on that same line is never dispatch-class.
+PROGRESS_CLASS_RE = re.compile(
+    r"仍在(?:运行|执行|进行|处理)|仍未|尚未|运行中|执行中|进行中|进度|状态更新|当前状态"
+    r"|已收件|保持\s*(?:in_progress|in_review|blocked)|(?:run|任务)\s*仍"
+    r"|still\s+running|in\s+progress",
+    re.IGNORECASE)
 UUID_MENTION_RE = re.compile(
     r"mention://(agent|member)/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
     r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
