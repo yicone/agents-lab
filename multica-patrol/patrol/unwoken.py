@@ -23,11 +23,10 @@ def _body(state, issue, lc) -> tuple[str, str]:
     agent_id = lc.get("author_id") or "?"
     agent_name = (state.get("agent_names") or {}).get(agent_id, agent_id)
     marker = f"{config.UNWOKEN_PREFIX}{issue['id']}:{lc['id']}]"
-    disp = f"[@副调度](mention://agent/{config.DISPATCHER_AGENT_ID})"
     first = (f"{config.FIRST_LINE_NEXT} 副调度 做：决定复验、返工或发起顶层批准请求。")
     body = (
         first + "\n" + marker + "\n"
-        + disp + " " + agent_name + " 于 " + (lc.get("created_at") or "?")
+        + "副调度：" + agent_name + " 于 " + (lc.get("created_at") or "?")
         + " 交付/判定了一条评论，但没有有效 UUID @ 唤醒下一环。"
         + "由副调度决定复验、返工或发起顶层批准请求。" + "\n")
     return marker, body
@@ -48,12 +47,11 @@ def _resolve_target(state, issue: dict, lc: dict):
 def _nowake_body(state, issue, lc, target_id) -> tuple[str, str]:
     target_name = (state.get("agent_names") or {}).get(target_id, target_id)
     marker = f"{config.NOWAKE_PREFIX}{issue['id']}:{lc['id']}]"
-    disp = f"[@副调度](mention://agent/{config.DISPATCHER_AGENT_ID})"
     first = (f"{config.FIRST_LINE_NEXT} 副调度 做：确认派活是否已唤醒目标 agent，"
              "必要时补发有效 UUID @ 或重新派活。")
     body = (
         first + "\n" + marker + "\n"
-        + disp + " 派活评论 " + str(lc.get("id")) + "（"
+        + "副调度：派活评论 " + str(lc.get("id")) + "（"
         + (lc.get("created_at") or "?") + "）以 " + str(target_name)
         + " 为目标，但没有该 agent 的有效 UUID @，且 15 分钟内没有它的 run"
         " 启动，疑似未唤醒。" + "\n")
@@ -82,6 +80,8 @@ def _guards(cli, issue, lc) -> tuple[bool, str, list[dict], list[dict]]:
             latest = c
     if latest is None or latest.get("id") != lc.get("id"):
         return False, "newer_comment", comments, []
+    if latest.get("author_id") == config.DISPATCHER_AGENT_ID:
+        return False, "dispatcher_author", comments, []
     if config.UUID_MENTION_RE.search(latest.get("content") or ""):
         return False, "now_has_mention", comments, []
     runs_res = cli.run_json(["issue", "runs", issue_id, "--output", "json"])
@@ -136,6 +136,31 @@ def _nowake_guards(cli, issue, lc, target_id) -> tuple[bool, str, list[dict], li
     return True, "ok", comments, runs
 
 
+def _schedule_wakeup(store, cli, issue_id, rec, now):
+    """Reconcile an uncertain wakeup before creating another one."""
+    marker = rec["marker"]
+    wakeups = cli.run_json(["issue", "wakeup", "list", issue_id,
+                           "--output", "json"]).data or []
+    record_line = f"巡检记录评论 id：{rec['posted_comment_id']}"
+    existing = next((w for w in wakeups
+                     if marker in (w.get("instruction") or "").splitlines()
+                     and record_line in (w.get("instruction") or "").splitlines()
+                     and w.get("agent_id") == config.DISPATCHER_AGENT_ID), None)
+    if existing is None:
+        decision = ("确认派活是否已唤醒目标 agent，必要时补发有效 UUID @ 或重新派活。"
+                    if rec.get("reason") == "dispatch_no_wake" else
+                    "决定复验、返工或发起顶层批准请求，并推进下一步。")
+        instruction = (f"{marker}\n源交付/派活评论 id：{rec['comment_id']}\n"
+                       f"巡检记录评论 id：{rec['posted_comment_id']}\n"
+                       f"由副调度{decision}\n请在 issue 顶层交付结果。\n")
+        path = store.write_body(f"unwoken-wakeup-{issue_id}.md", instruction)
+        cli.permit_unwoken(issue_id)
+        existing = cli.run_unwoken_wakeup(issue_id, path).data or {}
+    rec["wakeup_id"] = existing.get("id")
+    rec["state"] = "sent"
+    rec["sent_at"] = iso(now)
+
+
 class _Result:
     def __init__(self):
         self.actions = []
@@ -173,23 +198,50 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
                 "comment_at": (lc or {}).get("created_at"),
             })
 
+        if reason == "unwoken_handoff" and \
+                (lc or {}).get("author_id") == config.DISPATCHER_AGENT_ID:
+            continue
+
         if rec:
             sent_at = parse_ts(rec.get("sent_at"))
-            if sent_at and (now - sent_at).total_seconds() < config.UNWOKEN_DEDUPE_S:
+            if rec.get("state") == "sent" and sent_at and \
+                    (now - sent_at).total_seconds() < config.UNWOKEN_DEDUPE_S:
                 action("deduped")
                 continue
-            if rec.get("state") == "pending":
+            if rec.get("state") in ("pending", "wakeup_pending"):
+                if dry_run:
+                    res.would_send += 1
+                    action("would_create_wakeup")
+                    continue
+                if res.sent >= config.MAX_UNWOKEN_PER_RUN:
+                    action("unwoken_deferred")
+                    continue
                 try:
                     comments = _comment_list(
                         cli, issue_id, now - timedelta(seconds=config.DUP_LOOKBACK_S))
                 except CliError:
                     action("pending_uncertain")
                     continue
-                if any((rec.get("marker") or "") in (c.get("content") or "")
-                       for c in comments):
-                    rec["state"] = "sent"
-                    rec["sent_at"] = rec.get("sent_at") or iso(now)
-                    action("sent")
+                posted = next((c for c in comments
+                               if rec.get("marker") and rec["marker"] in (c.get("content") or "")), None)
+                if posted:
+                    from .ledger import verify_post_author
+                    ok2, why2 = verify_post_author(cli, issue_id, posted.get("id"),
+                                                  now - timedelta(seconds=config.DUP_LOOKBACK_S))
+                    if not ok2:
+                        res.identity_violation = why2
+                        action("identity_violation")
+                        continue
+                    rec["posted_comment_id"] = posted["id"]
+                    rec["state"] = "wakeup_pending"
+                    store.save(state)
+                    try:
+                        _schedule_wakeup(store, cli, issue_id, rec, now)
+                        res.sent += 1
+                        action("sent")
+                    except CliError:
+                        action("wakeup_uncertain")
+                    store.save(state)
                     continue
                 # Not delivered: fall through to a fresh guarded send.
 
@@ -197,7 +249,7 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
             continue
         if dry_run:
             res.would_send += 1
-            action("would_send")
+            action("would_create_wakeup")
             continue
         if res.sent >= config.MAX_UNWOKEN_PER_RUN:
             action("unwoken_deferred")
@@ -219,11 +271,12 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
         else:
             marker, body = _body(state, issue, lc)
             marker_prefix = config.UNWOKEN_PREFIX
-        if any(marker in (c.get("content") or "") for c in comments):
+        posted = next((c for c in comments if marker in (c.get("content") or "")), None)
+        if posted:
             records[issue_id] = {"comment_id": lc["id"], "marker": marker,
-                                 "reason": reason,
-                                 "state": "sent", "sent_at": iso(now)}
-            action("sent")
+                                 "reason": reason, "state": "pending", "sent_at": None}
+            store.save(state)
+            action("pending_reconcile")
             continue
         records[issue_id] = {"comment_id": lc["id"], "marker": marker,
                              "reason": reason,
@@ -242,18 +295,38 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
                 action("identity_violation")
                 continue
             rec2 = records[issue_id]
-            rec2["state"] = "sent"
-            rec2["sent_at"] = iso(now)
+            if not comment_id:
+                raise CliError("supplement comment id missing", uncertain=True)
+            rec2["posted_comment_id"] = comment_id
+            rec2["state"] = "wakeup_pending"
+            store.save(state)
+            _schedule_wakeup(store, cli, issue_id, rec2, now)
+            store.save(state)
             res.sent += 1
             action("sent")
         except CliError:
+            if records[issue_id].get("state") == "wakeup_pending":
+                action("wakeup_uncertain")
+                continue
             sleep(2)
             try:
                 after = _comment_list(cli, issue_id,
                                       now - timedelta(seconds=config.DUP_LOOKBACK_S))
-                if any(marker in (c.get("content") or "") for c in after):
-                    records[issue_id]["state"] = "sent"
-                    records[issue_id]["sent_at"] = iso(now)
+                posted = next((c for c in after if marker in (c.get("content") or "")), None)
+                if posted:
+                    from .ledger import verify_post_author
+                    ok2, why2 = verify_post_author(cli, issue_id, posted.get("id"),
+                                                  now - timedelta(seconds=config.DUP_LOOKBACK_S))
+                    if not ok2:
+                        res.identity_violation = why2
+                        action("identity_violation")
+                        continue
+                    rec2 = records[issue_id]
+                    rec2["posted_comment_id"] = posted["id"]
+                    rec2["state"] = "wakeup_pending"
+                    store.save(state)
+                    _schedule_wakeup(store, cli, issue_id, rec2, now)
+                    store.save(state)
                     res.sent += 1
                     action("sent")
                 else:

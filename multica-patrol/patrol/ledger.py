@@ -45,7 +45,7 @@ SUGGESTIONS = {
     "approved_unassigned": "approved-labelled issue is unassigned and idle",
     "run_failed_no_retry": "latest runs failed with no retry in flight",
     "in_progress_no_assignee": "in progress without an assignee",
-    "unwoken_handoff": "给最后一条交付评论补上有效 UUID @ 唤醒下一环，由副调度决定复验/返工/顶层批准请求。",
+    "unwoken_handoff": "记录最后一条交付评论并建立副调度 wakeup，由副调度决定复验/返工/顶层批准请求。",
     "dispatch_no_wake": "派活评论后 15 分钟内无目标 agent 的 run 且无有效 UUID @，疑似未唤醒；由副调度补发 @ 或重新派活。",
 }
 
@@ -107,7 +107,8 @@ def render_batch(batch_id: str, mode_tag: str, slot: str, scan_kind: str, covera
                    if row.get("reason") == "dispatch_no_wake" else "")
             lines.append(
                 f"- {_mention(row['issue'])} agent={row.get('agent_name') or '?'} "
-                f"comment_at={row.get('comment_at')} action={row['action']}{tag}")
+                f"comment_at={row.get('comment_at')} action={row['action']}{tag}"
+                + (" 将建 wakeup（1m，副调度）" if row["action"] == "would_create_wakeup" else ""))
     lines.append("")
     lines.append(f"dedupe 抑制：{suppressed}（涉及 {suppressed_keys} 个 key）")
     if unresolved:

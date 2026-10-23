@@ -130,13 +130,25 @@ class PatrolCLI:
             raise CommandNotAllowed("unwoken body first line format invalid")
         if marker_prefix not in body:
             raise CommandNotAllowed(f"unwoken body lacks {marker_prefix} marker")
-        if "mention://agent/" + config.DISPATCHER_AGENT_ID not in body:
-            raise CommandNotAllowed("unwoken body lacks dispatcher mention")
+        if config.AGENT_MENTION_RE.search(body):
+            raise CommandNotAllowed("unwoken body must not contain agent mentions")
         self.writes_attempted += 1
         argv = [self.binary, "issue", "comment", "add", issue_id,
                 "--content-file", str(content_file), "--allow-external-file",
                 "--output", "json"]
         return self._spawn(argv, write=True)
+
+    def run_unwoken_wakeup(self, issue_id: str, instruction_file) -> CliResult:
+        """Schedule the dispatcher once, only for a guarded supplement issue."""
+        if issue_id not in self.unwoken_permitted:
+            raise CommandNotAllowed(f"unwoken wakeup not permitted for {issue_id}")
+        self.writes_attempted += 1
+        return self._spawn([
+            self.binary, "issue", "wakeup", "create", issue_id,
+            "--kind", "at", "--after", "1m",
+            "--agent-id", config.DISPATCHER_AGENT_ID,
+            "--instruction-file", str(instruction_file), "--output", "json",
+        ], write=True)
 
     def _check(self, args: list[str]) -> bool:
         for a in args:
