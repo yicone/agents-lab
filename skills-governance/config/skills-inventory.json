@@ -2632,7 +2632,7 @@
         "kind": "content_hash",
         "subject": "SKILL.md"
       },
-      "baseline_ref": "sha256:c91757dd2e85606356ba153c468036197fa3aafcd4977b307b4d065cc4cebdc9",
+      "baseline_ref": "sha256:8383ae719d33eacb64ae6da81c597a05f3f57a85a705bd285329df4b14b39d1e",
       "adapters": [
         {
           "path": ".agents/skills/atlas-changelog",
