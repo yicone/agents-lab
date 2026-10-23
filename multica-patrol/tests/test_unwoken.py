@@ -331,5 +331,356 @@ class TestScanLevel(unittest.TestCase):
                       {f["reason"] for f in second["per_issue"][issue["id"]]["findings"]})
 
 
+TARGET_UUID = "11111111-2222-3333-4444-555555555555"
+OTHER_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+
+class DispatchCase(UnwokenCase):
+    def add_dispatch(self, identifier="ACM-600", assignee_id=AGENT,
+                     content="需要你做：实现方案并回报结果。",
+                     minutes_ago=40, cid="lc-1",
+                     author_type="agent", author_id=config.DISPATCHER_AGENT_ID,
+                     entered_minutes_ago=60, target_run=None):
+        issue = make_issue(identifier, "in_progress", assignee_id=assignee_id,
+                           updated_at=BASE_NOW - timedelta(minutes=minutes_ago),
+                           last_activity_at=BASE_NOW - timedelta(minutes=minutes_ago))
+        self.fake.issues.append(issue)
+        self.fake.timelines[issue["id"]] = [
+            status_changed("in_progress", BASE_NOW - timedelta(minutes=entered_minutes_ago))]
+        runs = [run("completed", rid="r-old", agent_id=assignee_id,
+                    started_at=BASE_NOW - timedelta(minutes=minutes_ago + 30),
+                    completed_at=BASE_NOW - timedelta(minutes=minutes_ago + 25))]
+        if target_run:
+            runs = [target_run] + runs
+        self.fake.runs[issue["id"]] = runs
+        self.fake.add_comment(issue["id"], comment(
+            content, BASE_NOW - timedelta(minutes=minutes_ago), cid=cid,
+            author_type=author_type, author_id=author_id))
+        return issue
+
+    def nowake_comments(self, issue):
+        return [c for c in self.fake.comments.get(issue["id"], [])
+                if "[patrol-nowake:" in c.get("content", "")]
+
+
+class TestDispatchNoWake(DispatchCase):
+    def test_one_nowake_written(self):
+        issue = self.add_dispatch()
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(code, 0, err)
+        posted = self.nowake_comments(issue)
+        self.assertEqual(len(posted), 1)
+        lines = posted[0]["content"].splitlines()
+        self.assertTrue(lines[0].startswith("不需要你做，下一步由 副调度 做："))
+        self.assertTrue(lines[1].startswith(f"[patrol-nowake:{issue['id']}:lc-1"))
+        self.assertIn(DISP_MENTION, posted[0]["content"])
+        self.assertIn("lc-1", posted[0]["content"])
+        self.assertIn(iso(BASE_NOW - timedelta(minutes=40)), posted[0]["content"])
+        self.assertIn("WorkerAgent", posted[0]["content"])
+        self.assertIn("15", posted[0]["content"])
+        state = Store(self.state_dir).load()
+        rec = state["unwoken"][issue["id"]]
+        self.assertEqual(rec["state"], "sent")
+        self.assertEqual(rec["reason"], "dispatch_no_wake")
+        self.assertEqual(last_result(out)["unwoken_sent"], 1)
+        ledger_body = self.fake.ledger_comments()[0]["content"]
+        self.assertIn("dispatch_no_wake", ledger_body)
+
+    def test_name_only_other_and_member_mentions_still_fire(self):
+        for n, content in enumerate((
+                "需要你做：改完回报 [@副调度](mention://agent/副调度)",
+                f"需要你做：派活给 [@x](mention://agent/{OTHER_UUID})",
+                f"需要你做：[@y](mention://member/{OTHER_UUID}) 已知悉")):
+            self.tmp2 = tempfile.TemporaryDirectory()
+            self.state_dir = Path(self.tmp2.name)
+            self.fake = FakeMultica()
+            self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
+            self.fake.issues = [
+                make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+            state = Store(self.state_dir).load()
+            state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
+            Store(self.state_dir).save(state)
+            issue = self.add_dispatch(content=content)
+            code, out, err = self._run_at("2026102221")
+            self.assertEqual(len(self.nowake_comments(issue)), 1, content)
+            self.tmp2.cleanup()
+
+    def test_valid_uuid_mention_of_target_suppresses(self):
+        issue = self.add_dispatch(
+            assignee_id=TARGET_UUID,
+            content=f"需要你做：[@t](mention://agent/{TARGET_UUID}) 开工")
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(self.nowake_comments(issue), [])
+
+    def test_run_gates_by_target(self):
+        comment_at = BASE_NOW - timedelta(minutes=40)
+        for kind, r, expect in (
+                ("after-completed", run("completed", rid="r-l", agent_id=AGENT,
+                                        started_at=comment_at + timedelta(minutes=5),
+                                        completed_at=comment_at + timedelta(minutes=8)), 0),
+                ("after-queued", run("queued", rid="r-q", agent_id=AGENT,
+                                     started_at=comment_at + timedelta(minutes=5)), 0),
+                ("after-cancelled", run("cancelled", rid="r-c", agent_id=AGENT,
+                                        started_at=comment_at + timedelta(minutes=5)), 0),
+                ("after-none-agent", run("queued", rid="r-n", agent_id=None,
+                                         started_at=comment_at + timedelta(minutes=5)), 0),
+                ("before", run("completed", rid="r-b", agent_id=AGENT,
+                               started_at=comment_at - timedelta(minutes=30),
+                               completed_at=comment_at - timedelta(minutes=20)), 1),
+                ("other-agent", run("completed", rid="r-o", agent_id="other-agent",
+                                    started_at=comment_at + timedelta(minutes=5),
+                                    completed_at=comment_at + timedelta(minutes=8)), 1)):
+            with self.subTest(kind=kind):
+                self.tmp2 = tempfile.TemporaryDirectory()
+                self.state_dir = Path(self.tmp2.name)
+                self.fake = FakeMultica()
+                self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
+                self.fake.issues = [
+                    make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+                    make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                state = Store(self.state_dir).load()
+                state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
+                Store(self.state_dir).save(state)
+                issue = self.add_dispatch(target_run=r)
+                code, out, err = self._run_at("2026102221")
+                self.assertEqual(len(self.nowake_comments(issue)), expect, err)
+                self.tmp2.cleanup()
+
+    def test_first_line_target_resolution(self):
+        # `下一步由 WorkerAgent 做` names the target; assignee is someone else.
+        issue = self.add_dispatch(
+            assignee_id="agent-other",
+            content="不需要你做，下一步由 WorkerAgent 做：继续实现。")
+        code, out, err = self._run_at("2026102221")
+        posted = self.nowake_comments(issue)
+        self.assertEqual(len(posted), 1)
+        self.assertIn("WorkerAgent", posted[0]["content"])
+        # A valid @ of the named target suppresses even though assignee differs.
+        self.tmp2 = tempfile.TemporaryDirectory()
+        self.state_dir = Path(self.tmp2.name)
+        self.fake = FakeMultica()
+        self.fake.agents.append({"id": TARGET_UUID, "name": "WorkerAgent"})
+        self.fake.issues = [
+            make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+        state = Store(self.state_dir).load()
+        state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", TARGET_UUID: "WorkerAgent"}
+        Store(self.state_dir).save(state)
+        issue = self.add_dispatch(
+            assignee_id="agent-other",
+            content=f"不需要你做，下一步由 WorkerAgent 做：[@t](mention://agent/{TARGET_UUID}) 开工")
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(self.nowake_comments(issue), [])
+        self.tmp2.cleanup()
+
+    def test_non_dispatch_or_wrong_author_no_write(self):
+        cases = (
+            dict(author_type="agent", author_id=AGENT,
+                 content="需要你做：看起来是派活但作者不是副调度"),
+            dict(author_type="member", author_id="u1", content="需要你做：人工口吻"),
+            dict(author_id=config.DISPATCHER_AGENT_ID,
+                 content="已收件。ACM-343 保持 in_review，待你回来定稿。"),
+        )
+        for n, kw in enumerate(cases):
+            self.tmp2 = tempfile.TemporaryDirectory()
+            self.state_dir = Path(self.tmp2.name)
+            self.fake = FakeMultica()
+            self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
+            self.fake.issues = [
+                make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+            state = Store(self.state_dir).load()
+            state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
+            Store(self.state_dir).save(state)
+            kw.setdefault("author_type", "agent")
+            kw.setdefault("author_id", config.DISPATCHER_AGENT_ID)
+            issue = self.add_dispatch(**kw)
+            code, out, err = self._run_at("2026102221")
+            self.assertEqual(self.nowake_comments(issue), [], kw["content"])
+            self.tmp2.cleanup()
+        # unassigned in_progress is covered by a different rule
+        issue = self.add_dispatch("ACM-601", assignee_id=None)
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(self.nowake_comments(issue), [])
+
+    def test_exempt_targets_no_write(self):
+        for ident, uid in (("ACM-215", None), ("ACM-216", config.INBOX_ISSUE_ID),
+                           ("ACM-229", config.LEDGER_ISSUE_ID)):
+            issue = self.add_dispatch(ident, cid=f"lc-{ident}")
+            if uid:
+                issue["id"] = uid
+        code, out, err = self._run_at("2026102221")
+        total = sum(len(self.nowake_comments(i)) for i in self.fake.issues)
+        self.assertEqual(total, 0)
+
+    def test_age_boundary(self):
+        for mins, expect in ((14, 0), (15, 1), (16, 1)):
+            self.tmp2 = tempfile.TemporaryDirectory()
+            self.state_dir = Path(self.tmp2.name)
+            self.fake = FakeMultica()
+            self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
+            self.fake.issues = [
+                make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+            state = Store(self.state_dir).load()
+            state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
+            Store(self.state_dir).save(state)
+            issue = self.add_dispatch(minutes_ago=mins)
+            invoke(self.fake, ["run", "--slot", "2026102221"], state_dir=self.state_dir)
+            self.assertEqual(len(self.nowake_comments(issue)), expect, mins)
+            self.tmp2.cleanup()
+
+    def test_dedupe_24h_and_shared_with_rule9(self):
+        issue = self.add_dispatch()
+        self._run_at("2026102221")
+        self._run_at("2026102222")
+        self.assertEqual(len(self.nowake_comments(issue)), 1)
+        # >24h after the first send a new dispatch comment can be supplemented.
+        t2 = BASE_NOW + timedelta(hours=25)
+        issue["updated_at"] = iso(t2)
+        issue["last_activity_at"] = iso(t2)
+        self.fake.add_comment(issue["id"], comment(
+            "需要你做：再补改一轮。", t2 - timedelta(minutes=20), cid="lc-2",
+            author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+        self._run_at(self._slot("2026102221", 25))
+        self.assertEqual(len(self.nowake_comments(issue)), 2)
+        # Shared with the rule-9 record: an issue that got a handoff supplement
+        # cannot also get a nowake supplement within 24h.
+        self.tmp2 = tempfile.TemporaryDirectory()
+        self.state_dir = Path(self.tmp2.name)
+        self.fake = FakeMultica()
+        self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
+        self.fake.issues = [
+            make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+        state = Store(self.state_dir).load()
+        state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
+        Store(self.state_dir).save(state)
+        issue = self.add_handoff()  # blocked/in_review supplement at slot 1
+        self._run_at("2026102221")
+        self.assertEqual(len(self.unwoken_comments(issue)), 1)
+        # Same issue becomes in_progress with a dispatch comment one slot later.
+        issue["status"] = "in_progress"
+        issue["updated_at"] = iso(BASE_NOW + timedelta(hours=1))
+        self.fake.timelines[issue["id"]] = [
+            status_changed("in_progress", BASE_NOW + timedelta(minutes=30))]
+        self.fake.add_comment(issue["id"], comment(
+            "需要你做：返工重做。", BASE_NOW + timedelta(minutes=45), cid="lc-d",
+            author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+        self._run_at("2026102222")
+        self.assertEqual(self.nowake_comments(issue), [])
+        self.tmp2.cleanup()
+
+    def test_shared_cap_with_rule9(self):
+        # 2 blocked/in_review handoffs + 3 dispatch issues -> total sent == cap.
+        for i in range(2):
+            self.add_handoff(f"ACM-{700 + i}", cid=f"lc-h{i}")
+        issues = [self.add_dispatch(f"ACM-{710 + i}", cid=f"lc-d{i}") for i in range(3)]
+        code, out, err = self._run_at("2026102221")
+        sent = sum(len(self.unwoken_comments(i)) + len(self.nowake_comments(i))
+                   for i in self.fake.issues)
+        self.assertEqual(sent, config.MAX_UNWOKEN_PER_RUN)
+        self.assertIn("unwoken_deferred", self.fake.ledger_comments()[0]["content"])
+
+    def test_dry_run_zero_writes(self):
+        issue = self.add_dispatch()
+        code, out, err = invoke(self.fake, ["run", "--slot", "2026102221", "--dry-run"],
+                                state_dir=self.state_dir)
+        self.assertEqual(last_result(out)["unwoken_would_send"], 1)
+        self.assertEqual(self.nowake_comments(issue), [])
+        state = Store(self.state_dir).load()
+        self.assertEqual(state.get("unwoken") or {}, {})
+
+    def test_guard_race_and_uncertain_no_blind_resend(self):
+        issue = self.add_dispatch()
+        real_exec = self.fake.exec
+        def racer(argv):
+            args = argv[1:]
+            words = [a for a in args if not a.startswith("-")]
+            if words[:3] == ["issue", "comment", "list"] and words[3] == issue["id"] \
+                    and "--since" in args:
+                self.fake.add_comment(issue["id"], comment(
+                    "member arrived", BASE_NOW + timedelta(minutes=1), cid="race"))
+            return real_exec(argv)
+        self.fake.exec = racer
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(self.nowake_comments(issue), [])
+        # Uncertain post: pending recorded, no blind resend; next slot delivers.
+        self.tmp2 = tempfile.TemporaryDirectory()
+        self.state_dir = Path(self.tmp2.name)
+        self.fake = FakeMultica()
+        self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
+        self.fake.issues = [
+            make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
+            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+        state = Store(self.state_dir).load()
+        state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
+        Store(self.state_dir).save(state)
+        issue = self.add_dispatch()
+        def timeout_issue_writes(argv):
+            args = argv[1:]
+            words = [a for a in args if not a.startswith("-")]
+            if words[:3] == ["issue", "comment", "add"] and words[3] == issue["id"]:
+                raise subprocess.TimeoutExpired(argv, 90)
+            return None
+        self.fake.fail_handler = timeout_issue_writes
+        self._run_at("2026102221")
+        state = Store(self.state_dir).load()
+        self.assertEqual(state["unwoken"][issue["id"]]["state"], "pending")
+        self.assertEqual(self.nowake_comments(issue), [])
+        self.fake.fail_handler = None
+        self._run_at("2026102222")
+        self.assertEqual(len(self.nowake_comments(issue)), 1)
+        self.tmp2.cleanup()
+
+    def test_nowake_marker_accepted_by_write_allowlist(self):
+        cli = PatrolCLI(allowed_write_ids=frozenset({config.INBOX_ISSUE_ID}),
+                        env=GOOD_ENV, _exec=self.fake.exec, _sleep=lambda s: None, retries=0)
+        p = self.state_dir / "n.md"
+        p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-nowake:u:c]\n"
+                     + DISP_MENTION + "\n")
+        cli.permit_unwoken("uuid-ACM-601")
+        self.assertIsNotNone(cli.run_unwoken_write(
+            "uuid-ACM-601", p, marker_prefix=config.NOWAKE_PREFIX))
+        # A nowake marker does not satisfy the rule-9 prefix, and vice versa.
+        with self.assertRaises(CommandNotAllowed):
+            cli.run_unwoken_write("uuid-ACM-601", p)
+        p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-unwoken:u:c]\n"
+                     + DISP_MENTION + "\n")
+        with self.assertRaises(CommandNotAllowed):
+            cli.run_unwoken_write("uuid-ACM-601", p, marker_prefix=config.NOWAKE_PREFIX)
+
+
+class TestDispatchScanLevel(unittest.TestCase):
+    def test_incremental_refires_after_grace(self):
+        from patrol.cli import PatrolCLI
+        from patrol.scan import run_scan
+        from patrol.state import initial_state
+        fake = FakeMultica()
+        cli = PatrolCLI(allowed_write_ids=frozenset({config.LEDGER_ISSUE_ID}),
+                        env={}, _exec=fake.exec, _sleep=lambda s: None, retries=0)
+        issue = make_issue("ACM-720", "in_progress", assignee_id=AGENT)
+        fake.issues = [issue]
+        fake.timelines[issue["id"]] = [
+            status_changed("in_progress", BASE_NOW - timedelta(hours=2))]
+        fake.add_comment(issue["id"], comment(
+            "需要你做：继续实现。", BASE_NOW - timedelta(minutes=10), cid="lc-s",
+            author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+        state = initial_state()
+        first = run_scan(cli, state, True, BASE_NOW, fake.monotonic)
+        cached = state["cache"][issue["id"]]
+        due = datetime.fromisoformat(cached["next_due_at"])
+        self.assertEqual(due, BASE_NOW - timedelta(minutes=10)
+                         + timedelta(seconds=config.UNWOKEN_GRACE_S))
+        # Before the threshold the finding is absent; at it, present.
+        self.assertNotIn("dispatch_no_wake",
+                         {f["reason"] for f in first["per_issue"][issue["id"]]["findings"]})
+        second = run_scan(cli, state, False, BASE_NOW + timedelta(minutes=6),
+                          fake.monotonic)
+        self.assertIn("dispatch_no_wake",
+                      {f["reason"] for f in second["per_issue"][issue["id"]]["findings"]})
+
+
 if __name__ == "__main__":
     unittest.main()

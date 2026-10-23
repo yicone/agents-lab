@@ -116,6 +116,27 @@ def evaluate(issue: dict, facts: dict, now) -> list[dict]:
                 not later_run:
             add("unwoken_handoff", lc.get("id"), last_comment=lc)
 
+    # Dispatch without wake: the dispatcher's dispatch-class last comment on
+    # an in_progress issue, with no valid agent-UUID mention of the dispatch
+    # target and no run started after it. T is issue.assignee_id here; the
+    # process path re-resolves T to the agent named on the first line when
+    # the comment carries `下一步由 <name> 做`.
+    if status == "in_progress" and assignee and lc and \
+            lc.get("author_type") == "agent" and \
+            lc.get("author_id") == config.DISPATCHER_AGENT_ID and \
+            lc.get("dispatch_class"):
+        comment_at = parse_ts(lc.get("created_at"))
+        comment_age = (now - comment_at).total_seconds() if comment_at else None
+        mentioned = {str(m).lower() for m in lc.get("mentioned_agent_ids") or []}
+        later_run = comment_at is not None and any(
+            r.get("agent_id") in (None, assignee)
+            and (parse_ts(r.get("started_at")) or parse_ts(r.get("dispatched_at"))
+                 or parse_ts(r.get("created_at")) or now) >= comment_at
+            for r in facts.get("runs") or [])
+        if comment_age is not None and comment_age >= config.UNWOKEN_GRACE_S and \
+                str(assignee).lower() not in mentioned and not later_run:
+            add("dispatch_no_wake", lc.get("id"), last_comment=lc)
+
     return findings
 
 

@@ -178,6 +178,98 @@ class RuleBoundaries(unittest.TestCase):
         self.assertNotIn("unwoken_handoff", reasons(rules.evaluate(issue, f, BASE_NOW)))
 
 
+class DispatchNoWake(unittest.TestCase):
+    """Pure boundaries for rule 10 (dispatch comment without wake)."""
+
+    def _lc(self, **kw):
+        lc = {"id": "lc1", "author_type": "agent",
+              "author_id": config.DISPATCHER_AGENT_ID,
+              "created_at": iso(BASE_NOW - timedelta(minutes=16)),
+              "has_valid_mention": False, "mentioned_agent_ids": [],
+              "dispatch_class": True, "first_line_target_name": None}
+        lc.update(kw)
+        return lc
+
+    def _issue_facts(self, lc, runs=None, assignee="a1"):
+        issue = make_issue("ACM-9", "in_progress", assignee_id=assignee)
+        f = facts(last_comment=lc, runs=runs or [])
+        return issue, f
+
+    def test_fires_and_age_boundary(self):
+        for mins, expected in ((14, False), (15, True), (16, True)):
+            issue, f = self._issue_facts(
+                self._lc(created_at=iso(BASE_NOW - timedelta(minutes=mins))))
+            got = reasons(rules.evaluate(issue, f, BASE_NOW))
+            self.assertEqual("dispatch_no_wake" in got, expected, mins)
+
+    def test_gates(self):
+        # wrong status / unassigned / non-dispatcher / non-dispatch-class
+        issue, f = self._issue_facts(self._lc())
+        self.assertIn("dispatch_no_wake", reasons(rules.evaluate(issue, f, BASE_NOW)))
+        for status in ("in_review", "blocked", "todo", "done"):
+            issue2 = make_issue("ACM-9", status, assignee_id="a1")
+            self.assertNotIn("dispatch_no_wake",
+                             reasons(rules.evaluate(issue2, f, BASE_NOW)), status)
+        issue2 = make_issue("ACM-9", "in_progress", assignee_id=None)
+        self.assertNotIn("dispatch_no_wake",
+                         reasons(rules.evaluate(issue2, f, BASE_NOW)))
+        for lc in (self._lc(author_type="member", author_id="u1"),
+                   self._lc(author_id="agent-other"),
+                   self._lc(dispatch_class=False)):
+            issue2, f2 = self._issue_facts(lc)
+            self.assertNotIn("dispatch_no_wake",
+                             reasons(rules.evaluate(issue2, f2, BASE_NOW)))
+
+    def test_mention_of_assignee_suppresses(self):
+        uuid_a = "11111111-2222-3333-4444-555555555555"
+        issue, f = self._issue_facts(
+            self._lc(mentioned_agent_ids=[uuid_a.lower()]), assignee=uuid_a)
+        self.assertNotIn("dispatch_no_wake", reasons(rules.evaluate(issue, f, BASE_NOW)))
+        # a valid mention of some OTHER agent does not suppress
+        issue, f = self._issue_facts(
+            self._lc(mentioned_agent_ids=["aaaaaaaa-2222-3333-4444-555555555555"]),
+            assignee=uuid_a)
+        self.assertIn("dispatch_no_wake", reasons(rules.evaluate(issue, f, BASE_NOW)))
+
+    def test_run_gates(self):
+        comment_at = BASE_NOW - timedelta(minutes=16)
+        later = iso(comment_at + timedelta(minutes=5))
+        before = iso(comment_at - timedelta(minutes=5))
+        for r, expected in (
+                ({"id": "r1", "status": "queued", "agent_id": "a1",
+                  "started_at": later}, False),
+                ({"id": "r2", "status": "cancelled", "agent_id": "a1",
+                  "started_at": later}, False),
+                ({"id": "r3", "status": "running", "agent_id": None,
+                  "started_at": later}, False),
+                ({"id": "r4", "status": "completed", "agent_id": "a1",
+                  "started_at": before, "completed_at": before}, True),
+                ({"id": "r5", "status": "completed", "agent_id": "other",
+                  "started_at": later}, True)):
+            issue, f = self._issue_facts(self._lc(), runs=[r])
+            got = reasons(rules.evaluate(issue, f, BASE_NOW))
+            self.assertEqual("dispatch_no_wake" in got, expected, r)
+
+
+class DispatchClassRegex(unittest.TestCase):
+    """Pin which sample strings the dispatch-class heuristic matches."""
+
+    def test_matches(self):
+        for s in ("派活给 WorkerAgent：实现 X",
+                  "请按原计划执行", "批准后开工", "批准执行",
+                  "返工：上次交付不合格", "请复验", "重验通过后再关单",
+                  "重新验收标准如下", "需要补改三处", "请现在开工"):
+            self.assertTrue(config.DISPATCH_CLASS_RE.search(s), s)
+
+    def test_non_matches(self):
+        for s in ("已收件。ACM-343 保持 in_review，待你回来定稿。",
+                  "状态更新：本轮无异常",
+                  "delivery complete, awaiting review",
+                  "[Error] provider timeout",
+                  "summary of findings"):
+            self.assertFalse(config.DISPATCH_CLASS_RE.search(s), s)
+
+
 class Exemptions(unittest.TestCase):
     def test_persistent(self):
         issue = make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID)
