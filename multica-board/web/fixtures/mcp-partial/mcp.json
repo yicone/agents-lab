@@ -191,7 +191,7 @@
    "name": "Beta 辅导",
    "library_state": "ok",
    "library_error": null,
-   "bindings_state": "ok",
+   "bindings_state": "partial",
    "collected_at": "2026-10-24T01:58:00Z"
   }
  ],

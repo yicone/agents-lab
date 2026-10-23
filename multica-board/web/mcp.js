@@ -111,7 +111,8 @@ export function sourceBlocks(payload) {
     count: inProject.length,
     uncertain: 0,
     statuses,
-    sideUnknown: false,
+    // 项目级文件没读到时，这张卡的计数同样不可全信
+    sideUnknown: (payload?.unknown?.project_files || []).length > 0,
   });
   return blocksOut;
 }

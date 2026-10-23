@@ -557,8 +557,8 @@
    {
     "id": "local_files",
     "label": "本机配置",
-    "state": "ok",
-    "detail": "4 已读 · 5 不存在"
+    "state": "warn",
+    "detail": "8 已读 · 1 读不出"
    },
    {
     "id": "project_files",
@@ -581,8 +581,8 @@
    {
     "id": "agent_bindings",
     "label": "Agent 分配",
-    "state": "ok",
-    "detail": "2 个 Workspace"
+    "state": "warn",
+    "detail": "2 个 Workspace · 1 个没读到"
    },
    {
     "id": "multica_own_config",

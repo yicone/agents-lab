@@ -30,13 +30,13 @@ Atlas 的每个数字都来自下面四层之一。板块设计稿必须写明�
 | Issues `3` | `#/issues` | 哪些 issue 现在需要我看 | Multica workspace（全部） | 共享筛选条 |
 | Agents `4` | `#/agents` | 每个 agent 跑在哪个 runtime / 模型上，哪里在出错 | agent + Multica workspace 的 runtime；Grok Bots 子视图是本机；instructions 对照仓库 | 共享筛选条 |
 | Skills `5` | `#/skills` | 这些 skill 装在哪，哪些要处理 | 本机 + 仓库，加上 Multica workspace 安装和 Grok Bot 名称声明 | 固定范围说明 |
-| MCP `6` | `#/mcp` | 各 workspace 的 MCP 分给了谁，下次任务实际拿到什么，哪些不会生效 | Multica workspace 的库 + agent 的分配和自有配置；加载表来自仓库 | 共享筛选条，标签显示 MCP 采集状态 |
+| MCP `6` | `#/mcp` | 同名 server 在本机工具、仓库项目级和各 workspace 的配置是否一致、哪些不会生效 | 本机声明文件 + 仓库项目级 + Multica workspace 的库与 agent；加载表来自仓库 | 固定范围说明 + 数据源健康条（`meta.sources`） |
 | 用量（非顶栏） | `#/usage` | Multica 运行、外部额度、失败各是多少 | 本机快照 + Multica run 缓存 | 不显示 |
 
 现状：
 
 - Agents 有两个子视图，不占顶栏：Grok Bots（`?kind=bots`）和切换计划（`?plan=1`、`#/agents/plan/new`、`#/agents/plans[/<id>]`），由工具栏的 `kindSwitch` 切换。用量只从地图 L1 进入。
-- 顶栏三个角标：待你决定（ACM Lab 待验收 + 受阻）、Skills（`attention.badge`，基线债不计入）、MCP（`ignored + shadowed + may_fail`）。都是 0 时隐藏。
+- 顶栏三个角标：待你决定（ACM Lab 待验收 + 受阻）、Skills（`attention.badge`，基线债不计入）、MCP（`attention.badge`：五桶条数之和，待清理桶不计入；`attention.tone=unknown` 时显示灰色 `?` 不计数，见 `mcp-redesign.md` §5）。
 
 规则：新板块加不加顶栏，看它是不是一个独立的问题、数据层和筛选维度是否不同。MCP 单独成栏的理由是「Skills 属于本机，MCP 属于 workspace」（`mcp-design.md`），新板块照这个标准写理由。只是某个板块的另一种看法时，做成子视图（参考 Agents 的 `kindSwitch`），或者只从地图进入（参考用量）。
 
@@ -47,8 +47,8 @@ Atlas 的每个数字都来自下面四层之一。板块设计稿必须写明�
 1. **标签行**：品牌、标签、`#snapshot` 状态、搜索框。状态默认是全局采集状态（`health()`），按 `frontend-design.md`「顶栏状态」表取第一个命中的。Skills、MCP、计划目录换成本页数据源的时间（`skillsSnapshot()`、`mcpSnapshot()`、`planSnapshot()`）。
 2. **`#banner`**：只在全局采集失败或全部 workspace 失败时出现。单个 workspace 的问题不上这一行。
 3. **`#health`**：由 `filter-bar.js` 的 `filterChrome(view)` 决定形态：
-   - `shared`（Issues、Agents、MCP）：「当前：X」+「清除」+ 每个 workspace 一个 `.ws-chip`，点击即写 `ws=<slug>`。MCP 换用 `mcpWorkspaceChip`，标签显示 MCP 采集状态。
-   - `decide` / `skills`：一行 `.scope-note` 写死范围，说明 workspace 筛选不作用于本页。Skills 后面再跟数据源健康条（`meta.sources` 里的每一项一个 `.src-chip`）。
+   - `shared`（Issues、Agents）：「当前：X」+「清除」+ 每个 workspace 一个 `.ws-chip`，点击即写 `ws=<slug>`。
+   - `decide` / `skills` / `mcp`：一行 `.scope-note` 写死范围，说明 workspace 筛选不作用于本页。Skills 和 MCP 后面再跟数据源健康条（`meta.sources` 里的每一项一个 `.src-chip`，MCP 的七个来源见 `mcp-redesign.md` §5.1）。
    - `none`（地图、用量）：隐藏。
 
 规则：新板块必须选这三种之一。数据不分 workspace 时用固定范围说明，不要显示一排点了没反应的 workspace 标签。
@@ -142,7 +142,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 |---|---|---|
 | `●` | 有直接入口 | 正文色 |
 | `○` | 经共享目录可见 | `.shared` 灰 |
-| `✕` | 入口或版本文件不在 | `.missing` 红 |
+| `✕` | 入口或版本文件不在；MCP 里表示「条目损坏」（有同名条目但不能用：缺启动目标、类型无法识别、字段类型不对） | `.missing` 红 |
 | `?` | 无法确定（权限、读取失败、未配置技能根） | `.unknown` 黄 |
 | `∅` | 不适用（只存在于 Multica Workspace，或者是 Grok Bot 名称声明） | `.not-applicable` 灰 |
 | 空白 | 已配置的根里没找到，仍可能从别处加载 | — |
@@ -225,7 +225,6 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 | `.source-card`（`.source-grid` 网格） | 行的分区 + 状态拆分 | 点击切换筛选，`aria-pressed` |
 | `.provider`（`.providers`） | 按 provider 汇总 | 点击切换筛选 |
 | `.decide-stat` | 只读统计块，`.warn` / `.bad` | 不可点 |
-| `.mcp-card`（`.mcp-summary`） | MCP 指标卡 | 部分可点 |
 | `.bot-stat`、`.foot-bucket`、`.plan-counts button`、`.trio` | 各页专用 | |
 | `.tab-badge` | 顶栏角标，默认黄，`.skills` 红 | |
 
@@ -424,6 +423,8 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 编号供后续清理单引用。「推断」表示只看代码得出，没有在浏览器里复现。
 
 ### 6.1 v1 MCP 页（`web/mcp.js`）和 Skills 范本的差异
+
+**ACM-378 / ACM-403 已解决**：MCP 页按 `mcp-redesign.md` 重写为一张分组表 + Skills 结构的来源卡、图例、待处理栏和单抽屉，下面 M1–M13 全部关闭，本文只留作历史记录。
 
 - **M1** 顶部是指标卡 `.mcp-card`（库条目、已分配、无人使用、有自有配置、会被忽略、同名覆盖），不是行的分区，其中库条目、已分配、有自有配置这 3 张禁用不可点。Skills 的来源卡全部可点。
 - **M2** 每个 workspace 一块 `.mcp-ws`，各自一张表、各自一个限高滚动区。Skills 是一张表加分组行。

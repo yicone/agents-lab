@@ -2001,7 +2001,9 @@ function openMcp(id, opener) {
   state.drawer = { kind: "mcp", id, rowId, opener: opener || document.activeElement };
   render();
   renderDrawer();
-  document.querySelector("#drawer .drawer-close")?.focus();
+  // 不能在 Enter keydown 里同步聚焦关闭按钮：同一个 Enter 的 keypress
+  // 会激活刚聚焦的按钮，把抽屉立刻关掉。等这个按键序列结束再聚焦。
+  setTimeout(() => document.querySelector("#drawer .drawer-close")?.focus(), 0);
 }
 
 function focusMcp(id, opener) {
