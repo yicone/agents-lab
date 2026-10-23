@@ -65,6 +65,23 @@ class UnwokenCase(unittest.TestCase):
             author_type=author_type, author_id=author_id))
         return issue
 
+    def assert_wakeup(self, issue, posted):
+        wakeups = self.fake.wakeups.get(issue["id"], [])
+        self.assertEqual(len(wakeups), 1)
+        wake = wakeups[0]
+        self.assertEqual(wake["agent_id"], config.DISPATCHER_AGENT_ID)
+        self.assertIn(posted["content"].splitlines()[1], wake["instruction"])
+        self.assertIn("lc-1", wake["instruction"])
+        self.assertIn(posted["id"], wake["instruction"])
+        decision = "确认派活" if "patrol-nowake:" in posted["content"] else "复验、返工或发起顶层批准请求"
+        self.assertIn(decision, wake["instruction"])
+        calls = [c for c in self.fake.calls if c[1:4] == ["issue", "wakeup", "create"]
+                 and c[4] == issue["id"]]
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("--parent", calls[0])
+        self.assertEqual(calls[0][calls[0].index("--after") + 1], "1m")
+        self.assertEqual(calls[0][calls[0].index("--kind") + 1], "at")
+
     def unwoken_comments(self, issue):
         return [c for c in self.fake.comments.get(issue["id"], [])
                 if "[patrol-unwoken:" in c.get("content", "")]
@@ -80,7 +97,8 @@ class TestSupplement(UnwokenCase):
         lines = posted[0]["content"].splitlines()
         self.assertTrue(lines[0].startswith("不需要你做，下一步由"))
         self.assertTrue(lines[1].startswith(f"[patrol-unwoken:{issue['id']}:lc-1"))
-        self.assertIn(DISP_MENTION, posted[0]["content"])
+        self.assertNotIn("mention://agent/", posted[0]["content"])
+        self.assert_wakeup(issue, posted[0])
         self.assertIn("WorkerAgent", posted[0]["content"])
         self.assertIn("复验", posted[0]["content"])
         state = Store(self.state_dir).load()
@@ -89,10 +107,72 @@ class TestSupplement(UnwokenCase):
         self.assertEqual(res["unwoken_sent"], 1)
         self.assertIn("未唤醒的交付补发", self.fake.ledger_comments()[0]["content"])
 
+    def test_dispatcher_own_judgement_skipped(self):
+        for n, status in enumerate(("blocked", "in_review")):
+            issue = self.add_handoff(f"ACM-{900+n}", status=status,
+                                     author_id=config.DISPATCHER_AGENT_ID)
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(last_result(out)["unwoken_sent"], 0)
+        self.assertFalse(any(self.unwoken_comments(i) for i in self.fake.issues))
+        self.assertFalse(any(self.fake.wakeups.values()))
+
+    def test_wakeup_failure_resumes_without_duplicate_comment(self):
+        issue = self.add_handoff()
+        def fail_wakeup(argv):
+            if argv[1:4] == ["issue", "wakeup", "create"]:
+                return subprocess.CompletedProcess(argv, 1, "", "wakeup failed")
+        self.fake.fail_handler = fail_wakeup
+        self._run_at("2026102221")
+        self.assertEqual(len(self.unwoken_comments(issue)), 1)
+        self.assertEqual(Store(self.state_dir).load()["unwoken"][issue["id"]]["state"],
+                         "wakeup_pending")
+        self.fake.fail_handler = None
+        self._run_at("2026102222")
+        posted = self.unwoken_comments(issue)
+        self.assertEqual(len(posted), 1)
+        # Includes the earlier failed create attempt.
+        wake = self.fake.wakeups[issue["id"]]
+        self.assertEqual(len(wake), 1)
+        self.assertIn(posted[0]["id"], wake[0]["instruction"])
+
+    def test_uncertain_wakeup_readback_does_not_duplicate(self):
+        issue = self.add_handoff()
+        original = self.fake.exec
+        def timeout_after_create(argv, **kwargs):
+            result = original(argv, **kwargs)
+            if argv[1:4] == ["issue", "wakeup", "create"]:
+                raise subprocess.TimeoutExpired(argv, 90)
+            return result
+        self.fake.exec = timeout_after_create
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(Store(self.state_dir).load()["unwoken"][issue["id"]]["state"],
+                         "wakeup_pending")
+        self.fake.exec = original
+        self._run_at("2026102222")
+        self.assertEqual(len(self.unwoken_comments(issue)), 1)
+        self.assertEqual(len(self.fake.wakeups[issue["id"]]), 1)
+
     def test_name_only_mention_still_fires(self):
         issue = self.add_handoff(content="done [@副调度](mention://agent/副调度)")
         code, out, err = self._run_at("2026102221")
         self.assertEqual(len(self.unwoken_comments(issue)), 1)
+
+    def test_uncertain_comment_delivered_still_schedules_wakeup(self):
+        issue = self.add_handoff()
+        original = self.fake.exec
+        def timeout_after_comment(argv, **kwargs):
+            result = original(argv, **kwargs)
+            if argv[1:4] == ["issue", "comment", "add"] and argv[4] == issue["id"]:
+                raise subprocess.TimeoutExpired(argv, 90)
+            return result
+        self.fake.exec = timeout_after_comment
+        code, out, err = self._run_at("2026102221")
+        self.assertEqual(code, 0, err)
+        posted = self.unwoken_comments(issue)
+        self.assertEqual(len(posted), 1)
+        self.assert_wakeup(issue, posted[0])
 
     def test_valid_mention_no_finding(self):
         for mention in (f"[@x](mention://agent/{AGENT}xxxx-xxxx)",
@@ -151,6 +231,7 @@ class TestSupplement(UnwokenCase):
         # After 24h the same last comment can be supplemented again.
         self._run_at(self._slot("2026102221", 25))
         self.assertEqual(len(self.unwoken_comments(issue)), 2)
+        self.assertEqual(len(self.fake.wakeups[issue["id"]]), 2)
 
 
 class TestBoundaries(UnwokenCase):
@@ -209,6 +290,9 @@ class TestGuardsAndProtocol(UnwokenCase):
                                 state_dir=self.state_dir)
         res = last_result(out)
         self.assertEqual(res["unwoken_would_send"], 1)
+        self.assertEqual(res["writes_attempted"], 0)
+        self.assertIn("将建 wakeup", out)
+        self.assertFalse(any(self.fake.wakeups.values()))
         self.assertEqual(self.unwoken_comments(issue), [])
         state = Store(self.state_dir).load()
         self.assertEqual(state.get("unwoken") or {}, {})
@@ -244,9 +328,11 @@ class TestGuardsAndProtocol(UnwokenCase):
                         env=GOOD_ENV, _exec=self.fake.exec, _sleep=lambda s: None, retries=0)
         p = self.state_dir / "u.md"
         p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-unwoken:u:c]\n"
-                     + DISP_MENTION + "\n")
+                     + "副调度\n")
         with self.assertRaises(CommandNotAllowed):
             cli.run_unwoken_write("uuid-ACM-999", p)
+        with self.assertRaises(CommandNotAllowed):
+            cli.run_unwoken_wakeup("uuid-ACM-999", p)
         cli.permit_unwoken("uuid-ACM-999")
         self.assertIsNotNone(cli.run_unwoken_write("uuid-ACM-999", p))
         p.write_text("bad first line\n[patrol-unwoken:u:c]\n" + DISP_MENTION)
@@ -255,7 +341,7 @@ class TestGuardsAndProtocol(UnwokenCase):
         p.write_text("不需要你做，下一步由 副调度 做：x\nno marker\n" + DISP_MENTION)
         with self.assertRaises(CommandNotAllowed):
             cli.run_unwoken_write("uuid-ACM-999", p)
-        p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-unwoken:u:c]\nno mention")
+        p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-unwoken:u:c]\n" + DISP_MENTION)
         with self.assertRaises(CommandNotAllowed):
             cli.run_unwoken_write("uuid-ACM-999", p)
 
@@ -373,7 +459,8 @@ class TestDispatchNoWake(DispatchCase):
         lines = posted[0]["content"].splitlines()
         self.assertTrue(lines[0].startswith("不需要你做，下一步由 副调度 做："))
         self.assertTrue(lines[1].startswith(f"[patrol-nowake:{issue['id']}:lc-1"))
-        self.assertIn(DISP_MENTION, posted[0]["content"])
+        self.assertNotIn("mention://agent/", posted[0]["content"])
+        self.assert_wakeup(issue, posted[0])
         self.assertIn("lc-1", posted[0]["content"])
         self.assertIn(iso(BASE_NOW - timedelta(minutes=40)), posted[0]["content"])
         self.assertIn("WorkerAgent", posted[0]["content"])
@@ -588,6 +675,9 @@ class TestDispatchNoWake(DispatchCase):
         code, out, err = invoke(self.fake, ["run", "--slot", "2026102221", "--dry-run"],
                                 state_dir=self.state_dir)
         self.assertEqual(last_result(out)["unwoken_would_send"], 1)
+        self.assertEqual(last_result(out)["writes_attempted"], 0)
+        self.assertIn("将建 wakeup", out)
+        self.assertFalse(any(self.fake.wakeups.values()))
         self.assertEqual(self.nowake_comments(issue), [])
         state = Store(self.state_dir).load()
         self.assertEqual(state.get("unwoken") or {}, {})
@@ -639,7 +729,7 @@ class TestDispatchNoWake(DispatchCase):
                         env=GOOD_ENV, _exec=self.fake.exec, _sleep=lambda s: None, retries=0)
         p = self.state_dir / "n.md"
         p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-nowake:u:c]\n"
-                     + DISP_MENTION + "\n")
+                     + "副调度\n")
         cli.permit_unwoken("uuid-ACM-601")
         self.assertIsNotNone(cli.run_unwoken_write(
             "uuid-ACM-601", p, marker_prefix=config.NOWAKE_PREFIX))
@@ -647,7 +737,7 @@ class TestDispatchNoWake(DispatchCase):
         with self.assertRaises(CommandNotAllowed):
             cli.run_unwoken_write("uuid-ACM-601", p)
         p.write_text("不需要你做，下一步由 副调度 做：x\n[patrol-unwoken:u:c]\n"
-                     + DISP_MENTION + "\n")
+                     + "副调度\n")
         with self.assertRaises(CommandNotAllowed):
             cli.run_unwoken_write("uuid-ACM-601", p, marker_prefix=config.NOWAKE_PREFIX)
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import patrol.__main__ as patrol_main
@@ -162,6 +163,14 @@ class FakeMultica:
                 if "--roots-only" in args:
                     items = [c for c in items if not c.get("parent")]
                 return out(items)
+            if words[:3] == ["issue", "wakeup", "create"]:
+                issue_id = words[3]
+                path = args[args.index("--instruction-file") + 1]
+                entry = {"id": f"wake-{len(self.wakeups.get(issue_id, [])) + 1}",
+                         "agent_id": args[args.index("--agent-id") + 1],
+                         "instruction": Path(path).read_text(), "kind": "at"}
+                self.wakeups.setdefault(issue_id, []).append(entry)
+                return out(entry)
             if words[:3] == ["issue", "wakeup", "list"]:
                 return out(self.wakeups.get(words[3], []))
             if words[:3] == ["issue", "comment", "add"]:

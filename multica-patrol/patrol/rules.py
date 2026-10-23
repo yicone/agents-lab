@@ -103,7 +103,9 @@ def evaluate(issue: dict, facts: dict, now) -> list[dict]:
     # handoffs (member comments are human speech, not a delivery/judgement).
     lc = facts.get("last_comment")
     if status in ("blocked", "in_review") and lc and \
-            lc.get("author_type") == "agent" and not lc.get("has_valid_mention"):
+            lc.get("author_type") == "agent" and \
+            lc.get("author_id") != config.DISPATCHER_AGENT_ID and \
+            not lc.get("has_valid_mention"):
         entered_age = (now - entered).total_seconds() if entered else None
         comment_at = parse_ts(lc.get("created_at"))
         comment_age = (now - comment_at).total_seconds() if comment_at else None
