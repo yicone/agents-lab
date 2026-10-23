@@ -581,7 +581,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 - `GET /api/skills/meta`：数据源健康（清单、漂移扫描、SkilLock、暂存区、升级检查、重叠检测）和来源汇总。`absent` / `fallback` 是未接入或回退，不是通过。
 - `GET /api/skills/attention`：`?format=json|text`。text 不超过 2048 字节，空桶不出现，基线债只有一行计数、不列条目。桶代码：`missing`、`version_changed`、`unrecorded`、`capability_pending`、`modified`、`upgradable`、`overlap`。`badge` 是这些桶的条数之和，不含 `baseline_debt`。
 
-每个 skill 只进一个桶，优先级是上面的桶代码顺序。`version_changed` 是记录的插件版本目录不在、同级有新版本。`modified` 同时收 `unverified`。升级检查第一期没有数据源，桶在 JSON 里 `connected: false`。
+每个 skill 只进一个桶，优先级是上面的桶代码顺序。`version_changed` 是记录的插件版本目录不在、同级有新版本。`modified` 同时收 `unverified`。升级检查只读 npm registry 和 GitHub API，不带凭证、不安装、不改 skill。Skills CLI 的 GitHub 安装用 lock 里的目录树哈希和 git trees API 比较；版本号坐标比 `latest` 或 release/tag。成功且没有更新时，可升级桶 `connected: true` 且 items 为空。请求失败、本轮限频没查完，或候选 skill 没有可比较版本时，数据源是 `fallback`；还没有确认到可升级项时桶保持 `connected: false`，页面显示原因，不显示成「无」。确认到的更新仍进入桶，条目带 `upgrade: {installed, latest, via}`，`via` 为 `github` 或 `npm`。
 
 ## `GET /api/skills/content`（ACM-336）
 
@@ -603,6 +603,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 ## 变更记录
 
+- v0.8（2026-10-23）：ACM-358 把升级检查接到只读的 npm registry / GitHub API。网络失败或无法比较时数据源为 `fallback`，可升级桶在没有确认结果时保持 `connected: false`。
 - v0.7（2026-10-20）：ACM-291 增加 `GET /api/bots`。`GET /api/agents` 增加 `description`、`instructions`、`instructions_sha256`、`skills`、`disabled_runtime_skills`。`GET /api/skills` 的每条增加 `workspace_installs`。
 - v0.6（2026-10-17）：ACM-182 增加 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。drift 增加 `version_changed`。页面待处理栏和 attention 接口用同一个分桶函数。
 - v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。同日给 `GET /api/changes` 增加 `?kind=`，`status` 只返回 issue 状态迁移，避免 run 事件占满分页后等待时长全部退回 `≥`。

@@ -9,6 +9,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .skill_discovery import scan_installs
+from .skill_upgrade import check_upgrades
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = REPO_ROOT / "skills-governance" / "scripts"
@@ -406,6 +408,8 @@ def assign_buckets(
                 "fallback": gate.get("fallback"),
                 "reason": gate.get("reason") or gate.get("summary"),
             }
+        if item.get("upgrade_status") == "update":
+            hits.append("upgradable")
         winner = None
         for code in hits:
             winner = _prefer(winner, code)
@@ -436,8 +440,18 @@ def reason_for(item: dict[str, Any]) -> str:
     if bucket == "overlap":
         return "职责重叠未关闭"
     if bucket == "upgradable":
-        return "上游有更新"
+        upgrade = item.get("upgrade") if isinstance(item.get("upgrade"), dict) else {}
+        installed = upgrade.get("installed") or current or "—"
+        latest = upgrade.get("latest") or "上游"
+        return f"{_short_version(installed)} → {_short_version(latest)}"
     return ""
+
+
+def _short_version(value: object) -> str:
+    text = value.strip() if isinstance(value, str) else str(value)
+    if re.fullmatch(r"[0-9a-fA-F]{40}", text):
+        return text[:7]
+    return text
 
 
 def _load_tool_roots(path: Path, repo_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
@@ -1315,12 +1329,31 @@ def _summary(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return blocks
 
 
-def _attention(items: list[dict[str, Any]], *, generated_at: str | None, inventory_updated_at: str | None, inventory_sha: str | None, review_days: int, staging_connected: bool) -> dict[str, Any]:
+def _attention(
+    items: list[dict[str, Any]],
+    *,
+    generated_at: str | None,
+    inventory_updated_at: str | None,
+    inventory_sha: str | None,
+    review_days: int,
+    staging_connected: bool,
+    upgrade: tuple[str, str, bool] | None = None,
+) -> dict[str, Any]:
     buckets: dict[str, dict[str, Any]] = {}
     for code in BUCKETS:
         buckets[code] = {"connected": True, "reason": "", "items": []}
-    buckets["upgradable"]["connected"] = False
-    buckets["upgradable"]["reason"] = "升级检查还没有数据源"
+    if upgrade is None:
+        buckets["upgradable"]["connected"] = False
+        buckets["upgradable"]["reason"] = "清单无效，升级检查未运行"
+    else:
+        state, detail, has_updates = upgrade
+        # A failed or incomplete check must not look like an empty "无更新" bucket.
+        if state == "fallback" and not has_updates:
+            buckets["upgradable"]["connected"] = False
+            buckets["upgradable"]["reason"] = detail
+        else:
+            buckets["upgradable"]["connected"] = True
+            buckets["upgradable"]["reason"] = ""
     if not staging_connected:
         buckets["capability_pending"]["connected"] = False
         buckets["capability_pending"]["reason"] = "暂存区目录不存在"
@@ -1399,6 +1432,7 @@ def build_payload(
     review_days: int = DEFAULT_REVIEW_DAYS,
     now: datetime | None = None,
     scan_roots: list[Path] | None = None,
+    upgrade_fetch: Callable[[str], tuple[int, Any, str]] | None = None,
 ) -> dict[str, Any]:
     moment = now or _now()
     generated_at = _iso(moment)
@@ -1516,6 +1550,13 @@ def build_payload(
                     }
                 )
                 known.add(name)
+    upgrade = check_upgrades(items, lock_skills, repo_root=repo_root, fetch=upgrade_fetch)
+    for item in items:
+        found = upgrade.updates.get(item.get("name"))
+        if not found:
+            continue
+        item["upgrade"] = found
+        item["upgrade_status"] = "update"
     assign_buckets(items, gates, review_days=review_days, now=moment)
     shared = _shared_root(roots)
     _attach_grok_symlinks(items, roots)
@@ -1540,7 +1581,7 @@ def build_payload(
             "detail": "已安装" if skil else "本机未安装，门禁回退到风险信号",
         },
         {"id": "staging", "label": "暂存区", "state": staging_meta["state"], "detail": staging_meta["detail"]},
-        {"id": "upgrade", "label": "升级检查", "state": "absent", "detail": "未接入"},
+        {"id": "upgrade", "label": "升级检查", "state": upgrade.state, "detail": upgrade.detail},
         {"id": "overlap", "label": "重叠检测", "state": "absent", "detail": "未接入，只读 conflict_status"},
     ]
     attention = _attention(
@@ -1550,6 +1591,7 @@ def build_payload(
         inventory_sha=sha,
         review_days=review_days,
         staging_connected=staging_meta["state"] != "absent",
+        upgrade=(upgrade.state, upgrade.detail, bool(upgrade.updates)),
     )
     return {
         "ok": True,
@@ -1588,6 +1630,7 @@ def skills_document(
     changelog_dir: Path | None = CHANGELOG_DIR,
     scan_roots: list[Path] | None = None,
     clock: Callable[[], datetime] | None = None,
+    upgrade_fetch: Callable[[str], tuple[int, Any, str]] | None = None,
 ) -> dict[str, Any]:
     """Cached payload. The key follows installs, not only the inventory file.
 
@@ -1607,6 +1650,7 @@ def skills_document(
             review_days=review_days,
             now=now,
             scan_roots=scan_roots,
+            upgrade_fetch=upgrade_fetch,
         )
     moment = clock() if clock is not None else _now()
     key = (
@@ -1633,6 +1677,7 @@ def skills_document(
         review_days=review_days,
         now=moment,
         scan_roots=scan_roots,
+        upgrade_fetch=upgrade_fetch,
     )
     _CACHE.clear()
     _CACHE[key] = document
