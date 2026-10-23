@@ -17,6 +17,7 @@ import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey, skillKey, skillRowId } from "./skills.js";
+import { badgeOf as mcpBadgeOf, renderMcp, renderMcpAgentDrawer, renderMcpCellDrawer, renderMcpServerDrawer } from "./mcp.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 import { agentQueryFields, instructionCell, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillsCell } from "./agents-view.js";
@@ -103,6 +104,7 @@ const state = {
   layerReport: null,
   layerError: null,
   skills: null,
+  mcp: null,
   usage: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
   expandedSkills: new Set(),
@@ -231,6 +233,29 @@ async function loadSkills() {
   }
 }
 
+async function loadMcp() {
+  try {
+    if (MOCK && MOCK_SCENARIO === "mcp-absent") return { ok: false, absent: true };
+    return await getJSON("mcp");
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) return { ok: false, absent: true };
+    return { ok: false, error: String(err.message || err) };
+  }
+}
+
+function mcpRefreshKey(payload) {
+  if (!payload) return "";
+  return [
+    payload.ok === false ? "bad" : "ok",
+    payload.absent ? "1" : "",
+    payload.error || "",
+    payload.generated_at || "",
+    payload.attention?.badge ?? "",
+    JSON.stringify(payload.workspaces || []),
+    JSON.stringify(payload.agents || []),
+  ].join("|");
+}
+
 async function loadChanges() {
   try {
     if (MOCK) return await getJSON("changes");
@@ -278,10 +303,12 @@ async function refresh(force = false) {
     const previousBots = botsRefreshKey(state.bots);
     const previousSources = JSON.stringify(state.instructionSources || {});
     const previousUsage = usageRefreshKey(state.usage);
+    const previousMcp = mcpRefreshKey(state.mcp);
     const previousAgents = JSON.stringify([state.agents, state.ownerInventory]);
     const agentsPromise = getJSON("agents");
     // Skills, the Grok roster, and the usage snapshot live beside the Multica issue snapshot, so they reload even when that snapshot is unchanged.
     const skillsPromise = loadSkills();
+    const mcpPromise = loadMcp();
     const botsPromise = loadBots();
     const sourcesPromise = loadInstructionSources();
     const usagePromise = loadUsage();
@@ -321,6 +348,9 @@ async function refresh(force = false) {
     state.bots = await botsPromise;
     state.instructionSources = await sourcesPromise;
     state.usage = await usagePromise;
+    const mcp = await mcpPromise;
+    // A failed MCP read keeps the last good payload, dimmed with the error attached.
+    state.mcp = mcp?.ok === false && !mcp.absent && state.mcp?.workspaces ? { ...state.mcp, ok: false, error: mcp.error } : mcp;
     const agentSnapshot = await agentsPromise;
     state.agents = agentSnapshot.items ?? [];
     state.ownerInventory = agentSnapshot.owner_inventory ?? {};
@@ -330,9 +360,10 @@ async function refresh(force = false) {
     const botsChanged = botsRefreshKey(state.bots) !== previousBots;
     const sourcesChanged = JSON.stringify(state.instructionSources || {}) !== previousSources;
     const usageChanged = usageRefreshKey(state.usage) !== previousUsage;
+    const mcpChanged = mcpRefreshKey(state.mcp) !== previousMcp;
     state.meta = meta;
     state.fetchError = null;
-    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged) render();
+    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged || mcpChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -547,6 +578,14 @@ function bannerInfo() {
   return null;
 }
 
+function mcpSnapshot() {
+  const payload = state.mcp;
+  if (!payload) return { level: "idle", text: "MCP …", title: "" };
+  if (payload.absent) return { level: "idle", text: "MCP 未接入", title: "后端还没有 MCP 采集" };
+  if (payload.ok === false) return { level: "warn", text: `MCP 读取失败 · 显示 ${ago(payload.generated_at)}的数据`, title: payload.error || "" };
+  return { level: "ok", text: `MCP 快照 ${ago(payload.generated_at)}`, title: absTime(payload.generated_at) };
+}
+
 function skillsSnapshot() {
   const payload = state.skills;
   if (!payload) return { level: "idle", text: "Skills …", title: "" };
@@ -654,6 +693,35 @@ function workspaceChip(ws) {
   );
 }
 
+/** MCP page workspace chips: the label is the MCP collection state, not the issue snapshot state. */
+function mcpWorkspaceChip(ws) {
+  const active = state.route.ws === ws.slug;
+  const entry = (state.mcp?.workspaces || []).find((w) => w.id === ws.id);
+  let detail = "未加载";
+  let st = "never";
+  if (entry) {
+    if (entry.library_state === "never") { detail = "未加载"; st = "never"; }
+    else if (entry.library_state === "error") { detail = `库读取失败 · ${entry.library_error?.kind || ""}`.replace(/ ·\s*$/, ""); st = "error"; }
+    else if (entry.bindings_state === "error") { detail = "分配读取失败"; st = "error"; }
+    else if (entry.bindings_state === "partial") { detail = "分配部分失败"; st = "stale"; }
+    else { detail = `库 ${(entry.servers || []).length}`; st = "ok"; }
+  }
+  return h(
+    "button",
+    {
+      type: "button",
+      class: `ws-chip state-${st}${active ? " active" : ""}`,
+      style: { "--ws-hue": hueOf(ws.slug) },
+      title: `${ws.name}（${ws.slug}）\nMCP 采集：${entry?.library_error?.message || detail}\n${active ? "点击取消筛选" : "点击只看此 workspace"}`,
+      "aria-pressed": active ? "true" : "false",
+      onclick: () => setRoute({ ws: active ? "" : ws.slug }),
+    },
+    h("span", { class: "dot" }),
+    ws.name,
+    h("span", { class: "chip-detail" }, detail),
+  );
+}
+
 function renderChrome() {
   document.querySelectorAll(".tab").forEach((t) => {
     const active = t.dataset.view === state.route.view;
@@ -668,6 +736,13 @@ function renderChrome() {
     badge.textContent = total ? String(total) : "";
     badge.title = total ? `ACM Lab 待验收和受阻 ${total} 条` : "";
   }
+  const mcpBadge = document.getElementById("mcp-badge");
+  if (mcpBadge) {
+    const total = mcpBadgeOf(state.mcp);
+    mcpBadge.hidden = total === 0;
+    mcpBadge.textContent = total ? String(total) : "";
+    mcpBadge.title = total ? `MCP 待处理 ${total} 条` : "";
+  }
   const skillsBadge = document.getElementById("skills-badge");
   if (skillsBadge) {
     const total = badgeOf(state.skills);
@@ -679,8 +754,9 @@ function renderChrome() {
   const hs = health();
   const snap = document.getElementById("snapshot");
   const skillsHead = state.route.view === "skills" ? skillsSnapshot() : null;
+  const mcpHead = state.route.view === "mcp" ? mcpSnapshot() : null;
   const planHead = state.route.view === "agents" && state.route.planPage === "list" ? planSnapshot() : null;
-  const pageHead = skillsHead || planHead;
+  const pageHead = skillsHead || mcpHead || planHead;
   snap.className = `snapshot ${pageHead?.level || hs.level}`;
   snap.title = pageHead?.title || hs.title || "";
   snap.replaceChildren(h("span", { class: "dot" }), pageHead?.text || hs.text);
@@ -719,7 +795,7 @@ function renderChrome() {
       ...workspaceFilterBar(h, {
         workspaces: state.meta?.workspaces ?? [],
         activeSlug: slug,
-        chip: workspaceChip,
+        chip: state.route.view === "mcp" ? mcpWorkspaceChip : workspaceChip,
         onClear: () => setRoute({ ws: "" }),
       }),
     );
@@ -1023,7 +1099,7 @@ function renderDrawer() {
   const el = document.getElementById("drawer");
   const d = state.drawer;
   el.hidden = !d;
-  const drawerLabel = { skill: "skill 详情", plan: "计划行详情", agent: "agent 详情", bot: "bot 详情" };
+  const drawerLabel = { skill: "skill 详情", plan: "计划行详情", agent: "agent 详情", bot: "bot 详情", "mcp-agent": "MCP agent 详情", "mcp-server": "MCP server 详情", "mcp-cell": "MCP 分配详情" };
   el.setAttribute("aria-label", drawerLabel[d?.kind] || "issue 详情");
   document.body.classList.toggle("drawer-open", !!d);
   if (!d) {
@@ -1084,6 +1160,18 @@ function renderDrawer() {
   }
   if (d.kind === "plan") {
     el.replaceChildren(...renderPlanDrawer(h, { ...planActions(), closeDrawer }, d.row));
+    return;
+  }
+  if (d.kind === "mcp-agent") {
+    el.replaceChildren(...renderMcpAgentDrawer(h, { ...mcpCtx(), closeDrawer }, d.data));
+    return;
+  }
+  if (d.kind === "mcp-server") {
+    el.replaceChildren(...renderMcpServerDrawer(h, { ...mcpCtx(), closeDrawer }, d.data));
+    return;
+  }
+  if (d.kind === "mcp-cell") {
+    el.replaceChildren(...renderMcpCellDrawer(h, { ...mcpCtx(), closeDrawer }, d.data));
     return;
   }
   if (!d.opener) d.opener = document.activeElement;
@@ -1905,6 +1993,40 @@ function skillAlert() {
   return (counts.missing || 0) + (counts.modified || 0) + (counts.version_changed || 0) > 0;
 }
 
+function openMcpDrawer(kind, data, opener) {
+  state.drawer = { kind: `mcp-${kind}`, data, rowId: opener?.id || "", opener: opener || document.activeElement };
+  render();
+  renderDrawer();
+  document.querySelector("#drawer .drawer-close")?.focus();
+}
+
+function mcpCtx() {
+  return {
+    h,
+    route: state.route,
+    mcp: state.mcp,
+    agentsPayload: { items: state.agents },
+    setRoute,
+    ago,
+    absTime,
+    copyCommand: (button, command) => {
+      copyText(command).then(
+        () => { button.textContent = "已复制"; },
+        () => { button.textContent = "复制失败"; },
+      );
+    },
+    openMcpDrawer,
+    closeDrawer,
+    confirmDelete: (key) => {
+      if (state.drawer) {
+        state.drawer.deleteConfirmed = key;
+        renderDrawer();
+      }
+    },
+    deleteConfirmed: state.drawer?.deleteConfirmed || "",
+  };
+}
+
 function toolSignal(signal) {
   if (signal === "issues") {
     const summary = currentDecide().summary;
@@ -1943,6 +2065,13 @@ function toolSignal(signal) {
     const n = state.agents.filter((agent) => QUOTA_KINDS.has(agent.recent?.last_error_kind)).length;
     return n ? `${n} 个最近额度或限流失败` : "最近没有额度失败";
   }
+  if (signal === "mcp") {
+    const payload = state.mcp;
+    if (!payload || payload.absent) return "还没接上";
+    const servers = (payload.workspaces || []).reduce((n, w) => n + (w.servers || []).length, 0);
+    const badge = mcpBadgeOf(payload);
+    return `库 ${servers} · 待处理 ${badge}`;
+  }
   if (signal === "usage") return usageSignal(state.usage);
   return "";
 }
@@ -1972,6 +2101,8 @@ function atlasCtx() {
     statusLabel: (status) => STATUS_LABEL[status] ?? status,
     toolSignal,
     skillsAlert: skillAlert(),
+    mcpAlert: mcpBadgeOf(state.mcp) > 0,
+    mcpAbsent: !state.mcp || !!state.mcp.absent,
     usageAlert: usageAlert(state.usage),
     usage: state.usage,
     skills: state.skills,
@@ -2011,7 +2142,9 @@ function renderMain() {
         ? renderDecide()
         : view === "skills"
           ? renderSkills(ctx)
-          : view === "usage"
+          : view === "mcp"
+            ? renderMcp(mcpCtx())
+            : view === "usage"
             ? renderUsage(ctx)
             : view === "map" && state.route.layer
             ? renderLayer(ctx)
@@ -2040,7 +2173,7 @@ function render() {
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
   const view = state.route.view;
   search.placeholder =
-    view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
+    view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();

@@ -266,7 +266,7 @@ test("leaving Agents clears the plan subview, and plan steps push history", () =
 });
 
 test("number keys follow the top bar, and [ ] walk the layers", () => {
-  assert.deepEqual([1, 2, 3, 4, 5].map((n) => viewForKey(String(n))), ["map", "decide", "issues", "agents", "skills"]);
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map((n) => viewForKey(String(n))), ["map", "decide", "issues", "agents", "skills", "mcp"]);
   assert.equal(stepLayer("l5", "next"), "l4");
   assert.equal(stepLayer("l1", "next"), "l5");
   assert.equal(stepLayer("l1", "prev"), "l2");
@@ -314,4 +314,26 @@ test("Grok Bot source filter survives routing and does not become a runtime",()=
   const route=parseHash("#/skills?source=grok_bot");
   assert.equal(route.source,"grok_bot");
   assert.match(formatHash(route),/source=grok_bot/);
+});
+
+test("mcp route: parse, serialize, whitelist and l3 redirect", () => {
+  const r = parseHash("#/mcp?ws=alpha-lab&view=list&issue=shadowed&archived=1&q=lin");
+  assert.equal(r.view, "mcp");
+  assert.equal(r.mcpView, "list");
+  assert.equal(r.issue, "shadowed");
+  assert.equal(r.archived, true);
+  assert.equal(r.q, "lin");
+  assert.equal(formatHash(r), "#/mcp?ws=alpha-lab&q=lin&view=list&issue=shadowed&archived=1");
+  const problems = parseHash("#/mcp?issue=problems");
+  assert.equal(problems.issue, "problems");
+  assert.equal(formatHash(problems), "#/mcp?issue=problems");
+  const bad = parseHash("#/mcp?view=grid&issue=nope");
+  assert.equal(bad.mcpView, "");
+  assert.equal(bad.issue, "");
+  assert.equal(formatHash(bad), "#/mcp");
+  assert.equal(redirectHash("#/l3/mcp"), "#/mcp");
+  assert.equal(redirectHash("#/mcp?issue=hidden"), null);
+  const left = applyPatch(r, { view: "skills" });
+  assert.equal(left.mcpView, "");
+  assert.equal(left.issue, "");
 });

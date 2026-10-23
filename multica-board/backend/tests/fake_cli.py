@@ -32,6 +32,8 @@ class FakeMultica:
         self.envs: list[dict[str, str]] = []
         self.cwds: list[str | None] = []
         self.fail: dict[str, str] = {}  # workspace_id -> stderr message
+        self.fail_agent_mcp: set[str] = set()  # agent_ids whose `agent mcp list` exits 1
+        self.fail_workspace_mcp: dict[str, str] = {}  # workspace_id -> stderr for `workspace mcp list`
 
     def __call__(self, argv, **kw) -> subprocess.CompletedProcess:
         self.calls.append(list(argv))
@@ -44,7 +46,17 @@ class FakeMultica:
         key = tuple(words[:2])
         out: Any
         stderr = ""
-        if key == ("workspace", "list"):
+        # 3-word prefixes must be checked before the 2-word fallbacks below.
+        if words[:3] == ["workspace", "mcp", "list"]:
+            if ws in self.fail_workspace_mcp:
+                return subprocess.CompletedProcess(argv, 1, "", self.fail_workspace_mcp[ws])
+            out = self.workspaces[ws].get("mcp_servers", [])
+        elif words[:3] == ["agent", "mcp", "list"]:
+            aid = words[3] if len(words) > 3 else ""
+            if aid in self.fail_agent_mcp:
+                return subprocess.CompletedProcess(argv, 1, "", "boom")
+            out = self.workspaces[ws].get("agent_mcp", {}).get(aid, [])
+        elif key == ("workspace", "list"):
             out = [w["meta"] for w in self.workspaces.values()]
         elif key == ("workspace", "member"):
             out = self.workspaces[ws].get("members", [])
@@ -131,3 +143,43 @@ def task(ws: str, tid: str, agent_id: str, created_at: str, status: str = "compl
     }
     base.update(kw)
     return base
+
+
+# Unique markers planted inside mcp_config. None may survive in the cache,
+# API output, logs, or error text — only set/count flags may remain.
+SENT_TAG = "9f1"
+SENTINELS = (
+    f"SENT_ENVVAL_{SENT_TAG}",
+    f"SENT_ENVKEY_{SENT_TAG}",
+    f"SENT_HDRVAL_{SENT_TAG}",
+    f"SENT_HDRKEY_{SENT_TAG}",
+    f"SENT_URL_{SENT_TAG}",
+    f"SENT_ARG_{SENT_TAG}",
+    f"SENT_CMD_{SENT_TAG}",
+    f"SENT_CWD_{SENT_TAG}",
+)
+
+
+def sentinel_agent(ws: str, aid: str, **kw: Any) -> dict[str, Any]:
+    """Agent whose mcp_config plants a sentinel in every secret-bearing slot."""
+    mcp_config = {
+        "mcpServers": {
+            "sent-stdio": {
+                "command": f"SENT_CMD_{SENT_TAG}",
+                "args": [f"SENT_ARG_{SENT_TAG}"],
+                "cwd": f"SENT_CWD_{SENT_TAG}",
+                "env": {f"SENT_ENVKEY_{SENT_TAG}": f"SENT_ENVVAL_{SENT_TAG}"},
+            },
+            "sent-http": {
+                "type": "remote",
+                "url": f"https://{f'SENT_URL_{SENT_TAG}'}.example/sse",
+                "headers": {f"SENT_HDRKEY_{SENT_TAG}": f"SENT_HDRVAL_{SENT_TAG}"},
+            },
+        },
+        # Legacy container still read; mcpServers wins on name collisions.
+        "mcp": {
+            "sent-legacy": {"url": "https://legacy.example/mcp"},
+            "sent-http": {"type": "local", "command": "unused"},
+        },
+    }
+    return agent(ws, aid, mcp_config=mcp_config, **kw)

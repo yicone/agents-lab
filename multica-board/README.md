@@ -79,6 +79,7 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 | `--db` | `~/.multica-board/board.sqlite` | 删掉即重置缓存；schema 变化时自动重建 |
 | `--refresh` | `60` | 两轮采集之间的秒数，即 `/api/meta` 的 `collect_interval_s`；`0` 只读缓存 |
 | `--full-every` | `30` | 每 N 轮做一次 run 历史全量校对，其余轮次增量 |
+| `--mcp-every` | `5` | 库指纹不变时，每 N 轮重读一次各 agent 的 MCP 分配 |
 | `--run-days` | `14` | run 缓存窗口（`latest_run=null` 表示窗口内没有 run） |
 | `--max-task-pages` | `10` | 每个 agent 每轮最多翻几页（每页 200 条） |
 | `--concurrency` / `--max-cli` | `3` / `4` | 并行的 workspace（及 agent）数 / 同时运行的 `multica` 进程上限 |

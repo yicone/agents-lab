@@ -1009,3 +1009,40 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .tool-mark small { display: inline-block; max-width: 6em; white-space: normal; font-size: 10px; }
 .skill-markdown th, .skill-markdown td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .skill-content > div > p .mono { white-space: pre-wrap; }
+
+/* MCP (ACM-370) */
+.mcp-summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.mcp-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit; color: inherit; }
+.mcp-card:disabled { cursor: default; color: var(--muted); }
+.mcp-card.active { border-color: var(--accent); }
+.mcp-card strong { font-size: 16px; }
+.mcp-card span { font-size: 12px; color: var(--muted); }
+.mcp-ws { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; padding: 10px 12px; }
+.mcp-ws.is-stale { opacity: 0.65; }
+.mcp-ws-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.mcp-ws-head.is-error { color: var(--bad); }
+.mcp-howto { margin-left: auto; font-size: 12px; }
+.mcp-howto summary { cursor: pointer; color: var(--accent); }
+.mcp-cell { text-align: center; font-size: 14px; }
+td.mcp-cell { cursor: pointer; }
+td.mcp-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mcp-cell.sym-● { color: var(--ok); }
+.mcp-cell.sym-○ { color: var(--muted); }
+.mcp-cell.sym-· { color: var(--faint); }
+.mcp-cell.sym-⊘ { color: var(--warn); }
+.mcp-cell.sym-◐ { color: var(--warn); }
+.mcp-cell.sym-! { color: var(--warn); }
+.mcp-cell.sym-\? { color: var(--muted); border-bottom: 1px dashed var(--faint); }
+.mcp-mark.yes { color: var(--ok); }
+.mcp-mark.no { color: var(--bad); }
+.mcp-mark.conditional { color: var(--warn); }
+.mcp-mark.unknown { color: var(--muted); }
+.mcp-mark.unbound { color: var(--muted); }
+.mcp-srv-head { background: none; border: none; padding: 0; font: inherit; cursor: pointer; color: inherit; display: flex; flex-direction: column; align-items: center; }
+.mcp-srv-head small { color: var(--muted); }
+.mcp-agent { background: none; border: none; padding: 0; font: inherit; cursor: pointer; color: var(--accent); }
+.mcp-rest td { text-align: center; }
+.mcp-empty { text-align: left; }
+.mcp-support { border-collapse: collapse; font-size: 12px; }
+.mcp-support th, .mcp-support td { border: 1px solid var(--line); padding: 3px 8px; text-align: left; }
+.mcp-queue .queue-item { width: 100%; }

@@ -18,6 +18,7 @@ from typing import Any
 
 from .changes import CHANGE_RETENTION_DAYS, diff_issues, diff_runtimes, events_for_tasks
 from .cli_runner import CliError, CliRunner
+from .mcp_summary import norm_library_transport, plain_text as _mcp_name, summarize_mcp_config
 from .redact import classify_error, redact
 from .store import Store
 
@@ -59,6 +60,7 @@ class CollectOptions:
     max_task_pages: int = 10
     full: bool = False
     concurrency: int = 3
+    mcp_every: int = 5
 
 
 def _nn(row: dict[str, Any]) -> dict[str, Any]:
@@ -260,6 +262,13 @@ def norm_agent(a: dict[str, Any]) -> dict[str, Any]:
     row["disabled_runtime_skills_json"] = json.dumps(
         disabled_runtime_skills(a.get("disabled_runtime_skills")), ensure_ascii=False
     )
+    try:
+        # Only the summary may be stored; the raw config never reaches the cache or logs.
+        summary = summarize_mcp_config(a.get("mcp_config"), a.get("mcp_config_redacted"))
+    except Exception:
+        log.warning("mcp_config summary failed for one agent")
+        summary = {"state": "invalid", "servers": []}
+    row["mcp_own_json"] = json.dumps(summary, ensure_ascii=False)
     return row
 
 
@@ -414,6 +423,20 @@ class Collector:
                 errors.append(("tasks", exc))
                 out["tasks"] = f"error: {exc}"
                 self.store.record_sync(self.server, ws, "tasks", at=at, ok=False, error=str(exc), error_kind=_kind(exc))
+            try:
+                # Older CLIs lack the mcp commands: failures are recorded under their own
+                # resources and must not flip the workspace outcome. `auth` still purges.
+                self._mcp(ws, agents)
+            except CliError as exc:
+                if _kind(exc) == "auth":
+                    errors.append(("mcp", exc))
+                else:
+                    self.store.record_sync(self.server, ws, "mcp_library", at=iso(utcnow()), ok=False,
+                                           error=str(exc), error_kind=_kind(exc))
+            except Exception as exc:
+                log.warning("workspace %s mcp collection failed", ws)
+                self.store.record_sync(self.server, ws, "mcp_library", at=iso(utcnow()), ok=False,
+                                       error=redact(str(exc)), error_kind="unknown")
 
         if not errors:
             self.store.record_sync(self.server, ws, WORKSPACE, at=at_start, ok=True)
@@ -535,6 +558,131 @@ class Collector:
         rows = [norm_property(p) for p in items if p.get("id")]
         self.store.replace_snapshot(self.server, ws, "property_defs", rows)
         return len(rows), True, None
+
+    def _mcp_state(self, ws: str) -> dict[str, Any]:
+        rows = self.store.query(
+            "SELECT fingerprint, rounds, bindings_state, bindings_collected_at FROM mcp_state "
+            "WHERE server=? AND workspace_id=?",
+            (self.server, ws),
+        )
+        return rows[0] if rows else {}
+
+    def _set_mcp_state(self, ws: str, row: dict[str, Any]) -> None:
+        self.store.upsert_many(self.server, ws, "mcp_state", [{k: row.get(k) for k in
+                               ("fingerprint", "rounds", "bindings_state", "bindings_collected_at")}])
+
+    def _mcp(self, ws: str, agents: list[dict[str, Any]]) -> None:
+        """Workspace MCP library plus per-agent bindings. `auth` CliErrors propagate."""
+        at = iso(utcnow())
+        try:
+            res = self.runner.run(["workspace", "mcp", "list", ws], workspace_id=ws)
+        except CliError as exc:
+            self.store.record_sync(self.server, ws, "mcp_library", at=at, ok=False,
+                                   error=str(exc), error_kind=_kind(exc))
+            if _kind(exc) == "auth":
+                raise
+            return  # keep the last good library rows; skip bindings this round
+        items = _as_list(res.data, "servers")
+        self._check_scope(ws, items)
+        rows = []
+        for s in items:
+            if not s.get("id"):
+                continue
+            count = s.get("agent_count")
+            rows.append({
+                "id": s["id"],
+                "name": _mcp_name(s.get("name")),
+                "transport": norm_library_transport(s.get("transport")),
+                "agent_count": count if isinstance(count, int) and not isinstance(count, bool) and count >= 0 else 0,
+                "created_at": s.get("created_at") if isinstance(s.get("created_at"), str) else None,
+                "updated_at": s.get("updated_at") if isinstance(s.get("updated_at"), str) else None,
+            })
+        self.store.replace_snapshot(self.server, ws, "mcp_servers", rows)
+        self.store.record_sync(self.server, ws, "mcp_library", at=at, ok=True, count=len(rows))
+
+        prev = self._mcp_state(ws)
+        if not rows or sum(r["agent_count"] for r in rows) == 0:
+            # Determined empty: no agent mcp calls. Distinguish "none" from "never read".
+            self.store.replace_snapshot(self.server, ws, "mcp_bindings", [])
+            self.store.replace_snapshot(self.server, ws, "mcp_agent_state", [])
+            self._set_mcp_state(ws, {"fingerprint": None, "rounds": 0, "bindings_state": "none",
+                                     "bindings_collected_at": prev.get("bindings_collected_at")})
+            self.store.record_sync(self.server, ws, "mcp_bindings", at=at, ok=True, count=0)
+            return
+
+        fingerprint = hashlib.sha256(
+            "\n".join(sorted(f"{r['id']}|{r['updated_at']}|{r['agent_count']}" for r in rows)).encode()
+        ).hexdigest()
+        rounds = int(prev.get("rounds") or 0) + 1
+        refresh = (
+            not prev.get("fingerprint")
+            or prev["fingerprint"] != fingerprint
+            or rounds >= max(1, self.opts.mcp_every)
+        )
+        if not refresh:
+            self._set_mcp_state(ws, {**prev, "rounds": rounds})
+            return
+
+        active = [a for a in agents if a.get("id") and not a.get("archived_at")]
+        collected: dict[str, list[dict[str, Any]]] = {}
+        failures: dict[str, CliError] = {}
+
+        def one(agent_id: str) -> tuple[str, list[dict[str, Any]] | None, CliError | None]:
+            try:
+                res = self.runner.run(["agent", "mcp", "list", agent_id], workspace_id=ws)
+            except CliError as exc:
+                return agent_id, None, exc
+            items = _as_list(res.data, "servers")
+            self._check_scope(ws, items)
+            bindings = []
+            for b in items:
+                sid = b.get("id") or b.get("server_id")
+                if not isinstance(sid, str) or not sid:
+                    continue
+                bindings.append({
+                    "agent_id": agent_id,
+                    "server_id": sid,
+                    "name": _mcp_name(b.get("name")),
+                    "enabled": 0 if b.get("enabled") is False else 1,
+                })
+            return agent_id, bindings, None
+
+        with ThreadPoolExecutor(max_workers=max(1, self.opts.concurrency)) as pool:
+            for agent_id, bindings, exc in pool.map(one, [a["id"] for a in active]):
+                if exc is not None:
+                    failures[agent_id] = exc
+                else:
+                    collected[agent_id] = bindings or []
+        auth = next((e for e in failures.values() if _kind(e) == "auth"), None)
+        if auth is not None:
+            self.store.record_sync(self.server, ws, "mcp_bindings", at=iso(utcnow()), ok=False,
+                                   error=str(auth), error_kind="auth")
+            raise auth
+
+        self.store.replace_snapshot(self.server, ws, "mcp_bindings", list(sum(collected.values(), [])))
+        self.store.replace_snapshot(
+            self.server, ws, "mcp_agent_state",
+            [{"agent_id": a["id"],
+              "state": ("error" if a["id"] in failures else ("ok" if collected.get(a["id"]) else "none"))}
+             for a in active],
+        )
+        if not failures:
+            state = "ok"
+        elif len(failures) == len(active):
+            state = "error"
+        else:
+            state = "partial"
+        self.store.record_sync(self.server, ws, "mcp_bindings", at=at, ok=not failures,
+                               error=None if not failures else f"{len(failures)} agent mcp reads failed",
+                               error_kind=None if not failures else "unknown",
+                               count=len(collected))
+        # Any failure keeps the old fingerprint so the next cycle retries the refresh.
+        self._set_mcp_state(ws, {
+            "fingerprint": fingerprint if not failures else prev.get("fingerprint"),
+            "rounds": 0 if not failures else rounds,
+            "bindings_state": state,
+            "bindings_collected_at": iso(utcnow()) if not failures else prev.get("bindings_collected_at"),
+        })
 
     def _tasks(self, ws: str, agents: list[dict[str, Any]]):
         cutoff = iso(utcnow() - timedelta(days=self.opts.run_days))
