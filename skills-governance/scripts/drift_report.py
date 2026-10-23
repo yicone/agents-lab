@@ -791,7 +791,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--inventory", type=Path, default=inventory.DEFAULT_INVENTORY)
     parser.add_argument("--repo-root", type=Path, default=inventory.DEFAULT_REPO_ROOT)
     parser.add_argument("--lock", type=Path, default=None)
-    parser.add_argument("--scan-root", action="append", default=[])
+    parser.add_argument("--scan-root", type=Path, action="append", default=[])
     parser.add_argument("--no-default-roots", action="store_true")
     parser.add_argument("--format", choices=("text", "json"), default="text")
     parser.add_argument("--output", type=Path, default=None)
