@@ -76,13 +76,13 @@
 ### 新增
 
 - 增加只读 Skills 清单、来源与待处理信息。（[PR #44](https://github.com/yicone/agents-lab/pull/44)；[合并提交 `6ded569`](https://github.com/yicone/agents-lab/commit/6ded5690e6489b4955c05c0a73925d91a255fa0b)；ACM-182）
-- 增加只读用量快照，显示配额、token 用量及采集失败状态。（[PR #32](https://github.com/yicone/agents-lab/pull/32)；[合并提交 `6d7ca36`](https://github.com/yicone/agents-lab/commit/6d7ca36286b9c96df62f3a87641a7e744e1f3d58)；ACM-230；关联依据：ACM-244 评论 `01a14b05-0e00-70e2-bbf2-95921f8dd62b`）
+- 增加只读用量快照，显示配额、token 用量及采集失败状态。（[PR #32](https://github.com/yicone/agents-lab/pull/32)；[合并提交 `6d7ca36`](https://github.com/yicone/agents-lab/commit/6d7ca36286b9c96df62f3a87641a7e744e1f3d58)；ACM-185 / ACM-187；关联依据：ACM-185 评论 `01a1499a-8316-748e-9e1b-264475347702`）
 - 增加 Agent Atlas 地图、层视图及 Issues 层筛选。（[PR #31](https://github.com/yicone/agents-lab/pull/31)；[合并提交 `efb90bf`](https://github.com/yicone/agents-lab/commit/efb90bfaa65228561ac4bc6a77357314f4dd91bc)；ACM-193；层解析后端见 PR #30 / ACM-192）
 - 增加 ACM Lab「待你决定」队列。（[PR #29](https://github.com/yicone/agents-lab/pull/29)；[合并提交 `e37c7cc`](https://github.com/yicone/agents-lab/commit/e37c7ccd34a789972c7d812704a9233207f98ba9)；ACM-191）
 
 ### 修复
 
-- Issues 和 Agents 保留共用 workspace 筛选及清除入口。（[PR #46](https://github.com/yicone/agents-lab/pull/46)；[合并提交 `7b318fd`](https://github.com/yicone/agents-lab/commit/7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1)；ACM-185 / ACM-187；关联依据：ACM-185 评论 `01a1499a-8316-748e-9e1b-264475347702`）
+- Issues 和 Agents 保留共用 workspace 筛选及清除入口。（[PR #46](https://github.com/yicone/agents-lab/pull/46)；[合并提交 `7b318fd`](https://github.com/yicone/agents-lab/commit/7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1)；ACM-230；关联依据：ACM-244 评论 `01a14b05-0e00-70e2-bbf2-95921f8dd62b`）
 - 自动补齐旧缓存缺少的任务失败原因字段，避免读取失败。（[PR #33](https://github.com/yicone/agents-lab/pull/33)；[合并提交 `dcc5d7a`](https://github.com/yicone/agents-lab/commit/dcc5d7a05536251f015239b8c8cf7b334ca4b9f2)；ACM-197）
 
 ## 2026-10-16
