@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-23T19:03:26Z",
+  "updated_at": "2026-10-23T20:11:10Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -2617,6 +2617,41 @@
       "conflict_status": "unreviewed",
       "visible_paths": [
         "~/.agents/skills/writing-skills"
+      ]
+    },
+    {
+      "name": "atlas-changelog",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/atlas-changelog"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "baseline_ref": "sha256:8383ae719d33eacb64ae6da81c597a05f3f57a85a705bd285329df4b14b39d1e",
+      "adapters": [
+        {
+          "path": ".agents/skills/atlas-changelog",
+          "kind": "symlink",
+          "target": "../../skills/atlas-changelog"
+        }
+      ],
+      "status": "active",
+      "review_time": null,
+      "current_version": null,
+      "scope": "repo",
+      "install_shape": "symlink_adapters",
+      "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
+      "conflict_status": "unknown",
+      "visible_paths": [
+        "skills/atlas-changelog",
+        ".agents/skills/atlas-changelog"
       ]
     },
     {
