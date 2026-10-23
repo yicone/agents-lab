@@ -14,6 +14,20 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 
 ## 运行
 
+### 用户补采其他九个 workspace 的 agent
+
+只由用户本人在 mini 的普通终端运行，agent 不运行此采集器：
+
+```sh
+python3 multica-board/scripts/collect-owner-agents.py
+```
+
+脚本固定使用 `--profile desktop-api.multica.ai`，从子进程环境清除全部 `MULTICA_*` 并设置 `GODEBUG=tlsmlkem=0`，在无 `.multica` 的临时目录逐个用完整 UUID 运行只读 `agent list`。只保留 Atlas 需要的字段，instructions 和 skills 沿用现有脱敏；不保存 env、MCP 配置或原始错误输出。某个 workspace 失败不影响其余采集，终端显示各 workspace 的成功/失败和数量；全部成功退出 0，部分失败退出 2。
+
+默认原子写入 `~/.multica-board/board-owner-agents.json`（权限 0600），不修改 SQLite 或 Multica。自定义数据目录用 `--db /path/to/board.sqlite`，快照写在该数据库旁。Atlas 每次读取 `/api/agents` 都读取快照：成功 workspace 的 inventory 替代常规 agent 缓存（包括删除和空列表），失败 workspace 回退常规缓存，不保留上次补采结果。其他 CLI profile 不读取这个快照。
+
+执行后确认九行均为 `ok`，刷新**包含此改动的 Atlas** 的 Agents 页面，打开任意补采 agent 的详情，核对 instructions、Skills 绑定、采集时间和 `user-cli:desktop-api.multica.ai` 来源；页面也显示失败 workspace。`/api/agents` 的 `owner_inventory` 提供逐 workspace 状态。数据是用户手动补采快照，并非实时状态。旧版线上服务不会自动支持该格式，必须在变更合并到 main 后按正常流程部署；本地实现阶段不得部署。
+
 必须在**你自己的普通终端**里运行。Multica agent 任务环境里 CLI 被钉在当前任务的 workspace 上；后端会剥掉 `MULTICA_TOKEN`、`MULTICA_SERVER_URL`、`MULTICA_TASK_*`，所以在 agent shell 里采集会直接报 “No server configured”。
 
 ```sh

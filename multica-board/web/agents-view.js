@@ -359,6 +359,9 @@ export function renderAgentDrawer(h, ctx, drawer) {
       "section",
       null,
       h("h3", { class: "drawer-sub" }, "指令与说明"),
+      agent.inventory_source
+        ? h("p", { class: "muted" }, `采集来源：${agent.inventory_source} · 采集时间：${agent.inventory_collected_at || "未知"}（用户补采快照）`)
+        : null,
       agent.description ? h("p", null, agent.description) : h("p", { class: "muted" }, "没有 description"),
       stat.empty
         ? h("p", null, h("span", { class: "instr-empty" }, "无"), h("span", { class: "muted" }, " instructions"))

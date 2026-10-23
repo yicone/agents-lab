@@ -608,3 +608,7 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 ## G1 meta API identity
 
 `GET /api/meta` additionally returns `server_identity`: a best-effort normalized API origin observed from the selected CLI profile's unique `Server:` line in read-only `auth status`. It is distinct from `multica_web_base` and the profile name. Resolution failure returns null; serve still starts and the collector retains its existing profile routing, without pinning an origin via `--server-url`. No actor or on-behalf-of identity is inferred. See `runtime-plan-contract.md` (v1.2 draft) for the plan interfaces and their null/empty-string exception.
+
+## 用户补采 inventory（ACM-332，本地待验收）
+
+`GET /api/agents` 增加 `owner_inventory`，以 workspace UUID 为键，值含 `status`（`ok/error`）、`error`（固定错误码或 null）、`collected_at`（UTC）、`slug`。补采 agent 增加 `inventory_source: "user-cli:desktop-api.multica.ai"`、`inventory_collected_at`；常规缓存行这两个字段为 null。成功快照替代对应 workspace agent 列表，失败回退常规缓存。快照只匹配同名 profile，读取不触发 CLI，不改变 SQLite，也不改变常规采集状态。`/api/meta` 在缺少常规 workspace 行时补入成功快照的 workspace 供筛选使用，`collect_state=never`、`counts=null`，不冒充完整采集成功。
