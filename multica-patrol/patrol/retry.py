@@ -157,6 +157,7 @@ def process_error_retries(store, cli, state, per_issue: dict, now,
             res.actions.append({
                 "issue": issue, "action": name,
                 "agent_name": names.get((pe or rec or {}).get("agent_id"), "?"),
+                "agent_id": (pe or rec or {}).get("agent_id"),
                 "run_id": (pe or rec or {}).get("run_id"),
             })
 

@@ -168,7 +168,8 @@ class FakeMultica:
                 path = args[args.index("--instruction-file") + 1]
                 entry = {"id": f"wake-{len(self.wakeups.get(issue_id, [])) + 1}",
                          "agent_id": args[args.index("--agent-id") + 1],
-                         "instruction": Path(path).read_text(), "kind": "at"}
+                         "instruction": Path(path).read_text(), "kind": "at",
+                         "created_at": iso(self.now)}
                 self.wakeups.setdefault(issue_id, []).append(entry)
                 return out(entry)
             if words[:3] == ["issue", "wakeup", "list"]:
