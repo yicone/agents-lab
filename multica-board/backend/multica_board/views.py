@@ -320,12 +320,14 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
 
 
 class Views:
-    def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int, server_identity: str | None = None):
+    def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int,
+                 server_identity: str | None = None, mcp_every: int = 5):
         self.store = store
         self.server = server
         self.server_identity = server_identity
         self.app_url = app_url.rstrip("/")
         self.collect_interval_s = collect_interval_s
+        self.mcp_every = mcp_every
 
     # --- shared -------------------------------------------------------------
 
@@ -664,6 +666,13 @@ class Views:
         from .grok_bots import load_bots
 
         return load_bots()
+
+    # --- /api/mcp ------------------------------------------------------------
+
+    def mcp(self) -> dict[str, Any]:
+        from .mcp_view import build_mcp
+
+        return build_mcp(self.store, self.server, self.generated_at(), self.mcp_every)
 
     # --- /api/runtimes ------------------------------------------------------
 

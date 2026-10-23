@@ -10,14 +10,16 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 TABLES = (
     "workspaces", "sync_status", "issues", "projects", "members", "agents", "runtimes", "tasks",
-    "workspace_skills", "property_defs", "changes", "change_baseline", "meta",
+    "workspace_skills", "property_defs", "changes", "change_baseline",
+    "mcp_servers", "mcp_bindings", "mcp_agent_state", "mcp_state", "meta",
 )
 DATA_TABLES = (
     "issues", "projects", "members", "agents", "runtimes", "tasks", "workspace_skills",
     "property_defs", "changes", "change_baseline",
+    "mcp_servers", "mcp_bindings", "mcp_agent_state", "mcp_state",
 )
 
 SCHEMA = """
@@ -63,7 +65,29 @@ CREATE TABLE IF NOT EXISTS agents (
   archived_at TEXT, updated_at TEXT, skills_json TEXT,
   description TEXT, instructions TEXT, instructions_sha256 TEXT,
   skills_detail_json TEXT, disabled_runtime_skills_json TEXT,
+  mcp_own_json TEXT,
   PRIMARY KEY (server, workspace_id, id)
+);
+CREATE TABLE IF NOT EXISTS mcp_servers (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+  name TEXT, transport TEXT, agent_count INTEGER,
+  created_at TEXT, updated_at TEXT,
+  PRIMARY KEY (server, workspace_id, id)
+);
+CREATE TABLE IF NOT EXISTS mcp_bindings (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL, agent_id TEXT NOT NULL, server_id TEXT NOT NULL,
+  name TEXT, enabled INTEGER,
+  PRIMARY KEY (server, workspace_id, agent_id, server_id)
+);
+CREATE TABLE IF NOT EXISTS mcp_agent_state (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+  state TEXT,
+  PRIMARY KEY (server, workspace_id, agent_id)
+);
+CREATE TABLE IF NOT EXISTS mcp_state (
+  server TEXT NOT NULL, workspace_id TEXT NOT NULL,
+  fingerprint TEXT, rounds INTEGER, bindings_state TEXT, bindings_collected_at TEXT,
+  PRIMARY KEY (server, workspace_id)
 );
 CREATE TABLE IF NOT EXISTS workspace_skills (
   server TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,

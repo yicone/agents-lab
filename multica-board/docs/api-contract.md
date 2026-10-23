@@ -707,7 +707,7 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - `bindings_state`（workspace 级）：`ok` | `none`（库为空或 `agent_count` 之和为 0，确定没有分配，没有调用 `agent mcp list`）| `partial`（部分 agent 读取失败）| `error` | `never`。
 - `transport`：`stdio` | `http` | `sse` | `unknown`，或原样保留的其它显式 `type`（截断到 32 字符）。库条目取 CLI 返回值，自有配置按 Multica `mcpTransportOf` 的规则由后端判断。
 - `enabled_count` / `disabled_count`：由各 agent 的 `agent mcp list` 汇总，只计未归档 agent。`bindings_state` 不是 `ok` 时为 `null`，`agent_count` 仍取 CLI 原值。
-- `agents[]`：只列有分配或自有配置（`own_config.state` 不是 `none`）的 agent；其它 agent 不出现，前端用 `/api/agents` 的总数算出「其余 N 个」。包含归档 agent（`archived: true`），前端默认隐藏。
+- `agents[]`：只列有分配、自有配置（`own_config.state` 不是 `none`）或 `bindings_state` 为 `error` 的 agent；其它 agent 不出现，前端用 `/api/agents` 的总数算出「其余 N 个」。包含归档 agent（`archived: true`），前端默认隐藏。
 - `provider`：按 `runtime_id` join `/api/runtimes`，转成小写。没绑 runtime 或 runtime 不在缓存时为 `null`，此时 `runtime_loads` 为 `unbound` 或 `unknown`。
 - `own_config.state`：`none`（`mcp_config` 为 `null`，且 `mcp_config_redacted` 不为 `true`）| `managed`（任意对象，包括 `{}` 和空 `mcpServers`；`servers` 可以为空）| `hidden`（`mcp_config_redacted: true`）| `invalid`（解析失败）。只有 `managed` 带 `servers`，其它状态为 `[]`。`mcpServers` 和旧的 `mcp` 容器都读，同名时以 `mcpServers` 为准。
 - `bindings`：该 agent 的 `agent mcp list` 结果。`bindings_state`（agent 级）为 `ok` | `none` | `error` | `never`；不是 `ok` 时 `bindings` 为 `[]`，前端显示 `?`。`shadowed` 表示与自有配置里的 server 同名。自有配置是 `hidden` 时，`shadowed` 为 `null`（判断不了）。

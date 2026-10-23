@@ -148,6 +148,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/skills/attention":
                 self._skills_attention(views)
                 return
+            elif path == "/api/mcp":
+                if urlsplit(self.path).query:
+                    raise BadRequest("mcp endpoint does not accept query parameters")
+                body = views.mcp()
             elif path == "/api/skills":
                 body = views.skills(self._review_days())
             elif path == "/api/skills/meta":

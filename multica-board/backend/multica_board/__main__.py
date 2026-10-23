@@ -53,6 +53,7 @@ def _collect_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--run-days", type=int, default=14, help="run history window in days (default 14)")
     p.add_argument("--max-task-pages", type=int, default=10, help="max 200-run pages per agent per cycle")
     p.add_argument("--concurrency", type=int, default=3, help="workspaces (and agents per workspace) in parallel")
+    p.add_argument("--mcp-every", type=int, default=5, help="re-read agent MCP bindings every N cycles (default 5)")
     p.add_argument("--max-cli", type=int, default=4, help="hard cap on concurrent multica CLI processes (default 4)")
     p.add_argument("--timeout", type=float, default=60.0, help="per CLI call timeout seconds")
 
@@ -74,6 +75,7 @@ def _opts(a: argparse.Namespace, full: bool) -> CollectOptions:
         max_task_pages=a.max_task_pages,
         full=full,
         concurrency=a.concurrency,
+        mcp_every=getattr(a, "mcp_every", 5),
     )
 
 
@@ -128,7 +130,8 @@ def cmd_serve(a: argparse.Namespace) -> int:
     except (CliError, KeyError, TypeError):
         origin = None
     store = _open_store(a.db)
-    views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh, server_identity=origin)
+    views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh,
+                  server_identity=origin, mcp_every=a.mcp_every)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
     httpd = BoardServer(a.host, a.port, views, static_dir=static, plan_dir=a.plan_dir)
     stop = threading.Event()
