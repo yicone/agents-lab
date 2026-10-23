@@ -1,6 +1,6 @@
 # Changelog
 
-记录已合入 `main` 的用户可感知变化，采用 Keep a Changelog 的分类方式。无正式版本号，以下日期为 PR 合并日期（UTC），**不是部署或上线日期**。核对基线：`537e5fec07d239504cd86592d4a1caa55a1ff341`（2026-10-24 核对）。未逐项核实部署记录，以下历史条目部署状态均待补证，不据合并推断已上线。纯文档、纯测试、内部重构及已撤回的图标方案不单列。
+记录已合入 `main` 的用户可感知变化，采用 Keep a Changelog 的分类方式。无正式版本号，以下日期为 PR 合并日期（UTC），**不是部署或上线日期**。核对基线：`537e5fec07d239504cd86592d4a1caa55a1ff341`（2026-10-24 核对）。以下为合并历史，部署证据未完整核实，不据合并推断已上线；已找到的历史部署记录见文末，未覆盖项仍待补证。纯文档、纯测试、内部重构及已撤回的图标方案不单列。
 
 ## Unreleased
 
@@ -44,6 +44,7 @@
 
 ### 新增
 
+- Agents / Bots 抽屉展示 Git 真源状态、逐行 diff 与复制按钮。（[PR #56](https://github.com/yicone/agents-lab/pull/56)；[合并提交 `55e49d9`](https://github.com/yicone/agents-lab/commit/55e49d973b848bf0267185f73da87c7dac428c60)；ACM-294）
 - 用量页分列展示 Multica 用量、外部配额和失败信息。（[PR #57](https://github.com/yicone/agents-lab/pull/57)；[合并提交 `69b59f5`](https://github.com/yicone/agents-lab/commit/69b59f5e3f4057e7b861148a208b8689eed7a378)；ACM-299 / ACM-301）
 - Skills 页展示 Multica 云端 Skills 与本地跨层漂移。（[PR #55](https://github.com/yicone/agents-lab/pull/55)；[合并提交 `20bbfa1`](https://github.com/yicone/agents-lab/commit/20bbfa1d99eb9802695f6271d9a0c1ce3eaeaff0)；ACM-292）
 - Agents 增加 Grok Bots 子视图及脱敏 Instructions / Skills 详情。（[PR #54](https://github.com/yicone/agents-lab/pull/54)；[合并提交 `bf0cf7d`](https://github.com/yicone/agents-lab/commit/bf0cf7d743fab40dd94a1f605a645e88cde1e7e4)；ACM-293；采集后端见 PR #53 / ACM-291）
@@ -56,6 +57,7 @@
 
 ### 修复
 
+- 修正计划组装命令的 API origin 读取，runtime 下拉按名称去重并使用各 workspace 对应 UUID。（[PR #52](https://github.com/yicone/agents-lab/pull/52)；[合并提交 `d855930`](https://github.com/yicone/agents-lab/commit/d8559309624a2dc7caf894def30b467013f33904)；ACM 关联待补证（PR、提交与已查 G1 issue 评论未发现明确关联，不猜编号））
 - 进入切换计划列表或详情时重新读取数据，并清除多余 null 文本。（[PR #51](https://github.com/yicone/agents-lab/pull/51)；[合并提交 `e0f9530`](https://github.com/yicone/agents-lab/commit/e0f9530afbecf1e22716d06720a58d3bdf94dc08)；ACM-286）
 
 ## 2026-10-18
@@ -74,13 +76,13 @@
 ### 新增
 
 - 增加只读 Skills 清单、来源与待处理信息。（[PR #44](https://github.com/yicone/agents-lab/pull/44)；[合并提交 `6ded569`](https://github.com/yicone/agents-lab/commit/6ded5690e6489b4955c05c0a73925d91a255fa0b)；ACM-182）
-- 增加只读用量快照，显示配额、token 用量及采集失败状态。（[PR #32](https://github.com/yicone/agents-lab/pull/32)；[合并提交 `6d7ca36`](https://github.com/yicone/agents-lab/commit/6d7ca36286b9c96df62f3a87641a7e744e1f3d58)；ACM 单号未在 PR 标题或正文标注，待补证）
+- 增加只读用量快照，显示配额、token 用量及采集失败状态。（[PR #32](https://github.com/yicone/agents-lab/pull/32)；[合并提交 `6d7ca36`](https://github.com/yicone/agents-lab/commit/6d7ca36286b9c96df62f3a87641a7e744e1f3d58)；ACM-230；关联依据：ACM-244 评论 `01a14b05-0e00-70e2-bbf2-95921f8dd62b`）
 - 增加 Agent Atlas 地图、层视图及 Issues 层筛选。（[PR #31](https://github.com/yicone/agents-lab/pull/31)；[合并提交 `efb90bf`](https://github.com/yicone/agents-lab/commit/efb90bfaa65228561ac4bc6a77357314f4dd91bc)；ACM-193；层解析后端见 PR #30 / ACM-192）
 - 增加 ACM Lab「待你决定」队列。（[PR #29](https://github.com/yicone/agents-lab/pull/29)；[合并提交 `e37c7cc`](https://github.com/yicone/agents-lab/commit/e37c7ccd34a789972c7d812704a9233207f98ba9)；ACM-191）
 
 ### 修复
 
-- Issues 和 Agents 保留共用 workspace 筛选及清除入口。（[PR #46](https://github.com/yicone/agents-lab/pull/46)；[合并提交 `7b318fd`](https://github.com/yicone/agents-lab/commit/7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1)；ACM 单号未在 PR 标题或正文标注，待补证）
+- Issues 和 Agents 保留共用 workspace 筛选及清除入口。（[PR #46](https://github.com/yicone/agents-lab/pull/46)；[合并提交 `7b318fd`](https://github.com/yicone/agents-lab/commit/7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1)；ACM-185 / ACM-187；关联依据：ACM-185 评论 `01a1499a-8316-748e-9e1b-264475347702`）
 - 自动补齐旧缓存缺少的任务失败原因字段，避免读取失败。（[PR #33](https://github.com/yicone/agents-lab/pull/33)；[合并提交 `dcc5d7a`](https://github.com/yicone/agents-lab/commit/dcc5d7a05536251f015239b8c8cf7b334ca4b9f2)；ACM-197）
 
 ## 2026-10-16
@@ -96,3 +98,10 @@
 
 - 增加待处理摘要、增量变更流和失败统计，并采用叠层看板图标 B。（[PR #12](https://github.com/yicone/agents-lab/pull/12)；[合并提交 `b715b0c`](https://github.com/yicone/agents-lab/commit/b715b0c3536c9c04489b5174fd148a177fd25a1e)；ACM-165 / ACM-166 / ACM-167 / ACM-170）
 - 提供跨 workspace 只读看板、采集健康状态、Issues / Agents 视图及运行历史抽屉。（[PR #11](https://github.com/yicone/agents-lab/pull/11)；[合并提交 `bda4ed4`](https://github.com/yicone/agents-lab/commit/bda4ed4ad9572392c15432c4f3f986425655d955)；ACM-161 / ACM-162 / ACM-163）
+
+## 历史证据与待补证
+
+- PR #32：ACM-185 评论 `01a1499a-8316-748e-9e1b-264475347702`（2026-10-17 11:23:45 UTC）由用户确认 main `6d7ca36` 已合并且 Atlas 已重启；当时 usage collector launchd 尚未安装，不能据此称其已启用。关联实现 ACM-187。
+- PR #46：ACM-244 描述将 PR #46 / 完整 SHA `7b318fda6e3e5bf2c4fd21002ddcecc1faf68fd1` 明确关联 ACM-230；评论 `01a14b05-0e00-70e2-bbf2-95921f8dd62b`（2026-10-17 17:59:44 UTC）记录 main 同步到该 SHA、Board 重启、HTTP 200 和真实 UI 复验。记录中的本地启动时间不替代 UTC 评论时间。
+- PR #52：已补用户可见变化、已合并 PR 与 SHA，但具体 ACM 关联仍待补证；不因所属 G1 功能就猜作某个子单。
+- 其余条目部署日期与结果尚未逐项核实；不得作为完整的已上线清单。以上均为历史记录引用，本轮未重启服务或重做线上验收。
