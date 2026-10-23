@@ -1,188 +1,191 @@
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import test from "node:test";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import {
-  attentionBuckets, badgeOf, cellSymbol, commandsFor, listRows, loadMark,
-  matrixModel, ownConfigLabel, renderMcp, renderMcpAgentDrawer, renderMcpCellDrawer,
-  renderMcpServerDrawer, FILE_HINT,
+  badgeOf, badgeTitle, badgeTone, commandsFor, copyWithFallback, filteredItems,
+  groupedItems, queueModel, renderMcp, renderMcpDrawer, sourceBlocks,
 } from "./mcp.js";
 
-const here = new URL(".", import.meta.url).pathname;
-const fx = (p) => JSON.parse(readFileSync(join(here, "fixtures", p), "utf8"));
-const mcpFx = fx("mcp/mcp.json");
-const emptyFx = fx("mcp-empty/mcp.json");
-const partialFx = fx("mcp-partial/mcp.json");
-const agentsFx = fx("agents.json");
+const root = dirname(fileURLToPath(import.meta.url));
+const fx = (name) => JSON.parse(readFileSync(join(root, "fixtures", name, "mcp.json"), "utf8"));
+const mcpFx = fx("mcp");
+const partialFx = fx("mcp-partial");
+const unknownFx = fx("mcp-unknown");
+const emptyFx = fx("mcp-empty");
+const invalidFx = fx("mcp-invalid");
+const warnFx = fx("mcp-warn");
 
 function vnode(tag, attrs, ...children) {
-  return { tag, attrs: attrs || {}, children: children.flat(Infinity).filter((c) => c != null && c !== false) };
+  return { tag, attrs: attrs || {}, children };
 }
-function texts(node, out = []) {
-  if (node == null || node === false) return out;
-  if (typeof node !== "object") { out.push(String(node)); return out; }
-  for (const c of node.children || []) texts(c, out);
+function flatText(node) {
+  if (node == null || node === false) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(flatText).join("");
+  return flatText(node.children || []);
+}
+function findAll(node, pred, out = []) {
+  if (Array.isArray(node)) node.forEach((n) => findAll(n, pred, out));
+  else if (node && typeof node === "object") {
+    if (pred(node)) out.push(node);
+    (node.children || []).forEach((n) => findAll(n, pred, out));
+  }
   return out;
 }
-const flatText = (nodes) => texts({ children: nodes }).join("\n");
-
-const route = { ws: "", q: "", issue: "", mcpView: "", archived: false };
+const route = { source: "", mcpStatus: "", tool: "", mcpGroup: "source", mcpAssigned: false, mcpTidy: false, q: "" };
 const ctx = (over = {}) => ({
-  h: vnode, route, mcp: mcpFx, agentsPayload: agentsFx,
-  setRoute() {}, ago: (t) => t, absTime: (t) => t, copyCommand() {},
-  openMcpDrawer() {}, closeDrawer() {}, deleteConfirmed: "", ...over,
+  h: vnode, route, mcp: mcpFx, setRoute: () => {}, ago: (s) => s, absTime: (s) => s,
+  copyWithFallback: (t) => copyWithFallback(t), openMcp: () => {}, focusMcp: () => {},
+  toggleMcpGroup: () => {}, expandedMcp: new Set(), drawerMcp: "", closeDrawer: () => {},
+  ...over,
 });
 
-const ws1 = mcpFx.workspaces[0];
-const agIgnored = mcpFx.agents.find((a) => a.name === "Steward");
-const agShadow = mcpFx.agents.find((a) => a.name === "Reviewer" && a.workspace_id === ws1.id);
-const srv = (id) => ws1.servers.find((s) => s.id === id);
+// §14 front: filteredItems
+test("filteredItems: source/status/tool/assigned/tidy/q", () => {
+  const items = filteredItems(mcpFx, route);
+  assert.ok(items.length >= 10);
+  assert.ok(filteredItems(mcpFx, { ...route, source: "local_only" }).every((i) => i.source_class === "local_only"));
+  assert.ok(filteredItems(mcpFx, { ...route, source: "project" }).every((i) => i.in_project));
+  assert.ok(filteredItems(mcpFx, { ...route, mcpStatus: "differs" }).every((i) => i.consistency.state === "differs"));
+  assert.ok(filteredItems(mcpFx, { ...route, tool: "cursor" }).every((i) => ["direct", "off", "missing"].includes(i.tools.cursor)));
+  assert.ok(filteredItems(mcpFx, { ...route, tool: "repo" }).every((i) => Object.values(i.repo_cells).some((v) => ["direct", "off", "missing"].includes(v))));
+  assert.ok(filteredItems(mcpFx, { ...route, mcpAssigned: true }).every((i) =>
+    i.workspace_entries.some((w) => w.kind === "library" && (w.agents || []).length)));
+  assert.ok(filteredItems(mcpFx, { ...route, mcpTidy: true }).every((i) => i.tidy));
+  assert.equal(filteredItems(mcpFx, { ...route, q: "acme" }).length, 2); // display name
+  assert.equal(filteredItems(mcpFx, { ...route, q: "beta-coach" }).length >= 1, true); // ws slug
+  assert.ok(filteredItems(mcpFx, { ...route, q: ".cursor" }).length >= 2); // path
+  // never row ids nor fingerprint group letters: a synthetic row named "zz" in group "zzq"
+  const stub = { ...mcpFx, items: [{ ...mcpFx.items[0], id: "mzzzzzzzzzzzzzzzzzzzq", display_name: "zz", entries: [{ ...mcpFx.items[0].entries[0], group: "zzq" }], workspace_entries: [] }] };
+  assert.equal(filteredItems(stub, { ...route, q: "zzq" }).length, 0);
+  assert.equal(filteredItems(stub, { ...route, q: "mzzzzzzzzzzzzzzzzzzzq" }).length, 0);
+});
 
-test("badge and queue come from payload.attention; empty bucket shows items []", () => {
+// §14 front: groupedItems + group note
+test("groupedItems: tool grouping repeats rows and marks the note", () => {
+  const byTool = groupedItems(filteredItems(mcpFx, route), "tool", mcpFx.tools, mcpFx);
+  const github = byTool.find((g) => g.id === "cursor").items.find((i) => i.display_name === "github");
+  assert.ok(github && byTool.find((g) => g.id === "codex").items.includes(github));
+  assert.ok(byTool.every((g) => g.id === "multica_only" || g.note === "同一 server 可能重复出现"));
+  const bySource = groupedItems(filteredItems(mcpFx, route), "source", mcpFx.tools, mcpFx);
+  assert.deepEqual(bySource.map((g) => g.id), ["both", "local_only", "multica_only"]);
+});
+
+// §14 front: queueModel partial/?/connected
+test("queueModel: counts, partial ?, connected —, tidy", () => {
+  const q = queueModel(mcpFx);
+  assert.deepEqual(q.buckets.map((b) => b.id), ["broken", "ignored", "shadowed", "may_fail", "drift"]);
+  assert.equal(q.buckets[0].countText, "1");
+  assert.equal(q.tidy.countText, "2");
+  const p = queueModel(partialFx);
+  assert.equal(p.buckets[0].countText, "0 ?");
+  const u = queueModel(unknownFx);
+  assert.equal(u.buckets[0].connected, false);
+  assert.equal(u.buckets[0].countText, "—");
+});
+
+// §14 front: cell symbols, unknown beats not_applicable
+test("cell symbols incl. unknown > not_applicable and display_dup", () => {
+  const nodes = renderMcp(ctx());
+  const rows = findAll(nodes, (n) => n.tag === "tr" && (n.attrs.class || "").includes("skill-row"));
+  const dup = rows.find((r) => findAll(r, (n) => flatText(n).includes("同显示名 1/2")).length);
+  assert.ok(dup, "display_dup suffix rendered");
+  const pnodes = renderMcp(ctx({ mcp: partialFx }));
+  const cells = findAll(pnodes, (n) => n.tag === "td" && n.attrs.class?.includes("tool-mark"));
+  const texts = cells.map((c) => flatText(c));
+  assert.ok(texts.includes("?"));
+  assert.ok(!texts.includes("∅"), "no ∅ anywhere when a source is unknown");
+  const unodes = renderMcp(ctx({ mcp: unknownFx }));
+  assert.ok(flatText(unodes).includes("所有来源都没读到"));
+});
+
+test("badge tone 4 states + title text", () => {
+  assert.equal(badgeTone(mcpFx), "bad");
+  assert.equal(badgeTone(warnFx), "warn");
+  assert.equal(badgeTone(unknownFx), "unknown");
+  assert.equal(badgeTone(emptyFx), "none");
   assert.equal(badgeOf(mcpFx), mcpFx.attention.badge);
-  const buckets = attentionBuckets(mcpFx);
-  for (const b of buckets) assert.equal(b.count, (mcpFx.attention.buckets[b.id] || []).length);
-  assert.equal(badgeOf(emptyFx), 0);
-  assert.equal(attentionBuckets(emptyFx)[0].items.length, 0);
+  assert.match(badgeTitle(mcpFx), /MCP 待处理 6 条：坏了 4 · 待你处理 2/);
+  assert.match(badgeTitle(unknownFx), /个来源没读到，是否有待处理未确定/);
+  const partialTitle = badgeTitle({ attention: { tone: "warn", badge: 1, partial: true, counts: { drift: 1 } }, unknown: { local_files: ["x"] } });
+  assert.match(partialTitle, /有 1 个来源没读到，可能不全/);
 });
 
-test("cellSymbol covers the full table and never renders unread as ·", () => {
-  const bound = (over) => ({ runtime_loads: "yes", bindings_state: "ok", ...over });
-  const ok = { ...ws1, bindings_state: "ok" };
-  const linear = srv("srv-0001-linear");
-  assert.equal(cellSymbol(bound({ bindings: [] }), linear, ok), "·");
-  assert.equal(cellSymbol(bound({ bindings: [{ server_id: linear.id, enabled: false }] }), linear, ok), "○");
-  assert.equal(cellSymbol(bound({ bindings: [{ server_id: linear.id, enabled: true, shadowed: true }] }), linear, ok), "◐");
-  assert.equal(cellSymbol(bound({ runtime_loads: "no", bindings: [{ server_id: linear.id, enabled: true }] }), linear, ok), "⊘");
-  assert.equal(cellSymbol(bound({ runtime_loads: "unbound", bindings: [{ server_id: linear.id, enabled: true }] }), linear, ok), "⊘");
-  assert.equal(cellSymbol(bound({ runtime_loads: "conditional", bindings: [{ server_id: linear.id, enabled: true }] }), linear, ok), "!");
-  assert.equal(cellSymbol(bound({ runtime_loads: "unknown", bindings: [{ server_id: linear.id, enabled: true }] }), linear, ok), "?");
-  assert.equal(cellSymbol(bound({ bindings: [{ server_id: linear.id, enabled: true }] }), linear, ok), "●");
-  assert.equal(cellSymbol(bound({ bindings_state: "error" }), linear, ok), "?");
-  assert.equal(cellSymbol(bound({ bindings_state: "never" }), linear, ok), "?");
-  assert.equal(cellSymbol(bound({}), linear, { ...ok, bindings_state: "never" }), "?");
-  assert.equal(cellSymbol(agIgnored, linear, ws1), "⊘");   // fixture: antigravity ignored
-  assert.equal(cellSymbol(agShadow, linear, ws1), "◐");   // fixture: hermes shadowed
+test("empty/absent/invalid pages", () => {
+  assert.ok(flatText(renderMcp(ctx({ mcp: emptyFx }))).includes("还没有 MCP server"));
+  assert.ok(flatText(renderMcp(ctx({ mcp: { ok: false, absent: true } }))).includes("后端还没有 MCP 采集"));
+  const inv = flatText(renderMcp(ctx({ mcp: invalidFx })));
+  assert.ok(inv.includes("MCP 数据无效"));
 });
 
-test("loadMark / ownConfigLabel", () => {
-  assert.equal(loadMark("yes"), "✓");
-  assert.equal(loadMark("no"), "✕");
-  assert.equal(loadMark("conditional"), "!");
-  assert.equal(loadMark("unknown"), "?");
-  assert.equal(loadMark("unbound"), "未绑定");
-  assert.equal(ownConfigLabel({ state: "none", servers: [] }), "—");
-  assert.equal(ownConfigLabel({ state: "managed", servers: [{}, {}] }), "2 个");
-  assert.equal(ownConfigLabel({ state: "managed", servers: [] }), "托管·空");
-  assert.equal(ownConfigLabel({ state: "hidden", servers: [] }), "看不到");
-  assert.equal(ownConfigLabel({ state: "invalid", servers: [] }), "无法解析");
+test("drawer: six sections in order, readonly line only in command areas", () => {
+  const item = mcpFx.items.find((i) => i.display_name === "github");
+  const nodes = renderMcpDrawer(ctx(), item);
+  const subs = findAll(nodes, (n) => n.tag === "h3").map((n) => flatText(n));
+  assert.deepEqual(subs, ["来源与范围", "一致性", "本机工具配置", "仓库项目级", "Multica Workspace（跨 Workspace）", "在终端处理"]);
+  const text = flatText(nodes);
+  const needle = "页面只读，不代为执行。复制命令后在自己的终端运行。";
+  assert.equal(text.split(needle).length - 1, 2, "once per command area (Multica + terminal)");
+  assert.ok(!flatText(renderMcp(ctx())).includes(needle), "never at page top");
 });
 
-test("matrixModel: >8 servers falls back to list with a reason; restCount counts agents without MCP", () => {
-  const model = matrixModel(mcpFx, agentsFx, route);
-  const w1 = model.blocks.find((b) => b.workspace.id === ws1.id);
-  const w2 = model.blocks.find((b) => b.workspace.slug === "beta-coach");
-  assert.equal(w1.fallbackToList, false);
-  assert.equal(w2.fallbackToList, true);
-  assert.match(w2.reason, /超过 8 列/);
-  assert.ok(w1.restCount >= 0);
+// §14 front: copyWithFallback three paths
+test("copyWithFallback: clipboard ok / execCommand ok / both fail", async () => {
+  assert.equal(await copyWithFallback("x", { clipboard: { writeText: async () => {} } }), true);
+  const calls = [];
+  const doc = {
+    createElement: () => ({ value: "", style: {}, setAttribute() {}, select() {}, remove() {} }),
+    body: { appendChild() {} },
+    execCommand: (c) => { calls.push(c); return true; },
+  };
+  assert.equal(await copyWithFallback("x", { clipboard: { writeText: async () => { throw new Error("denied"); } }, document: doc }), true);
+  assert.deepEqual(calls, ["copy"]);
+  const docBad = { ...doc, execCommand: () => false };
+  assert.equal(await copyWithFallback("x", { clipboard: null, document: docBad }), false);
 });
 
-test("listRows include own-config entries and unread rows", () => {
-  const rows = listRows(mcpFx, route);
-  assert.ok(rows.some((r) => r.source === "自有" && r.server === "linear"));
-  assert.ok(rows.some((r) => r.source === "库" && r.server === "sentry"));
-  const partial = listRows(partialFx, route);
-  assert.ok(partial.some((r) => r.note.includes("读取失败") || r.enabled === null));
-});
-
-test("commandsFor emits only whitelisted forms, always with file templates and hint", () => {
-  const ctxArgs = { workspace_id: "ws-uuid", agent_id: "ag-uuid", server_id: "srv-uuid", name: "linear", agent_name: "builder" };
-  const kinds = ["assign", "enable", "disable", "unassign", "rename", "replace-config", "add-server", "delete-server", "own-config", "clear-own"];
-  const forbidden = [/--server-config '/, /--mcp-config '\{/, /--server-config-stdin/, /--mcp-config-stdin/, /--mcp-config '\{/, /echo .*\|/, /--server-config [^-]/];
-  for (const kind of kinds) {
-    const cmds = commandsFor(kind, ctxArgs);
-    assert.ok(cmds.length, kind);
-    for (const c of cmds) {
-      for (const bad of forbidden) assert.ok(!bad.test(c.command), `${kind}: ${c.command}`);
-      assert.ok(!/agent mcp (add|enable|disable|remove) [^ ]+ [a-z]+$/i.test(c.command.replace(/uuid/g, "x")));
+// commands never carry values
+test("commands are file-form only, all with --workspace-id", () => {
+  const ctxArgs = { workspace_id: "w-uuid", agent_id: "a-uuid", server_id: "s-uuid", name: "n", agent_name: "an" };
+  const forbidden = [/--server-config '/, /--mcp-config '\{/, /--server-config-stdin/, /--mcp-config-stdin/];
+  for (const kind of ["assign", "enable", "disable", "unassign", "rename", "replace-config", "add-server", "delete-server", "own-config", "clear-own"]) {
+    for (const c of commandsFor(kind, ctxArgs)) {
+      assert.ok(c.command.includes("--workspace-id w-uuid"), c.command);
+      for (const bad of forbidden) assert.ok(!bad.test(c.command), c.command);
     }
   }
-  assert.match(commandsFor("assign", ctxArgs)[0].command,
-    /^multica --workspace-id ws-uuid agent mcp add ag-uuid srv-uuid$/);
-  assert.match(commandsFor("clear-own", ctxArgs)[0].command, /--mcp-config null$/);
 });
 
-test("rendered drawers never contain forbidden command forms or env/headers 未设置 on server drawer", () => {
-  const serverNodes = renderMcpServerDrawer(vnode, ctx({ deleteConfirmed: "" }), { server: srv("srv-0001-linear"), workspace: ws1 });
-  const stext = flatText(serverNodes);
-  for (const bad of ["--server-config '", "--mcp-config '{", "stdin", "未设置"]) {
-    if (bad === "未设置") assert.ok(!/env \/ headers 未设置|无法判断 env \/ headers.*未设置/.test(stext) && stext.includes("无法判断 env / headers"), stext);
-    else assert.ok(!stext.includes(bad), `${bad} in server drawer`);
-  }
-  const agentNodes = renderMcpAgentDrawer(vnode, ctx(), { agent: agShadow, workspace: ws1 });
-  const atext = flatText(agentNodes);
-  assert.ok(atext.includes("env 已设置 2 项"));
-  assert.ok(atext.includes("headers 未设置"));
-  assert.ok(atext.includes("自有"));
-  for (const bad of ["--server-config '", "--mcp-config '{", "stdin"]) assert.ok(!atext.includes(bad));
-  const cellNodes = renderMcpCellDrawer(vnode, ctx(), { agent: agIgnored, server: srv("srv-0001-linear"), workspace: ws1 });
-  const ctext = flatText(cellNodes);
-  assert.ok(ctext.includes("不会加载 MCP"));   // yellow note, command still shown
-  assert.ok(ctext.includes("agent mcp"));
-});
-
-test("server drawer delete reveals the command only after confirmation", () => {
-  const c1 = ctx({ deleteConfirmed: "" });
-  const closed = flatText(renderMcpServerDrawer(vnode, c1, { server: srv("srv-0001-linear"), workspace: ws1 }));
-  assert.ok(closed.includes("我知道会同时从这"));
-  assert.ok(!closed.includes("workspace mcp remove"));
-  const c2 = ctx({ deleteConfirmed: `${ws1.id}:srv-0001-linear` });
-  const open = flatText(renderMcpServerDrawer(vnode, c2, { server: srv("srv-0001-linear"), workspace: ws1 }));
-  assert.ok(open.includes("workspace mcp remove srv-0001-linear"));
-});
-
-test("renderMcp: absent renders 后端还没有 MCP 采集; never/error/partial never fake 0 or ·", () => {
-  const absent = flatText(renderMcp(ctx({ mcp: { ok: false, absent: true } })));
-  assert.ok(absent.includes("后端还没有 MCP 采集"));
-  const empty = flatText(renderMcp(ctx({ mcp: emptyFx })));
-  assert.ok(empty.includes("还没有 MCP server"));
-  assert.ok(empty.includes("逐个分配"));
-  const partial = flatText(renderMcp(ctx({ mcp: partialFx })));
-  assert.ok(partial.includes("库读取失败") || partial.includes("timeout"));
-  assert.ok(partial.includes("未加载"));
-  const matrix = matrixModel(partialFx, agentsFx, route);
-  const errWs = matrix.blocks.find((b) => b.workspace.library_state === "error");
-  assert.ok(errWs.workspace.servers.length === 1); // stale rows kept
-});
-
-test("problems pseudo-bucket unions ignored+shadowed+may_fail agents", () => {
-  const model = matrixModel(mcpFx, agentsFx, { ...route, issue: "problems" });
-  const kept = new Set(model.blocks.flatMap((b) => b.rows.map((a) => a.id)));
-  for (const bucket of ["ignored", "shadowed", "may_fail"]) {
-    for (const item of mcpFx.attention.buckets[bucket] || []) {
-      if (item.agent_id) assert.ok(kept.has(item.agent_id), `${bucket}: ${item.agent_id}`);
+// §14 fixtures: sentinel sweep over generated scenario JSONs
+test("fixtures contain no secrets/tokens/emails/hex-blobs", () => {
+  const dir = join(root, "fixtures");
+  const scen = JSON.parse(readFileSync(join(dir, "scenarios.json"), "utf8"));
+  const files = ["mcp", "mcp-empty", "mcp-partial", "mcp-unknown", "mcp-invalid", "mcp-warn"]
+    .map((n) => join(dir, n, "mcp.json"));
+  const banned = [/ghp_/, /sk-/, /xox/, /Bearer\s/i, /@[a-z0-9-]+\.[a-z]/i, /\b[0-9a-f]{32,}\b/i, /\b[A-Za-z0-9+/]{40,}={0,2}\b/];
+  for (const f of files) {
+    const text = readFileSync(f, "utf8");
+    for (const re of banned) assert.ok(!re.test(text), `${f}: ${re}`);
+    const payload = JSON.parse(text);
+    if (payload.items?.length) {
+      for (const item of payload.items) assert.match(item.id, /^m[0-9a-z]{20}(-\d+)?$/);
     }
   }
-  const hiddenOnly = mcpFx.attention.buckets.hidden?.[0]?.agent_id;
-  if (hiddenOnly) assert.ok(!kept.has(hiddenOnly));
-  const clean = mcpFx.agents.find((a) => a.provider === "codex" && a.runtime_loads === "yes");
-  assert.ok(!kept.has(clean.id)); // bound + enabled, not in any badge bucket
-  const rows = listRows(mcpFx, { ...route, issue: "problems" });
-  assert.ok(rows.length && rows.every((r) => kept.has(r.agent.id)));
+  for (const n of ["mcp", "mcp-empty", "mcp-partial", "mcp-unknown", "mcp-invalid", "mcp-warn", "mcp-absent"]) {
+    assert.ok(scen[n], `scenarios.json has ${n}`);
+  }
 });
 
-test("fixtures: contract keys, badge math, no token-like strings", () => {
-  for (const [dir, file] of [["", "mcp.json"], ["mcp", "mcp.json"], ["mcp-empty", "mcp.json"], ["mcp-partial", "mcp.json"]]) {
-    const path = join(here, "fixtures", dir, file);
-    const raw = readFileSync(path, "utf8");
-    const data = JSON.parse(raw);
-    for (const k of ["generated_at", "mcp_schema", "mcp_every_rounds", "support", "workspaces", "agents", "attention"]) {
-      assert.ok(k in data, `${dir}/${file}: ${k}`);
-    }
-    const c = data.attention.counts;
-    assert.equal(data.attention.badge, (c.ignored || 0) + (c.shadowed || 0) + (c.may_fail || 0));
-    assert.doesNotMatch(raw, /(mul_|sk-|ghp_|xox[bp]-|Bearer )/);
-    assert.doesNotMatch(raw, /https?:\/\/[^/\s"]*:[^@\s"]*@/);
+test("no .mcp- selectors remain in styles.css or JS", () => {
+  const css = readFileSync(join(root, "styles.css"), "utf8");
+  assert.ok(!/\.mcp-/.test(css));
+  for (const f of ["mcp.js", "app.js"]) {
+    const js = readFileSync(join(root, f), "utf8");
+    // class names like "mcp-card"/"mcp-queue" are banned; element ids like "mcp-row-" are fine
+    const classes = [...js.matchAll(/class:\s*["'`]([^"'`]+)["'`]/g)].flatMap((m) => m[1].split(/\s+/));
+    assert.ok(!classes.some((c) => c.startsWith("mcp-")), `${f}: ${classes.filter((c) => c.startsWith("mcp-"))}`);
   }
 });

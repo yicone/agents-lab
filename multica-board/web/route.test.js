@@ -316,24 +316,32 @@ test("Grok Bot source filter survives routing and does not become a runtime",()=
   assert.match(formatHash(route),/source=grok_bot/);
 });
 
-test("mcp route: parse, serialize, whitelist and l3 redirect", () => {
-  const r = parseHash("#/mcp?ws=alpha-lab&view=list&issue=shadowed&archived=1&q=lin");
+test("mcp route: parse, serialize, whitelist, legacy drop and l3 redirect", () => {
+  const r = parseHash("#/mcp?ws=alpha-lab&source=both&status=differs&tool=cursor&group=tool&assigned=1&tidy=1&q=lin");
   assert.equal(r.view, "mcp");
-  assert.equal(r.mcpView, "list");
-  assert.equal(r.issue, "shadowed");
-  assert.equal(r.archived, true);
+  assert.equal(r.source, "both");
+  assert.equal(r.mcpStatus, "differs");
+  assert.equal(r.tool, "cursor");
+  assert.equal(r.mcpGroup, "tool");
+  assert.equal(r.mcpAssigned, true);
+  assert.equal(r.mcpTidy, true);
+  assert.equal(r.ws, "alpha-lab");
   assert.equal(r.q, "lin");
-  assert.equal(formatHash(r), "#/mcp?ws=alpha-lab&q=lin&view=list&issue=shadowed&archived=1");
-  const problems = parseHash("#/mcp?issue=problems");
-  assert.equal(problems.issue, "problems");
-  assert.equal(formatHash(problems), "#/mcp?issue=problems");
-  const bad = parseHash("#/mcp?view=grid&issue=nope");
-  assert.equal(bad.mcpView, "");
-  assert.equal(bad.issue, "");
+  assert.equal(formatHash(r), "#/mcp?ws=alpha-lab&q=lin&source=both&status=differs&tool=cursor&group=tool&assigned=1&tidy=1");
+  const legacy = parseHash("#/mcp?view=list&issue=shadowed&archived=1");
+  assert.equal(legacy.mcpView, undefined);
+  assert.equal(formatHash(legacy), "#/mcp");
+  const bad = parseHash("#/mcp?source=nope&status=nope&group=nope");
+  assert.equal(bad.source, "");
+  assert.equal(bad.mcpStatus, "");
+  assert.equal(bad.mcpGroup, "source");
   assert.equal(formatHash(bad), "#/mcp");
   assert.equal(redirectHash("#/l3/mcp"), "#/mcp");
-  assert.equal(redirectHash("#/mcp?issue=hidden"), null);
-  const left = applyPatch(r, { view: "skills" });
-  assert.equal(left.mcpView, "");
-  assert.equal(left.issue, "");
+  const left = applyPatch(parseHash("#/mcp?source=both&status=differs&tool=cursor&assigned=1&tidy=1"), { view: "skills" });
+  // source is shared between boards; MCP-specific filters are cleared
+  assert.equal(left.source, "both");
+  assert.equal(left.mcpStatus, "");
+  assert.equal(left.mcpGroup, "source");
+  assert.equal(left.mcpAssigned, false);
+  assert.equal(left.mcpTidy, false);
 });

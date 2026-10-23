@@ -1,7 +1,200 @@
 {
- "generated_at": "2026-10-23T08:59:40Z",
- "mcp_schema": 1,
- "mcp_every_rounds": 5,
+ "ok": true,
+ "error": null,
+ "mcp_schema": 2,
+ "generated_at": "2026-10-24T02:01:00Z",
+ "multica_collected_at": "2026-10-24T01:58:00Z",
+ "tools": [
+  {
+   "id": "cursor",
+   "label": "Cursor",
+   "short_label": "Cursor",
+   "files": [
+    {
+     "path": "~/.cursor/mcp.json",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 3
+    }
+   ]
+  },
+  {
+   "id": "codex",
+   "label": "Codex",
+   "short_label": "Codex",
+   "files": [
+    {
+     "path": "~/.codex/config.toml",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 2
+    }
+   ]
+  },
+  {
+   "id": "claude",
+   "label": "Claude Code",
+   "short_label": "Claude",
+   "files": [
+    {
+     "path": "~/.claude.json",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 2
+    }
+   ]
+  },
+  {
+   "id": "hermes",
+   "label": "Hermes Agent",
+   "short_label": "Hermes",
+   "files": [
+    {
+     "path": "~/.hermes/config.yaml",
+     "scope": "global",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 1
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini CLI",
+   "short_label": "Gemini",
+   "files": [
+    {
+     "path": "~/.gemini/settings.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "mcode",
+   "label": "Devin CLI",
+   "short_label": "Devin",
+   "files": [
+    {
+     "path": "~/.config/devin/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "antigravity",
+   "label": "Antigravity",
+   "short_label": "Antigravity",
+   "files": [
+    {
+     "path": "~/.gemini/antigravity/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "windsurf",
+   "label": "Windsurf",
+   "short_label": "Windsurf",
+   "files": [
+    {
+     "path": "~/.codeium/windsurf/mcp_config.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  },
+  {
+   "id": "opencode",
+   "label": "OpenCode",
+   "short_label": "OpenCode",
+   "files": [
+    {
+     "path": "~/.config/opencode/opencode.json",
+     "scope": "global",
+     "state": "absent",
+     "detail": "文件不存在：确定没有",
+     "entry_count": 0
+    }
+   ]
+  }
+ ],
+ "repos": [
+  {
+   "id": "agents-lab",
+   "label": "agents-lab",
+   "files": [
+    {
+     "path": ".mcp.json",
+     "location": ".mcp.json",
+     "state": "ok",
+     "detail": "已读",
+     "entry_count": 1
+    },
+    {
+     "path": ".cursor/mcp.json",
+     "location": ".cursor",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": ".codex/config.toml",
+     "location": ".codex",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": ".gemini/settings.json",
+     "location": ".gemini",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    },
+    {
+     "path": "opencode.json",
+     "location": "opencode.json",
+     "state": "absent",
+     "detail": "文件不存在",
+     "entry_count": 0
+    }
+   ]
+  }
+ ],
+ "workspaces": [
+  {
+   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+   "slug": "alpha-lab",
+   "name": "Alpha Lab",
+   "library_state": "ok",
+   "library_error": null,
+   "bindings_state": "ok",
+   "collected_at": "2026-10-24T01:58:00Z"
+  },
+  {
+   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
+   "slug": "beta-coach",
+   "name": "Beta 辅导",
+   "library_state": "ok",
+   "library_error": null,
+   "bindings_state": "ok",
+   "collected_at": "2026-10-24T01:58:00Z"
+  }
+ ],
  "support": {
   "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
   "providers": {
@@ -24,7 +217,7 @@
     "channel": "workdir_cursor_mcp_json",
     "native_merge": "yes",
     "remote_filter": false,
-    "note": "oauth_needs_auth_source"
+    "note": null
    },
    "mcode": {
     "loads": "yes",
@@ -54,13 +247,6 @@
     "remote_filter": false,
     "note": "v2_task_fails"
    },
-   "omp": {
-    "loads": "yes",
-    "channel": "workdir_config",
-    "native_merge": "no",
-    "remote_filter": false,
-    "note": null
-   },
    "antigravity": {
     "loads": "no",
     "channel": null,
@@ -74,175 +260,151 @@
     "native_merge": null,
     "remote_filter": false,
     "note": null
-   },
-   "codebuddy": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "codearts": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "kimi": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "reasonix": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "dsh": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "kiro": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "openclaw": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "pi": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qoder": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qoderclicn": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qwen": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "qwenpaw": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "traecli": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
-   },
-   "dim": {
-    "loads": "yes",
-    "channel": null,
-    "native_merge": "unknown",
-    "remote_filter": false,
-    "note": "backend_unverified"
    }
   }
  },
- "workspaces": [
+ "unknown": {
+  "local_files": [],
+  "project_files": [],
+  "library": [],
+  "bindings": [],
+  "own_hidden": 0,
+  "own_invalid": 0,
+  "own_pending": 0,
+  "key": "ok",
+  "multica": "collected"
+ },
+ "items": [],
+ "summary": [
   {
-   "id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
-   "slug": "alpha-lab",
-   "name": "Alpha Lab",
-   "library_state": "ok",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": null,
-   "bindings_state": "none",
-   "bindings_collected_at": null,
-   "servers": []
+   "id": "all",
+   "label": "全部",
+   "count": 0,
+   "uncertain": 0,
+   "statuses": {}
   },
   {
-   "id": "aa134a90-6b63-413d-8b4e-d4df0384aa16",
-   "slug": "beta-coach",
-   "name": "Beta 辅导",
-   "library_state": "ok",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": null,
-   "bindings_state": "none",
-   "bindings_collected_at": null,
-   "servers": []
+   "id": "both",
+   "label": "本机 + Multica",
+   "count": 0,
+   "uncertain": 0,
+   "statuses": {}
   },
   {
-   "id": "64d46b4c-7ae4-4bee-9511-206df6d8bfe4",
-   "slug": "gamma-oasis",
-   "name": "Gamma Oasis",
-   "library_state": "ok",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": null,
-   "bindings_state": "none",
-   "bindings_collected_at": null,
-   "servers": []
+   "id": "local_only",
+   "label": "仅本机",
+   "count": 0,
+   "uncertain": 0,
+   "statuses": {}
   },
   {
-   "id": "c1d9396f-867e-4b87-a926-41ad01dc6b50",
-   "slug": "delta-english",
-   "name": "Delta 英语",
-   "library_state": "ok",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": null,
-   "bindings_state": "none",
-   "bindings_collected_at": null,
-   "servers": []
-  },
-  {
-   "id": "81cfd429-5faa-4a72-ace6-e363659c5195",
-   "slug": "epsilon-brand",
-   "name": "Epsilon Brand",
-   "library_state": "ok",
-   "library_collected_at": "2026-10-23T08:59:40Z",
-   "library_error": null,
-   "bindings_state": "none",
-   "bindings_collected_at": null,
-   "servers": []
+   "id": "multica_only",
+   "label": "仅 Multica",
+   "count": 0,
+   "uncertain": 0,
+   "statuses": {}
   }
  ],
- "agents": [],
  "attention": {
   "badge": 0,
+  "tone": "none",
+  "partial": false,
   "counts": {
+   "broken": 0,
    "ignored": 0,
    "shadowed": 0,
    "may_fail": 0,
-   "hidden": 0,
-   "unused": 0,
-   "disabled_only": 0
+   "drift": 0
   },
-  "buckets": {}
+  "buckets": {
+   "broken": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "ignored": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "shadowed": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "may_fail": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   },
+   "drift": {
+    "connected": true,
+    "partial": false,
+    "unknown_sources": [],
+    "reason": "",
+    "items": []
+   }
+  },
+  "tidy": {
+   "count": 0,
+   "partial": false,
+   "unknown_sources": [],
+   "connected": true,
+   "reason": ""
+  }
+ },
+ "meta": {
+  "sources": [
+   {
+    "id": "local_files",
+    "label": "本机配置",
+    "state": "ok",
+    "detail": "4 已读 · 5 不存在"
+   },
+   {
+    "id": "project_files",
+    "label": "仓库项目级",
+    "state": "ok",
+    "detail": "1 有 · 4 不存在"
+   },
+   {
+    "id": "fingerprints",
+    "label": "配置指纹",
+    "state": "ok",
+    "detail": "只比哈希"
+   },
+   {
+    "id": "multica_library",
+    "label": "Multica 库",
+    "state": "ok",
+    "detail": "2 个 Workspace"
+   },
+   {
+    "id": "agent_bindings",
+    "label": "Agent 分配",
+    "state": "ok",
+    "detail": "2 个 Workspace"
+   },
+   {
+    "id": "multica_own_config",
+    "label": "Agent 自有配置",
+    "state": "ok",
+    "detail": "全部可见"
+   },
+   {
+    "id": "runtime_support",
+    "label": "Runtime 加载表",
+    "state": "ok",
+    "detail": "v0.6.5"
+   }
+  ]
  }
 }
