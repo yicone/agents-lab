@@ -333,8 +333,13 @@ class Views:
         return last.get("finished_at")
 
     def _slugs(self) -> dict[str, str | None]:
+        from .owner_agents import load_snapshot, snapshot_path, WORKSPACES
         rows = self.store.query("SELECT id, slug FROM workspaces WHERE server=?", (self.server,))
-        return {r["id"]: r["slug"] for r in rows}
+        slugs = {r["id"]: r["slug"] for r in rows}
+        for ws, entry in load_snapshot(snapshot_path(self.store.path), self.server).get("workspaces", {}).items():
+            if ws in WORKSPACES and isinstance(entry, dict) and entry.get("status") == "ok":
+                slugs.setdefault(ws, WORKSPACES[ws])
+        return slugs
 
     def _url(self, slug: str | None, kind: str, rid: str | None) -> str | None:
         if not slug or not rid:
@@ -411,6 +416,14 @@ class Views:
                     ),
                 }
             )
+        # A user inventory may exist before the first regular all-workspace collection.
+        from .owner_agents import load_snapshot, snapshot_path, WORKSPACES
+        known = {w["id"] for w in workspaces}
+        for ws, entry in load_snapshot(snapshot_path(self.store.path), self.server).get("workspaces", {}).items():
+            if ws in WORKSPACES and ws not in known and isinstance(entry, dict) and entry.get("status") == "ok":
+                workspaces.append({"id": ws, "slug": WORKSPACES[ws], "name": WORKSPACES[ws],
+                    "collect_state": "never", "last_success_at": None, "last_attempt_at": None,
+                    "error": None, "counts": None})
         return {
             "api_version": API_VERSION,
             "server_identity": self.server_identity,
@@ -606,8 +619,13 @@ class Views:
                     rc["last_error_kind"] = t["error_kind"]
                     rc["last_failed_issue_identifier"] = identifiers.get((t["workspace_id"], t["issue_id"])) if t["issue_id"] else None
 
+        from .owner_agents import overlay, snapshot_path
+        rows, owner_inventory = overlay(
+            self.store.query("SELECT * FROM agents WHERE server=? ORDER BY name", (self.server,)),
+            snapshot_path(self.store.path), self.server,
+        )
         items = []
-        for a in self.store.query("SELECT * FROM agents WHERE server=? ORDER BY name", (self.server,)):
+        for a in rows:
             ws = a["workspace_id"]
             k = (ws, a["id"])
             items.append(
@@ -616,13 +634,15 @@ class Views:
                     "workspace_id": ws,
                     "id": a["id"],
                     "name": a["name"],
-                    "status": a["status"],
-                    "archived": a["archived_at"] is not None,
-                    "runtime_id": a["runtime_id"],
-                    "model": a["model"],
-                    "thinking_level": a["thinking_level"],
-                    "service_tier": a["service_tier"],
-                    "max_concurrent_tasks": a["max_concurrent_tasks"],
+                    "status": a.get("status"),
+                    "archived": a.get("archived_at") is not None,
+                    "runtime_id": a.get("runtime_id"),
+                    "model": a.get("model"),
+                    "thinking_level": a.get("thinking_level"),
+                    "service_tier": a.get("service_tier"),
+                    "max_concurrent_tasks": a.get("max_concurrent_tasks"),
+                    "inventory_source": a.get("inventory_source"),
+                    "inventory_collected_at": a.get("inventory_collected_at"),
                     "description": a.get("description"),
                     "instructions": a.get("instructions"),
                     "instructions_sha256": a.get("instructions_sha256"),
@@ -634,7 +654,8 @@ class Views:
                     "url": self._url(slugs.get(ws), "agents", a["id"]),
                 }
             )
-        return {"generated_at": self.generated_at(), "recent_window_h": RECENT_WINDOW_H, "items": items}
+        return {"generated_at": self.generated_at(), "recent_window_h": RECENT_WINDOW_H,
+                "owner_inventory": owner_inventory, "items": items}
 
     # --- /api/bots ----------------------------------------------------------
 

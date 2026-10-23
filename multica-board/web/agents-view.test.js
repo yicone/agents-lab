@@ -124,13 +124,16 @@ test("weekly usage turns red at 100 percent", () => {
 test("agent drawer renders instructions as text and bot rows keep duty and room labels", () => {
   const drawer = renderAgentDrawer(h, { closeDrawer() {}, copy() {}, setSection() {}, wsTag: null, extLink: h, provider: "hermes", recentWindowH: 24, ago: () => "", errKind: () => "" }, {
     section: "brief",
-    agent: { id: "a", name: "Reviewer", description: "审阅", instructions: "<b>不要当 HTML</b>", skills: [], url: null },
+    agent: { id: "a", name: "Reviewer", description: "审阅", instructions: "<b>不要当 HTML</b>", skills: [], url: null,
+      inventory_source: "user-cli:desktop-api.multica.ai", inventory_collected_at: "2026-10-22T10:00:00Z" },
   });
   const pre = [];
   for (const part of drawer) walk(part, (node) => { if (node.tag === "pre") pre.push(node); });
   assert.equal(pre.length, 1);
   assert.equal(pre[0].children[0], "<b>不要当 HTML</b>");
   assert.equal(textOf({ children: drawer }).includes("innerHTML"), false);
+  assert.match(textOf({ children: drawer }), /采集来源：user-cli:desktop-api.multica.ai/);
+  assert.match(textOf({ children: drawer }), /采集时间：2026-10-22T10:00:00Z/);
 
   const page = renderBotPage(h, {
     route: { ws: "alpha-lab", q: "", botLinked: false },

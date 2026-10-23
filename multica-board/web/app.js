@@ -92,6 +92,7 @@ const state = {
   instructionSources: { agents: {}, bots: {} },
   runtimes: [],
   recentWindowH: 24,
+  ownerInventory: {},
   fetchError: null,
   route: parseHash(location.hash),
   staleDays: Number(localStorage.getItem("mb.staleDays")) || 3,
@@ -277,13 +278,15 @@ async function refresh(force = false) {
     const previousBots = botsRefreshKey(state.bots);
     const previousSources = JSON.stringify(state.instructionSources || {});
     const previousUsage = usageRefreshKey(state.usage);
+    const previousAgents = JSON.stringify([state.agents, state.ownerInventory]);
+    const agentsPromise = getJSON("agents");
     // Skills, the Grok roster, and the usage snapshot live beside the Multica issue snapshot, so they reload even when that snapshot is unchanged.
     const skillsPromise = loadSkills();
     const botsPromise = loadBots();
     const sourcesPromise = loadInstructionSources();
     const usagePromise = loadUsage();
     if (changed) {
-      const jobs = [getJSON("issues"), getJSON("agents"), getJSON("runtimes")];
+      const jobs = [getJSON("issues"), agentsPromise, getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
       else jobs.push(getJSON("layers").catch((err) => ({ error: String(err.message || err) })));
       const [issues, agents, runtimes, extra] = await Promise.all(jobs);
@@ -318,13 +321,18 @@ async function refresh(force = false) {
     state.bots = await botsPromise;
     state.instructionSources = await sourcesPromise;
     state.usage = await usagePromise;
+    const agentSnapshot = await agentsPromise;
+    state.agents = agentSnapshot.items ?? [];
+    state.ownerInventory = agentSnapshot.owner_inventory ?? {};
+    state.recentWindowH = agentSnapshot.recent_window_h ?? 24;
+    const agentsChanged = JSON.stringify([state.agents, state.ownerInventory]) !== previousAgents;
     const skillsChanged = skillsRefreshKey(state.skills) !== previousSkills;
     const botsChanged = botsRefreshKey(state.bots) !== previousBots;
     const sourcesChanged = JSON.stringify(state.instructionSources || {}) !== previousSources;
     const usageChanged = usageRefreshKey(state.usage) !== previousUsage;
     state.meta = meta;
     state.fetchError = null;
-    if (changed || skillsChanged || botsChanged || sourcesChanged || usageChanged) render();
+    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -1596,7 +1604,12 @@ function renderAgents() {
     ? h("div", { class: "table-wrap sticky-head" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
-  if (!planMode) return [strip, toolbar, table];
+  const inventory = Object.entries(state.ownerInventory || {})
+    .filter(([, entry]) => !r.ws || entry.slug === r.ws);
+  const inventoryNote = inventory.length ? h("p", { class: "muted" },
+    "用户补采 · user-cli:desktop-api.multica.ai · ",
+    inventory.map(([, entry]) => `${entry.slug}: ${entry.status === "ok" ? "成功" : "失败（使用常规缓存）"} · ${entry.collected_at || "未知时间"}`).join("； ")) : null;
+  if (!planMode) return [strip, inventoryNote, toolbar, table];
   const selected = selectedAgentRecords();
   const outside = outsideCount(parseSel(r.sel), rows.map((row) => row.a.id));
   const bar = h(
