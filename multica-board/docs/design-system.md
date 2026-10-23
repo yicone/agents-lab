@@ -167,7 +167,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 
 **单一详情抽屉**（`renderSkillDrawer`）
 
-- 一个对象一种抽屉。抽屉头：等宽名字 + 范围标签 + 关闭 ×；下面 `h2.drawer-title`。
+- 一个对象一种抽屉。抽屉头：等宽名字 + 范围标签 + 关闭 ×；下面 `h2.drawer-title`。例外：Grok Bot 名称声明行用的是同一个抽屉函数，但节的组成不同（`skills.js:839–844`），依次是证据范围、使用此技能的 Bot、正文 / 版本 / Runtime（都标「不适用」）、同名关联。
 - 正文按节（`section()` → `h3.drawer-sub`），顺序是：来源与权责 → 基线与版本 → 共享入口 → 各类入口 → 对账发现 → 定制与兼容约束 → 正文 → 跨层（Multica Workspace）→ 在终端处理。规则：先讲「它是什么、谁管」，再讲「现在什么状态、证据是什么」，最后才是「怎么处理」。
 - 字段一行一个（`line()`：灰色标签 + 等宽值，没有值写「—」）。
 - 大块内容按需加载：正文点「查看正文」才请求，原文、文件树、diff 放在 `<details>` 里，重绘时保留展开状态（`data-skill-detail`）。
@@ -447,7 +447,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 - **G4** 提示条有四种做法：`.banner`、`.skills-anomaly`（黄字）、`.decide-note`（正文色）、`.usage-gap`。
 - **G5** 「显示其余 N 条」：Issues 能收起、每栏 30 条，Skills 展开后不能收起、每组 8 条。
 - **G6** 顶栏角标颜色：待你决定和 MCP 黄色，Skills 红色（`.tab-badge.skills`）。
-- **G7** 复制有四份实现：`skills.js` 的 `copyCommand`（没有回退）、`app.js` 的 `copyText`（有 textarea 回退，MCP 用它）、`agents-view.js` 的 `copyButton`、`view-atlas.js` 的 `drawerCommands` 内联。失败文案有「复制失败」和「请手抄」两种。
+- **G7** 直接调用剪贴板的有 3 处：`skills.js` 的 `copyCommand`（没有回退）、`app.js` 的 `copyText`（有 textarea 回退）、`view-atlas.js` 的 `drawerCommands`（内联）。另有 3 个包装，都调用 `copyText`：`agents-view.js` 的 `copyButton`、`plan.js` 的 `copyButton`，以及 `app.js` 里 `mcpCtx()` 的 `copyCommand`（MCP 用它）。失败文案有「复制失败」和「请手抄」两种。
 - **G8** 命令格式：Skills 的 workspace 命令和 MCP 命令带 `--workspace-id <uuid>`；Agents 抽屉的 `agent update`、`agent skills add/set` 不带；改层命令用 identifier，也不带 workspace。
 - **G9** 只读提示有五种说法：Skills「页面只读，不代为执行。复制命令后在自己的终端运行。」和「页面只读，不替代命令行。」，Agents「页面只读。复制后在自己的终端执行。」，issue 抽屉「页面只读。复制命令改属性，下一轮采集后生效。」，MCP 顶部的 `READONLY_LINE`。
 - **G10** 旧数据的不透明度有三个值：`.is-stale` 0.62、`.mcp-ws.is-stale` 0.65、`.plan-expired` / `.is-dim` 0.55。
