@@ -1,4 +1,4 @@
-"""Loopback-only, GET-only JSON API (contract v0.6) plus the static web/ frontend."""
+"""Explicit-host, GET-only JSON API (contract v0.6) plus the static web/ frontend."""
 
 from __future__ import annotations
 
@@ -33,21 +33,58 @@ STATIC_CSP = (
 API_CSP = "default-src 'none'; frame-ancestors 'none'"
 
 
-def assert_loopback(host: str) -> None:
+def split_values(values: list[str] | None, default: list[str]) -> list[str]:
+    """Expand repeatable comma-separated CLI options without silently dropping typos."""
+    result = [part.strip() for value in (values if values is not None else default)
+              for part in value.split(",")]
+    if not result or any(not value for value in result):
+        raise ValueError("host lists must not contain empty entries")
+    return list(dict.fromkeys(result))
+
+
+def authority(value: str, default_port: int | None = None) -> str:
+    """Validate an exact host[:port], never a URL, wildcard or credential string."""
+    if not value or re.search(r"[\s/@?#\\%*]", value):
+        raise ValueError(f"invalid allowed host: {value!r}")
     try:
-        ok = ipaddress.ip_address(host).is_loopback and host in LOOPBACK_HOSTS
-    except ValueError:
-        ok = False
-    if not ok:
-        raise ValueError(f"refusing to bind {host!r}: only 127.0.0.1 or ::1 are allowed")
+        parsed = urlsplit("//" + value)
+        hostname, port = parsed.hostname, parsed.port
+        if not hostname or parsed.path or parsed.query or parsed.fragment:
+            raise ValueError
+        if ":" in hostname:
+            hostname = str(ipaddress.IPv6Address(hostname))
+            name = f"[{hostname}]"
+        else:
+            if not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?", hostname):
+                raise ValueError
+            if any(not label or len(label) > 63 or label.startswith("-") or label.endswith("-")
+                   for label in hostname.split(".")):
+                raise ValueError
+            name = hostname.lower()
+        if value.endswith(":") or (port is not None and not 1 <= port <= 65535):
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError(f"invalid allowed host: {value!r}") from exc
+    port = port if port is not None else default_port
+    return f"{name}:{port}" if port is not None else name
+
+
+def listen_hosts(values: list[str] | None) -> list[str]:
+    hosts = split_values(values, ["127.0.0.1"])
+    for host in hosts:
+        # Numeric IPs avoid ambiguous DNS binding and IPv4/IPv6 selection.
+        ipaddress.ip_address(host)
+    return hosts
 
 
 class BoardServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, host: str, port: int, views: Views, static_dir: Path | None = None, *, plan_dir: Path | None = None):
-        assert_loopback(host)
-        if host == "::1":
+    def __init__(self, host: str, port: int, views: Views, static_dir: Path | None = None, *,
+                 plan_dir: Path | None = None, allowed_hosts: list[str] | None = None):
+        ip = ipaddress.ip_address(host)
+        configured = [authority(value) for value in (allowed_hosts or [])]
+        if ip.version == 6:
             self.address_family = socket.AF_INET6
         self.views = views
         from .plans import Plans
@@ -55,7 +92,29 @@ class BoardServer(ThreadingHTTPServer):
         self.static_dir = static_dir.resolve() if static_dir else None
         super().__init__((host, port), Handler)
         bound_port = self.server_address[1]
-        self.allowed_hosts = {f"[::1]:{bound_port}"} if host == "::1" else {f"127.0.0.1:{bound_port}"}
+        defaults = ([f"[{host}]"] if host == "::1" else ["127.0.0.1"])
+        if host not in LOOPBACK_HOSTS:
+            defaults.append("[::1]")
+        self.allowed_hosts = {authority(value, bound_port) for value in defaults + configured}
+
+    def server_bind(self) -> None:
+        if self.address_family == socket.AF_INET6:
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        super().server_bind()
+
+
+def bind_servers(hosts: list[str], port: int, views: Views, **kwargs: Any) -> list[BoardServer]:
+    """Bind every listener before serving; on any failure release all prior sockets."""
+    servers: list[BoardServer] = []
+    try:
+        for host in hosts:
+            server = BoardServer(host, servers[0].server_port if servers else port, views, **kwargs)
+            servers.append(server)
+    except Exception:
+        for server in servers:
+            server.server_close()
+        raise
+    return servers
 
 
 STATIC_ROUTES: dict[str, Callable[[Views], Any]] = {
@@ -111,14 +170,27 @@ class Handler(BaseHTTPRequestHandler):
     # --- core ---------------------------------------------------------------
 
     def _guard(self) -> bool:
-        host = (self.headers.get("Host") or "").lower()
+        hosts = self.headers.get_all("Host", [])
+        try:
+            host = authority(hosts[0]) if len(hosts) == 1 else None
+        except ValueError:
+            host = None
         if host not in self.server.allowed_hosts:
             self._error(HTTPStatus.MISDIRECTED_REQUEST, "bad_host", "unexpected Host header")
             return False
-        origin = self.headers.get("Origin")
-        if origin and urlsplit(origin).netloc.lower() not in self.server.allowed_hosts:
-            self._error(HTTPStatus.FORBIDDEN, "cross_origin", "cross-origin requests are not allowed")
-            return False
+        origins = self.headers.get_all("Origin", [])
+        if origins:
+            try:
+                origin = urlsplit(origins[0])
+                valid = (len(origins) == 1 and not re.search(r"[\s\x00-\x1f\x7f?#]", origins[0]) and origin.scheme in ("http", "https")
+                         and not (origin.path or origin.query or origin.fragment)
+                         and authority(origin.netloc, 443 if origin.scheme == "https" else 80)
+                         in self.server.allowed_hosts)
+            except ValueError:
+                valid = False
+            if not valid:
+                self._error(HTTPStatus.FORBIDDEN, "cross_origin", "unexpected Origin header")
+                return False
         path = urlsplit(self.path).path
         is_api = path == "/api" or path.startswith("/api/")
         page_navigation = (

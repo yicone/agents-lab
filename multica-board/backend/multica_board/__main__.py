@@ -18,7 +18,7 @@ from pathlib import Path
 from .cli_runner import CliError, CliRunner
 from .collector import COLLECTOR, CollectOptions, Collector, iso, utcnow
 from .redact import redact
-from .server import BoardServer
+from .server import authority, bind_servers, listen_hosts, split_values
 from .store import Store
 from .usage import DEFAULT_CODEXBAR, HISTORY_RETENTION_DAYS, UsageCollector, paths_beside
 from .views import Views
@@ -124,6 +124,10 @@ def cmd_collect_usage(a: argparse.Namespace) -> int:
 
 
 def cmd_serve(a: argparse.Namespace) -> int:
+    if not 0 <= a.port <= 65535:
+        raise ValueError("port must be between 0 and 65535")
+    hosts = listen_hosts(a.host)
+    allowed = [authority(value) for value in split_values(a.allowed_host, [])] if a.allowed_host else []
     # Best-effort display metadata only. Preserve the collector's profile routing
     # and allow offline/cache-only startup when identity cannot be resolved.
     runner = _runner(a)
@@ -137,7 +141,12 @@ def cmd_serve(a: argparse.Namespace) -> int:
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh,
                   server_identity=origin, mcp_every=a.mcp_every, mcp_ctx=mcp_ctx)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
-    httpd = BoardServer(a.host, a.port, views, static_dir=static, plan_dir=a.plan_dir)
+    try:
+        servers = bind_servers(hosts, a.port, views, static_dir=static, plan_dir=a.plan_dir,
+                               allowed_hosts=allowed)
+    except Exception:
+        store.close()
+        raise
     stop = threading.Event()
 
     def refresher() -> None:
@@ -163,17 +172,27 @@ def cmd_serve(a: argparse.Namespace) -> int:
 
     def _shutdown(*_: object) -> None:
         stop.set()
-        threading.Thread(target=httpd.shutdown, daemon=True).start()
+        for httpd in servers:
+            threading.Thread(target=httpd.shutdown, daemon=True).start()
 
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
-    host, port = httpd.server_address[:2]
-    shown = f"[{host}]" if ":" in host else host
-    log.info("serving read-only board on http://%s:%s (static: %s)", shown, port, static or "none")
-    print(f"multica-board listening on http://{shown}:{port}", flush=True)
-    httpd.serve_forever()
-    httpd.server_close()
-    store.close()
+    threads = [threading.Thread(target=httpd.serve_forever, name="http", daemon=True)
+               for httpd in servers]
+    try:
+        for httpd, thread in zip(servers, threads):
+            thread.start()
+            host, port = httpd.server_address[:2]
+            shown = f"[{host}]" if ":" in host else host
+            log.info("serving read-only board on http://%s:%s (static: %s)", shown, port, static or "none")
+            print(f"multica-board listening on http://{shown}:{port}", flush=True)
+        for thread in threads:
+            thread.join()
+    finally:
+        stop.set()
+        for httpd in servers:
+            httpd.server_close()
+        store.close()
     return 0
 
 
@@ -197,10 +216,11 @@ def main(argv: list[str] | None = None) -> int:
     u.add_argument("--codexbar-bin", default=DEFAULT_CODEXBAR, help=f"codexbar binary (default {DEFAULT_CODEXBAR})")
     u.add_argument("--history-days", type=int, default=HISTORY_RETENTION_DAYS, help="usage history retention in days (default 90)")
 
-    s = sub.add_parser("serve", help="serve the read-only API on loopback and refresh in the background")
+    s = sub.add_parser("serve", help="serve the read-only API and refresh in the background")
     _common(s)
     _collect_args(s)
-    s.add_argument("--host", default="127.0.0.1", help="127.0.0.1 (default) or ::1; anything else is refused")
+    s.add_argument("--host", action="append", help="numeric listen IP; repeat or comma-separate (default 127.0.0.1)")
+    s.add_argument("--allowed-host", action="append", help="exact host[:port] to allow in Host and Origin; repeat or comma-separate; omitted port uses listen port")
     s.add_argument("--port", type=int, default=8787)
     s.add_argument("--refresh", type=int, default=60, help="seconds between collect cycles; 0 serves cache only")
     s.add_argument("--full-every", type=int, default=30, help="every Nth cycle is a full run-history pass")

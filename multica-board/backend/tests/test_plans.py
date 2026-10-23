@@ -173,7 +173,7 @@ class ContractTests(unittest.TestCase):
         )
         a = Mock()
         a.profile, a.app_url, a.refresh = "custom-profile", "https://web.example.test", 0
-        a.static_dir, a.host, a.port = None, "127.0.0.1", 0
+        a.static_dir, a.host, a.port, a.allowed_host = None, ["127.0.0.1"], 0, None
         captured = {}
         class Server:
             server_address = ("127.0.0.1", 0)
@@ -186,7 +186,7 @@ class ContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             a.db, a.plan_dir = Path(temp) / "board.sqlite", Path(temp) / "plans"
             from multica_board.__main__ import cmd_serve
-            with patch("multica_board.__main__._runner", return_value=runner), patch("multica_board.__main__.BoardServer", Server):
+            with patch("multica_board.__main__._runner", return_value=runner), patch("multica_board.server.BoardServer", Server):
                 self.assertEqual(cmd_serve(a), 0)
         self.assertEqual(captured["meta"]["server_identity"], ORIGIN)
         self.assertIsNone(runner.server_url)
@@ -216,10 +216,10 @@ class ContractTests(unittest.TestCase):
             return_value=subprocess.CompletedProcess([], 1, "", "offline")))
         with tempfile.TemporaryDirectory() as temp:
             a = Mock(profile="custom", app_url="https://web.example.test", refresh=0,
-                     static_dir=None, host="127.0.0.1", port=0,
+                     static_dir=None, host=["127.0.0.1"], allowed_host=None, port=0,
                      db=Path(temp)/"board.sqlite", plan_dir=Path(temp)/"plans")
             with patch("multica_board.__main__._runner", return_value=runner), \
-                 patch("multica_board.__main__.BoardServer", Server), \
+                 patch("multica_board.server.BoardServer", Server), \
                  patch("multica_board.__main__.signal.signal"):
                 self.assertEqual(cmd_serve(a), 0)
         self.assertEqual(captured["status"], 200)

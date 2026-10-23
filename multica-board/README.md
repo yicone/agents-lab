@@ -1,6 +1,6 @@
 # Multica Board
 
-本地只读、跨 workspace 的 Multica 看板（ACM-161 第一阶段）。只监听 `127.0.0.1`，没有任何写接口。
+本地只读、跨 workspace 的 Multica 看板（ACM-161 第一阶段）。默认只监听 `127.0.0.1`，可显式开放受信任网络访问，没有任何写接口。
 
 ```text
 multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multica-board）→ 127.0.0.1 上的 GET-only API + 静态页面
@@ -86,7 +86,8 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 | `--run-days` | `14` | run 缓存窗口（`latest_run=null` 表示窗口内没有 run） |
 | `--max-task-pages` | `10` | 每个 agent 每轮最多翻几页（每页 200 条） |
 | `--concurrency` / `--max-cli` | `3` / `4` | 并行的 workspace（及 agent）数 / 同时运行的 `multica` 进程上限 |
-| `--port` / `--host` | `8787` / `127.0.0.1` | host 只接受 `127.0.0.1` 或 `::1` |
+| `--port` / `--host` | `8787` / `127.0.0.1` | host 为数字 IP，可重复或逗号分隔；多个监听共享端口，IPv6 独立于 IPv4 |
+| `--allowed-host` | 对应回环地址及监听端口 | 追加精确 `host[:port]`，可重复或逗号分隔；不填端口则用监听端口，无通配符 |
 | `--static-dir` | `../web` | `/` 下托管的前端目录 |
 | `--app-url` | `https://multica.ai` | 深链前缀：`{app_url}/{slug}/issues/{issue_uuid}`、`{app_url}/{slug}/agents/{agent_uuid}` |
 
@@ -108,7 +109,7 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 
 ## 安全边界
 
-- **只监听回环地址**：只能绑定 `127.0.0.1` / `::1`。`Host` 只接受 `127.0.0.1:<port>`（绑 `::1` 时为 `[::1]:<port>`），其它返回 `421`。跨源 `Origin` 或 `Sec-Fetch-Site: cross-site` 返回 `403`。不发 CORS 头。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。
+- **默认回环，显式开放**：默认只绑定 `127.0.0.1`，只接受 `Host: 127.0.0.1:<port>`；绑 `::1` 时默认为 `[::1]:<port>`。非回环监听默认仍只放行回环 Host，必须用 `--allowed-host` 追加实际访问地址。监听地址不会自动加入白名单；`0.0.0.0` / `::` 不代表任意 Host。Host 不匹配返回 `421`，重复 Host 也拒绝；Origin 若存在，只接受 HTTP(S) 且其地址和有效端口必须匹配同一白名单，畸形、重复或未知 Origin 返回 `403`。没有 Origin 的 GET/HEAD（普通导航、CLI）仍可用。`Sec-Fetch-Site: cross-site` 的 API / 子资源请求继续返回 `403`，保留已有顶层页面导航例外。不发 CORS 头，白名单不会开放跨站 fetch。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。
 - **没有写接口**：HTTP 只有 GET/HEAD。CLI 只能执行精确白名单（`workspace list`、`workspace member list`、`issue list`、`project list`、`agent list`、`agent tasks`、`runtime list`、`property list`），白名单外的命令在启动进程前就被拒绝；调用方也不能注入 `--profile` / `--workspace-id` / `--server-url`。没有“立即刷新”接口。`suggest_layers` 另外只允许 `issue list`、`project list`、`property list`，用来出回填建议，不写属性。
 - **MCP 配置文件只按声明读**：后端只读 `config/mcp-sources.json` 声明的本机/项目级 MCP 配置文件（相对路径，逐目录 fd 打开、`O_NOFOLLOW` 不跟随符号链接、只读固定白名单字段、值只在内存里解析；不入 SQLite、不进 API、不进日志）。指纹比较用 `<db 目录>/mcp-fingerprint.key`（0600、属主/链接/长度校验，拒绝就停用指纹）；自有配置指纹只在进程内存。不读 CLI 配置或 token。子进程 env 去掉 `MULTICA_TOKEN`、`MULTICA_SERVER_URL`、`MULTICA_TASK_*`、`MULTICA_WORKSPACE_ID`，加 `GODEBUG=tlsmlkem=0`，每次调用都带 `--profile <p> --workspace-id <id>`。子进程 cwd 固定为一个空的私有临时目录：CLI 会从 cwd 向上查找 `.multica` 并覆盖 `--profile`，所以从哪个目录启动看板都不影响采集。不缓存：issue 正文、agent instructions、custom_env/args、mcp_config、runtime_config、launch_header、run 输出与 workdir、成员邮箱。错误文本脱敏（Bearer/PAT/`m??_` token、`sk-`、`ghp_`、JWT、`key=value`、长 hex/base64、home 路径）。缓存目录 `0700`，文件 `0600`。
 - **workspace 隔离**：返回行的 `workspace_id` 和请求的不一致时，整批丢弃，该 workspace 标 `collect_state=error`、`kind=auth`（"CLI identity scoped to another workspace"）。一个 workspace 失败不影响其他 workspace，旧缓存保留并标为过期，不会显示成 0 条。
@@ -116,3 +117,25 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 ## 不在本期
 
 批量切换 runtime（第二阶段）、run transcript、评论正文、squad。
+
+### 局域网 / Tailscale 访问与切换草稿
+
+**只在受信任的局域网或 tailnet 中使用。** Board 没有登录认证；白名单防止意外 Host / 浏览器跨站访问，不是客户端身份验证。能连到端口的客户端可以自行设置 Host 并读取缓存数据。请用防火墙 / Tailscale ACL 限制客户端，不映射到公网。优先绑定具体网卡 IP；`0.0.0.0` 会开放所有 IPv4 网卡。不要同时绑定 `0.0.0.0` 和具体 IPv4 地址，否则端口冲突会使整个启动失败。
+
+```sh
+# 保留回环并直连 LAN / Tailscale IP；替换所有占位地址
+python3 -m multica_board serve --all-workspaces --port 8765 \
+  --host 127.0.0.1 --host <LAN_IP>,<TAILSCALE_IP> \
+  --allowed-host <LAN_IP>,<TAILSCALE_IP> \
+  --allowed-host tr-mini-m4.tailc98f73.ts.net:8443
+```
+
+白名单条目是地址，不是 URL；IPv6 用 `[IPv6]:端口`。不带端口的条目绑定到服务实际端口（包括 `--port 0` 的临时端口），显式端口适用于 Tailscale Serve 等反代外部入口。Host 精确匹配地址和端口（域名不区分大小写），不匹配子域名；Origin 的 HTTP/HTTPS 默认端口按 80/443 处理。不信任 `X-Forwarded-Host` / `X-Forwarded-For`。
+
+由 Steward 审阅后执行，当前实现交付不会操作 LaunchAgent 或重启 8765：
+
+1. 备份 Board 启动配置、两个转发器配置和 Tailscale Serve 当前配置。核对 `one.yic.multica-board` 的实际启动链：若 LaunchAgent 调用 App / 壳脚本，应在最终 `python -m multica_board serve` 参数处追加以上 `--host` / `--allowed-host`，每个参数独立成 argv，不把整行放入一个 plist 字符串。保留现有 DB、workspace、采集等参数。
+2. 将审核通过的本地提交按正常流程纳入部署版本，再由 Steward 重启 Board。先验证回环与手机 LAN / tailnet 直连 `:8765`，未知 Host 应为 421、未知 Origin 应为 403、POST 应为 405。
+3. 将既有 Tailscale Serve 的 HTTPS `:8443` 后端从 `127.0.0.1:8766` 改为 `127.0.0.1:8765`，保持 tailnet-only、不开 Funnel。具体命令先按机器上 `tailscale serve --help` 核对；确认代理保留的实际 Host 与白名单一致，不依赖转发器改写。手机验证 HTTPS 页面与 API 加载。
+4. 全部通过后，再卸载 `one.yic.atlas-lan-forward` 和 `one.yic.atlas-ts-forward` 的 launchd 作业，禁用对应自动启动配置，保留备份；先不删除 `~/.local/bin/lan-forward.py`。确认 8766 转发监听消失，8765 和 HTTPS 8443 继续可用。
+5. 失败时恢复原 Board 启动参数 / 部署版本、两个转发器作业和 Tailscale Serve 的旧后端，再验证原有入口。网卡 IP 变化时需同步更新绑定与白名单。
