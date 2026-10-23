@@ -3,6 +3,7 @@
 Usage (from multica-board/): python3 -m http.server 8799 --bind 127.0.0.1 &
                              python3 docs/mcp-redesign/shoot.py
 Needs Python Playwright + local Chrome, and Pillow. Never points at a real backend.
+Also prints the mock's table container / content widths per viewport (design doc §2, §15).
 """
 
 from __future__ import annotations
@@ -27,8 +28,18 @@ PAIRS = [
     ("compare-390", 390, 844, "light", (SKILLS, False), (MOCK, False), "Skills 390px", "MCP 390px"),
     ("compare-dark-1440", 1440, 900, "dark", (SKILLS, False), (MOCK, False), "Skills 深色", "MCP 深色"),
     ("v1-vs-redesign-1440", 1440, 900, "light", (V1_MCP, False), (MOCK, False), "v1 MCP（?mock=mcp）", "MCP 重做设计稿"),
-    ("copy-fail-1440", 1440, 900, "light", (MOCK + "?drawer=1&scroll=1", False), (MOCK + "?drawer=1&copyfail=1", False), "复制前", "复制失败 + 选中回退"),
+    ("copy-fail-1440", 1440, 900, "light", (MOCK + "?drawer=1&scroll=copy", False), (MOCK + "?drawer=1&copyfail=1", False), "复制前", "复制失败 + 选中回退"),
 ]
+
+SINGLES = [
+    ("state-partial-1440", 1440, 900, MOCK + "?state=partial"),
+    ("state-unknown-1440", 1440, 900, MOCK + "?state=unknown"),
+    ("state-warn-1440", 1440, 900, MOCK + "?state=warn"),
+    ("scroll-right-1440", 1440, 900, MOCK + "?scroll=right"),
+    ("mock-390-table", 390, 844, MOCK + "?scroll=table"),
+]
+
+MEASURE = [(1440, 900), (1100, 900), (390, 844)]
 
 
 async def shot(browser, url: str, width: int, height: int, scheme: str, open_drawer: bool) -> Image.Image:
@@ -41,6 +52,26 @@ async def shot(browser, url: str, width: int, height: int, scheme: str, open_dra
     data = await page.screenshot()
     await page.close()
     return Image.open(BytesIO(data)).convert("RGB")
+
+
+async def measure(browser, width: int, height: int) -> str:
+    page = await browser.new_page(viewport={"width": width, "height": height})
+    await page.goto(MOCK)
+    await page.wait_for_timeout(600)
+    m = await page.evaluate(
+        """() => {
+          const wrap = document.querySelector('.table-wrap');
+          wrap.scrollLeft = wrap.scrollWidth;
+          const last = document.querySelector('.skills-table thead th:last-child').getBoundingClientRect();
+          const box = wrap.getBoundingClientRect();
+          return { client: wrap.clientWidth, content: wrap.scrollWidth,
+                   page: document.documentElement.scrollWidth,
+                   lastVisible: last.left >= box.left - 1 && last.right <= box.right + 1 };
+        }"""
+    )
+    await page.close()
+    return (f"{width}px: table {m['client']}/{m['content']}px, page {m['page']}px, "
+            f"consistency column visible after scrolling right: {m['lastVisible']}")
 
 
 def font(size: int):
@@ -74,6 +105,11 @@ async def main() -> None:
             right = await shot(browser, right_url, width, height, scheme, right_drawer)
             side_by_side(left, right, left_label, right_label).save(OUT / f"{name}.png", optimize=True)
             print(name)
+        for name, width, height, url in SINGLES:
+            (await shot(browser, url, width, height, "light", False)).save(OUT / f"{name}.png", optimize=True)
+            print(name)
+        for width, height in MEASURE:
+            print(await measure(browser, width, height))
         await browser.close()
 
 

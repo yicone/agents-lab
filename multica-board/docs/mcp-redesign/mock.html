@@ -6,16 +6,19 @@
   <title>Agent Atlas · MCP 重做设计稿（ACM-378，fake 数据）</title>
   <link rel="icon" href="../../web/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../../web/styles.css">
-  <!-- 设计稿预览：本单新增的三个类，实现时写进 styles.css 的 skills 段之后 -->
+  <!-- 设计稿预览：本单新增的四个类，实现时写进 styles.css 的 skills 段之后 -->
   <style>
     .tab-badge.tone-bad { background: var(--bad); color: var(--bg); }
+    .tab-badge.tone-unknown { background: var(--panel-2); color: var(--muted); border: 1px dashed var(--faint); }
     .warn-n { color: var(--warn); font-weight: 600; }
     .tool-mark.off { color: var(--muted); }
     .tool-mark.off sup { font-size: 9px; color: var(--muted); margin-left: 1px; }
   </style>
 </head>
 <body>
-  <!-- 静态设计稿：全部是虚构数据，不连接后端，不读取任何真实配置。?drawer=1 打开抽屉，?copyfail=1 演示复制失败回退。 -->
+  <!-- 静态设计稿：全部是虚构数据，不连接后端，不读取任何真实配置。
+       ?drawer=1 打开抽屉；?copyfail=1 复制失败回退；?state=partial|unknown|warn 三种状态；?scroll=right|table|copy 滚动位置。
+       行 id 是虚构的行 id（第 3.6 节），不是名字。 -->
   <header class="topbar">
     <div class="topbar-row">
       <h1 class="brand"><img class="brand-mark" src="../../web/favicon.svg" width="16" height="16" alt="Agent Atlas">Agent Atlas</h1>
@@ -25,9 +28,9 @@
         <a class="tab" href="#">Issues <kbd>3</kbd></a>
         <a class="tab" href="#">Agents <kbd>4</kbd></a>
         <a class="tab" href="#">Skills <span class="tab-badge skills">4</span> <kbd>5</kbd></a>
-        <a class="tab active" aria-current="page" href="#">MCP <span class="tab-badge tone-bad" title="MCP 待处理 6 条：坏了 4 · 待你处理 2" aria-label="待处理 6 条，其中 4 条坏了">6</span> <kbd>6</kbd></a>
+        <a class="tab active" aria-current="page" href="#">MCP <span id="mcp-badge" class="tab-badge tone-bad" title="MCP 待处理 6 条：坏了 4 · 待你处理 2" aria-label="MCP 待处理 6 条：坏了 4 · 待你处理 2">6</span> <kbd>6</kbd></a>
       </nav>
-      <span class="snapshot ok" title="Multica 2026/10/24 01:58 · 本机扫描 2026/10/24 02:01"><span class="dot"></span>MCP 快照 3 分钟前 · 本机扫描 刚刚<span class="mock">设计稿</span></span>
+      <span id="snapshot" class="snapshot ok" title="Multica 2026/10/24 01:58 · 本机扫描 2026/10/24 02:01"><span class="dot"></span>MCP 快照 3 分钟前 · 本机扫描 刚刚<span class="mock">设计稿</span></span>
       <label class="search">
         <span class="visually-hidden">搜索</span>
         <input type="search" placeholder="搜索 server / 工具 / workspace / agent" autocomplete="off" spellcheck="false">
@@ -37,23 +40,23 @@
     <div class="banner" role="alert" hidden></div>
     <div class="health" aria-label="MCP 范围" data-filter-chrome="mcp">
       <p class="scope-note">范围：本机各工具全局 MCP 配置、agents-lab 项目级配置，以及全部 Multica Workspace 的库与 agent。workspace 筛选不作用于这一页。</p>
-      <span class="src-chip state-ok" title="9 个文件：8 已读 · 1 不存在"><span class="dot"></span>本机配置<span class="chip-detail">8 已读 · 1 不存在</span></span>
-      <span class="src-chip state-ok" title="agents-lab：2 个文件有 MCP · 3 个不存在"><span class="dot"></span>仓库项目级<span class="chip-detail">2 有 · 3 不存在</span></span>
-      <span class="src-chip state-ok" title="本机密钥加盐哈希，只比较指纹，不输出取值"><span class="dot"></span>配置指纹<span class="chip-detail">只比哈希</span></span>
-      <span class="src-chip state-ok" title="4 个 Workspace · 3 分钟前"><span class="dot"></span>Multica 库<span class="chip-detail">4 个 Workspace</span></span>
-      <span class="src-chip state-ok" title="3 分钟前"><span class="dot"></span>Agent 分配<span class="chip-detail">3 分钟前</span></span>
-      <span class="src-chip state-warn" title="ACM Lab 有 1 个 agent 的自有配置对当前身份不可见"><span class="dot"></span>Agent 自有配置<span class="chip-detail">1 个不可见</span></span>
-      <span class="src-chip state-ok" title="multica v0.6.5 packages/core/agents/mcp-support.ts，源码确认，未实测"><span class="dot"></span>Runtime 加载表<span class="chip-detail">v0.6.5</span></span>
+      <span class="src-chip state-ok" data-src="local" title="9 个文件：8 已读 · 1 不存在"><span class="dot"></span>本机配置<span class="chip-detail">8 已读 · 1 不存在</span></span>
+      <span class="src-chip state-ok" data-src="project" title="agents-lab：2 个文件有 MCP · 3 个不存在"><span class="dot"></span>仓库项目级<span class="chip-detail">2 有 · 3 不存在</span></span>
+      <span class="src-chip state-ok" data-src="fp" title="本机密钥加盐哈希，只比较指纹，不输出取值"><span class="dot"></span>配置指纹<span class="chip-detail">只比哈希</span></span>
+      <span class="src-chip state-ok" data-src="library" title="4 个 Workspace · 3 分钟前"><span class="dot"></span>Multica 库<span class="chip-detail">4 个 Workspace</span></span>
+      <span class="src-chip state-ok" data-src="bindings" title="3 分钟前"><span class="dot"></span>Agent 分配<span class="chip-detail">3 分钟前</span></span>
+      <span class="src-chip state-ok" data-src="own" title="全部 agent 的自有配置可见"><span class="dot"></span>Agent 自有配置<span class="chip-detail">全部可见</span></span>
+      <span class="src-chip state-ok" data-src="support" title="multica v0.6.5 packages/core/agents/mcp-support.ts，源码确认，未实测"><span class="dot"></span>Runtime 加载表<span class="chip-detail">v0.6.5</span></span>
     </div>
   </header>
 
   <main class="main">
     <div class="source-grid">
-      <button type="button" class="source-card active" aria-pressed="true" title="全部"><span class="source-label">全部</span><strong>11</strong><span class="source-recon"><span class="bad-n">损坏 1</span><span class="warn-n">不一致 2</span><span class="muted">一致 4</span><span class="muted">仅一处 1</span><span class="muted">不可比 3</span></span></button>
-      <button type="button" class="source-card" aria-pressed="false" title="本机和 Multica 都有同名 server"><span class="source-label">本机 + Multica</span><strong>3</strong><span class="source-recon"><span class="warn-n">不一致 1</span><span class="muted">一致 2</span></span></button>
-      <button type="button" class="source-card" aria-pressed="false" title="只在本机或仓库项目级配置里"><span class="source-label">仅本机</span><strong>5</strong><span class="source-recon"><span class="bad-n">损坏 1</span><span class="warn-n">不一致 1</span><span class="muted">一致 2</span><span class="muted">仅一处 1</span></span></button>
-      <button type="button" class="source-card" aria-pressed="false" title="只在 Multica 库或 agent 自有配置里"><span class="source-label">仅 Multica</span><strong>3</strong><span class="source-recon"><span class="muted">不可比 3</span></span></button>
-      <button type="button" class="source-card" aria-pressed="false" title="agents-lab 项目级文件里有同名条目（与其他来源重叠）"><span class="source-label">仓库项目级 · agents-lab</span><strong>2</strong><span class="source-recon"><span class="warn-n">不一致 1</span><span class="muted">一致 1</span></span></button>
+      <button type="button" class="source-card active" aria-pressed="true" title="全部" data-card="all"><span class="source-label">全部</span><strong>13</strong><span class="source-recon"><span class="bad-n">损坏 1</span><span class="warn-n">不一致 2</span><span class="muted">一致 4</span><span class="muted">仅一处 3</span><span class="muted">不可比 3</span></span></button>
+      <button type="button" class="source-card" aria-pressed="false" title="本机和 Multica 都有同名 server" data-card="both"><span class="source-label">本机 + Multica</span><strong>3</strong><span class="source-recon"><span class="warn-n">不一致 1</span><span class="muted">一致 2</span></span></button>
+      <button type="button" class="source-card" aria-pressed="false" title="只在本机或仓库项目级配置里" data-card="local_only"><span class="source-label">仅本机</span><strong>7</strong><span class="source-recon"><span class="bad-n">损坏 1</span><span class="warn-n">不一致 1</span><span class="muted">一致 2</span><span class="muted">仅一处 3</span></span></button>
+      <button type="button" class="source-card" aria-pressed="false" title="只在 Multica 库或 agent 自有配置里" data-card="multica_only"><span class="source-label">仅 Multica</span><strong>3</strong><span class="source-recon"><span class="muted">不可比 3</span></span></button>
+      <button type="button" class="source-card" aria-pressed="false" title="agents-lab 项目级文件里有同名条目（与其他来源重叠）" data-card="project"><span class="source-label">仓库项目级 · agents-lab</span><strong>2</strong><span class="source-recon"><span class="warn-n">不一致 1</span><span class="muted">一致 1</span></span></button>
     </div>
 
     <div class="toolbar">
@@ -64,13 +67,13 @@
       <label class="check"><input type="checkbox">只看已分配给 agent</label>
     </div>
 
-    <div class="skills-anomaly" role="status"><div>Agent 自有配置：ACM Lab 有 1 个 agent 对当前身份不可见，涉及它的同名覆盖无法判断</div></div>
+    <div id="anomaly" class="skills-anomaly" role="status" hidden></div>
 
     <div class="skills-legend">
-      <span class="legend-group"><strong>本机工具 </strong>● 该工具全局配置里有同名条目 · ●<sup>停</sup> 条目显式停用 · ✕ 条目损坏（缺 command 和 url，或类型无法识别） · ? 无法确定（文件无权限、解析失败） · ∅ 不适用（仅在 Multica） · 空白：已读该文件，没有同名条目，仍可能来自该工具的其他配置层。列头数字是 ● 的个数。路径证据不代表 runtime 实际加载。</span>
+      <span class="legend-group"><strong>本机工具 </strong>● 该工具全局配置里有同名条目 · ●<sup>停</sup> 条目显式停用 · ✕ 条目损坏（有这个条目但不能用：缺 command 和 url、类型无法识别、字段类型不对；对应 Skills 的「入口不在」） · ? 无法确定（文件没读到：无权限、符号链接、非普通文件、解析失败等），这一列不参与判断 · ∅ 不适用（确定只在 Multica） · 空白：已读该文件，没有同名条目，仍可能来自该工具的其他配置层。列头数字是 ● 的个数，? 表示文件没读到。路径证据不代表 runtime 实际加载。</span>
       <span class="legend-group"><strong>仓库入口 </strong>agents-lab 项目级文件（.mcp.json / .cursor / .codex / .gemini / opencode.json）</span>
       <span class="legend-group"><strong>Multica Workspace </strong>各 Workspace 的库条目和已启用的 Agent；「自有」是 agent 自有配置里的同名 server。— 表示 Multica MCP 未采集。</span>
-      <span class="legend-group"><strong>一致性 </strong>只比较配置指纹（本机密钥加盐哈希），不显示取值、env、header 或 token。Multica 库条目只写不读，标「不可比」。</span>
+      <span class="legend-group"><strong>一致性 </strong>只比较配置指纹（本机密钥加盐哈希），不显示取值、env、header 或 token。Multica 库条目只写不读，标「不可比」。标签后的 ? 表示有来源没读到，结论只覆盖已读的。</span>
     </div>
 
     <div class="skills-layout">
@@ -82,23 +85,23 @@
                 <th>Server</th>
                 <th class="channel-col">来源 / 出现位置</th>
                 <th title="Multica Workspace（跨 Workspace）">Multica Workspace</th>
-                <th class="tool-col" title="Cursor 可见 6&#10;~/.cursor/mcp.json · 已读 · 刚刚">Cursor<small>6</small></th>
-                <th class="tool-col" title="Codex 可见 4&#10;~/.codex/config.toml · 已读 · 刚刚">Codex<small>4</small></th>
-                <th class="tool-col" title="Claude Code 可见 4&#10;~/.claude.json（只读 mcpServers）· 已读 · 刚刚">Claude<small>4</small></th>
-                <th class="tool-col" title="Hermes Agent 可见 1&#10;~/.hermes/config.yaml · 已读 · 刚刚">Hermes<small>1</small></th>
-                <th class="tool-col" title="Gemini CLI 可见 2&#10;~/.gemini/settings.json · 已读 · 刚刚">Gemini<small>2</small></th>
-                <th class="tool-col" title="Devin CLI 可见 2&#10;~/.config/devin/mcp_config.json · 已读 · 刚刚">Devin<small>2</small></th>
-                <th class="tool-col" title="Antigravity 可见 1&#10;~/.gemini/antigravity/mcp_config.json · 已读 · 刚刚">Antigravity<small>1</small></th>
-                <th class="tool-col" title="Windsurf 可见 1&#10;~/.codeium/windsurf/mcp_config.json · 已读 · 刚刚">Windsurf<small>1</small></th>
-                <th class="tool-col" title="OpenCode 可见 0&#10;~/.config/opencode/opencode.json · 文件不存在：确定没有全局 MCP">OpenCode<small>0</small></th>
-                <th class="tool-col repo-col" title="仓库入口 可见 2">仓库入口<small>2</small></th>
+                <th class="tool-col" title="Cursor&#10;~/.cursor/mcp.json · 已读 · 刚刚">Cursor<small></small></th>
+                <th class="tool-col" title="Codex&#10;~/.codex/config.toml · 已读 · 刚刚">Codex<small></small></th>
+                <th class="tool-col" title="Claude Code&#10;~/.claude.json（只读 mcpServers）· 已读 · 刚刚">Claude<small></small></th>
+                <th class="tool-col" title="Hermes Agent&#10;~/.hermes/config.yaml · 已读 · 刚刚">Hermes<small></small></th>
+                <th class="tool-col" title="Gemini CLI&#10;~/.gemini/settings.json · 已读 · 刚刚">Gemini<small></small></th>
+                <th class="tool-col" title="Devin CLI&#10;~/.config/devin/mcp_config.json · 已读 · 刚刚">Devin<small></small></th>
+                <th class="tool-col" title="Antigravity&#10;~/.gemini/antigravity/mcp_config.json · 已读 · 刚刚">Antigravity<small></small></th>
+                <th class="tool-col" title="Windsurf&#10;~/.codeium/windsurf/mcp_config.json · 已读 · 刚刚">Windsurf<small></small></th>
+                <th class="tool-col" title="OpenCode&#10;~/.config/opencode/opencode.json · 文件不存在：确定没有全局 MCP">OpenCode<small></small></th>
+                <th class="tool-col repo-col" title="仓库入口">仓库入口<small></small></th>
                 <th class="version-col">传输</th>
                 <th>一致性</th>
               </tr>
             </thead>
             <tbody>
-              <tr class="skill-group"><th colspan="15">本机 + Multica<span class="muted"> · 3</span></th></tr>
-              <tr id="mcp-github" class="skill-row" tabindex="0" data-row="github">
+              <tr class="skill-group" data-group="both"><th colspan="15">本机 + Multica<span class="muted"> · 3</span></th></tr>
+              <tr id="mcp-row-m7k2q9x4w1c8v5b3n6z0" class="skill-row" tabindex="0" data-name="github">
                 <td><span class="mono">github</span><span class="tag warn" title="env 不同：A 2 项 / B 3 项">配置不一致</span></td>
                 <td class="channel-col" title="本机 4 处 · Multica 库 1"><div class="cell-ellipsis">本机 + Multica</div><div class="muted mono cell-ellipsis">本机 4 · 库 1</div></td>
                 <td class="cloud-cell"><div class="cloud-ws"><span>ACM Lab</span><span class="muted"> · Builder · Codex、Reviewer · Hermes</span></div></td>
@@ -111,7 +114,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
                 <td><span class="tag warn" title="env 不同：A 2 项 / B 3 项">不一致 · 2 组</span></td>
               </tr>
-              <tr id="mcp-linear" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m3d8f1j6l0p4s9u2w5y7" class="skill-row" tabindex="0" data-name="linear">
                 <td><span class="mono">linear</span><span class="tag bad" title="调研 · Antigravity 的 runtime 不加载 MCP">会被忽略</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">本机 + Multica</div><div class="muted mono cell-ellipsis">本机 2 · 库 1</div></td>
                 <td class="cloud-cell"><div class="cloud-ws"><span>ACM Lab</span><span class="muted"> · 调研 · Antigravity</span></div></td>
@@ -121,7 +124,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">http</div></td>
                 <td><span class="tag ok">一致</span></td>
               </tr>
-              <tr id="mcp-sentry" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m9b2c5e8g1h4k7n0q3r6" class="skill-row" tabindex="0" data-name="sentry">
                 <td><span class="mono">sentry</span><span class="tag bad" title="Reviewer · Hermes 自有配置同名">同名覆盖</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">本机 + Multica</div><div class="muted mono cell-ellipsis">本机 1 · 库 1 · 自有 1</div></td>
                 <td class="cloud-cell"><div class="cloud-ws"><span>ACM Lab</span><span class="muted"> · Reviewer · Hermes（库 + 自有）</span></div></td>
@@ -132,8 +135,8 @@
                 <td><span class="tag ok" title="Cursor 与 Reviewer · Hermes 自有配置指纹相同">一致</span></td>
               </tr>
 
-              <tr class="skill-group"><th colspan="15">仅本机<span class="muted"> · 5</span></th></tr>
-              <tr id="mcp-notion" class="skill-row" tabindex="0">
+              <tr class="skill-group" data-group="local_only"><th colspan="15">仅本机<span class="muted"> · 7</span></th></tr>
+              <tr id="mcp-row-m1a4d7g0j3m6p9s2v5x8" class="skill-row" tabindex="0" data-name="notion">
                 <td><span class="mono">notion</span><span class="tag bad" title="Hermes 条目缺 command 和 url">条目损坏</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 2</div></td>
                 <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
@@ -145,7 +148,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">http</div></td>
                 <td><span class="tag bad">损坏</span></td>
               </tr>
-              <tr id="mcp-playwright" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m6e9h2k5n8q1t4w7z0c3" class="skill-row" tabindex="0" data-name="playwright">
                 <td><span class="mono">playwright</span><span class="tag warn" title="启动方式不同">配置不一致</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 2 · 仓库 1</div></td>
                 <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
@@ -157,7 +160,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
                 <td><span class="tag warn" title="启动方式不同">不一致 · 2 组</span></td>
               </tr>
-              <tr id="mcp-context7" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m2f5i8l1o4r7u0x3a6d9" class="skill-row" tabindex="0" data-name="context7">
                 <td><span class="mono">context7</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 3</div></td>
                 <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
@@ -166,7 +169,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">http</div></td>
                 <td><span class="tag ok">一致</span></td>
               </tr>
-              <tr id="mcp-filesystem" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m8g1j4m7p0s3v6y9b2e5" class="skill-row" tabindex="0" data-name="filesystem">
                 <td><span class="mono">filesystem</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 7 · 仓库 1</div></td>
                 <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
@@ -175,7 +178,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
                 <td><span class="tag ok">一致</span></td>
               </tr>
-              <tr id="mcp-slack" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m0h3k6n9q2t5w8z1c4f7" class="skill-row" tabindex="0" data-name="slack">
                 <td><span class="mono">slack</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 1</div></td>
                 <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
@@ -184,18 +187,37 @@
                 <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
                 <td><span class="tag muted">仅一处</span></td>
               </tr>
+              <!-- 显示名相同、原名不同（虚构：一个名字含两个空格，一个含一个空格）：两行、两个行 id，不合并 -->
+              <tr id="mcp-row-m4tq8r2c6y1h9d3k5p7s" class="skill-row" tabindex="0" data-name="acme tools 1">
+                <td><span class="mono">acme tools</span><span class="muted" title="显示名相同，原名不同（空白、长度或脱敏后相同）">（同显示名 1/2）</span></td>
+                <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 1</div></td>
+                <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
+                <td class="tool-mark direct" title="有同名条目&#10;~/.cursor/mcp.json">●</td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td>
+                <td class="repo-entries"></td>
+                <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
+                <td><span class="tag muted">仅一处</span></td>
+              </tr>
+              <tr id="mcp-row-m5wb3n7x1z9f2g6j0k4l" class="skill-row" tabindex="0" data-name="acme tools 2">
+                <td><span class="mono">acme tools</span><span class="muted" title="显示名相同，原名不同（空白、长度或脱敏后相同）">（同显示名 2/2）</span></td>
+                <td class="channel-col"><div class="cell-ellipsis">仅本机</div><div class="muted mono cell-ellipsis">本机 1</div></td>
+                <td class="cloud-cell"><span class="muted">Multica 未配置</span></td>
+                <td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark direct" title="有同名条目&#10;~/.claude.json">●</td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td><td class="tool-mark none"></td>
+                <td class="repo-entries"></td>
+                <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
+                <td><span class="tag muted">仅一处</span></td>
+              </tr>
 
-              <tr class="skill-group"><th colspan="15">仅 Multica<span class="muted"> · 3</span></th></tr>
-              <tr id="mcp-docs-search" class="skill-row" tabindex="0">
+              <tr class="skill-group" data-group="multica_only"><th colspan="15">仅 Multica<span class="muted"> · 3</span></th></tr>
+              <tr id="mcp-row-m3c6f9i2l5o8r1u4x7a0" class="skill-row" tabindex="0" data-name="docs-search">
                 <td><span class="mono">docs-search</span><span class="tag bad" title="实现 · OpenCode">可能失败</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅 Multica</div><div class="muted mono cell-ellipsis">库 2</div></td>
                 <td class="cloud-cell"><div class="cloud-ws"><span>ACM Lab</span><span class="muted"> · 实现 · OpenCode</span></div><div class="cloud-ws"><span>萌芽辅导</span><span class="muted"> · 未分配</span></div></td>
-                <td class="tool-mark not-applicable" title="∅ 不适用：仅在 Multica">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td>
-                <td class="repo-entries"><span class="not-applicable" title="∅ 不适用：仅在 Multica">∅</span></td>
+                <td class="tool-mark not-applicable" title="∅ 不适用：确定只在 Multica">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td><td class="tool-mark not-applicable">∅</td>
+                <td class="repo-entries"><span class="not-applicable" title="∅ 不适用：确定只在 Multica">∅</span></td>
                 <td class="mono version-col"><div class="cell-ellipsis">http</div></td>
                 <td><span class="tag muted" title="Multica 库条目只写不读">不可比</span></td>
               </tr>
-              <tr id="mcp-issue-bridge" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m7d0g3j6m9p2s5v8y1b4" class="skill-row" tabindex="0" data-name="issue-bridge">
                 <td><span class="mono">issue-bridge</span><span class="tag muted" title="只有停用，不计入角标">待清理</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅 Multica</div><div class="muted mono cell-ellipsis">库 1</div></td>
                 <td class="cloud-cell"><div class="cloud-ws"><span>英语学习</span><span class="muted"> · 未启用</span></div></td>
@@ -204,7 +226,7 @@
                 <td class="mono version-col"><div class="cell-ellipsis">stdio</div></td>
                 <td><span class="tag muted">不可比</span></td>
               </tr>
-              <tr id="mcp-kb-reader" class="skill-row" tabindex="0">
+              <tr id="mcp-row-m1e4h7k0n3q6t9w2z5c8" class="skill-row" tabindex="0" data-name="kb-reader">
                 <td><span class="mono">kb-reader</span><span class="tag muted" title="无人使用，不计入角标">待清理</span></td>
                 <td class="channel-col"><div class="cell-ellipsis">仅 Multica</div><div class="muted mono cell-ellipsis">库 1</div></td>
                 <td class="cloud-cell"><div class="cloud-ws"><span>ACM Lab</span><span class="muted"> · 未分配</span></div></td>
@@ -221,15 +243,15 @@
       <aside class="skills-queue" aria-label="待处理">
         <div class="skills-compact"><span>条目损坏 1</span><span>会被忽略 1</span><span>同名覆盖 1</span><span>可能失败 1</span><span>配置不一致 2</span><span>待清理 2</span></div>
         <h2>待处理</h2>
-        <section class="skill-bucket"><header><span>条目损坏</span><span class="count bad-n">1</span></header>
+        <section class="skill-bucket" data-bucket="broken"><header><span>条目损坏</span><span class="count bad-n">1</span></header>
           <ul><li><button type="button" class="queue-item"><span class="mono">notion</span><span>Hermes Agent 的条目缺 command 和 url</span><span class="muted">刚刚</span></button></li></ul></section>
-        <section class="skill-bucket"><header><span>会被忽略</span><span class="count bad-n">1</span></header>
+        <section class="skill-bucket" data-bucket="ignored"><header><span>会被忽略</span><span class="count bad-n">1</span></header>
           <ul><li><button type="button" class="queue-item"><span class="mono">linear</span><span>调研 · Antigravity 的 runtime 不加载 MCP（ACM Lab）</span><span class="muted">3 分钟前</span></button></li></ul></section>
-        <section class="skill-bucket"><header><span>同名覆盖</span><span class="count bad-n">1</span></header>
+        <section class="skill-bucket" data-bucket="shadowed"><header><span>同名覆盖</span><span class="count bad-n">1</span></header>
           <ul><li><button type="button" class="queue-item"><span class="mono">sentry</span><span>Reviewer · Hermes 的自有配置同名，库条目不生效</span><span class="muted">3 分钟前</span></button></li></ul></section>
-        <section class="skill-bucket"><header><span>可能失败</span><span class="count bad-n">1</span></header>
+        <section class="skill-bucket" data-bucket="may_fail"><header><span>可能失败</span><span class="count bad-n">1</span></header>
           <ul><li><button type="button" class="queue-item"><span class="mono">docs-search</span><span>实现 · OpenCode：OpenCode 2.x 有托管 MCP 时任务直接失败</span><span class="muted">3 分钟前</span></button></li></ul></section>
-        <section class="skill-bucket"><header><span>配置不一致</span><span class="count warn-n">2</span></header>
+        <section class="skill-bucket" data-bucket="drift"><header><span>配置不一致</span><span class="count warn-n">2</span></header>
           <ul>
             <li><button type="button" class="queue-item"><span class="mono">github</span><span>Cursor、Claude Code 与 Codex、Hermes Agent 的 env 不同</span><span class="muted">刚刚</span></button></li>
             <li><button type="button" class="queue-item"><span class="mono">playwright</span><span>Cursor 与 Claude Code、仓库 .mcp.json 的启动方式不同</span><span class="muted">刚刚</span></button></li>
@@ -292,12 +314,160 @@
 
   <script>
     const q = new URLSearchParams(location.search);
+    const state = q.get("state");
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+    const rows = () => $$(".skill-row");
+    const TOOL_COLS = [3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const REPO_COL = 12;
+
+    function chip(src, cls, detail, title) {
+      const el = $(`[data-src="${src}"]`);
+      el.className = `src-chip ${cls}`;
+      el.querySelector(".chip-detail").textContent = detail;
+      el.title = title;
+    }
+    function badge(cls, text, title) {
+      const el = $("#mcp-badge");
+      el.className = `tab-badge ${cls}`.trim();
+      el.textContent = text;
+      el.title = title;
+      el.setAttribute("aria-label", title);
+    }
+    function card(id, count, recon) {
+      const el = $(`[data-card="${id}"]`);
+      el.querySelector("strong").textContent = count;
+      el.querySelector(".source-recon").innerHTML = recon;
+    }
+    function bucket(id, countHtml, bodyHtml) {
+      const el = $(`[data-bucket="${id}"]`);
+      el.querySelector(".count").outerHTML = countHtml;
+      el.querySelector("ul, p.muted")?.remove();
+      el.insertAdjacentHTML("beforeend", bodyHtml);
+    }
+    function addNote(id, text) {
+      $(`[data-bucket="${id}"]`).insertAdjacentHTML("beforeend", `<p class="muted">另有来源没读到：${text}，可能还有</p>`);
+    }
+    function anomaly(lines) {
+      const el = $("#anomaly");
+      el.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
+      el.hidden = false;
+    }
+    function groupCount(group, n) {
+      $(`[data-group="${group}"] .muted`).textContent = ` · ${n}`;
+    }
+    function nameTag(row, html) {
+      const first = row.children[0];
+      first.querySelector(".tag")?.remove();
+      if (html) first.insertAdjacentHTML("beforeend", html);
+    }
+    function recountHeaders(skip = []) {
+      const heads = $$(".skills-table thead th");
+      TOOL_COLS.forEach((col) => {
+        if (skip.includes(col)) return;
+        heads[col].querySelector("small").textContent = rows().filter((r) => r.children[col].classList.contains("direct")).length;
+      });
+      heads[REPO_COL].querySelector("small").textContent = $$(".skill-row .entry-chip.present").length;
+    }
+
+    if (state === "partial") {
+      // 虚构：~/.hermes/config.yaml 解析失败；英语学习的 agent 分配没读到。
+      const heads = $$(".skills-table thead th");
+      heads[6].innerHTML = "Hermes<small>?</small>";
+      heads[6].title = "Hermes Agent\n~/.hermes/config.yaml · 解析失败，这一列无法确定";
+      rows().forEach((r) => {
+        const td = r.children[6];
+        td.className = "tool-mark unknown";
+        td.textContent = "?";
+        td.title = "无法确定：~/.hermes/config.yaml 解析失败\n这个文件里可能有同名条目";
+      });
+      // 有本机文件没读到：没有一行能确定「只在 Multica」，表里不出现 ∅。
+      $$(".skill-row td.not-applicable").forEach((td) => { td.className = "tool-mark none"; td.textContent = ""; td.removeAttribute("title"); });
+      $$(".skill-row .repo-entries .not-applicable").forEach((el) => el.remove());
+      // 所有一致性结论都只覆盖已读部分。
+      rows().forEach((r) => {
+        const tag = r.children[14].querySelector(".tag");
+        tag.textContent += " ?";
+        tag.title = "部分来源未读到或待采集，结论只覆盖已读的";
+      });
+      const notion = $('[data-name="notion"]');
+      nameTag(notion, "");
+      notion.children[1].querySelector(".mono").textContent = "本机 1";
+      notion.children[14].innerHTML = '<span class="tag muted" title="部分来源未读到或待采集，结论只覆盖已读的">仅一处 ?</span>';
+      const bridge = $('[data-name="issue-bridge"]');
+      nameTag(bridge, "");
+      bridge.children[2].innerHTML = '<div class="cloud-ws"><span>英语学习</span><span class="warn-n"> · 分配没读到</span></div>';
+
+      chip("local", "state-warn", "7 已读 · 1 不存在 · 1 读不出", "9 个文件：7 已读 · 1 不存在 · 1 解析失败（Hermes）");
+      chip("bindings", "state-warn", "英语学习 没读到", "4 个 Workspace：3 已读 · 英语学习 的 agent 分配没读到");
+      anomaly([
+        "本机 Hermes：~/.hermes/config.yaml 解析失败，Hermes 列显示 ?，这一列的条目没有参与判断",
+        "英语学习：agent 分配没读到，这个 workspace 的库条目不判断是否无人使用",
+      ]);
+      card("all", "13", '<span class="muted">损坏 0</span><span class="warn-n">不一致 2</span><span class="muted">一致 4</span><span class="muted">仅一处 4</span><span class="muted">不可比 3</span>');
+      card("local_only", "7", '<span class="warn-n">不一致 1</span><span class="muted">一致 2</span><span class="muted">仅一处 4</span>');
+      card("multica_only", "3", '<span class="warn-n" title="有来源没读到，这些行可能在另一侧也有">含 3 行待确认</span><span class="muted">不可比 3</span>');
+
+      bucket("broken", '<span class="count muted">0 ?</span>', "");
+      addNote("broken", "本机 Hermes");
+      ["ignored", "shadowed", "may_fail"].forEach((id) => {
+        $(`[data-bucket="${id}"] .count`).textContent = "1 ?";
+        addNote(id, "英语学习 分配");
+      });
+      $('[data-bucket="drift"] .count').textContent = "2 ?";
+      addNote("drift", "本机 Hermes");
+      $(".debt strong").textContent = "1 ?";
+      $(".debt").title = "英语学习 分配没读到，未判断";
+      $(".skills-compact").innerHTML = "<span>条目损坏 0?</span><span>会被忽略 1?</span><span>同名覆盖 1?</span><span>可能失败 1?</span><span>配置不一致 2?</span><span>待清理 1?</span>";
+      badge("tone-bad", "5", "MCP 待处理 5 条：坏了 3 · 待你处理 2（有 2 个来源没读到，可能不全）");
+      recountHeaders([6]);
+    } else if (state === "unknown") {
+      // 虚构：所有来源都没读到，items=[]。
+      chip("local", "state-bad", "9 读不出", "9 个文件都没读到（无权限 3 · 符号链接 2 · 解析失败 4）");
+      chip("project", "state-bad", "5 读不出", "agents-lab 5 个文件都没读到");
+      chip("fp", "state-warn", "未比对", "没有可比的条目");
+      chip("library", "state-bad", "从未读到", "4 个 Workspace 的库都没读到");
+      chip("bindings", "state-bad", "从未读到", "agent 分配没读到");
+      chip("own", "state-bad", "从未读到", "agent 自有配置没读到");
+      $("#snapshot").className = "snapshot warn";
+      anomaly(["本机配置、项目级文件和 Multica 都没读到；下面的引导列出了每个来源的原因"]);
+      ["all", "both", "local_only", "multica_only", "project"].forEach((id) => card(id, "—", '<span class="muted">没读到</span>'));
+      $(".skills-legend").style.display = "none";
+      $(".skills-layout").outerHTML = `
+        <section class="atlas-guide">
+          <h2>所有来源都没读到</h2>
+          <p>本机配置、项目级文件和 Multica 都没读到，无法判断有没有 MCP server。</p>
+          <ul>
+            <li>本机 Cursor、Codex、Claude：无权限读取。检查这些文件的所有者和权限。</li>
+            <li>本机 Hermes、Gemini：是符号链接，看板没有跟随。请自己确认链接目标。</li>
+            <li>本机 Devin、Antigravity、Windsurf、OpenCode：解析失败。用对应工具打开文件检查格式。</li>
+            <li>agents-lab 项目级 5 个文件：无权限读取。</li>
+            <li>Multica：MCP 从未采集成功。查看健康条「Multica 库」的原因，修好后等下一轮采集。</li>
+          </ul>
+        </section>`;
+      badge("tone-unknown", "?", "MCP 有 6 个来源没读到，是否有待处理未确定");
+    } else if (state === "warn") {
+      // 虚构：只剩配置不一致。
+      rows().filter((r) => r.children[0].querySelector(".tag.bad")).forEach((r) => r.remove());
+      groupCount("both", 1); groupCount("local_only", 6); groupCount("multica_only", 2);
+      card("all", "9", '<span class="warn-n">不一致 2</span><span class="muted">一致 2</span><span class="muted">仅一处 3</span><span class="muted">不可比 2</span>');
+      card("both", "1", '<span class="warn-n">不一致 1</span>');
+      card("local_only", "6", '<span class="warn-n">不一致 1</span><span class="muted">一致 2</span><span class="muted">仅一处 3</span>');
+      card("multica_only", "2", '<span class="muted">不可比 2</span>');
+      ["broken", "ignored", "shadowed", "may_fail"].forEach((id) => bucket(id, '<span class="count muted">0</span>', '<p class="muted">无</p>'));
+      $(".skills-compact").innerHTML = "<span>条目损坏 0</span><span>会被忽略 0</span><span>同名覆盖 0</span><span>可能失败 0</span><span>配置不一致 2</span><span>待清理 2</span>";
+      badge("", "2", "MCP 待处理 2 条：坏了 0 · 待你处理 2");
+      recountHeaders();
+    } else {
+      recountHeaders();
+    }
+
     if (q.get("drawer")) {
-      document.getElementById("drawer").hidden = false;
-      document.getElementById("mcp-github").classList.add("selected");
+      $("#drawer").hidden = false;
+      $("#mcp-row-m7k2q9x4w1c8v5b3n6z0").classList.add("selected");
     }
     if (q.get("copyfail")) {
-      const button = document.querySelector("[data-copy-demo]");
+      const button = $("[data-copy-demo]");
       button.textContent = "复制失败";
       button.closest(".cloud-install").querySelector(".copy-hint").hidden = false;
       const range = document.createRange();
@@ -305,8 +475,15 @@
       getSelection().removeAllRanges();
       getSelection().addRange(range);
       button.scrollIntoView({ block: "center" });
-    } else if (q.get("scroll")) {
-      document.querySelector("[data-copy-demo]").scrollIntoView({ block: "center" });
+    }
+    const scroll = q.get("scroll");
+    if (scroll === "copy") {
+      $("[data-copy-demo]").scrollIntoView({ block: "center" });
+    } else if (scroll === "right") {
+      const wrap = $(".table-wrap");
+      wrap.scrollLeft = wrap.scrollWidth;
+    } else if (scroll === "table") {
+      $(".table-wrap").scrollIntoView({ block: "start" });
     }
   </script>
 </body>
