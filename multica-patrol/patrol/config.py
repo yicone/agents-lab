@@ -66,9 +66,20 @@ UNWOKEN_GRACE_S = 15 * 60
 UNWOKEN_DEDUPE_S = 24 * 3600
 MAX_UNWOKEN_PER_RUN = 3
 UNWOKEN_PREFIX = "[patrol-unwoken:"
+NOWAKE_PREFIX = "[patrol-nowake:"
+# Rule 10 dispatch-class heuristic: dispatcher comments whose first line is
+# not an explicit handoff marker still count when the body uses dispatch
+# wording. Plain status notes must not match.
+DISPATCH_CLASS_RE = re.compile(
+    r"派活|开工|批准后|批准执行|返工|复验|重验|重新验收|补改|请现在|按.*(?:执行|开工)")
 UUID_MENTION_RE = re.compile(
     r"mention://(agent|member)/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
     r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 FIRST_LINE_NEED = "需要你做："
 FIRST_LINE_NEXT = "不需要你做，下一步由"
 MENTION_RE = re.compile(r"mention://(agent|member)/")
+
+AGENT_MENTION_RE = re.compile(
+    r"mention://agent/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
+    r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})")
+NEXT_TARGET_RE = re.compile(r"^不需要你做，下一步由\s*(?P<name>[^\s：:]+)\s*做")

@@ -86,6 +86,18 @@ class TestDetection(RetryCase):
         self.assertNotIn("completed_provider_error", out)
         self.assertNotIn("provider 报错重试", out)
 
+    def test_error_but_run_not_completed_not_detected(self):
+        issue = make_issue("ACM-336", "in_progress", assignee_id=AGENT)
+        r = run("failed", rid="r-fail", agent_id=AGENT,
+                started_at=BASE_NOW - timedelta(minutes=32),
+                completed_at=BASE_NOW - timedelta(minutes=30))
+        self.fake.issues.append(issue)
+        self.fake.runs[issue["id"]] = [r]
+        self.fake.add_comment(issue["id"], error_comment(r))
+        code, out, _ = self.run_dry()
+        self.assertNotIn("provider 报错重试", out)
+        self.assertEqual(self.retry_comments(issue), [])
+
     def test_error_by_different_author_not_detected(self):
         issue, r = self.add_error_issue()
         self.fake.comments[issue["id"]] = [comment("[Error] nope", BASE_NOW - timedelta(minutes=30),
@@ -191,6 +203,15 @@ class TestRetryLifecycle(RetryCase):
         now = self._dt(slot).astimezone(tz.utc)
         self.fake.now = now
         return invoke(self.fake, ["run", "--slot", slot], now=now, state_dir=self.state_dir)
+
+    def test_retry_dedupe_across_consecutive_slots(self):
+        issue, r = self.add_error_issue()
+        self._run_at("2026102221")
+        self.assertEqual(len(self.retry_comments(issue)), 1)
+        # Same error, next hourly slot: no duplicate retry comment.
+        code, out, err = self._run_at("2026102222")
+        self.assertEqual(len(self.retry_comments(issue)), 1)
+        self.assertEqual(last_result(out)["retries_sent"], 0)
 
     def test_no_retry_write_on_unresolved_acm215(self):
         issue, r1 = self.add_error_issue()

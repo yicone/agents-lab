@@ -132,8 +132,10 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
     runs = []
     if (issue.get("assignee_id") and not active_runs
             and issue.get("status") not in ("done", "cancelled")) \
-            or issue.get("status") in ("blocked", "in_review"):
-        # blocked/in_review always need the full runs list (unwoken-handoff rule).
+            or issue.get("status") in ("blocked", "in_review") \
+        or (issue.get("status") == "in_progress" and issue.get("assignee_id")):
+        # blocked/in_review always need the full runs list (unwoken-handoff
+        # rule); assigned in_progress too (dispatch-without-wake rule).
         runs_res = cli.run_json(["issue", "runs", issue_id, "--output", "json"])
         runs = runs_res.data if isinstance(runs_res.data, list) else []
 
@@ -173,7 +175,8 @@ def _excluded_comment(comment: dict) -> bool:
     return (content.startswith(config.SELF_COMMENT_PREFIXES)
             or content.startswith(_INFRA_PREFIXES)
             or config.RETRY_PREFIX in content
-            or config.UNWOKEN_PREFIX in content)
+            or config.UNWOKEN_PREFIX in content
+            or config.NOWAKE_PREFIX in content)
 
 
 def _last_comment(comments: list[dict]) -> dict | None:
@@ -189,10 +192,18 @@ def _last_comment(comments: list[dict]) -> dict | None:
             best = (ts, c)
     if best is None:
         return None
+    content = best[1].get("content") or ""
+    first = next((ln.strip() for ln in content.splitlines() if ln.strip()), "")
+    target = config.NEXT_TARGET_RE.match(first)
     return {"id": best[1].get("id"), "author_type": best[1].get("author_type"),
             "author_id": best[1].get("author_id"), "created_at": iso(best[0]),
-            "has_valid_mention": bool(
-                config.UUID_MENTION_RE.search(best[1].get("content") or ""))}
+            "has_valid_mention": bool(config.UUID_MENTION_RE.search(content)),
+            "mentioned_agent_ids": [u.lower() for u in
+                                    config.AGENT_MENTION_RE.findall(content)],
+            "dispatch_class": bool(
+                first.startswith((config.FIRST_LINE_NEED, config.FIRST_LINE_NEXT))
+                or config.DISPATCH_CLASS_RE.search(content)),
+            "first_line_target_name": target.group("name") if target else None}
 
 
 def _detect_provider_error(runs: list[dict], comments: list[dict], now) -> dict | None:

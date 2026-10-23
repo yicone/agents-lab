@@ -112,8 +112,15 @@ class PatrolCLI:
     def permit_unwoken(self, issue_id: str) -> None:
         self.unwoken_permitted.add(issue_id)
 
-    def run_unwoken_write(self, issue_id: str, content_file) -> CliResult:
-        """The unwoken-handoff supplement. Permitted only for registered ids."""
+    def run_unwoken_write(self, issue_id: str, content_file,
+                          marker_prefix: str = config.UNWOKEN_PREFIX) -> CliResult:
+        """The unwoken supplement. Permitted only for registered ids.
+
+        marker_prefix must be one of the patrol supplement markers
+        (UNWOKEN_PREFIX for rule 9, NOWAKE_PREFIX for rule 10).
+        """
+        if marker_prefix not in (config.UNWOKEN_PREFIX, config.NOWAKE_PREFIX):
+            raise CommandNotAllowed(f"unknown unwoken marker prefix {marker_prefix!r}")
         if issue_id not in self.unwoken_permitted:
             raise CommandNotAllowed(f"unwoken write not permitted for {issue_id}")
         with open(content_file) as fh:
@@ -121,8 +128,8 @@ class PatrolCLI:
         first = next((ln for ln in body.splitlines() if ln.strip()), "")
         if not first.startswith(config.FIRST_LINE_NEXT):
             raise CommandNotAllowed("unwoken body first line format invalid")
-        if config.UNWOKEN_PREFIX not in body:
-            raise CommandNotAllowed("unwoken body lacks [patrol-unwoken: marker")
+        if marker_prefix not in body:
+            raise CommandNotAllowed(f"unwoken body lacks {marker_prefix} marker")
         if "mention://agent/" + config.DISPATCHER_AGENT_ID not in body:
             raise CommandNotAllowed("unwoken body lacks dispatcher mention")
         self.writes_attempted += 1

@@ -30,6 +30,13 @@ def _next_due_at(issue: dict, f: dict, now) -> object:
             candidates.append(last_progress + timedelta(seconds=config.PROGRESS_STALE_S))
         if not issue.get("assignee_id") and entered:
             candidates.append(entered + timedelta(seconds=config.NO_ASSIGNEE_GRACE_S))
+        last_comment = f.get("last_comment") or {}
+        if last_comment.get("author_type") == "agent" and \
+                last_comment.get("author_id") == config.DISPATCHER_AGENT_ID:
+            last_comment_at = facts.parse_ts(last_comment.get("created_at"))
+            if last_comment_at:
+                candidates.append(last_comment_at
+                                  + timedelta(seconds=config.UNWOKEN_GRACE_S))
     if status == "in_review" and entered:
         candidates.append(entered + timedelta(seconds=config.REVIEW_STALE_S))
     if status == "blocked" and entered:
