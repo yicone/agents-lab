@@ -1,6 +1,6 @@
 # Multica Board 只读 API 契约（v0.6）
 
-状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。v0.6（ACM-182）新增 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
+状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。v0.6（ACM-182）新增 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。v0.9（ACM-370）新增 `GET /api/mcp`。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
 `web/fixtures/` 是本契约的样例响应（虚构数据），前端以 `?mock=1` 读取；`?mock=cli-down` 是“CLI 整体不可用”场景。后端实现后，同一份前端不改代码切到真实接口。
 
@@ -268,7 +268,7 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 - `skills`：对象数组，元素是 `{id, name, description, enabled}`。不含 skill 正文。未采集时为 `[]`。
 - `disabled_runtime_skills`：被关掉的 runtime skill 名称（或 `{id, name}`）。未采集时为 `[]`。
 
-`custom_env`、`mcp_config`、`runtime_config`、`launch_header` 不采集。某个 workspace 返回 `error.kind=auth` 时，该 workspace 的缓存（含 `workspace_skills`）整表清空。
+`custom_env`、`mcp_config`、`runtime_config`、`launch_header` 不采集（`mcp_config` 只在内存里降成摘要，经 `/api/mcp` 输出，见下文）。某个 workspace 返回 `error.kind=auth` 时，该 workspace 的缓存（含 `workspace_skills`）整表清空。
 
 ## `GET /api/bots`
 
@@ -611,8 +611,113 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 
 `summary` 含 `grok_bot` 来源卡片，全部计数包含这些独立条目；Bot 名称可搜索，来源可筛选。清单缺失或格式无效通过 `meta.sources[id=grok_bot]` 显式标注，来源卡片显示未采集，不能把读取失败视作 0 个技能。用户文案统一为「Multica Workspace」；历史 API 标识 `cloud` / `multica_cloud` 继续兼容。
 
+## `GET /api/mcp`（ACM-370）
+
+各 workspace 的 MCP 库、agent 分配和 agent 自有配置的摘要。只读缓存。设计和交互见 `mcp-design.md`。走和其它 `/api/*` 相同的 Host / 跨源校验与安全头。没有查询参数；带任何参数返回 `400`。
+
+```json
+{
+  "generated_at": "2026-10-23T09:00:00Z",
+  "mcp_schema": 1,
+  "mcp_every_rounds": 5,
+  "support": {
+    "source": "multica v0.6.5 packages/core/agents/mcp-support.ts",
+    "providers": {
+      "codex": { "loads": "yes", "channel": "codex_home_config", "native_merge": "yes", "remote_filter": false, "note": null },
+      "hermes": { "loads": "yes", "channel": "acp_session", "native_merge": "unknown", "remote_filter": true, "note": null },
+      "cursor": { "loads": "yes", "channel": "workdir_cursor_mcp_json", "native_merge": "yes", "remote_filter": false, "note": "oauth_needs_auth_source" },
+      "antigravity": { "loads": "no", "channel": null, "native_merge": null, "remote_filter": false, "note": null },
+      "mcode": { "loads": "yes", "channel": "acp_session", "native_merge": "unknown", "remote_filter": true, "note": null },
+      "opencode": { "loads": "conditional", "channel": "opencode_config_content", "native_merge": "yes", "remote_filter": false, "note": "v2_task_fails" }
+    }
+  },
+  "workspaces": [
+    {
+      "id": "ws-uuid",
+      "slug": "acm-lab",
+      "name": "ACM Lab",
+      "library_state": "ok",
+      "library_collected_at": "2026-10-23T08:59:40Z",
+      "library_error": null,
+      "bindings_state": "ok",
+      "bindings_collected_at": "2026-10-23T08:55:10Z",
+      "servers": [
+        {
+          "key": "ws-uuid:srv-uuid",
+          "id": "srv-uuid",
+          "name": "linear",
+          "transport": "http",
+          "agent_count": 3,
+          "enabled_count": 2,
+          "disabled_count": 1,
+          "config_visible": false,
+          "created_at": "...",
+          "updated_at": "..."
+        }
+      ]
+    }
+  ],
+  "agents": [
+    {
+      "key": "ws-uuid:agent-uuid",
+      "workspace_id": "ws-uuid",
+      "id": "agent-uuid",
+      "name": "Reviewer · Hermes",
+      "archived": false,
+      "runtime_id": "rt-uuid",
+      "provider": "hermes",
+      "runtime_loads": "yes",
+      "own_config": {
+        "state": "managed",
+        "servers": [
+          {
+            "name": "linear",
+            "transport": "stdio",
+            "env": { "set": true, "count": 2 },
+            "headers": { "set": false, "count": 0 }
+          }
+        ]
+      },
+      "bindings_state": "ok",
+      "bindings": [
+        { "server_id": "srv-uuid", "name": "linear", "enabled": true, "shadowed": true }
+      ],
+      "effective": {
+        "state": "known",
+        "servers": [
+          { "name": "linear", "from": "own", "transport": "stdio" }
+        ]
+      }
+    }
+  ],
+  "attention": {
+    "badge": 2,
+    "counts": { "ignored": 1, "shadowed": 1, "may_fail": 0, "hidden": 0, "unused": 0, "disabled_only": 0 },
+    "buckets": {
+      "ignored": [ { "key": "ws-uuid:agent-uuid", "workspace_id": "ws-uuid", "agent_id": "agent-uuid", "server_id": null, "name": "调研 · Antigravity", "reason": "runtime_no_mcp" } ],
+      "shadowed": [ { "key": "ws-uuid:agent-uuid:srv-uuid", "workspace_id": "ws-uuid", "agent_id": "agent-uuid", "server_id": "srv-uuid", "name": "linear", "reason": "own_config_same_name" } ]
+    }
+  }
+}
+```
+
+- **脱敏白名单**（本接口最重要的约定）：库条目只有上面的字段，`config_visible` 恒为 `false`，因为 Multica 不向任何人返回库条目的配置。agent 自有配置只输出 server 名、`transport`，以及 `env` / `headers` 的 `set` 与 `count`。不输出 env 和 headers 的 key 名与值，也不输出 `url`、`command`、`args`、`cwd` 或条目里的其它字段。原始 `mcp_config` 只在采集进程内存里解析，不入库、不进日志、不进错误信息。`/api/agents` 仍然不输出 `mcp_config`。
+- `support.providers`：后端常量，键是小写的 provider。`loads` 为 `yes` | `no` | `conditional` | `unknown`。`native_merge`（daemon 是否把 runtime 本机配置合并进来）为 `yes` | `no` | `unknown` | `null`（不加载时）。`remote_filter: true` 表示 runtime 没声明能力时会丢掉 http/sse 条目。`note` 是固定代码或 `null`。不在表里的 provider，`runtime_loads` 为 `unknown`。
+- `library_state`：`ok` | `error` | `never`。`error` 时 `servers` 保留上次成功的数据，`library_error` 为 `{kind, message}`（已脱敏、截断到 200 字符）。`never` 时 `servers` 为 `[]`，前端显示「未加载」，不显示「库为空」。
+- `bindings_state`（workspace 级）：`ok` | `none`（库为空或 `agent_count` 之和为 0，确定没有分配，没有调用 `agent mcp list`）| `partial`（部分 agent 读取失败）| `error` | `never`。
+- `transport`：`stdio` | `http` | `sse` | `unknown`，或原样保留的其它显式 `type`（截断到 32 字符）。库条目取 CLI 返回值，自有配置按 Multica `mcpTransportOf` 的规则由后端判断。
+- `enabled_count` / `disabled_count`：由各 agent 的 `agent mcp list` 汇总，只计未归档 agent。`bindings_state` 不是 `ok` 时为 `null`，`agent_count` 仍取 CLI 原值。
+- `agents[]`：只列有分配或自有配置（`own_config.state` 不是 `none`）的 agent；其它 agent 不出现，前端用 `/api/agents` 的总数算出「其余 N 个」。包含归档 agent（`archived: true`），前端默认隐藏。
+- `provider`：按 `runtime_id` join `/api/runtimes`，转成小写。没绑 runtime 或 runtime 不在缓存时为 `null`，此时 `runtime_loads` 为 `unbound` 或 `unknown`。
+- `own_config.state`：`none`（`mcp_config` 为 `null`，且 `mcp_config_redacted` 不为 `true`）| `managed`（任意对象，包括 `{}` 和空 `mcpServers`；`servers` 可以为空）| `hidden`（`mcp_config_redacted: true`）| `invalid`（解析失败）。只有 `managed` 带 `servers`，其它状态为 `[]`。`mcpServers` 和旧的 `mcp` 容器都读，同名时以 `mcpServers` 为准。
+- `bindings`：该 agent 的 `agent mcp list` 结果。`bindings_state`（agent 级）为 `ok` | `none` | `error` | `never`；不是 `ok` 时 `bindings` 为 `[]`，前端显示 `?`。`shadowed` 表示与自有配置里的 server 同名。自有配置是 `hidden` 时，`shadowed` 为 `null`（判断不了）。
+- `effective`：按 Multica 的优先级（已启用的库分配 < 自有配置）算出的下一次任务的 server 列表，不含 runtime 本机配置和单次任务的集成 overlay。`state`：`known` | `partial`（分配没读到或自有配置是 `hidden`）| `unknown`。`from`：`library` | `own`。
+- `attention`：桶代码与条件见 `mcp-design.md`。`badge` 等于 `ignored`、`shadowed`、`may_fail` 三个桶的条数之和。`reason` 为固定代码：`runtime_no_mcp`、`runtime_unbound`、`own_config_same_name`、`opencode_v2_unsupported`、`config_redacted`、`no_agents`、`all_disabled`。空桶不出现在 `buckets` 里，但 `counts` 里照样是 `0`。
+- 撤权（`auth`）时，该 workspace 的 MCP 缓存与其它资源一起清空。
+
 ## 变更记录
 
+- v0.9（2026-10-23）：ACM-370 增加 `GET /api/mcp`（workspace MCP 库、agent 分配、自有配置摘要、各 runtime 是否加载、待处理分桶）。CLI 白名单只增加 `workspace mcp list` 与 `agent mcp list`。
 - v0.8（2026-10-23）：ACM-358 把升级检查接到只读的 npm registry / GitHub API。网络失败或无法比较时数据源为 `fallback`，可升级桶在没有确认结果时保持 `connected: false`。
 - v0.7（2026-10-20）：ACM-291 增加 `GET /api/bots`。`GET /api/agents` 增加 `description`、`instructions`、`instructions_sha256`、`skills`、`disabled_runtime_skills`。`GET /api/skills` 的每条增加 `workspace_installs`。
 - v0.6（2026-10-17）：ACM-182 增加 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。drift 增加 `version_changed`。页面待处理栏和 attention 接口用同一个分桶函数。

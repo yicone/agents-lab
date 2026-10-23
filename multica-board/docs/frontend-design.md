@@ -19,7 +19,7 @@
 ## 页面结构
 
 ```
-┌ Agent Atlas  [地图 1] [待你决定 2] [Issues 3] [Agents 4] [Skills 5]  ● 快照     [搜索 /] ┐
+┌ Agent Atlas  [地图 1] [待你决定 2] [Issues 3] [Agents 4] [Skills 5] [MCP 6]  ● 快照  [搜索 /] ┐
 │ ┌ 采集失败：鉴权 ──────────────────────────────────────────────────────┐ │  ← 仅在全局采集失败时出现
 │ │ 401 unauthorized …                                                   │ │
 │ │ CLI 认证失败。在你自己的终端确认 multica 已登录 …                     │ │
@@ -123,7 +123,7 @@ Agents 页的子视图，不加第 6 个一级 Tab。顶栏仍高亮 Agents。�
 
 ## 交互细节
 
-- 快捷键按顶栏位置编号，不再按层号：`1` 地图、`2` 待你决定、`3` Issues、`4` Agents、`5` Skills。`[` / `]` 只在某一层的层视图里切到上一层 / 下一层（往 L5 / 往 L1，L1 与 L5 循环）。`/` 聚焦搜索，`Esc` 先关抽屉，再清空搜索。v1 的 `1` = Issues、`2` = Agents 已废弃。
+- 快捷键按顶栏位置编号，不再按层号：`1` 地图、`2` 待你决定、`3` Issues、`4` Agents、`5` Skills、`6` MCP。`[` / `]` 只在某一层的层视图里切到上一层 / 下一层（往 L5 / 往 L1，L1 与 L5 循环）。`/` 聚焦搜索，`Esc` 先关抽屉，再清空搜索。v1 的 `1` = Issues、`2` = Agents 已废弃。
 - 搜索匹配 identifier、标题、负责人、agent 名、项目、父 issue、模型、runtime、workspace。
 - 每 15 秒轮询一次 `/api/meta`，`generated_at` 变化时才重新拉列表；顶栏状态每 5 秒重算一次。
 - 前端请求失败时保留上一次已渲染的数据，不清空页面。
@@ -179,6 +179,10 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 - 屏宽小于 1200px 时，待处理栏移到表格上方，收成一行桶计数。
 - mock：默认 `fixtures/skills.json` 是设计稿里的分布（版本已变 3、未登记 1、基线债 76）。`?mock=skills-missing`、`skills-drift`、`skills-gate`、`skills-fallback`、`skills-invalid` 覆盖这一份。打开时加上 `#/skills`。生成：`node multica-board/web/fixtures/write-skills.js`。
 - 切换计划用 fixture，不经过 `generate.py`。在任意 `?mock=` 下打开 `#/agents/plans`。单份计划：`hist`（16 行，阻断 13、跳过 3）、`mixed`、`expired`、`mismatch`、`broken`、`blanks`、`cross`、`drift`。空目录是 `#/agents/plans?fix=empty`。`hist` 的分布对齐验收场景，不是 10-17 的实时快照。
+
+## MCP（ACM-370）
+
+回答「各 workspace 的 MCP 分给了谁、下次任务实际拿到什么、哪些分配不会生效」。顶栏第 6 项，地址 `#/mcp`，地图 L3 的工具列表里也有入口。页面只读，管理操作只给可复制的命令。完整设计、各 runtime 是否加载、密钥处理见 `mcp-design.md`，接口见 `api-contract.md` 的 `GET /api/mcp`。
 
 ## 用量与额度（ACM-299）
 
