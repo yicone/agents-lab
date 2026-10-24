@@ -249,7 +249,7 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
         def action(name):
             row = {"issue": issue, "action": name, "reason": reason,
                    "comment_id": (rec or {}).get("comment_id") or (lc or {}).get("id"),
-                   "comment_at": (rec or {}).get("comment_at") or (lc or {}).get("created_at"),
+                   "comment_at": (rec.get("comment_at") if rec else (lc or {}).get("created_at")),
                    "wakeup_id": (rec or {}).get("wakeup_id"),
                    "failed_run_id": (rec or {}).get("failed_run_id"),
                    "target_id": (rec or {}).get("target_id"),
@@ -259,6 +259,16 @@ def process_unwoken(store, cli, state, per_issue, now, dry_run, sleep) -> _Resul
             log_row = {"issue_id": issue_id,
                        **{key: value for key, value in row.items() if key != "issue"}}
             logging.getLogger(__name__).info("unwoken %s", json.dumps(log_row, ensure_ascii=False))
+
+        # Retire an obsolete intent before resolving a target from a different
+        # comment. Otherwise an unparseable follow-up traps legacy pending
+        # records here forever, before the freshness guards can run.
+        if pending and not quota and lc and lc.get("id") != rec.get("comment_id"):
+            if not dry_run:
+                rec["state"] = "superseded"
+                store.save(state)
+            action("unwoken_skipped:newer_comment")
+            continue
 
         sent_at = parse_ts((rec or {}).get("sent_at"))
         if rec and rec.get("state") == "sent" and (quota or (sent_at and (now - sent_at).total_seconds() < config.UNWOKEN_DEDUPE_S)):

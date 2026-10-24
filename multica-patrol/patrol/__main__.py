@@ -270,7 +270,11 @@ def run_hourly(args, ctx) -> int:
         result["scheduling"] = {"errors": len(scheduling_errors),
                                 "complete": not scheduling_errors}
         if scheduling_errors and not dry_run:
-            fail("wakeup_failed", f"{len(scheduling_errors)} scheduling action(s) unresolved")
+            kind = ("wakeup_failed" if all(r["action"] == "wakeup_failed"
+                                           for r in scheduling_errors)
+                    else "scheduling_incomplete")
+            details = "; ".join(f"{r['issue']['id']}:{r['action']}" for r in scheduling_errors)
+            fail(kind, f"{len(scheduling_errors)} unresolved: {details}")
         violation = err_res.identity_violation or unw_res.identity_violation
         if violation and not dry_run:
             state["identity_violation"] = {"at": iso(now), "detail": violation}
