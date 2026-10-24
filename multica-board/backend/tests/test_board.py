@@ -905,7 +905,7 @@ class ServerTests(unittest.TestCase):
         data = json.loads(body)
         self.assertEqual(data["cursor"], "v1:0")
         self.assertEqual(data["items"], [])
-        self.assertEqual(data["retained_days"], 7)
+        self.assertEqual(data["retained_days"], 90)
         self.assertFalse(data["reset"])
         self.assertFalse(data["has_more"])
         self.assertEqual(r.getheader("Cache-Control"), "no-store")
@@ -1107,7 +1107,7 @@ class ChangeFeedTests(unittest.TestCase):
         full = self.views.changes("v1:0")
         self.assertFalse(full["reset"])
         self.assertFalse(full["has_more"])
-        self.assertEqual(full["retained_days"], 7)
+        self.assertEqual(full["retained_days"], 90)
         self.assertEqual(full["generated_at"][:4], "2026")
         blob = json.dumps(full)
         self.assertNotIn(FAKE_TOKEN, blob)
@@ -1269,7 +1269,7 @@ class ChangeRetentionTests(unittest.TestCase):
         }
 
     def test_prune_gap_and_server_scope(self):
-        self.store.append_changes(SERVER, WS_A, [self._ev(ago(8 * 24), "old", "Old")])
+        self.store.append_changes(SERVER, WS_A, [self._ev(ago(91 * 24), "old", "Old")])
         self.store.append_changes(SERVER, WS_A, [self._ev(ago(1), "fresh", "Fresh")])
         self.store.append_changes("other", WS_A, [self._ev(ago(30 * 24), "foreign", "FOREIGN-MARKER")])
 
