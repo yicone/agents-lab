@@ -114,41 +114,25 @@ class PatrolCLI:
 
     def run_unwoken_write(self, issue_id: str, content_file,
                           marker_prefix: str = config.UNWOKEN_PREFIX) -> CliResult:
-        """The unwoken supplement. Permitted only for registered ids.
+        raise CommandNotAllowed("supplement comments are disabled; use wakeup")
 
-        marker_prefix must be one of the patrol supplement markers
-        (UNWOKEN_PREFIX for rule 9, NOWAKE_PREFIX for rule 10).
-        """
-        if marker_prefix not in (config.UNWOKEN_PREFIX, config.NOWAKE_PREFIX):
-            raise CommandNotAllowed(f"unknown unwoken marker prefix {marker_prefix!r}")
-        if issue_id not in self.unwoken_permitted:
-            raise CommandNotAllowed(f"unwoken write not permitted for {issue_id}")
-        with open(content_file) as fh:
-            body = fh.read()
-        first = next((ln for ln in body.splitlines() if ln.strip()), "")
-        if not first.startswith(config.FIRST_LINE_NEXT):
-            raise CommandNotAllowed("unwoken body first line format invalid")
-        if marker_prefix not in body:
-            raise CommandNotAllowed(f"unwoken body lacks {marker_prefix} marker")
-        if config.AGENT_MENTION_RE.search(body):
-            raise CommandNotAllowed("unwoken body must not contain agent mentions")
-        self.writes_attempted += 1
-        argv = [self.binary, "issue", "comment", "add", issue_id,
-                "--content-file", str(content_file), "--allow-external-file",
-                "--output", "json"]
-        return self._spawn(argv, write=True)
-
-    def run_unwoken_wakeup(self, issue_id: str, instruction_file) -> CliResult:
-        """Schedule the dispatcher once, only for a guarded supplement issue."""
+    def run_unwoken_wakeup(self, issue_id: str, instruction: str) -> CliResult:
+        """Use a run-local file: CLI rejects instruction files outside cwd."""
         if issue_id not in self.unwoken_permitted:
             raise CommandNotAllowed(f"unwoken wakeup not permitted for {issue_id}")
-        self.writes_attempted += 1
-        return self._spawn([
-            self.binary, "issue", "wakeup", "create", issue_id,
-            "--kind", "at", "--after", "1m",
-            "--agent-id", config.DISPATCHER_AGENT_ID,
-            "--instruction-file", str(instruction_file), "--output", "json",
-        ], write=True)
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(prefix=".patrol-wakeup-", dir=Path.cwd()) as tmp:
+            path = Path(tmp) / "instruction.md"
+            path.write_text(instruction, encoding="utf-8")
+            path.chmod(0o600)
+            self.writes_attempted += 1
+            return self._spawn([
+                self.binary, "issue", "wakeup", "create", issue_id,
+                "--kind", "at", "--after", "1m",
+                "--agent-id", config.DISPATCHER_AGENT_ID,
+                "--instruction-file", str(path), "--output", "json",
+            ], write=True)
 
     def _check(self, args: list[str]) -> bool:
         for a in args:

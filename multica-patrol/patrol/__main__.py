@@ -257,6 +257,10 @@ def run_hourly(args, ctx) -> int:
             store, cli, state, scanned["per_issue"], now, dry_run, ctx["sleep"])
         result["unwoken_sent"] = unw_res.sent
         result["unwoken_would_send"] = unw_res.would_send
+        result["unwoken_actions"] = [
+            {"issue_id": row["issue"]["id"],
+             **{key: value for key, value in row.items() if key != "issue"}}
+            for row in unw_res.actions]
         violation = err_res.identity_violation or unw_res.identity_violation
         if violation and not dry_run:
             state["identity_violation"] = {"at": iso(now), "detail": violation}
