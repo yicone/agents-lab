@@ -21,7 +21,7 @@ from multica_board.changes import BadRequest, diff_issues, diff_runtimes, events
 from multica_board.cli_runner import CliError, CliRunner, CommandNotAllowed, assert_read_only  # noqa: E402
 from multica_board.collector import WORKSPACE, CollectOptions, Collector  # noqa: E402
 from multica_board.redact import ERROR_KINDS, classify_error, redact  # noqa: E402
-from multica_board.server import STATIC_CSP, BoardServer, assert_loopback  # noqa: E402
+from multica_board.server import STATIC_CSP, BoardServer, listen_hosts  # noqa: E402
 from multica_board.store import Store  # noqa: E402
 from multica_board.views import ATTENTION_TEXT_BYTES, NotFound, Views, build_workspace_installs, render_attention_text  # noqa: E402
 
@@ -808,10 +808,10 @@ class ServerTests(unittest.TestCase):
         conn.close()
         return r, body
 
-    def test_bind_refuses_non_loopback(self):
-        for host in ("0.0.0.0", "::", "192.168.1.10", "localhost", "example.com"):
+    def test_bind_requires_numeric_ip(self):
+        for host in ("localhost", "example.com", "127.0.0.1:8787", "*"):
             with self.assertRaises(ValueError, msg=host):
-                assert_loopback(host)
+                listen_hosts([host])
 
     def test_endpoints(self):
         for path in ("/api/meta", "/api/issues", "/api/layers", "/api/agents", "/api/bots", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):

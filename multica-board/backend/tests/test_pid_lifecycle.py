@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import os
+import http.client
 from pathlib import Path
 import selectors
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -28,7 +30,7 @@ class PidLifecycleTests(unittest.TestCase):
                 self.assertNotIn("board.pid", source)
                 self.assertNotIn("serve.log", source)
 
-    def _exercise(self, stale: bool, crash: bool):
+    def _exercise(self, stale: bool, crash: bool, hosts: list[str] | None = None):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
             state = home / ".multica-board"
@@ -45,7 +47,7 @@ class PidLifecycleTests(unittest.TestCase):
                 proc = subprocess.Popen(
                     [sys.executable, "-m", "multica_board", "serve", "--all-workspaces",
                      "--refresh", "0", "--port", "0", "--plan-dir", str(home / "plans"),
-                     "--multica-bin", str(home / "nonexistent-cli")],
+                     "--multica-bin", str(home / "nonexistent-cli")] + (hosts or []),
                     cwd=tmp, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 )
                 try:
@@ -54,6 +56,17 @@ class PidLifecycleTests(unittest.TestCase):
                         self.assertTrue(selector.select(timeout=10), "serve startup timed out")
                     line = proc.stdout.readline().decode()
                     self.assertIn("listening on http://127.0.0.1:", line)
+                    if hosts:
+                        second = proc.stdout.readline().decode()
+                        self.assertIn("listening on http://[::1]:", second)
+                        port = int(line.strip().rsplit(":", 1)[1])
+                        for host in ("127.0.0.1", "::1"):
+                            conn = http.client.HTTPConnection(host, port, timeout=3)
+                            conn.request("GET", "/api/meta", headers={"Host": f"atlas.test:{port}"})
+                            response = conn.getresponse()
+                            response.read()
+                            self.assertEqual(response.status, 200)
+                            conn.close()
                     for path in legacy:
                         if stale:
                             self.assertEqual((path.read_bytes(), path.stat().st_mtime_ns), before[path])
@@ -84,3 +97,14 @@ class PidLifecycleTests(unittest.TestCase):
 
     def test_stale_files_crash_recovery(self):
         self._exercise(stale=True, crash=True)
+
+    def test_multiple_listeners_graceful_restart(self):
+        try:
+            with socket.socket(socket.AF_INET6) as probe:
+                probe.bind(("::1", 0))
+        except OSError as exc:
+            self.skipTest(f"IPv6 unavailable: {exc}")
+        self._exercise(stale=False, crash=False, hosts=["--host", "127.0.0.1,::1",
+                                                        "--host", "127.0.0.1",
+                                                        "--allowed-host", "atlas.test,other.test",
+                                                        "--allowed-host", "third.test"])
