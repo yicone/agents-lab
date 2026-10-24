@@ -64,6 +64,7 @@ def project_agent(raw):
     values['custom_model'] = custom_model(raw['custom_args'])
     revision = fingerprint({'values': values, 'updated_at': raw['updated_at'], 'args': raw['custom_args']})
     return {'values': values, 'revision': revision,
+            'config_revision': fingerprint({'values': values, 'args': raw['custom_args']}),
             'custom_editable': not raw['custom_args'] or raw['custom_args'] == ['--model', values['custom_model']]
             or raw['custom_args'] == ['--model=' + (values['custom_model'] or '')]}
 

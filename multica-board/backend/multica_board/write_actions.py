@@ -166,7 +166,7 @@ class RuntimeActions:
         self.journal.append(dict(record, state='audit_' + status))
         return status
 
-    def preview(self, ws, agent, changes, *, rollback_of=None, expected=None):
+    def preview(self, ws, agent, changes, *, rollback_of=None, expected=None, expected_config=None):
         with self.lock:
             target = self._target(ws, agent)
             if target in self.unresolved:
@@ -181,6 +181,8 @@ class RuntimeActions:
             # CLI clear for these fields is an explicit empty string.
             clean = {k: ('' if v is None and k != 'custom_model' else v) for k, v in clean.items()}
             before = self.adapter.read(target)
+            if expected_config is not None and before.get('config_revision', before['revision']) != expected_config:
+                raise WriteError('cas_conflict')
             if expected is not None and before['revision'] != expected:
                 raise WriteError('cas_conflict')
             if 'custom_model' in clean and not before['custom_editable']:
@@ -243,7 +245,8 @@ class RuntimeActions:
                 observed = self.adapter.read(target)
                 if observed['values'] != plan['after']:
                     raise WriteError('readback_mismatch')
-                event = self._event(plan, 'applied', readback_revision=observed['revision'])
+                event = self._event(plan, 'applied', readback_revision=observed['revision'],
+                                    readback_config_revision=observed.get('config_revision', observed['revision']))
                 self.unresolved.pop(target, None)
             except Exception as exc:
                 event = self._event(plan, 'unknown', code=exc.code if isinstance(exc, WriteError) else 'readback_failed')
@@ -258,7 +261,8 @@ class RuntimeActions:
             if not prior or prior['state'] not in ('applied', 'reconciled_applied'):
                 raise WriteError('rollback_unavailable')
             changes = {k: prior['before'][k] for k in prior['changes']}
-            return self.preview(*prior['target'], changes, rollback_of=action_id, expected=prior['readback_revision'])
+            return self.preview(*prior['target'], changes, rollback_of=action_id,
+                                expected_config=prior.get('readback_config_revision', prior['readback_revision']))
 
     def reconcile(self, ws, agent):
         with self.lock:
@@ -273,7 +277,8 @@ class RuntimeActions:
                 state = 'reconciled_unapplied'
             else:
                 return {'state': 'unknown', 'code': 'reconciliation_conflict', 'actual_effect': 'unknown'}
-            event = self._event(prior, state, readback_revision=current['revision'])
+            event = self._event(prior, state, readback_revision=current['revision'],
+                                readback_config_revision=current.get('config_revision', current['revision']))
             self.unresolved.pop(target)
             self.results[event['id']] = event
             return dict(event, audit=self._mirror(prior, state), actual_effect='unknown')

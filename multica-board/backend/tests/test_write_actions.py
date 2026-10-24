@@ -225,6 +225,21 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(self.execute(rollback)['state'], 'applied')
         self.assertEqual(self.adapter.values, VALUES)
 
+    def test_rollback_after_activity_timestamp_change_preserves_config_guard(self):
+        original = self.adapter.read
+        def read(target):
+            snap = original(target)
+            snap['config_revision'] = fingerprint(snap['values'])
+            return snap
+        self.adapter.read = read
+        result = self.execute(self.preview())
+        self.adapter.version += 1  # Agent status timestamps also change when a run ends.
+        rollback = self.actions.rollback(result['id'])
+        self.assertEqual(rollback['after']['model'], 'old-model')
+        self.adapter.values['custom_model'] = 'external-change'
+        with self.assertRaises(WriteError):
+            self.actions.rollback(result['id'])
+
     def test_rollback_rejects_later_changes_even_same_values(self):
         result = self.execute(self.preview())
         self.adapter.version += 1
