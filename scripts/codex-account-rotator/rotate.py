@@ -221,10 +221,10 @@ def classified_tasks(argv, status):
                     or len(set(local)) != len(local)):
                 raise Unavailable("task_runtime_unknown")
             scoped = argv + ["--workspace-id", wid]
-            runtimes = indexed(read_json(scoped + ["runtime", "list", "--output", "json"]))
-            if not set(local) <= runtimes.keys():
-                raise Unavailable("task_runtime_unknown")
             agents = indexed(read_json(scoped + ["agent", "list", "--include-archived", "--output", "json"]))
+            runtimes = indexed(read_json(scoped + ["runtime", "list", "--output", "json"]))
+            # Daemon bindings can retain retired runtimes absent from runtime list.
+            # Require a provider for every active run below, not every idle binding.
             for aid, agent in agents.items():
                 for task in task_pages(scoped, aid):
                     state = task.get("status")
