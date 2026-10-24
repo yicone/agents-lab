@@ -98,13 +98,18 @@ export function sourceBlocks(payload) {
     const s = i.consistency?.state || "";
     statuses[s] = (statuses[s] || 0) + 1;
   }
-  const blocksOut = blocks.map((b) => {
-    // 另一侧有来源没读到时，「仅本机」「仅 Multica」的数字不可全信。
-    const sideUnknown =
-      (b.id === "local_only" && (payload?.unknown?.multica !== "collected" || multicaSideUnknown(payload))) ||
-      (b.id === "multica_only" && !localSideKnown(payload));
-    return { ...b, sideUnknown };
-  });
+  // Partial read failures do not erase counts already returned by the backend.
+  const localFiles = (payload?.tools || []).flatMap((t) => t.files || []);
+  const projectFiles = (payload?.repos || []).flatMap((r) => r.files || []);
+  const unread = (files) => !files.some((f) => f.state === "ok" || f.state === "absent");
+  const blocksOut = blocks.map((b) => ({
+    ...b,
+    sideUnknown: b.count === 0 && (
+      (b.id === "local_only" && payload?.unknown?.multica !== "collected") ||
+      (b.id === "multica_only" && unread(localFiles)) ||
+      (["all", "both"].includes(b.id) && unread(localFiles) && payload?.unknown?.multica !== "collected")
+    ),
+  }));
   blocksOut.push({
     id: PROJECT_SOURCE,
     label: `仓库项目级${repoLabel ? ` · ${repoLabel}` : ""}`,
@@ -112,20 +117,10 @@ export function sourceBlocks(payload) {
     uncertain: 0,
     statuses,
     // 项目级文件没读到时，这张卡的计数同样不可全信
-    sideUnknown: (payload?.unknown?.project_files || []).length > 0,
+    sideUnknown: inProject.length === 0 && unread(projectFiles),
+    partial: (payload?.unknown?.project_files || []).length > 0,
   });
   return blocksOut;
-}
-
-function multicaSideUnknown(payload) {
-  const u = payload?.unknown || {};
-  return (u.library || []).length > 0 || (u.bindings || []).length > 0 ||
-    (u.own_hidden || 0) > 0 || (u.own_invalid || 0) > 0;
-}
-
-function localSideKnown(payload) {
-  const u = payload?.unknown || {};
-  return !(u.local_files || []).length && !(u.project_files || []).length;
 }
 
 function isPresent(value) {
@@ -238,6 +233,7 @@ export function queueModel(payload) {
       unknownSources: raw.unknown_sources || [],
       reason: raw.reason || "",
       items: raw.items || [],
+      count,
       countText: !connected ? "—" : `${count}${partial ? " ?" : ""}`,
     };
   });
@@ -428,8 +424,9 @@ function sourceCard(ctx, block) {
   const active = (route.source || "") === id;
   const recon = [];
   if (block.uncertain) {
-    recon.push(h("span", { class: "warn-n", title: "有来源没读到，这些行可能在另一侧也有" }, `含 ${block.uncertain} 行待确认`));
+    recon.push(h("span", { class: "muted", title: "有来源没读到，这些行可能在另一侧也有" }, `含 ${block.uncertain} 行待确认`));
   }
+  if (block.partial) recon.push(h("span", { class: "muted" }, "? 有项目级来源没读到，计数可能不全"));
   for (const key of STATUS_ORDER) {
     const n = block.statuses?.[key];
     if (!n) continue;
@@ -447,7 +444,7 @@ function sourceCard(ctx, block) {
     h("strong", null, block.sideUnknown ? "—" : String(block.count ?? 0)),
     h("span", { class: "source-recon" },
       block.sideUnknown
-        ? h("span", { class: "muted" }, "另一侧有来源没读到")
+        ? h("span", { class: "muted" }, "来源未读到，数量未知")
         : recon.length ? recon : h("span", { class: "muted" }, "—")));
 }
 
@@ -695,7 +692,7 @@ function queue(ctx, payload) {
 
 function bucketBlock(ctx, bucket) {
   const { h } = ctx;
-  const countCls = bucket.tone === "bad" ? "bad-n" : bucket.tone === "warn" ? "warn-n" : "muted";
+  const countCls = bucket.count === 0 ? "muted" : bucket.tone === "bad" ? "bad-n" : bucket.tone === "warn" ? "warn-n" : "muted";
   let body;
   if (!bucket.connected) {
     body = h("p", { class: "muted" }, `— ${bucket.reason}`);

@@ -189,3 +189,58 @@ test("no .mcp- selectors remain in styles.css or JS", () => {
     assert.ok(!classes.some((c) => c.startsWith("mcp-")), `${f}: ${classes.filter((c) => c.startsWith("mcp-"))}`);
   }
 });
+
+// ACM-454: assert rendered counts, not only the model or the all-sources card.
+const cardsOf = (payload) => findAll(renderMcp(ctx({ mcp: payload })),
+  (n) => n.tag === "button" && (n.attrs.class || "").split(" ").includes("source-card"));
+const cardOf = (payload, label) => cardsOf(payload).find((n) =>
+  flatText(n.children[0]).startsWith(label));
+const cardCount = (card) => flatText(findAll(card, (n) => n.tag === "strong")[0]);
+
+test("source cards keep partial counts and backend uncertain rows, including a known zero", () => {
+  const local = cardOf(partialFx, "仅本机");
+  assert.equal(cardCount(local), "1");
+  assert.match(flatText(local), /含 1 行待确认/);
+  assert.equal(findAll(local, (n) => flatText(n) === "含 1 行待确认").at(-1).attrs.class, "muted");
+  assert.equal(cardCount(cardOf(partialFx, "仅 Multica")), "0");
+  // Opposite-side failures alone must not replace a confirmed zero.
+  const zero = structuredClone(partialFx);
+  zero.summary.find((b) => b.id === "local_only").count = 0;
+  zero.summary.find((b) => b.id === "local_only").uncertain = 0;
+  assert.equal(cardCount(cardOf(zero, "仅本机")), "0");
+  const remote = structuredClone(partialFx);
+  Object.assign(remote.summary.find((b) => b.id === "multica_only"), { count: 3, uncertain: 2 });
+  assert.equal(cardCount(cardOf(remote, "仅 Multica")), "3");
+  assert.match(flatText(cardOf(remote, "仅 Multica")), /含 2 行待确认/);
+});
+
+test("project partial reads preserve discovered counts and show uncertainty", () => {
+  const payload = structuredClone(mcpFx);
+  payload.unknown.project_files = [".cursor"];
+  payload.repos[0].files[1].state = "denied";
+  const card = cardOf(payload, "仓库项目级");
+  assert.equal(cardCount(card), String(payload.items.filter((i) => i.in_project).length));
+  assert.match(flatText(card), /\? 有项目级来源没读到/);
+  assert.equal(cardCount(cardOf(partialFx, "仓库项目级")), "0");
+});
+
+test("unread sources use a dash while fully read empty sources show zero", () => {
+  assert.ok(cardsOf(unknownFx).every((card) => cardCount(card) === "—"));
+  assert.ok(cardsOf(emptyFx).every((card) => cardCount(card) === "0"));
+});
+
+test("queue zero counts are muted, partial question marks and nonzero tones survive", () => {
+  for (const payload of [emptyFx, warnFx, partialFx, unknownFx, mcpFx]) {
+    const buckets = queueModel(payload).buckets;
+    const sections = findAll(renderMcp(ctx({ mcp: payload })),
+      (n) => n.tag === "section" && n.attrs.class === "skill-bucket");
+    for (const [index, section] of sections.entries()) {
+      const count = findAll(section, (n) => n.attrs.class?.startsWith("count "))[0];
+      const bucket = buckets[index];
+      assert.equal(flatText(count), bucket.countText);
+      const tone = !bucket.connected || bucket.items.length === 0 ? "muted"
+        : bucket.tone === "bad" ? "bad-n" : "warn-n";
+      assert.equal(count.attrs.class, `count ${tone}`);
+    }
+  }
+});
