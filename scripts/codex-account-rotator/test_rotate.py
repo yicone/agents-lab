@@ -210,6 +210,34 @@ class TaskClassificationTests(unittest.TestCase):
         tasks = [self.task(), self.task('r3', 'resource_wait', 'w2', 'a2', 't2')]
         self.assertEqual(self.check_gate(tasks, profile='desktop-api.multica.ai'), (True, 'idle'))
 
+    def test_unused_daemon_runtime_need_not_appear_in_runtime_list(self):
+        # r2 is still registered by daemon but has no active runs or API row.
+        self.assertEqual(self.check_gate([self.task()], providers={'r1': 'hermes'}),
+                         (True, 'idle'))
+        self.assertEqual(self.check_gate([self.task('r2')], providers={'r1': 'hermes'}),
+                         (False, 'task_runtime_unknown'))
+
+    def test_second_workspace_read_failure_cannot_pass_partial_total(self):
+        for stage in ('agent', 'runtime'):
+            status = dict(status='running', active_task_count=0, running_task_count=0,
+                          resource_wait_task_count=0, workspaces=[
+                              dict(id='w1', runtimes=['r1']), dict(id='w2', runtimes=['r2'])])
+            visited = []
+            def read(argv):
+                if 'daemon' in argv:
+                    return status
+                if 'workspace' in argv:
+                    return [dict(id='w1'), dict(id='w2')]
+                wid = argv[argv.index('--workspace-id') + 1]
+                visited.append((wid, 'agent' if 'agent' in argv else 'runtime'))
+                if wid == 'w2' and stage in argv:
+                    raise r.Unavailable('command_failed')
+                return []
+            with patch.object(r, 'read_json', side_effect=read), patch.object(r, 'command') as cmd:
+                self.assertEqual(r.idle('multica'), (False, 'task_runtime_unknown'))
+                self.assertIn(('w2', stage), visited)
+                cmd.assert_not_called()
+
     def test_missing_daemon_workspace_fails_closed(self):
         self.assertEqual(self.check_gate([], available=[dict(id='w1')]),
                          (False, 'task_runtime_unknown'))
