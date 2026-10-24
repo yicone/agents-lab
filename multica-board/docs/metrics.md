@@ -59,7 +59,7 @@
 - 巡检/转发台账：手动处理和重复转发的事实；**需要新采集**，且需统一事件 schema。
 - 评论正文的稳定分类、批准卡片定义和用户身份映射：当前 Board API 白名单不输出正文和成员邮箱；**需要新采集**，建议在受限采集层只保存事件类别、actor type、issue/thread ID，不保存正文。
 
-**计算与频率**：按事件写入后增量重算，每小时刷新；日报冻结前一日数据。两周后报告均值、中位数、P90，并按 workspace、agent、交付类型切片。
+**计算与频率**：按事件写入后增量重算，每小时刷新；日报冻结前一日数据。历史回补后报告均值、中位数、P90，并按 workspace、agent、交付类型切片。
 
 **易刷点与配对指标**：少问用户会降低本指标，但可能增加返工。必须和一次通过率、返工轮数、交付周期一起看；少记手动处理会虚降，故保留 `unknown/unattributed` 和采集覆盖率。
 
@@ -168,9 +168,43 @@
 
 **易刷点与配对指标**：少跑验证、少记失败可压低成本但可能降低一次通过率和提高回归；和一次通过率、返工率、失败率、每件周期配对。低成本不代表高效。
 
-## 3. 数据采集与实现边界
+## 3. 流速驱动
 
-### 3.1 现有可复用接口
+### 3.1 读数与触发
+
+目的：用流速尺驱动 Steward 加速整体交付，不把处置动作自动化或写死。
+
+- **主读数**：滚动 24 小时交付件数，严格按本文件交付件口径；只计有交付台账结束证据的完整交付。
+- **诊断读数**：在制品数（当前正在推进的父 issue 数）；等待占比，拆成 `waiting_user`、`waiting_quota`、`waiting_agent`；另报返工和覆盖率，防止用少交付或少记录刷主读数。
+- **触发条件**：主读数低于阈值。阈值由历史回补基线决定，例如过去 4 周日均值的 70%；具体数值留给用户拍板，实施时只做参数，不写死。
+- **运行频率**：白天每 2–3 小时由 Steward 例行检查读取一次，日报记录是否触发、诊断结果、采取动作和结果；不在本文授权自动派活、换 agent 或改 issue。
+
+### 3.2 处置映射
+
+| 诊断结果 | Steward 处置建议 |
+|---|---|
+| 在制品太少 | 从 backlog 和 roadmap 补派；先核对批准、负责人、活动 run、额度和权限。 |
+| 卡在等用户 | 把待批事项合并成一张编号批准，减少用户注意力占用。 |
+| 卡在等额度或 agent | 先用 `codexbar` 核对额度，换到已有且合适的 agent，或拆小并行；不改绑定、凭据或模型配置。 |
+| 返工多 | 修验收标准和 issue 描述，保留返工原因和改动证据。 |
+
+处置必须遵守既有授权、容量、workspace 边界和安全规则；读数触发不等于动作授权。
+
+### 3.3 数据来源
+
+- 交付件、父子关系、状态和负责人：Multica CLI 的 issue / workspace 读取，或 Board `/api/issues`；**现在就能取**。
+- 滚动 24 小时交付件：交付台账事件；历史回补阶段用已有 issue `done` 与可确认结束事件，缺台账的 `done` 只进覆盖率；实时阶段由 `delivery_completed` 事件更新。
+- 在制品：Multica CLI issue 状态，或 Board `/api/issues` 的 `status` / `status_category` / `parent_identifier`；**现在就能取**，按父 issue 去重。
+- 等待占比：Board `/api/changes` 的 `issue_status` 事件，加巡检、quota wait、Wakeup ledger 的 `wait_reason`；状态流转可取，原因需新采集，缺失标 `unknown`。
+- 历史基线：Multica 现有 issue 状态流转、运行记录和评论，尽量最近 4 周；没有历史来源的台账、额度归因、`wait_reason` 标 `unknown` 并单报 coverage。
+
+### 3.4 对账
+
+实时采集接入后连续运行 2 天，按相同父 issue、事件类型、时间窗口和去重 ID 对比历史回补结果。日报列出匹配数、仅回补、仅实时、时间差和口径差异；差异不得静默覆盖，未解释差异保留 `unknown`。
+
+## 4. 数据采集与实现边界
+
+### 4.1 现有可复用接口
 
 - Multica CLI：issue、comment、agent tasks、workspace、runtime；具体字段以 CLI `--output json` 实际返回为准。CLI 是读取事实的来源，不假设存在未文档化的成本或交付接口。
 - Atlas 只读 API：`/api/issues`、`/api/issues/{workspace_id}/{issue_id}/runs`、`/api/changes`、`/api/usage`。当前契约规定只读，只有 GET/HEAD，没有立即刷新或写入指标接口。
@@ -178,7 +212,7 @@
 - 巡检、quota wait、Wakeup ledger：可作为原因和人工处理的证据，但必须先定义脱敏、ID、时间、幂等键和保留期。
 - CodexBar：只读额度快照；不得读取 auth 文件、token、cookie 或密钥。
 
-### 3.2 必须新增的最小事件
+### 4.2 必须新增的最小事件
 
 建议 Builder 在采集层新增统一事件，不把正文或秘密写进 Board：
 
@@ -193,12 +227,13 @@
 
 只写建议，不创建 issue；顺序可调整，但每步先有读回和覆盖率验证：
 
-1. **建立交付件归并层**：读取所有 workspace issue、父子关系和状态迁移；生成稳定 `delivery_id`，处理取消、跨 workspace、缺父 issue；输出 coverage 和 unknown，不改变 Multica 数据。
-2. **补齐交付事件**：从 issue 状态、评论线程、合并/上线台账采集开始/结束、采纳、批准、回复、返工事件；只存脱敏枚举和 ID。为人工分类提供可复核的原始引用 ID，不存正文。
-3. **建立等待事件**：接入 `/api/changes` 与巡检/quota ledger，形成 `wait_reason` 的 user/quota/agent/unclassified 四类；处理事件重叠、回补窗口和幂等。
-- 4. **建立运行与成本归因**：关联 `agent tasks` run 到父 delivery，接入 `/api/usage` 的 token / `cost_usd_ticks`、CodexBar 快照和 9router Observability（仅在 `enableObservability` 开启时采集）；逐项标记 attributable / unattributed / unknown；Orca 保持未接入。
-5. **计算五项指标**：实现中位数/P90、等待分桶、一次通过判定、注意力分子和成本分层；每小时增量、日报冻结；输出分子、分母、unknown、覆盖率及按 workspace/agent/provider 的切片。
-- 6. **加反刷校验与验收样本**：覆盖父子 issue、取消单、全部 workspace、缺失台账结束证据、重复评论、重复 run、quota wait、失败重跑、9router Observability 开关关闭、缓存过期；任何采集失败不得渲染为 0 或“无”。
+1. **历史回补交付件归并层**：读取全部 workspace 的最近 4 周 issue、父子关系、状态流转、运行记录和评论；生成稳定 `delivery_id`，处理取消、跨 workspace、缺父 issue；没有历史来源的台账、额度归因、`wait_reason` 标 `unknown`，输出覆盖率，不改变 Multica 数据。
+2. **补齐交付事件**：从 issue 状态、评论线程和可用交付证据采集开始、采纳、批准、回复、返工事件；统一结束仍以交付台账为准，只存脱敏枚举和 ID，为人工分类保留可复核引用，不存正文。
+3. **建立等待事件**：接入 `/api/changes` 与巡检/quota ledger，形成 `wait_reason` 的 user/quota/agent/unclassified 四类；处理事件重叠、历史回补、实时增量和幂等。
+4. **建立运行与成本归因**：关联 `agent tasks` run 到父 delivery，接入 `/api/usage` 的 token / `cost_usd_ticks`、CodexBar 快照和 9router Observability（仅在 `enableObservability` 开启时采集）；逐项标记 attributable / unattributed / unknown；Orca 保持未接入。
+5. **实现流速驱动读数**：计算滚动 24 小时交付件数、在制品数和等待/返工诊断；读取接口复用 `/api/issues`、`/api/changes`、`/api/usage`、CLI 和台账。用历史回补基线提供阈值参数，不写死阈值；支持白天每 2–3 小时检查和日报记录，处置仍由 Steward 执行。
+6. **计算五项指标**：实现中位数/P90、等待分桶、一次通过判定、注意力分子和成本分层；先跑历史回补，再接入实时采集运行 2 天对账，输出匹配数、仅回补、仅实时、时间差、口径差异、分子、分母、unknown、覆盖率及按 workspace/agent/provider 的切片。
+7. **加反刷校验与验收样本**：覆盖父子 issue、取消单、全部 workspace、缺失台账结束证据、重复评论、重复 run、quota wait、失败重跑、9router Observability 开关关闭、历史回补与实时对账、缓存过期；任何采集失败不得渲染为 0 或“无”。
 
 ## 5. 已决定
 
@@ -210,7 +245,7 @@
 6. 结束证据统一以交付台账为准。没有证据的 `done` 不算进周期和一次通过率，只计入覆盖率。
 7. 失败后自动恢复的运行不算返工，但在可靠性那组里单独标出警告。
 8. `multica_cost` 和 `quota_consumption` 永久分两栏，不相加。价格表放在仓库里，由 Steward 维护。
-9. 两周基线从第一条完整采集的事件算起，满 14×24 小时。
+9. 基线用历史数据回补：从 Multica 现有历史读取 issue 状态流转、运行记录和评论，尽量取最近 4 周。没有历史来源的台账、额度归因、`wait_reason` 等标为 `unknown`，单独列覆盖率。接入实时采集后，再运行 2 天对账，核对回补和实时采集口径；不一致处单独说明。
 10. 默认覆盖全部 workspace。
 11. 目标值等基线完成后再单独拍板，实施时不预设阈值。
 12. `/api/changes` 和事件台账保留 90 天，不是 30 天。
