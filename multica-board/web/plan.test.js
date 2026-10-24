@@ -276,7 +276,7 @@ test("row drawer shows raw null and empty string and does not render an approval
   assert.equal(close.attrs["aria-label"], "关闭");
 });
 
-test("live plan reads are GET only, and web scripts do not send writes", () => {
+test("live plan reads stay GET only; writes are isolated to runtime-config", () => {
   const planSrc = readFileSync(new URL("./plan.js", import.meta.url), "utf8");
   const appSrc = readFileSync(new URL("./app.js", import.meta.url), "utf8");
   assert.doesNotMatch(planSrc, /\/api\/|fetch\s*\(/);
@@ -285,7 +285,7 @@ test("live plan reads are GET only, and web scripts do not send writes", () => {
   assert.doesNotMatch(appSrc, /\/api\/plans[\s\S]{0,120}method\s*:/);
   const dir = new URL("./", import.meta.url);
   for (const name of readdirSync(dir)) {
-    if (!name.endsWith(".js")) continue;
+    if (!name.endsWith(".js") || name === "runtime-config.js") continue;
     const src = readFileSync(new URL(name, dir), "utf8");
     assert.doesNotMatch(src, /method\s*:\s*["'](?!GET|HEAD)[A-Z]+["']/);
   }

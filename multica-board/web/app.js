@@ -1,3 +1,4 @@
+import { createRuntimeConfig } from "./runtime-config.js";
 import { runtimeIcon } from "./runtime-mark.js";
 import { QUEUED_RUN, classifyIssue, attentionSummary } from "./attention.js";
 import {
@@ -30,6 +31,7 @@ const MOCK_SCENARIO = MOCK && /^[a-z][a-z-]*$/.test(MOCK_PARAM) ? MOCK_PARAM : "
 const META_POLL_MS = 15_000;
 const SKILLS_LIST_SCROLL = ".table-wrap.sticky-head";
 let renderedView = "";
+let runtimeConfig = null;
 let scrollRestoreGen = 0;
 const STALE_DAY_OPTIONS = [1, 3, 7, 14];
 const QUOTA_KINDS = new Set(["quota", "rate_limit"]);
@@ -2216,6 +2218,15 @@ function atlasCtx() {
 function renderMain() {
   const main = document.getElementById("main");
   const view = state.route.view;
+  if (view === "configure" && state.route.section === "runtime") {
+    if (!runtimeConfig) runtimeConfig = createRuntimeConfig(h, () => ({
+      agents: state.agents, runtimes: state.runtimes, workspaces: state.meta?.workspaces || [],
+    }), fetch, MOCK ? "静态 mock 没有执行接口，请使用隔离的运行时 fixture 服务。" : "");
+    if (main.firstChild !== runtimeConfig.element || main.childNodes.length !== 1) main.replaceChildren(runtimeConfig.element);
+    renderedView = view;
+    return;
+  }
+  if (runtimeConfig) { runtimeConfig.dispose(); runtimeConfig = null; }
   const sameView = renderedView === view;
   const listScroll = sameView ? captureScroll(main, SKILLS_LIST_SCROLL) : [];
   const windowScroll = sameView ? { top: window.scrollY || 0, left: window.scrollX || 0 } : null;

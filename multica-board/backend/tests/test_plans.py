@@ -171,7 +171,7 @@ class ContractTests(unittest.TestCase):
         execute.return_value = subprocess.CompletedProcess(
             [], 0, "Server:  https://API.Example.Test:443/\nUser: PRIVATE_IDENTITY\n", "",
         )
-        a = Mock()
+        a = Mock(write_policy=None)
         a.profile, a.app_url, a.refresh = "custom-profile", "https://web.example.test", 0
         a.static_dir, a.host, a.port, a.allowed_host = None, ["127.0.0.1"], 0, None
         captured = {}
@@ -215,7 +215,7 @@ class ContractTests(unittest.TestCase):
         runner = CliRunner(profile="custom", retries=0, _exec=Mock(
             return_value=subprocess.CompletedProcess([], 1, "", "offline")))
         with tempfile.TemporaryDirectory() as temp:
-            a = Mock(profile="custom", app_url="https://web.example.test", refresh=0,
+            a = Mock(write_policy=None, profile="custom", app_url="https://web.example.test", refresh=0,
                      static_dir=None, host=["127.0.0.1"], allowed_host=None, port=0,
                      db=Path(temp)/"board.sqlite", plan_dir=Path(temp)/"plans")
             with patch("multica_board.__main__._runner", return_value=runner), \

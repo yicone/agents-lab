@@ -141,11 +141,23 @@ def cmd_serve(a: argparse.Namespace) -> int:
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh,
                   server_identity=origin, mcp_every=a.mcp_every, mcp_ctx=mcp_ctx)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
+    actions = None
+    journal = None
     try:
+        if getattr(a, "write_policy", None):
+            from .write_actions import Journal, RuntimeActions, load_policy
+            from .write_adapter import MulticaWriteAdapter
+            if any(host not in {"127.0.0.1", "::1"} for host in hosts):
+                raise ValueError("runtime writes require loopback-only listeners")
+            policy = load_policy(a.write_policy, a.profile)
+            journal = Journal(a.db.with_name(a.db.stem + "-write-audit.jsonl"))
+            actions = RuntimeActions(MulticaWriteAdapter(runner, policy), policy, journal)
         servers = bind_servers(hosts, a.port, views, static_dir=static, plan_dir=a.plan_dir,
-                               allowed_hosts=allowed)
+                               allowed_hosts=allowed, runtime_actions=actions)
     except Exception:
         store.close()
+        if journal:
+            journal.close()
         raise
     stop = threading.Event()
 
@@ -193,6 +205,8 @@ def cmd_serve(a: argparse.Namespace) -> int:
         for httpd in servers:
             httpd.server_close()
         store.close()
+        if journal:
+            journal.close()
     return 0
 
 
@@ -226,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--full-every", type=int, default=30, help="every Nth cycle is a full run-history pass")
     s.add_argument("--app-url", default="https://multica.ai", help="web app base URL for deep links")
     s.add_argument("--static-dir", type=Path, default=DEFAULT_STATIC, help="frontend directory served at / (default ../web)")
+    s.add_argument("--write-policy", type=Path, help="opt-in owner-private runtime write policy; loopback only")
     s.add_argument("--plan-dir", type=Path, default=DEFAULT_PLAN_DIR, help="private G1 plan directory (read-only HTTP)")
 
     from .metrics_cli import register

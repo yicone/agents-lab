@@ -1,4 +1,4 @@
-"""Explicit-host, GET-only JSON API (contract v0.6) plus the static web/ frontend."""
+"""Explicit-host read API and an opt-in loopback-only runtime action boundary."""
 
 from __future__ import annotations
 
@@ -81,11 +81,15 @@ class BoardServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, host: str, port: int, views: Views, static_dir: Path | None = None, *,
-                 plan_dir: Path | None = None, allowed_hosts: list[str] | None = None):
+                 plan_dir: Path | None = None, allowed_hosts: list[str] | None = None,
+                 runtime_actions=None):
         ip = ipaddress.ip_address(host)
         configured = [authority(value) for value in (allowed_hosts or [])]
         if ip.version == 6:
             self.address_family = socket.AF_INET6
+        if runtime_actions is not None and host not in LOOPBACK_HOSTS:
+            raise ValueError("runtime writes require loopback-only listeners")
+        self.runtime_actions = runtime_actions
         self.views = views
         from .plans import Plans
         self.plans = Plans(plan_dir) if plan_dir is not None else Plans()
@@ -159,7 +163,57 @@ class Handler(BaseHTTPRequestHandler):
         self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed",
                     "read-only API: only GET and HEAD are allowed", extra={"Allow": "GET, HEAD"})
 
-    do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = do_TRACE = do_CONNECT = _reject_method  # type: ignore[assignment]
+    do_PUT = do_PATCH = do_DELETE = do_OPTIONS = do_TRACE = do_CONNECT = _reject_method  # type: ignore[assignment]
+
+    def do_POST(self) -> None:
+        self.close_connection = True
+        if not self._guard():
+            return
+        path = urlsplit(self.path)
+        actions = self.server.runtime_actions
+        if actions is None or not path.path.startswith("/api/runtime-actions/"):
+            self._reject_method()
+            return
+        from .write_adapter import WriteError
+        try:
+            origins = self.headers.get_all("Origin", [])
+            if (not ipaddress.ip_address(self.client_address[0]).is_loopback
+                    or len(origins) != 1 or origins[0] != "http://" + self.headers.get("Host", "")
+                    or self.headers.get("Sec-Fetch-Site") not in (None, "same-origin")
+                    or path.query):
+                raise WriteError("write_origin_denied", 403)
+            tokens = self.headers.get_all("X-Atlas-Write-Token", [])
+            if len(tokens) != 1:
+                raise WriteError("permission_denied", 403)
+            actions.authenticate(tokens[0])
+            lengths = self.headers.get_all("Content-Length", [])
+            if (self.headers.get("Transfer-Encoding") is not None or len(lengths) != 1
+                    or not lengths[0].isdigit() or not 1 <= int(lengths[0]) <= 16384
+                    or self.headers.get_all("Content-Type", []) != ["application/json"]):
+                raise WriteError("invalid_request", 400)
+            self.connection.settimeout(5)
+            raw = self.rfile.read(int(lengths[0]))
+            if len(raw) != int(lengths[0]):
+                raise WriteError("invalid_request", 400)
+            def unique(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise ValueError("duplicate key")
+                    result[key] = value
+                return result
+            data = json.loads(raw, object_pairs_hook=unique)
+            result = actions.handle(path.path.removeprefix("/api/runtime-actions/"), data, tokens[0])
+        except WriteError as exc:
+            self._error(exc.status, exc.code, exc.code)
+            return
+        except (ValueError, UnicodeError, TimeoutError):
+            self._error(HTTPStatus.BAD_REQUEST, "invalid_request", "invalid request")
+            return
+        except Exception:
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "action_unavailable", "action unavailable; reconcile before retry")
+            return
+        self._json(HTTPStatus.OK, result)
 
     def do_HEAD(self) -> None:
         self._dispatch(head=True)
@@ -218,7 +272,9 @@ class Handler(BaseHTTPRequestHandler):
         views = self.server.views
         from .plans import PlanError
         try:
-            if path == "/api/plans" or path.startswith("/api/plans/"):
+            if path == "/api/runtime-actions":
+                body = {"enabled": self.server.runtime_actions is not None}
+            elif path == "/api/plans" or path.startswith("/api/plans/"):
                 if urlsplit(self.path).query:
                     raise BadRequest("plan endpoints do not accept query parameters")
                 body = self.server.plans.list() if path == "/api/plans" else self.server.plans.detail(path[len("/api/plans/"):])
