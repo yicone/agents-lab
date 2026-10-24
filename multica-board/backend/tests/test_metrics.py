@@ -463,3 +463,32 @@ class ProxyBoundaryTests(unittest.TestCase):
         self.assertIsNone(r['proxy']['flow']['deliveries_24h'])
         self.assertEqual(r['workspace_flow']['w']['proxy']['flow']['deliveries_24h'],1)
         self.assertIsNone(r['workspace_flow']['denied']['proxy']['flow']['deliveries_24h'])
+
+
+class ProxyRetentionTests(unittest.TestCase):
+    def test_old_close_stays_outside_window_after_retention(self):
+        from multica_board.metrics_history import retain_events
+        s=ProxyTests().snapshot(); s['comments_complete']={}
+        for e in s['events']:
+            if e['event_type']=='status': e['at']=iso(NOW-timedelta(days=100))
+        s['events']=[e for e in s['events'] if e['event_type']!='delivery_completed']
+        # Single unambiguous ancient close, no current-window lifecycle.
+        s['events']=[e for e in s['events'] if e['event_type']!='status' or e.get('status')=='done']
+        retain_events(s)
+        self.assertFalse(s['history_complete']['w/p'])
+        self.assertEqual(s['issues'][0]['proxy_completion_source'],'complete_timeline')
+        report=build_report(s,now=NOW)
+        self.assertEqual(report['coverage']['done_candidates'],0)
+        r=report['proxy']
+        self.assertEqual(r['coverage']['done_candidates'],0)
+        self.assertEqual(r['flow']['deliveries_24h'],0)
+
+    def test_recent_close_with_retained_start_gap_has_unknown_cycle(self):
+        from multica_board.metrics_history import retain_events
+        s=ProxyTests().snapshot();s['comments_complete']={}
+        s['events'][0]['at']=iso(NOW-timedelta(days=100))
+        retain_events(s)
+        r=build_report(s,now=NOW)['proxy']
+        self.assertEqual(r['coverage']['evidenced_deliveries'],1)
+        self.assertEqual(r['flow']['deliveries_24h'],1)
+        self.assertIsNone(r['metrics']['cycle_hours']['value'])

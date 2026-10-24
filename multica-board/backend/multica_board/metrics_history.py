@@ -241,6 +241,21 @@ def retain_events(snapshot):
     """
     anchor = ts(snapshot.get("recovered_at")) or ts(snapshot["collected_at"])
     cutoff = anchor - timedelta(days=90)
+    # Minimal closure observation belongs to inventory, not the retained event log.
+    # Keep it so an ancient done does not become an unknown completion in every window.
+    status_events = {}
+    for e in snapshot["events"]:
+        if e.get("event_type") == "status" and ts(e.get("at")):
+            status_events.setdefault(f"{e['workspace_id']}/{e['issue_id']}", []).append(e)
+    for issue in snapshot["issues"]:
+        key = f"{issue['workspace_id']}/{issue['id']}"
+        if snapshot["history_complete"].get(key):
+            statuses = status_events.get(key, [])
+            latest = max((ts(e["at"]) for e in statuses), default=None)
+            last = [e for e in statuses if ts(e["at"]) == latest]
+            if last and {e.get("status") for e in last} == {"done"}:
+                issue["proxy_completed_at"] = iso(latest)
+                issue["proxy_completion_source"] = "complete_timeline"
     kept, gaps = [], set()
     for e in snapshot["events"]:
         at = ts(e.get("at"))

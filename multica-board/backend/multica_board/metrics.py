@@ -187,11 +187,14 @@ def _build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
             ambiguous = any(len({e.get("status") for e in past if ts(e["at"]) == at}) > 1
                             for at in {ts(e["at"]) for e in past})
             end = ts(past[-1]["at"]) if history_ok and not ambiguous and past and past[-1].get("status") == "done" else None
+            if issue.get("proxy_completion_source") == "complete_timeline":
+                end = ts(issue.get("proxy_completed_at"))
         valid = bool(status == "done" and end and end < now and (not begin or begin <= end))
         # done-without-ledger stays in the coverage population even if updated_at changed later.
         done_times = [ts(e["at"]) for e in statuses if e.get("status") == "done" and start <= ts(e["at"]) < now]
-        unknown_end_in_window = not end and (done_times or not history_ok or not any(
-            e.get("status") == "done" for e in statuses))
+        known_close = ts(issue.get("proxy_completed_at")) if issue.get("proxy_completion_source") == "complete_timeline" else None
+        unknown_end_in_window = not end and ((start <= known_close < now) if known_close else
+            (done_times or not history_ok or not any(e.get("status") == "done" for e in statuses)))
         candidate = bool(status == "done" and ((end and start <= end < now) or unknown_end_in_window))
         row = {"delivery_id": f"{key[0]}/{key[1]}", "workspace_id": key[0], "issue_id": key[1],
                "agent_id": issue.get("assignee_id"), "status": status, "candidate": candidate, "evidence": evidence,
@@ -367,6 +370,7 @@ def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
         mean = counts["evidenced_deliveries"] / days
         item["flow"]["example_70_percent"] = {
             "daily_mean": mean if complete else None,
+            "observed_daily_mean": mean, "observed_threshold": mean * .7,
             "threshold": mean * .7 if complete else None,
             "deliveries_24h": item["flow"]["deliveries_24h"],
             "triggered": item["flow"]["deliveries_24h"] < mean * .7 if complete else None,

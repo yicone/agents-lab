@@ -82,10 +82,10 @@ def render_markdown(report):
         return lines
 
     def flow(left, right):
-        lines = ["| 口径 | 四周日均 | 70% 示例阈值 | 滚动 24h | 触发 |", "|---|---:|---:|---:|---|"]
+        lines = ["| 口径 | 四周日均 | 70% 示例阈值 | 滚动 24h | 已观察 24h（下界） | 样本日均 × 70%（仅示例） | 触发 |", "|---|---:|---:|---:|---:|---:|---|"]
         for label, item in (("ledger", left), ("proxy", right)):
             f = item["flow"]["example_70_percent"]
-            lines.append(f"| {label} | {fmt(f['daily_mean'])} | {fmt(f['threshold'])} | {fmt(f['deliveries_24h'])} | {fmt(f['triggered'])} |")
+            lines.append(f"| {label} | {fmt(f['daily_mean'])} | {fmt(f['threshold'])} | {fmt(f['deliveries_24h'])} | {item['flow']['observed_deliveries_24h']} | {fmt(f['observed_threshold'])} | {fmt(f['triggered'])} |")
         return lines
 
     def daily(left, right):
