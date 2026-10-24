@@ -112,6 +112,14 @@ def _json_list(raw: str | None) -> list[Any]:
     return data if isinstance(data, list) else []
 
 
+def _mcp_own_state(raw: str | None) -> str:
+    try:
+        state = json.loads(raw or "null").get("state")
+    except (ValueError, AttributeError):
+        return "unknown"
+    return state if state in {"none", "hidden", "invalid", "managed"} else "unknown"
+
+
 def _skill_name_key(name: Any) -> str | None:
     if not isinstance(name, str):
         return None
@@ -367,6 +375,7 @@ class Views:
     def _run(t: dict[str, Any], agent_names: dict[tuple[str, str], Any]) -> dict[str, Any]:
         return {
             "task_id": t["id"],
+            "created_at": t.get("created_at"),
             "status": t["status"],
             "agent_name": agent_names.get((t["workspace_id"], t["agent_id"])),
             "runtime_id": t["runtime_id"],
@@ -611,15 +620,26 @@ class Views:
     def agents(self) -> dict[str, Any]:
         slugs = self._slugs()
         identifiers = self._names("issues", "id", "identifier")
+        titles = self._names("issues", "id", "title")
+        activity = {}
+        current = {}
+        bindings = {}
+        for binding in self.store.query("SELECT workspace_id, agent_id, server_id, name, enabled FROM mcp_bindings WHERE server=?", (self.server,)):
+            bindings.setdefault((binding["workspace_id"], binding["agent_id"]), []).append({"server_id": binding["server_id"], "name": binding["name"], "enabled": bool(binding["enabled"])})
+        binding_states = {(r["workspace_id"], r["agent_id"]): r["state"] for r in self.store.query("SELECT * FROM mcp_agent_state WHERE server=?", (self.server,))}
         cutoff = _iso(_now() - timedelta(hours=RECENT_WINDOW_H))
         load: dict[tuple[str, str], dict[str, int]] = {}
         recent: dict[tuple[str, str], dict[str, Any]] = {}
         for t in self.store.query(
             "SELECT workspace_id, agent_id, issue_id, status, created_at, completed_at, error_kind, delivery_anomaly "
-            "FROM tasks WHERE server=? ORDER BY created_at DESC",
+            "FROM tasks WHERE server=? ORDER BY created_at DESC, id DESC",
             (self.server,),
         ):
             k = (t["workspace_id"], t["agent_id"])
+            task = {"status": t["status"], "created_at": t["created_at"], "identifier": identifiers.get((t["workspace_id"], t["issue_id"])), "title": titles.get((t["workspace_id"], t["issue_id"]))}
+            activity.setdefault(k, task)
+            if t["status"] == "running" or t["status"] in QUEUED_TASK:
+                current.setdefault(k, []).append(task)
             l = load.setdefault(k, {"running": 0, "queued": 0})
             if t["status"] == "running":
                 l["running"] += 1
@@ -670,6 +690,10 @@ class Views:
                     "instructions_sha256": a.get("instructions_sha256"),
                     "skills": _json_list(a.get("skills_detail_json")),
                     "disabled_runtime_skills": _json_list(a.get("disabled_runtime_skills_json")),
+                    "latest_run": activity.get(k),
+                    "current_tasks": current.get(k, []),
+                    "mcp_bindings": bindings.get(k, []) if binding_states.get(k) == "ok" else None,
+                    "mcp_own_state": _mcp_own_state(a.get("mcp_own_json")),
                     "tasks": load.get(k, {"running": 0, "queued": 0}),
                     "recent": recent.get(k, {"completed": 0, "failed": 0, "delivery_anomalies": 0, "last_failed_at": None,
                                              "last_error_kind": None, "last_failed_issue_identifier": None}),

@@ -26,7 +26,7 @@ Atlas 的每个数字都来自下面四层之一。板块设计稿必须写明�
 | 顶栏 | 地址 | 回答的问题 | 数据层 | workspace 筛选 |
 |---|---|---|---|---|
 | 地图 `1` | `#/map`、`#/map/lN` | ACM Lab 的 issue 落在五层的哪里，各层有哪些工具、有没有告警 | Multica workspace（只有 ACM Lab）+ 各板块的信号 | 不显示 |
-| 待你决定 `2` | `#/decide` | 现在有哪些事等我拍板 | Multica workspace（只有 ACM Lab）+ 状态迁移 | 固定范围说明 |
+| 待决事项 `2` | `#/decide` | 现在有哪些事等我拍板 | Multica workspace（只有 ACM Lab）+ 状态迁移 | 固定范围说明 |
 | Issues `3` | `#/issues` | 哪些 issue 现在需要我看 | Multica workspace（全部） | 共享筛选条 |
 | Agents `4` | `#/agents` | 每个 agent 跑在哪个 runtime / 模型上，哪里在出错 | agent + Multica workspace 的 runtime；Grok Bots 子视图是本机；instructions 对照仓库 | 共享筛选条 |
 | Skills `5` | `#/skills` | 这些 skill 装在哪，哪些要处理 | 本机 + 仓库，加上 Multica workspace 安装和 Grok Bot 名称声明 | 固定范围说明 |
@@ -36,7 +36,7 @@ Atlas 的每个数字都来自下面四层之一。板块设计稿必须写明�
 现状：
 
 - Agents 有两个子视图，不占顶栏：Grok Bots（`?kind=bots`）和切换计划（`?plan=1`、`#/agents/plan/new`、`#/agents/plans[/<id>]`），由工具栏的 `kindSwitch` 切换。用量只从地图 L1 进入。
-- 顶栏三个角标：待你决定（ACM Lab 待验收 + 受阻）、Skills（`attention.badge`，基线债不计入）、MCP（`attention.badge`：五桶条数之和，待清理桶不计入；`attention.tone=unknown` 时显示灰色 `?` 不计数，见 `mcp-redesign.md` §5）。
+- 顶栏三个角标：待决事项（ACM Lab 待验收 + 受阻）、Skills（`attention.badge`，基线债不计入）、MCP（`attention.badge`：五桶条数之和，待清理桶不计入；`attention.tone=unknown` 时显示灰色 `?` 不计数，见 `mcp-redesign.md` §5）。
 
 规则：新板块加不加顶栏，看它是不是一个独立的问题、数据层和筛选维度是否不同。MCP 单独成栏的理由是「Skills 属于本机，MCP 属于 workspace」（`mcp-design.md`），新板块照这个标准写理由。只是某个板块的另一种看法时，做成子视图（参考 Agents 的 `kindSwitch`），或者只从地图进入（参考用量）。
 
@@ -69,9 +69,9 @@ Atlas 的每个数字都来自下面四层之一。板块设计稿必须写明�
 | 从 | 到 | 方式 |
 |---|---|---|
 | 地图 | 各板块 | 每层的工具行（`layers.js` 的 `MAP_TOOLS`），带一句信号（`app.js` 的 `toolSignal`）和告警圆点 |
-| 地图 / 层视图 | 待你决定、Issues | 「查看全部 N 条」→ `#/decide?layer=`；层视图侧栏 → `#/issues?layer=`、`#/decide?layer=` |
-| 地图预览、待你决定、Issues、层视图 | 运行记录抽屉 | 点行或卡片 |
-| 待你决定 | Issues | 页脚「在 Issues 中查看」 |
+| 地图 / 层视图 | 待决事项、Issues | 「查看全部 N 条」→ `#/decide?layer=`；层视图侧栏 → `#/issues?layer=`、`#/decide?layer=` |
+| 地图预览、待决事项、Issues、层视图 | 运行记录抽屉 | 点行或卡片 |
+| 待决事项 | Issues | 页脚「在 Issues 中查看」 |
 | 用量 | 地图 L1 | 「返回 L1 地图」 |
 | 板块内 | 同板块的行 | Skills 待处理条目调用 `focusSkill`：清筛选、展开分组、滚到行、打开抽屉 |
 | 任意 issue / agent | Multica | 新窗口外链（`extLink`） |
@@ -88,7 +88,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 |---|---|---|
 | A 清单治理 | Skills | 一类资源装在哪、分布在哪些工具或 workspace、哪些要处理 |
 | B 关注栏 | Issues | 按紧急程度分栏的事件 |
-| C 等待队列 | 待你决定 | 单一队列，按等待时长排序 |
+| C 等待队列 | 待决事项 | 单一队列，按等待时长排序 |
 | D 配置矩阵 | Agents | 每个实体一行，看配置和健康 |
 | E 地图与层视图 | 地图 | 导航和汇总，不做处理 |
 | F 分栏对照 | 用量 | 口径不同、不能相加的几组数 |
@@ -341,7 +341,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 
 - 新代码的间距只取 2 / 4 / 6 / 8 / 10 / 12 / 14 / 16 px（现有代码里还有零星的 3、5、7、9）。表格单元格 `6px 8px`（版式 A）或 `5px 10px`（矩阵）；卡片和侧栏 `8px`–`12px`；区块之间 `10px`–`12px`。
 - 圆角：标签 3px，下拉 4px，按钮和小卡 `--radius`（6px），面板、表格外框和侧栏 8px，标签胶囊 999px。
-- 断点：1200px（版式 A 侧栏上移），1100px（关注栏两列、用量单栏），980px（地图单栏），900px（待你决定页头竖排），760px（顶栏标签换行），620px（关注栏单列），420px（抽屉全宽）。
+- 断点：1200px（版式 A 侧栏上移），1100px（关注栏两列、用量单栏），980px（地图单栏），900px（待决事项页头竖排），760px（顶栏标签换行），620px（关注栏单列），420px（抽屉全宽）。
 - 宽度：抽屉 420px，版式 A 侧栏 352px，层视图侧栏 240px。
 
 ### 4.5 空状态、加载和错误
@@ -444,17 +444,17 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 
 - **G1** 表格有六套样式：`.matrix`、`.skills-table`、`.decide-table`、`.layer-table`、`.plan-table`、`.mcp-support`。表头底色（`--panel` 或 `--panel-2`）、单元格内边距（5/10、6/8、7/10、8/10）、分组行底色（`--panel-2` 或 `--bg`）各不相同。
 - **G2** 摘要卡有七套：`.provider`、`.source-card`、`.decide-stat`、`.mcp-card`、`.bot-stat`、`.foot-bucket`、`.plan-counts button`。选中态有三种写法（边框加内阴影、边框加 `--info-bg`、只换边框）。
-- **G3** 下拉筛选有两个类：`.field`（Issues、待你决定）和 `.filter`（Skills、MCP）。
+- **G3** 下拉筛选有两个类：`.field`（Issues、待决事项）和 `.filter`（Skills、MCP）。
 - **G4** 提示条有四种做法：`.banner`、`.skills-anomaly`（黄字）、`.decide-note`（正文色）、`.usage-gap`。
 - **G5** 「显示其余 N 条」：Issues 能收起、每栏 30 条，Skills 展开后不能收起、每组 8 条。
-- **G6** 顶栏角标颜色：待你决定和 MCP 黄色，Skills 红色（`.tab-badge.skills`）。
+- **G6** 顶栏角标颜色：待决事项和 MCP 黄色，Skills 红色（`.tab-badge.skills`）。
 - **G7** 直接调用剪贴板的有 3 处：`skills.js` 的 `copyCommand`（没有回退）、`app.js` 的 `copyText`（有 textarea 回退）、`view-atlas.js` 的 `drawerCommands`（内联）。另有 3 个包装，都调用 `copyText`：`agents-view.js` 的 `copyButton`、`plan.js` 的 `copyButton`，以及 `app.js` 里 `mcpCtx()` 的 `copyCommand`（MCP 用它）。失败文案有「复制失败」和「请手抄」两种。
 - **G8** 命令格式：Skills 的 workspace 命令和 MCP 命令带 `--workspace-id <uuid>`；Agents 抽屉的 `agent update`、`agent skills add/set` 不带；改层命令用 identifier，也不带 workspace。
 - **G9** 只读提示有五种说法：Skills「页面只读，不代为执行。复制命令后在自己的终端运行。」和「页面只读，不替代命令行。」，Agents「页面只读。复制后在自己的终端执行。」，issue 抽屉「页面只读。复制命令改属性，下一轮采集后生效。」，MCP 顶部的 `READONLY_LINE`。
 - **G10** 旧数据的不透明度有三个值：`.is-stale` 0.62、`.mcp-ws.is-stale` 0.65、`.plan-expired` / `.is-dim` 0.55。
 - **G11** `frontend-design.md` 写「未复核且没有别的问题的行降低不透明度」，但 `styles.css` 里 `.skill-row.quiet { opacity: 1; }` 把它取消了（`e8582b7` 引入）。文档和代码不一致，见第 7 节。
 - **G12** CSS 重复定义：`.tag.bad`（237、473 行）、`.tag.info`（239、809 行）、`.table-wrap`（345 行 `overflow-x`、758 行 `overflow`）、`.card`（282、723 行）。
-- **G13** 页面标题：地图、层视图、待你决定、用量有 `h2` 页头；Issues、Agents、Skills、MCP 没有。
+- **G13** 页面标题：地图、层视图、待决事项、用量有 `h2` 页头；Issues、Agents、Skills、MCP 没有。
 - **G14** 写死的颜色：`.usage-col` 顶边 `#6b7280`，角标文字 `#fff`、`#1c1408`，层颜色写在 `layers.js`。
 - **G15** `section()`、`line()` 在 `skills.js` 和 `mcp.js` 各有一份；`lineDiff` 在 `agents-view.js` 和 `skill-viewer.js` 各有一份，diff 的 DOM 结构也不同。
 - **G16** 通用组件带页面前缀：`skills-layout`、`skills-queue`、`skill-bucket`、`queue-item` 已经被 MCP 复用；MCP 的旧数据提示用的是 `decide-note`。
@@ -466,7 +466,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 1. **未复核的行淡化**（G11）：接受 `frontend-design.md` 规则。未复核且没有其他问题的行降低不透明度；缺失、失败、漂移、冲突行不淡化。修复文档与 `.skill-row.quiet` 的冲突。
 2. **顶栏角标颜色**（G6、M13）：红色表示坏，黄色表示等用户处理，灰色 `?` 表示未知或未采集，确定为 0 时隐藏。因此 Skills 待处理角标改黄色；损坏桶仍用红色。
 3. **只读提示和复制失败文案**（G7、G9）：统一为「页面只读，不代为执行。复制命令后在自己的终端运行。」和「复制失败，请手抄」。写入功能上线后改为明确动作状态文案。
-4. **跨板块跳转**（G18）：补 Agents ↔ Skills ↔ MCP，以及运行状态 ↔ 配置台跳转。使用稳定内部 row ID 定位、滚动并打开抽屉；抽屉不进 URL；没有目标证据时显示降级文案。
+4. **跨板块跳转**（G18）：补 Agents ↔ Skills ↔ MCP，以及运行状态 ↔ 配置管理跳转。使用稳定内部 row ID 定位、滚动并打开抽屉；抽屉不进 URL；没有目标证据时显示降级文案。
 5. **通用组件改名**（G16）：单独开清理单处理，不阻塞 MCP v2 或首个写入热点。先用测试保护行为，再改为资源无关名称。
 
 上述决定替代本节原「待用户决定」状态；执行仍须通过对应 issue 审定。

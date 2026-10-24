@@ -1,8 +1,8 @@
 /** Shared workspace filter visibility. Issues and Agents use route.ws; the other pages do not. */
 
-export const DECIDE_SCOPE = "范围：ACM Lab。workspace 筛选不作用于这一页。";
-export const SKILLS_SCOPE = "范围：本机技能、Multica Workspace 安装与 Grok Bot 名称声明。workspace 筛选不作用于这一页。";
-export const MCP_SCOPE = "范围：本机各工具全局 MCP 配置、agents-lab 项目级配置，以及全部 Multica Workspace 的库与 agent。workspace 筛选不作用于这一页。";
+export const DECIDE_SCOPE = "范围：ACM Lab";
+export const SKILLS_SCOPE = "范围：全部来源";
+export const MCP_SCOPE = "范围：全部来源";
 
 /** "shared" shows the filter. "decide" / "skills" / "mcp" show a fixed scope. "none" shows neither. */
 export function filterChrome(view) {

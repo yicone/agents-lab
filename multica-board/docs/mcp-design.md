@@ -51,7 +51,7 @@ Atlas 把这张表做成后端常量（`support.providers`），并带上来源�
 ## 页面结构
 
 ```
-┌ Agent Atlas [地图 1][待你决定 2][Issues 3][Agents 4][Skills 5][MCP 6 ②]  ● MCP 快照 4 分钟前 ┐
+┌ Agent Atlas [地图 1][待决事项 2][Issues 3][Agents 4][Skills 5][MCP 6 ②]  ● MCP 快照 4 分钟前 ┐
 │ ● ACM Lab  ● 萌芽辅导  ▲ Elder Oasis 分配读取失败  ○ 英语学习 未加载 …                      │
 │ 库条目 5 · 已分配 4 · 无人使用 1 · 有自有配置的 agent 2 · 会被忽略 1 · 同名覆盖 1           │
 ├ [workspace ▾] [矩阵 | 清单] [只看有问题] [显示归档]                         搜索 /      ┤

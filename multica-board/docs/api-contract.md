@@ -197,7 +197,7 @@ ACM Lab（workspace slug `acm-lab`）的地图计数。其它 workspace 不在�
 - `header.assigned`：五个层的 `total` 之和（已归层）。`header.open` / `header.decide` 含「不在地图」和未归层。
 - `involved_extra`：涉及层包含本层、主层在另外一个 L1–L5、且未取消。不进任何 `total`。`involved_from` 是这些 issue 的主层代号，按 L1→L5。
 - `governance_open` / `governance_decide`：治理线为 `true` 且主层是该层（或「不在地图」）。未归层上的治理线不进任何格子。
-- `decide_items`：该格里待你决定的前 3 条，等待最久的在前。`waiting_since` 是进入当前状态的时间，取自 `/api/changes` 的 `issue_status`；7 天窗口里没有这条迁移时退回 `last_activity_at`，并把 `waiting_exact` 设为 `false`（前端在时长前加 `≥`）。字段还有 `key`、`id`、`identifier`、`title`、`status`、`governance`、`url`。
+- `decide_items`：该格里待决事项的前 3 条，等待最久的在前。`waiting_since` 是进入当前状态的时间，取自 `/api/changes` 的 `issue_status`；7 天窗口里没有这条迁移时退回 `last_activity_at`，并把 `waiting_exact` 设为 `false`（前端在时长前加 `≥`）。字段还有 `key`、`id`、`identifier`、`title`、`status`、`governance`、`url`。
 
 ## `GET /api/issues/{workspace_id}/{issue_id}/runs`
 
@@ -223,6 +223,9 @@ ACM Lab（workspace slug `acm-lab`）的地图计数。其它 workspace 不在�
 ```
 
 ## `GET /api/agents`
+
+ACM-498：状态页和配置页共用此只读响应。每个 agent 新增 `latest_run`（缓存中最近一次，含 `status/created_at/identifier/title`，不受 24h 统计窗口限制）、`current_tasks`（运行或排队任务的相同摘要）、`mcp_bindings`（仅 `server_id/name/enabled`；未成功采集为 null，成功且无绑定为 []）和 `mcp_own_state`（none/managed/hidden/invalid/unknown；不返回配置正文）。任务关联按 workspace + agent / issue 标识隔离。`/api/issues` 的 `latest_run` 同时增加 `created_at`，供最近运行排序和 UTC+8 时间展示。
+
 
 agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前端默认隐藏。
 
@@ -499,7 +502,7 @@ agent-uuid	missing_skill	2026-10-16T00:26:18Z	Vega	Vega
 - `cursor` 形如 `v1:<序号>`，不透明，只回传响应里的值。`v1:0` 表示从日志开头重放；若开头已被裁掉则 `reset: true`。序号比当前末端还大（例如换过缓存库）同样 `reset`。
 - 不带 `since`：`items` 为空，`cursor` 为当前末端。接入时先拉全量，再立刻取一次 cursor，之后只传 cursor。
 - 单次最多 500 条，按发生顺序。`has_more: true` 时把返回的 `cursor` 当作下一次 `since`。带了 `kind` 时，下一页要原样带上同一个 `kind`：cursor 仍是整份日志里的序号，过滤发生在取页时，所以翻页不会再被其它类型占满。
-- `kind`（**v0.5**）：`status`（`issue_status` 的别名）、`issue_status`、`assignee`（`issue_assignee` 的别名）、`issue_assignee`、`run`、`run_failed`、`runtime`。省略表示不过滤。未知值、空值或重复的 `kind` 为 `400`。不带 `since` 时 `kind` 不改变「只签发 cursor」的行为。待你决定页用 `?kind=status` 读取进入当前状态的时间。
+- `kind`（**v0.5**）：`status`（`issue_status` 的别名）、`issue_status`、`assignee`（`issue_assignee` 的别名）、`issue_assignee`、`run`、`run_failed`、`runtime`。省略表示不过滤。未知值、空值或重复的 `kind` 为 `400`。不带 `since` 时 `kind` 不改变「只签发 cursor」的行为。待决事项页用 `?kind=status` 读取进入当前状态的时间。
 - 保留 7 天（`retained_days`）。更早的 `since`，或 cursor 前面有被裁掉的序号，返回 `reset: true`，不把残缺窗口伪装成完整增量。
 - 每个 workspace、每种资源的**第一次成功快照只建基线，不产生事件**（issues、runtimes，以及每个 agent 的 tasks 各自一份）。基线之后才记录：
   - `issue_status` / `issue_assignee`：已在快照里的 issue，状态或指派变了。新建 issue、标题、优先级、从列表消失都不记。
@@ -691,7 +694,7 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - v0.8（2026-10-23）：ACM-358 把升级检查接到只读的 npm registry / GitHub API。网络失败或无法比较时数据源为 `fallback`，可升级桶在没有确认结果时保持 `connected: false`。
 - v0.7（2026-10-20）：ACM-291 增加 `GET /api/bots`。`GET /api/agents` 增加 `description`、`instructions`、`instructions_sha256`、`skills`、`disabled_runtime_skills`。`GET /api/skills` 的每条增加 `workspace_installs`。
 - v0.6（2026-10-17）：ACM-182 增加 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。drift 增加 `version_changed`。页面待处理栏和 attention 接口用同一个分桶函数。
-- v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待你决定前 3 条）。同日给 `GET /api/changes` 增加 `?kind=`，`status` 只返回 issue 状态迁移，避免 run 事件占满分页后等待时长全部退回 `≥`。
+- v0.5（2026-10-17）：ACM-192 在 `GET /api/issues` 增加 `layer`（主层、涉及层、治理线，以及各自的 `own` / `inherited:<identifier>` 来源），并新增 `GET /api/layers`（ACM Lab 五层计数、不在地图、未归层、待决事项前 3 条）。同日给 `GET /api/changes` 增加 `?kind=`，`status` 只返回 issue 状态迁移，避免 run 事件占满分页后等待时长全部退回 `≥`。
 - v0.4（2026-10-16）：ACM-179 在 `GET /api/attention` 增加 `agent_updates`，列出近 24 小时内负责人 agent 已完成、但没有被同期 `in_review` / `blocked` 迁移覆盖的 run。
 - v0.3（2026-10-16）：ACM-174 在 `GET /api/attention` 增加 `missing_hermes_async_delegation`，列出未启用 skill `hermes-async-delegation` 的 Hermes agent。
 - v0.2（2026-10-15）：ACM-165 新增 `GET /api/attention`，按 workspace 汇总 in_review、blocked、近 24 小时失败 run、仍绑着 agent 的离线 runtime。`?format=text` 输出不超过 2048 字节的纯文本。

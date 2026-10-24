@@ -136,7 +136,7 @@ function pageHead(ctx, model) {
       ? h(
           "p",
           { class: "atlas-total", "data-map-total": header.total },
-          `${acm?.name || "ACM Lab"} · ${header.total} 条 · 已归层 ${header.assigned} · 未完成 ${header.open} · 待你决定 ${header.decide}`,
+          `${acm?.name || "ACM Lab"} · ${header.total} 条 · 已归层 ${header.assigned} · 未完成 ${header.open} · 待决事项 ${header.decide}`,
         )
       : null,
   );
@@ -145,7 +145,7 @@ function pageHead(ctx, model) {
 function mixBar(h, box) {
   if (!box.total) return h("span", { class: "mix is-empty" });
   const part = (n, cls) => (n ? h("i", { class: cls, style: { width: `${(n / box.total) * 100}%` } }) : null);
-  return h("span", { class: "mix", title: `已完成 ${box.done} · 未完成 ${box.open - box.decide} · 待你决定 ${box.decide}` }, part(box.done, "done"), part(Math.max(0, box.open - box.decide), "open"), part(box.decide, "decide"));
+  return h("span", { class: "mix", title: `已完成 ${box.done} · 未完成 ${box.open - box.decide} · 待决事项 ${box.decide}` }, part(box.done, "done"), part(Math.max(0, box.open - box.decide), "open"), part(box.decide, "decide"));
 }
 
 function countTrio(h, box, { openOnly = false } = {}) {
@@ -155,7 +155,7 @@ function countTrio(h, box, { openOnly = false } = {}) {
     { class: "trio" },
     openOnly ? null : h("span", null, h("b", null, box.total), h("small", null, "总数")),
     h("span", null, h("b", null, box.open), h("small", null, "未完成")),
-    h("span", { class: decideCls }, h("b", null, box.decide), h("small", null, "待你决定")),
+    h("span", { class: decideCls }, h("b", null, box.decide), h("small", null, "待决事项")),
     openOnly ? null : mixBar(h, box),
   );
 }
@@ -241,7 +241,7 @@ export function renderMap(ctx) {
       h("input", { type: "checkbox", checked: route.openOnly, onchange: (e) => ctx.setRoute({ openOnly: e.target.checked }) }),
       "只看未完成",
     ),
-    h("span", { class: "muted" }, ctx.countsFromApi ? "计数来自 /api/layers。已完成 / 未完成 / 待你决定。" : "数字为示意口径：带 layer 的 issue 汇总。已完成 / 未完成 / 待你决定。"),
+    h("span", { class: "muted" }, ctx.countsFromApi ? "计数来自 /api/layers。已完成 / 未完成 / 待决事项。" : "数字为示意口径：带 layer 的 issue 汇总。已完成 / 未完成 / 待决事项。"),
   );
 
   const govHead = h(
@@ -281,7 +281,7 @@ export function renderMap(ctx) {
         },
         h("b", null, column.governanceOpen),
         h("small", null, "未完成"),
-        h("small", { class: column.governanceDecide ? "is-decide" : "is-zero" }, column.governanceDecide ? `待你决定 ${column.governanceDecide}` : "待你决定 0"),
+        h("small", { class: column.governanceDecide ? "is-decide" : "is-zero" }, column.governanceDecide ? `待决事项 ${column.governanceDecide}` : "待决事项 0"),
       ),
     );
   });
@@ -294,7 +294,7 @@ export function renderMap(ctx) {
       { type: "button", class: "foot-bucket", onclick: () => ctx.setRoute({ layer: "outside", scope: "primary" }) },
       h("span", null, "不在地图"),
       h("b", null, model.outside.total),
-      h("small", null, `未完成 ${model.outside.open} · 待你决定 ${model.outside.decide}`),
+      h("small", null, `未完成 ${model.outside.open} · 待决事项 ${model.outside.decide}`),
     ),
     h(
       "button",
@@ -313,14 +313,14 @@ export function renderMap(ctx) {
     h("i", { class: "swatch open" }),
     " 未完成 ",
     h("i", { class: "swatch decide" }),
-    " 待你决定 ",
+    " 待决事项 ",
     h("span", { class: "muted" }, " · 工具行：绿点是已有页面且无告警，红点是已有页面且有告警，灰点是未建或未接入，只出现在地图上。"),
   );
 
   return [
     head,
     toolbar,
-    h("div", { class: "map-table" }, h("div", { class: "map-head" }, h("span", null, "层"), h("span", null, "ACM issue"), h("span", null, "本层工具与信号"), h("span", null, "待你决定"), govHead), ...rows),
+    h("div", { class: "map-table" }, h("div", { class: "map-head" }, h("span", null, "层"), h("span", null, "ACM issue"), h("span", null, "本层工具与信号"), h("span", null, "待决事项"), govHead), ...rows),
     foot,
     legend,
   ];
@@ -421,7 +421,7 @@ export function renderLayer(ctx) {
     ? h(
         "p",
         { class: "atlas-total" },
-        `${box.total} 主层 · ${box.open} 未完成 · ${box.decide} 待你决定 · ${box.governanceOpen} 治理线未完成 · +${box.involvedExtra} 另涉及本层`,
+        `${box.total} 主层 · ${box.open} 未完成 · ${box.decide} 待决事项 · ${box.governanceOpen} 治理线未完成 · +${box.involvedExtra} 另涉及本层`,
       )
     : h(
         "p",
@@ -444,7 +444,7 @@ export function renderLayer(ctx) {
     h(
       "div",
       { class: "seg", role: "group", "aria-label": "分段" },
-      h("button", { type: "button", class: route.seg === "decide" ? "active" : "", onclick: () => ctx.setRoute({ seg: "decide" }) }, "待你决定"),
+      h("button", { type: "button", class: route.seg === "decide" ? "active" : "", onclick: () => ctx.setRoute({ seg: "decide" }) }, "待决事项"),
       h("button", { type: "button", class: route.seg === "open" ? "active" : "", onclick: () => ctx.setRoute({ seg: "open" }) }, "未完成"),
       h("button", { type: "button", class: route.seg === "all" ? "active" : "", onclick: () => ctx.setRoute({ seg: "all" }) }, "全部"),
     ),

@@ -36,7 +36,13 @@ test("pending is yellow; confirmed zero hides; missing/stale/error are gray unkn
     assert.equal(summary.text, "?");
     assert.match(summary.title, /Workspace 10/);
   }
-  assert.equal(attentionSummary({workspaces:[]}, [], at, age).missing, 11);
+  assert.equal(attentionSummary({workspaces:[]}, [], at, age).missing, 0);
   assert.equal(attentionSummary(null, [], at, age).text, "?");
   assert.equal(attentionSummary({...allWorkspaces, collector:{error:{kind:"auth"}}}, [], at, age).text, "?");
+});
+
+test("workspace inventory determines coverage without a fixed eleven", () => {
+ const meta={workspaces:allWorkspaces.workspaces.slice(0,2)};
+ assert.equal(attentionSummary(meta, [], at, age).incomplete,false);
+ assert.equal(attentionSummary({...meta,workspaces:[]}, [], at, age).incomplete,true);
 });
