@@ -16,7 +16,10 @@ python3 -m unittest discover -s scripts/codex-account-rotator -v
 - 以 `min(session, weekly)` 为余量，先比较 10 个百分点档位，同档优先最早重置，再比较精确余量；最终按账号 ID 稳定排序。这样较近重置有有限优先级，不压过明显更宽裕的账号。
 - Free 账号不把月度窗口误判成 session；默认不参与。加 `--allow-credits` 后，仅当没有合格普通账号时，选择余额最多、余额读取成功的 Free 账号。普通付费账号不会因为还有 credits 而忽略耗尽的窗口。当前账号没有有效双窗口时保守不切换（包括已切到 Free 的情况），等待人工处理。
 - 批量 usage 退出码 1 可能只是一个账号失败：逐项验证，失效或缺失项记为 `unavailable`；退出码 69、超时、重复邮箱/ID、账号不明、旧数据都不切。外部命令有 90 秒超时。
-- Multica daemon 必须明确 running，`active_task_count`、`running_task_count`、`resource_wait_task_count` 都必须是整数 0；当前 CLI 只有汇总计数，没有逐任务 runtime 身份；非零时返回 `task_runtime_unknown` 并禁止切换。不能仅凭没发现 Codex 进程就断言活动任务全为非 Codex。按 runtime 放行的需求尚受此 CLI 数据缺口阻塞，实验版删除计数门禁的做法未采用。还要求 `ps -axo comm=` 中没有名称以 Codex 开头的进程（CodexBar 除外）。桌面 Codex 即使空闲也会阻止，关掉后才可能切换。无法确认状态就不切；不会杀进程或重启任务。
+- Multica daemon 必须明确 running，三类计数均为非负整数。通过 `workspace list` 核对 daemon 服务的全部 workspace，在每个 workspace 显式传入 `--workspace-id`，读取 `runtime list`、`agent list --include-archived` 以及每个 agent 的 `agent tasks` 全部分页。包括归档 agent，不能只读当前 workspace 或第一页。
+- 活动状态为 `queued`、`dispatched`、`running`、`resource_wait`；终态为 `completed`、`failed`、`cancelled`。其它状态禁止切换。使用 run 自身的 runtime ID 对应 provider；只有 queued 且尚未绑定 runtime 的 run 才回退到 agent 的 runtime。只累计 daemon 在该 workspace 服务的本机 runtime；其它已知 runtime 的 run 不计入本机总数。provider `codex` 阻止切换；明确非 Codex 的 provider 为 `claude/cursor/hermes/antigravity/copilot/grok/opencode/mcode/omp`，不按名称猜测自定义 provider。
+- **安全证明**：逐任务累计的本机活动数必须等于 daemon 的 `active_task_count`，并在遍历后重新读取 daemon，要求计数和 workspace/runtime 清单未变。任一 workspace 无法访问、读取失败、分页/数据格式异常、runtime/provider/状态未知、重复 run 或总数不一致，都返回 `task_runtime_unknown`。只有 Codex 活动 run 数为 0 才继续检查 `ps -axo comm=`；其中仍不得有名称以 Codex 开头的进程（CodexBar 除外）。桌面 Codex 即使空闲也会阻止，关掉后才可能切换；不会杀进程或重启任务。
+- 针对 CLI 0.6.5，`agent tasks --limit 200` 的后续游标来自 stderr 的 `More runs available; use --before "..."` 提示（包含精确时间），不从 JSON 中秒级时间重建。满页缺游标、重复游标、超过每 agent 100 页上限均禁止切换。历史多时遍历成本较高，额度快照超过 5 分钟会在 promote 前失效。launchd 的 profile 必须具备 daemon 全部 workspace 的读取权限；任务内受限身份可能只能验证 fail-closed 路径。
 - 脚本文件加非阻塞 flock，防止同一个已安装脚本并发。正式 promote 前重新检查账号清单及空闲状态；上游并发修改保护仍保留。**任务启动与 promote 之间没有共享原子锁**，无法排除检查后瞬间启动的竞态；如果要求严格零竞态，启用 apply 前必须让调度方进入维护窗口，当前脚本不负责暂停调度。不要并行部署多个脚本副本。
 - 每次输出时间、模式、当前邮箱前缀、各账号余量/credits/状态、动作和原因；不输出邮箱域名、账号 UUID 或外部原始错误。`skip` 是保守决策，不代表切换成功。额度恢复后只有新启动的 Codex 进程才会使用新账号；脚本不恢复已经失败的任务。
 

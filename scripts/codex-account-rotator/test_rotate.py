@@ -84,37 +84,29 @@ class PolicyTests(unittest.TestCase):
 
 
 class SafetyTests(unittest.TestCase):
-    def test_idle_requires_known_zero_counts_and_no_codex_processes(self):
+    def test_idle_requires_task_proof_and_no_codex_processes(self):
         status = dict(status='running', active_task_count=0, running_task_count=0, resource_wait_task_count=0)
-        with patch.object(r, 'read_json', return_value=status), patch.object(r, 'command', return_value='/usr/bin/init\n/Applications/CodexBar'):
+        with patch.object(r, 'read_json', return_value=status), patch.object(r, 'classified_tasks', return_value=0), patch.object(r, 'command', return_value='/usr/bin/init\n/Applications/CodexBar'):
             self.assertTrue(r.idle('multica')[0])
         for proc in ['/path/codex', '/path/codex-acp', '/path/Codex (Renderer)']:
-            with patch.object(r, 'read_json', return_value=status), patch.object(r, 'command', return_value=proc):
+            with patch.object(r, 'read_json', return_value=status), patch.object(r, 'classified_tasks', return_value=0), patch.object(r, 'command', return_value=proc):
                 self.assertFalse(r.idle('multica')[0])
-        with patch.object(r, 'read_json', return_value=dict(status, active_task_count=1)):
+        with patch.object(r, 'read_json', return_value=dict(status, active_task_count=1)), \
+             patch.object(r, 'classified_tasks', side_effect=r.Unavailable('task_runtime_unknown')):
             self.assertFalse(r.idle('multica')[0])
         for bad in [dict(status='running'), dict(status, running_task_count=None)]:
-            with patch.object(r, 'read_json', return_value=bad), self.assertRaises(r.Unavailable):
-                r.idle('multica')
+            with patch.object(r, 'read_json', return_value=bad):
+                self.assertEqual(r.idle('multica'), (False, 'task_runtime_unknown'))
 
     def test_profile_is_forwarded_without_shell_interpolation(self):
         status = dict(status='running', active_task_count=0,
                       running_task_count=0, resource_wait_task_count=0)
         with patch.object(r, 'read_json', return_value=status) as read, \
+             patch.object(r, 'classified_tasks', return_value=0), \
              patch.object(r, 'command', return_value='/usr/bin/init'):
             self.assertTrue(r.idle('multica', 'desktop-api.multica.ai')[0])
             read.assert_called_once_with(['multica', '--profile', 'desktop-api.multica.ai',
                                           'daemon', 'status', '--output', 'json'])
-
-    def test_unclassified_active_tasks_fail_closed(self):
-        for key in ('active_task_count', 'running_task_count', 'resource_wait_task_count'):
-            status = dict(status='running', active_task_count=0,
-                          running_task_count=0, resource_wait_task_count=0)
-            status[key] = 1
-            with patch.object(r, 'read_json', return_value=status), \
-                 patch.object(r, 'command') as command:
-                self.assertEqual(r.idle('multica'), (False, 'task_runtime_unknown'))
-                command.assert_not_called()
 
     def execute(self, apply=False, idle_result=(True, 'idle'), changed=False, late_busy=False, expired=False):
         payload = [usage('current@example.com', 1), usage('target@example.com')]
@@ -162,6 +154,147 @@ class SafetyTests(unittest.TestCase):
         with patch.object(r.subprocess, 'run', return_value=SimpleNamespace(returncode=69, stdout='secret', stderr='secret')):
             with self.assertRaisesRegex(r.Unavailable, '^command_failed$'):
                 r.command(['anything'])
+
+
+class TaskClassificationTests(unittest.TestCase):
+    def check_gate(self, tasks, providers=None, count=None, failure=None,
+                   after=None, profile=None, process='/usr/bin/init', available=None):
+        providers = providers or {'r1': 'hermes', 'r2': 'codex'}
+        count = len(tasks) if count is None else count
+        status = dict(status='running', active_task_count=count, running_task_count=count,
+                      resource_wait_task_count=0,
+                      workspaces=[dict(id='w1', runtimes=['r1', 'r2']),
+                                  dict(id='w2', runtimes=['r3'])])
+        def read(argv):
+            if failure and failure in argv:
+                raise r.Unavailable('secret upstream error')
+            if 'daemon' in argv:
+                return status if read.calls == 0 or after is None else after
+            if 'workspace' in argv:
+                return [dict(id='w1'), dict(id='w2')] if available is None else available
+            wid = argv[argv.index('--workspace-id')+1]
+            if 'runtime' in argv:
+                return ([dict(id=k, provider=v) for k, v in providers.items()]
+                        if wid == 'w1' else [dict(id='r3', provider='cursor')])
+            if 'agent' in argv:
+                return [dict(id='a1', runtime_id='r1')] if wid == 'w1' else [dict(id='a2', runtime_id='r3')]
+            raise AssertionError(argv)
+        read.calls = 0
+        def read_counted(argv):
+            result = read(argv)
+            if 'daemon' in argv:
+                read.calls += 1
+            return result
+        def pages(argv, aid):
+            if failure == 'tasks':
+                raise r.Unavailable('secret upstream error')
+            return iter(t for t in tasks if t.get('agent_id') == aid)
+        with patch.object(r, 'read_json', side_effect=read_counted) as reads, \
+             patch.object(r, 'task_pages', side_effect=pages) as paged, \
+             patch.object(r, 'command', return_value=process):
+            result = r.idle('multica', profile)
+            for call in reads.call_args_list:
+                argv = call.args[0]
+                if 'agent' in argv or 'runtime' in argv:
+                    self.assertIn('--workspace-id', argv)
+                if profile:
+                    self.assertEqual(argv[:3], ['multica', '--profile', profile])
+            for call in paged.call_args_list:
+                self.assertIn('--workspace-id', call.args[0])
+            return result
+
+    def task(self, rid='r1', state='running', wid='w1', aid='a1', tid='t1'):
+        return dict(id=tid, runtime_id=rid, status=state, workspace_id=wid, agent_id=aid)
+
+    def test_all_non_codex_across_workspaces_passes(self):
+        tasks = [self.task(), self.task('r3', 'resource_wait', 'w2', 'a2', 't2')]
+        self.assertEqual(self.check_gate(tasks, profile='desktop-api.multica.ai'), (True, 'idle'))
+
+    def test_missing_daemon_workspace_fails_closed(self):
+        self.assertEqual(self.check_gate([], available=[dict(id='w1')]),
+                         (False, 'task_runtime_unknown'))
+
+    def test_codex_in_other_workspace_blocks(self):
+        # Move the Codex binding into workspace 2, proving this isn't a
+        # current-workspace-only check.
+        status = dict(status='running', active_task_count=1, running_task_count=1,
+                      resource_wait_task_count=0,
+                      workspaces=[dict(id='w1', runtimes=['r1']), dict(id='w2', runtimes=['r2'])])
+        def read(argv):
+            if 'daemon' in argv:
+                return status
+            if 'workspace' in argv:
+                return [dict(id='w1'), dict(id='w2')]
+            wid = argv[argv.index('--workspace-id')+1]
+            if 'runtime' in argv:
+                return [dict(id='r1', provider='hermes')] if wid == 'w1' else [dict(id='r2', provider='codex')]
+            return [dict(id='a1')] if wid == 'w1' else [dict(id='a2')]
+        with patch.object(r, 'read_json', side_effect=read), \
+             patch.object(r, 'task_pages', side_effect=lambda argv, aid:
+                          iter([] if aid == 'a1' else [self.task('r2', wid='w2', aid='a2')])):
+            self.assertEqual(r.idle('multica'), (False, 'codex_task_present'))
+
+    def test_mixed_runtime_and_codex_states_block(self):
+        for state in r.ACTIVE:
+            tasks = [self.task(), self.task('r2', state, tid='t2')]
+            self.assertEqual(self.check_gate(tasks), (False, 'codex_task_present'))
+
+    def test_mismatched_total_fails_closed_even_with_zero_daemon_count(self):
+        for count in (0, 2):
+            self.assertEqual(self.check_gate([self.task()], count=count),
+                             (False, 'task_runtime_unknown'))
+
+    def test_any_read_failure_fails_closed(self):
+        for failure in ('daemon', 'workspace', 'runtime', 'agent', 'tasks'):
+            self.assertEqual(self.check_gate([self.task()], failure=failure),
+                             (False, 'task_runtime_unknown'))
+
+    def test_unknown_runtime_provider_state_and_duplicate_fail_closed(self):
+        for tasks, providers in [([self.task('missing')], None),
+                                 ([self.task()], {'r1': 'new-wrapper', 'r2': 'codex'}),
+                                 ([self.task(state='new_state')], None),
+                                 ([self.task(), self.task()], None)]:
+            self.assertEqual(self.check_gate(tasks, providers=providers),
+                             (False, 'task_runtime_unknown'))
+
+    def test_queued_uses_binding_and_terminal_history_is_ignored(self):
+        self.assertEqual(self.check_gate([self.task(None, 'queued'),
+                                        self.task('r2', 'completed', tid='t2')], count=1),
+                         (True, 'idle'))
+        self.assertEqual(self.check_gate([self.task(None)]), (False, 'task_runtime_unknown'))
+
+    def test_changed_daemon_snapshot_fails_closed(self):
+        self.assertEqual(self.check_gate([self.task()], after=dict(status='running', active_task_count=0,
+                         running_task_count=0, resource_wait_task_count=0, workspaces=[])),
+                         (False, 'task_runtime_unknown'))
+
+    def test_non_codex_does_not_bypass_local_codex_process(self):
+        self.assertEqual(self.check_gate([self.task()], process='/path/codex'),
+                         (False, 'codex_process_present'))
+
+    def test_remote_run_is_not_counted_as_local(self):
+        providers = {'r1': 'hermes', 'r2': 'codex', 'remote': 'codex'}
+        self.assertEqual(self.check_gate([self.task('remote')], providers=providers, count=0), (True, 'idle'))
+
+    def test_pagination_uses_exact_cli_cursor_and_reads_terminal_history(self):
+        cursor = '2026-10-24T06:15:21.348458Z|t1'
+        first = SimpleNamespace(returncode=0, stdout=json.dumps([self.task()]),
+            stderr=f'More runs available; use --before "{cursor}" to fetch the next page.\n')
+        last = SimpleNamespace(returncode=0, stdout=json.dumps([self.task(tid='t2')]), stderr='')
+        with patch.object(r, 'command_result', side_effect=[first, last]) as cmd:
+            self.assertEqual(len(list(r.task_pages(['multica'], 'a1'))), 2)
+            self.assertEqual(cmd.call_args.args[0][-2:], ['--before', cursor])
+
+    def test_bad_pagination_and_schema_fail_closed(self):
+        for stdout, stderr in [('{}', ''), ('bad', ''), ('[]', 'unknown pagination'),
+                               (json.dumps([dict(id=str(i)) for i in range(200)]), '')]:
+            with patch.object(r, 'command_result', return_value=SimpleNamespace(stdout=stdout, stderr=stderr)), \
+                 self.assertRaises(r.Unavailable):
+                list(r.task_pages(['multica'], 'a1'))
+        repeated = SimpleNamespace(stdout=json.dumps([self.task()]),
+            stderr='More runs available; use --before "cursor" to fetch the next page.')
+        with patch.object(r, 'command_result', return_value=repeated), self.assertRaises(r.Unavailable):
+            list(r.task_pages(['multica'], 'a1'))
 
 
 if __name__ == '__main__':

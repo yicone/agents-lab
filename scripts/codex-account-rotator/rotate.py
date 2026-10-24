@@ -18,7 +18,7 @@ class Unavailable(Exception):
     pass
 
 
-def command(argv, codes=(0,), timeout=90):
+def command_result(argv, codes=(0,), timeout=90):
     # Never relay command stdout/stderr on failure: upstream errors may contain secrets.
     try:
         result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
@@ -26,7 +26,11 @@ def command(argv, codes=(0,), timeout=90):
         raise Unavailable("command_unavailable") from None
     if result.returncode not in codes:
         raise Unavailable("command_failed")
-    return result.stdout
+    return result
+
+
+def command(argv, codes=(0,), timeout=90):
+    return command_result(argv, codes, timeout).stdout
 
 
 def read_json(argv, codes=(0,)):
@@ -139,21 +143,133 @@ def choose(current_id, views, low=15, target=40, allow_credits=False):
     return None, "no_eligible_target"
 
 
+# Unknown providers/states are deliberately not inferred from display names.
+NON_CODEX = {"claude", "cursor", "hermes", "antigravity", "copilot", "grok",
+             "opencode", "mcode", "omp"}
+ACTIVE = {"queued", "dispatched", "running", "resource_wait"}
+TERMINAL = {"completed", "failed", "cancelled"}
+
+
+def indexed(rows):
+    if not isinstance(rows, list):
+        raise Unavailable("task_runtime_unknown")
+    result = {}
+    for row in rows:
+        if (not isinstance(row, dict) or not isinstance(row.get("id"), str)
+                or not row["id"] or row["id"] in result):
+            raise Unavailable("task_runtime_unknown")
+        result[row["id"]] = row
+    return result
+
+
+def task_pages(argv, agent_id):
+    """CLI 0.6.5 emits the lossless next cursor on stderr, not in JSON rows."""
+    cursor = None
+    cursors = set()
+    seen = set()
+    for _ in range(100):  # Bound history growth; hitting the bound denies rotation.
+        args = argv + ["agent", "tasks", agent_id, "--limit", "200", "--output", "json"]
+        if cursor:
+            args += ["--before", cursor]
+        result = command_result(args)
+        try:
+            rows = json.loads(result.stdout)
+        except (ValueError, TypeError):
+            raise Unavailable("task_runtime_unknown") from None
+        page = indexed(rows)
+        if seen.intersection(page):
+            raise Unavailable("task_runtime_unknown")
+        seen.update(page)
+        yield from page.values()
+        matches = re.findall(r'More runs available; use --before "([^"\r\n]+)" to fetch the next page\.',
+                             result.stderr)
+        if not matches:
+            # A full page without the documented cursor may be truncated.
+            if len(page) >= 200 or result.stderr.strip():
+                raise Unavailable("task_runtime_unknown")
+            return
+        if len(matches) != 1 or not page or matches[0] in cursors:
+            raise Unavailable("task_runtime_unknown")
+        cursor = matches[0]
+        cursors.add(cursor)
+    raise Unavailable("task_runtime_unknown")
+
+
+def daemon_counts(status):
+    if not isinstance(status, dict) or status.get("status") != "running":
+        raise Unavailable("daemon_unknown")
+    counts = tuple(status.get(k) for k in
+                   ("active_task_count", "running_task_count", "resource_wait_task_count"))
+    if any(type(v) is not int or v < 0 for v in counts) or sum(counts[1:]) > counts[0]:
+        raise Unavailable("daemon_counts_unknown")
+    return counts
+
+
+def classified_tasks(argv, status):
+    """Count local runs across every daemon workspace; deny incomplete snapshots."""
+    try:
+        available = indexed(read_json(argv + ["workspace", "list", "--output", "json"]))
+        workspaces = indexed(status.get("workspaces"))
+        if not workspaces or not workspaces.keys() <= available.keys():
+            raise Unavailable("task_runtime_unknown")
+        total = codex = 0
+        seen = set()
+        for wid, workspace in workspaces.items():
+            local = workspace.get("runtimes")
+            if (not isinstance(local, list) or not local
+                    or any(not isinstance(x, str) or not x for x in local)
+                    or len(set(local)) != len(local)):
+                raise Unavailable("task_runtime_unknown")
+            scoped = argv + ["--workspace-id", wid]
+            runtimes = indexed(read_json(scoped + ["runtime", "list", "--output", "json"]))
+            if not set(local) <= runtimes.keys():
+                raise Unavailable("task_runtime_unknown")
+            agents = indexed(read_json(scoped + ["agent", "list", "--include-archived", "--output", "json"]))
+            for aid, agent in agents.items():
+                for task in task_pages(scoped, aid):
+                    state = task.get("status")
+                    if state in TERMINAL:
+                        continue
+                    if state not in ACTIVE or task.get("agent_id") != aid or task.get("workspace_id") != wid:
+                        raise Unavailable("task_runtime_unknown")
+                    if task["id"] in seen:
+                        raise Unavailable("task_runtime_unknown")
+                    seen.add(task["id"])
+                    # A dispatched run keeps its assigned runtime even if its agent
+                    # was rebound later. Queued runs may use the agent binding.
+                    rid = task.get("runtime_id")
+                    if rid is None and state == "queued":
+                        rid = agent.get("runtime_id")
+                    runtime = runtimes.get(rid) if isinstance(rid, str) else None
+                    if runtime is None or runtime.get("provider") not in NON_CODEX | {"codex"}:
+                        raise Unavailable("task_runtime_unknown")
+                    if rid in local:
+                        total += 1
+                        codex += runtime["provider"] == "codex"
+        # Re-read after enumeration: counts or workspace bindings changing means
+        # this non-atomic snapshot is not sufficient evidence to rotate.
+        after = read_json(argv + ["daemon", "status", "--output", "json"])
+        if (daemon_counts(after) != daemon_counts(status)
+                or after.get("workspaces") != status.get("workspaces")
+                or total != status["active_task_count"]):
+            raise Unavailable("task_runtime_unknown")
+        return codex
+    except (Unavailable, KeyError, TypeError, ValueError):
+        raise Unavailable("task_runtime_unknown") from None
+
+
 def idle(multica, profile=None):
     argv = [multica]
     if profile:
         argv += ["--profile", profile]
-    status = read_json(argv + ["daemon", "status", "--output", "json"])
-    if not isinstance(status, dict) or status.get("status") != "running":
-        raise Unavailable("daemon_unknown")
-    for key in ("active_task_count", "running_task_count", "resource_wait_task_count"):
-        value = status.get(key)
-        if type(value) is not int or value < 0:
-            raise Unavailable("daemon_counts_unknown")
-        if value:
-            # The current CLI exposes only aggregate counts, not task runtime
-            # identities. Never infer non-Codex ownership from absent processes.
-            return False, "task_runtime_unknown"
+    try:
+        status = read_json(argv + ["daemon", "status", "--output", "json"])
+        daemon_counts(status)
+        codex = classified_tasks(argv, status)
+    except Unavailable:
+        return False, "task_runtime_unknown"
+    if codex:
+        return False, "codex_task_present"
     processes = command(["/bin/ps", "-axo", "comm="])
     if not processes.strip():
         raise Unavailable("process_list_unknown")
