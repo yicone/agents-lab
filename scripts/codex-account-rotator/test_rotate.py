@@ -296,6 +296,26 @@ class TaskClassificationTests(unittest.TestCase):
                          running_task_count=0, resource_wait_task_count=0, workspaces=[])),
                          (False, 'task_runtime_unknown'))
 
+    def test_reordered_daemon_workspaces_passes(self):
+        after = dict(status='running', active_task_count=2, running_task_count=2,
+                     resource_wait_task_count=0, workspaces=[
+                         dict(id='w2', runtimes=['r3']),
+                         dict(id='w1', runtimes=['r1', 'r2'])])
+        tasks = [self.task(), self.task('r3', 'resource_wait', 'w2', 'a2', 't2')]
+        self.assertEqual(self.check_gate(tasks, after=after), (True, 'idle'))
+
+    def test_changed_or_invalid_workspace_recheck_fails_closed(self):
+        original = [dict(id='w1', runtimes=['r1', 'r2']),
+                    dict(id='w2', runtimes=['r3'])]
+        for workspaces in (original[:1], original + [original[0]],
+                           [original[0], dict(id='w2', runtimes=['other'])],
+                           [original[0], dict(runtimes=['r3'])], None):
+            with self.subTest(workspaces=workspaces):
+                after = dict(status='running', active_task_count=1, running_task_count=1,
+                             resource_wait_task_count=0, workspaces=workspaces)
+                self.assertEqual(self.check_gate([self.task()], after=after),
+                                 (False, 'task_runtime_unknown'))
+
     def test_non_codex_does_not_bypass_local_codex_process(self):
         self.assertEqual(self.check_gate([self.task()], process='/path/codex'),
                          (False, 'codex_process_present'))

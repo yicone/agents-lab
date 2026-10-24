@@ -250,7 +250,7 @@ def classified_tasks(argv, status):
         # this non-atomic snapshot is not sufficient evidence to rotate.
         after = read_json(argv + ["daemon", "status", "--output", "json"])
         if (daemon_counts(after) != daemon_counts(status)
-                or after.get("workspaces") != status.get("workspaces")
+                or indexed(after.get("workspaces")) != workspaces
                 or total != status["active_task_count"]):
             raise Unavailable("task_runtime_unknown")
         return codex
