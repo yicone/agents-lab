@@ -97,9 +97,28 @@ class SafetyTests(unittest.TestCase):
             with patch.object(r, 'read_json', return_value=bad), self.assertRaises(r.Unavailable):
                 r.idle('multica')
 
+    def test_profile_is_forwarded_without_shell_interpolation(self):
+        status = dict(status='running', active_task_count=0,
+                      running_task_count=0, resource_wait_task_count=0)
+        with patch.object(r, 'read_json', return_value=status) as read, \
+             patch.object(r, 'command', return_value='/usr/bin/init'):
+            self.assertTrue(r.idle('multica', 'desktop-api.multica.ai')[0])
+            read.assert_called_once_with(['multica', '--profile', 'desktop-api.multica.ai',
+                                          'daemon', 'status', '--output', 'json'])
+
+    def test_unclassified_active_tasks_fail_closed(self):
+        for key in ('active_task_count', 'running_task_count', 'resource_wait_task_count'):
+            status = dict(status='running', active_task_count=0,
+                          running_task_count=0, resource_wait_task_count=0)
+            status[key] = 1
+            with patch.object(r, 'read_json', return_value=status), \
+                 patch.object(r, 'command') as command:
+                self.assertEqual(r.idle('multica'), (False, 'task_runtime_unknown'))
+                command.assert_not_called()
+
     def execute(self, apply=False, idle_result=(True, 'idle'), changed=False, late_busy=False, expired=False):
         payload = [usage('current@example.com', 1), usage('target@example.com')]
-        args = SimpleNamespace(apply=apply, codexbar='codexbar', multica='multica',
+        args = SimpleNamespace(apply=apply, codexbar='codexbar', multica='multica', multica_profile='desktop-api.multica.ai',
                                low=15, target=40, allow_credits=False, log=None)
         fresh = accounts()
         if changed:

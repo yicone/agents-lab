@@ -139,8 +139,11 @@ def choose(current_id, views, low=15, target=40, allow_credits=False):
     return None, "no_eligible_target"
 
 
-def idle(multica):
-    status = read_json([multica, "daemon", "status", "--output", "json"])
+def idle(multica, profile=None):
+    argv = [multica]
+    if profile:
+        argv += ["--profile", profile]
+    status = read_json(argv + ["daemon", "status", "--output", "json"])
     if not isinstance(status, dict) or status.get("status") != "running":
         raise Unavailable("daemon_unknown")
     for key in ("active_task_count", "running_task_count", "resource_wait_task_count"):
@@ -148,7 +151,9 @@ def idle(multica):
         if type(value) is not int or value < 0:
             raise Unavailable("daemon_counts_unknown")
         if value:
-            return False, "multica_tasks_active"
+            # The current CLI exposes only aggregate counts, not task runtime
+            # identities. Never infer non-Codex ownership from absent processes.
+            return False, "task_runtime_unknown"
     processes = command(["/bin/ps", "-axo", "comm="])
     if not processes.strip():
         raise Unavailable("process_list_unknown")
@@ -186,7 +191,7 @@ def run(args):
                               for v in views]
         target, reason = choose(current["id"], views, args.low, args.target, args.allow_credits)
         record["reason"] = reason
-        safe, busy_reason = idle(args.multica)
+        safe, busy_reason = idle(args.multica, args.multica_profile)
         if not safe:
             record["reason"] = busy_reason
         elif target:
@@ -199,7 +204,7 @@ def run(args):
                 inventory(fresh)
                 if sorted(fresh, key=lambda r: r["id"]) != sorted(accounts, key=lambda r: r["id"]):
                     raise Unavailable("inventory_changed")
-                if not idle(args.multica)[0]:
+                if not idle(args.multica, args.multica_profile)[0]:
                     raise Unavailable("became_busy")
                 # The preflight commands can themselves take time. Do not promote
                 # a candidate whose original reading has aged out in the meantime.
@@ -227,6 +232,7 @@ def main():
     parser.add_argument("--target", type=float, default=40)
     parser.add_argument("--codexbar", default="/opt/homebrew/bin/codexbar")
     parser.add_argument("--multica", default=str(Path.home() / ".local/bin/multica"))
+    parser.add_argument("--multica-profile", help="explicit host profile for launchd; omit inside a managed task")
     parser.add_argument("--log", help="optional JSONL log; stdout always contains exactly one decision")
     args = parser.parse_args()
     if not 0 <= args.low < args.target <= 100:

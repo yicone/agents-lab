@@ -9,6 +9,7 @@
     <string>__SCRIPT__</string>
     <string>--dry-run</string>
     <string>--multica</string><string>__MULTICA__</string>
+    <string>--multica-profile</string><string>__MULTICA_PROFILE__</string>
   </array>
   <key>StartInterval</key><integer>600</integer>
   <key>RunAtLoad</key><true/>
