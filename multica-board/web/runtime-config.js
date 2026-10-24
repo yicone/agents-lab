@@ -141,7 +141,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
       h("div", { class: "table-wrap" }, h("table", { class: "matrix" },
         h("thead", null, h("tr", null, ...["字段", "修改前", "修改后"].map(t => h("th", null, t)))), h("tbody", null, ...diff))),
       h("p", { class: "muted" }, "有效至 ", new Date(plan.expires_at * 1000).toLocaleTimeString(), "。配置变化或活动任务会阻止提交。"),
-      h("p", { class: "runtime-warning" }, "仅影响下一次运行；会话与工作目录不会迁移。执行前检查与平台提交之间仍有竞态。"),
+      h("p", { class: "runtime-warning" }, "仅影响下一次运行；会话与工作目录不会迁移。提交前会复读核对，但 Multica CLI 没有条件更新，复读和提交之间仍可能被并发写入。读回不一致时会锁定目标，须先对账；并非所有并发改动都能检出。"),
       h("label", { class: "check" }, h("input", { type: "checkbox", checked, disabled: busy, onchange: e => {
         checked = e.target.checked; confirm.disabled = !canConfirm(plan, checked, busy);
       } }), "我已核对本次范围和逐项差异"),

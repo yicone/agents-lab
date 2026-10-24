@@ -1,7 +1,12 @@
 """Opt-in runtime actions: preview, single-use approval, readback, reconciliation.
 
-The CLI has no server-side CAS/task fence. This module checks just before submit;
-its process lock is NOT a claim of atomic protection from external writers.
+Multica CLI has no conditional update or server-side task fence. We re-read and
+compare immediately before submitting, but another writer can still change the
+agent between that read and submission. Post-write readback detects a mismatch
+and locks the target as unknown until reconciliation; it cannot detect every
+interleaving (for example, another writer's value overwritten by this submit).
+The process lock is not atomic protection from external writers. This is an
+accepted limitation for ACM-458 (user decision, 2026-10-24).
 """
 from __future__ import annotations
 
@@ -219,6 +224,9 @@ class RuntimeActions:
             if plan['expires_at'] <= self.clock():
                 self._event(plan, 'rejected', code='approval_expired')
                 raise WriteError('approval_expired')
+            # No CLI conditional update exists: the pre-submit read above does not
+            # prevent a concurrent write before apply. A readback mismatch below
+            # becomes unknown and keeps this target locked until reconciliation.
             self._event(plan, 'executing')  # fsync BEFORE CLI submit; restart locks target.
             self.unresolved[target] = plan
             try:
