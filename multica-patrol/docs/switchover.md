@@ -15,7 +15,7 @@
 - 判断全在脚本里，启动器 agent 不决定内容，只消耗启动一次 run 的最小成本。
 - 脚本写入前校验任务环境，发后读回校验作者；不满足一律拒绝（退出码 3），不使用用户登录态、不复制或读取凭证。
 - 纯只读演练（`--dry-run`）不需要 agent 身份，可在 launchd 或终端运行，不发任何评论。
-- 已知限制：如果启动器 run 本身没起来（模型容量、runtime 离线），脚本不会执行；下一次成功运行会把缺失的 slot 记为 `missed_slot` 自报，连续 2 个 slot 缺失/失败升级到 ACM-216。要做到“启动失败也即时发现”需要另起不依赖 agent 的告警通道，不在本次范围。
+- 已知限制：如果启动器 run 本身没起来（模型容量、runtime 离线），脚本不会执行；下一次成功运行会把缺失的 slot 记为 `missed_slot` 自报，连续 2 个 slot 缺失/失败升级到 ACM-487。要做到“启动失败也即时发现”需要另起不依赖 agent 的告警通道，不在本次范围。
 
 ### 2. 变更清单（逐项）
 
@@ -39,7 +39,7 @@
 6. 更新每小时 autopilot 描述：`multica autopilot update 2d84a985-978e-43ca-9b87-bd7b71fa2e0c --description "$(cat multica-patrol/docs/autopilot-hourly.description.md)"`，读回 `autopilot get` 核对描述与触发器未变。
 7. 新建每日分析 autopilot：`multica autopilot create --title "ACM Lab 每日卡点分析（09:00 SGT）" --agent 9bfe8713-ce7e-499b-830e-423223a64480 --mode run_only --project ad48897b-bd8e-4268-8ee7-e1ede97e48d8 --description "$(cat multica-patrol/docs/autopilot-daily.description.md)"`，再 `multica autopilot trigger-add <新id> --kind schedule --cron "0 9 * * *" --timezone Asia/Singapore --label "每日 09:00 SGT"`。autopilot 写入按发起用户授权，操作者必须是用户本人或获用户授权的 owner/admin。
 8. 不要为“测试”手动 trigger 生产 autopilot；如必须手动触发，运行必须带 manual 标记且不计入观察。
-9. 观察（不能用单测替代）：由非作者 Reviewer · Hermes 观察至少 2 个自然整点的台账与 1 次每日分析，核对：无重复评论、无误报、作者是副调度 agent、`scheduled` 标记正确、ACM-290 类“失败 run 无重试”能被抓到、带「搁置」标签的 issue 不出现在台账和每日汇总（取数阶段已排除，可用 `--dry-run` 输出和 `grep` 核对）、provider 报错（completed + `[Error]`）首次重试一次且不重复 @、重试后再错升级 ACM-216、ACM-216 评论第一行是大白话下一步。观察期内保留 Grok routine，不由巡检建议停旧 routine 之外的动作。
+9. 观察（不能用单测替代）：由非作者 Reviewer · Hermes 观察至少 2 个自然整点的台账与 1 次每日分析，核对：无重复评论、无误报、作者是副调度 agent、`scheduled` 标记正确、ACM-290 类“失败 run 无重试”能被抓到、带「搁置」标签的 issue 不出现在台账和每日汇总（取数阶段已排除，可用 `--dry-run` 输出和 `grep` 核对）、provider 报错（completed + `[Error]`）首次重试一次且不重复 @、重试后再错升级 ACM-487、ACM-487 评论第一行是大白话下一步。观察期内保留 Grok routine，不由巡检建议停旧 routine 之外的动作。
 
 ### 4. 回滚
 
@@ -74,7 +74,7 @@
 
 - provider 报错检测依赖评论读取，只在深查时执行；已缓存且 run 未变化的 issue 上 `[Error]` 评论被原地编辑，要等下一次深查才能看到。超过 6 小时的旧错误只上报不重试，超过 14 天评论窗口的旧错误看不到。
 - 检测判据是“最新 run completed，且该 run 所属 agent 在 [开始, 结束+120 秒] 内最新的 `[Error]` 评论”；这是用 ACM-335 的真实数据校准的，换 provider 的报错格式不以 `[Error]` 开头则不会被识别。
-- 台账 ACM-229 是机器记录，首行保留批次标记，不套用“第一行大白话”格式；该格式只用于 ACM-216 的升级、每日汇总和源 issue 的重试评论。
+- 台账 ACM-229 是机器记录，首行保留批次标记，不套用“第一行大白话”格式；该格式只用于 ACM-487 的升级、每日汇总和源 issue 的重试评论。
 - 自然语言“用户已批准”的判断不在机器层；机器层只认「可开工」标签，其余交每日分析。
 - 业务进展的判定排除副调度自己的评论（视为派活/确认）。副调度若在某 issue 上做了真实交付，机器层会低估其进展，宁可多报不漏报。
 - 时间锚点：时间线被服务端截断时，用 `updated_at` 作保守下界并标“证据不全”，不捏造更早的时间。

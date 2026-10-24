@@ -1,4 +1,4 @@
-ACM Lab 每日卡点分析（ACM-342 第二层）。每天 09:00 SGT 一次，只用一条评论汇报到 ACM-216。仅 ACM Lab workspace 8ebc87ea-27f2-42c4-90f6-24a04e64d3f5，不碰其它 workspace，不打印凭证。
+ACM Lab 每日卡点分析（ACM-342 第二层）。每天 09:00 SGT 一次，只用一条评论汇报到 ACM-487。仅 ACM Lab workspace 8ebc87ea-27f2-42c4-90f6-24a04e64d3f5，不碰其它 workspace，不打印凭证。
 
 1. 先读 ~/multica-handoff/fu-diaodu/playbook.md（全文，§13/§14 必读）。
 2. 取机器数据：cd ~/Workspace/agents-lab/multica-patrol && /opt/homebrew/bin/python3 -m patrol daily-pack --format json，输出存到本 run 工作目录（不是 /tmp）的 pack.json。该目录必须是已合并 main 的 checkout。取数失败：正文只写一行「[Error] 每日分析取数失败：<脚本给出的原因>」，直接跳到第 5 步。
@@ -12,4 +12,4 @@ ACM Lab 每日卡点分析（ACM-342 第二层）。每天 09:00 SGT 一次，�
 5. 把汇总写到本 run 工作目录的 daily.md。第一行必须是大白话下一步：`需要你做：<具体动作>`，或 `不需要你做，下一步由 <agent 名称> 做：<具体动作>`；第二行起才写技术细节，哈希、命令、数字放细节里。脚本会检查第一行格式，不符合会拒绝发送。正文里不得出现 mention://agent/ 或 mention://member/ 链接，issue 链接用 mention://issue/ 即可；不超过 20000 字符），然后运行一次：
    cd ~/Workspace/agents-lab/multica-patrol && /opt/homebrew/bin/python3 -m patrol daily-post --file <daily.md 的绝对路径>
    同一天重复运行会返回 duplicate，这是正常的，不要重发。退出码 3 表示身份校验拒绝，直接报告，不要换身份或凭证。
-6. 最终输出：PATROL 脚本的结果行、退出码，以及你在 B 类执行过的动作清单。除 daily-post 发出的那一条评论外，不要再往 ACM-216、ACM-229 发评论，不要 mention 任何人。
+6. 最终输出：PATROL 脚本的结果行、退出码，以及你在 B 类执行过的动作清单。除 daily-post 发出的那一条评论外，不要再往 ACM-487、ACM-229 发评论，不要 mention 任何人。
