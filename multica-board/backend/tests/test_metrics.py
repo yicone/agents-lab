@@ -366,3 +366,129 @@ class MalformedResponseTests(unittest.TestCase):
         for args in [['agent','list'],['agent','tasks','a']]:
             runner.run.return_value=CliResult(None)
             with self.assertRaises(CliError): CheckedHistoryReads(runner).run(args)
+
+
+class ProxyTests(unittest.TestCase):
+    def snapshot(self):
+        s = fixture()
+        for i in s['issues']:
+            i['proxy_exclusion'] = None
+        return s
+
+    def test_proxy_and_ledger_are_independent(self):
+        s = self.snapshot()
+        s['events'] = [e for e in s['events'] if e['event_type'] != 'delivery_completed']
+        r = build_report(s, now=NOW)
+        self.assertEqual(r['coverage']['evidenced_deliveries'], 0)
+        self.assertEqual(r['proxy']['coverage']['evidenced_deliveries'], 1)
+        self.assertEqual(r['proxy']['metrics']['cycle_hours']['value'], 24)
+        self.assertEqual(r['proxy']['deliveries'][0]['evidence'], 'proxy')
+        self.assertEqual(r['proxy']['flow']['example_70_percent']['threshold'], .7 / 28)
+        self.assertEqual(r['proxy']['flow']['deliveries_24h'], 1)
+        self.assertEqual(r['workspace_flow']['w']['proxy']['coverage']['completion_evidence'], 1)
+
+    def test_proxy_excludes_cancelled_child_acceptance_and_operations(self):
+        for reason in ['acceptance_or_retest', 'push_merge_deploy_only']:
+            s = self.snapshot(); s['issues'][0]['proxy_exclusion'] = reason
+            self.assertEqual(build_report(s, now=NOW)['proxy']['coverage']['evidenced_deliveries'], 0)
+        s = self.snapshot(); s['issues'][0]['status'] = 'cancelled'
+        self.assertEqual(build_report(s, now=NOW)['proxy']['coverage']['evidenced_deliveries'], 0)
+        s = self.snapshot()
+        s['events'].append(event('status', 'child-done', issue='c', status='done'))
+        self.assertEqual(build_report(s, now=NOW)['proxy']['coverage']['evidenced_deliveries'], 1)
+
+    def test_proxy_reclose_once_at_last_done(self):
+        s = self.snapshot()
+        s['events'] += [event('status', 'reopen', at='2026-10-23T15:00:00Z', status='in_progress'),
+                        event('status', 'reclose', at='2026-10-24T00:00:00Z', status='done')]
+        r = build_report(s, now=NOW)['proxy']
+        self.assertEqual(r['coverage']['evidenced_deliveries'], 1)
+        self.assertEqual(r['deliveries'][0]['completed_at'], '2026-10-24T00:00:00Z')
+        self.assertEqual(sum(d['observed_deliveries'] for d in r['daily']), 1)
+
+    def test_proxy_missing_kind_timeline_or_workspace_is_unknown(self):
+        for mode in ['kind', 'timeline', 'workspace', 'stale']:
+            s = self.snapshot()
+            if mode == 'kind': del s['issues'][0]['proxy_exclusion']
+            if mode == 'timeline': s['history_complete']['w/p'] = False
+            if mode == 'workspace':
+                s['complete'] = False
+                s['errors'] = [dict(workspace_id='w', resource='issues', reason='permission_denied')]
+            if mode == 'stale': s['collected_at'] = iso(NOW - timedelta(days=2))
+            r = build_report(s, now=NOW)['proxy']
+            self.assertIsNone(r['flow']['deliveries_24h'], mode)
+            self.assertIsNone(r['flow']['example_70_percent']['triggered'], mode)
+
+    def test_kind_rules_are_minimized_and_feature_work_is_preserved(self):
+        from multica_board.metrics_history import proxy_exclusion
+        for title in ['独立验收 Atlas', '复验：ACM-1', 'Acceptance check', 'Retest', '推送 PR #12',
+                      'Atlas：合并 PR', '部署 Atlas', 'Deploy atlas', '纯推送/合并/部署']:
+            self.assertIsNotNone(proxy_exclusion(title), title)
+        for title in ['修复 CLI 读取', '实现指标并部署', 'Atlas：实现权限读取', '修复 ACM-429 验收阻断', '实现验收标准']:
+            self.assertIsNone(proxy_exclusion(title), title)
+        self.assertEqual(proxy_exclusion(None), 'unknown_kind')
+
+    def test_profile_environment_removes_agent_identity_without_config_changes(self):
+        from unittest.mock import patch
+        from multica_board.cli_runner import CliRunner
+        with patch.dict(os.environ, {'MULTICA_AGENT_ID':'agent', 'MULTICA_AGENT_NAME':'name',
+                                    'MULTICA_DAEMON_PORT':'123', 'MULTICA_TASK_CONFIG_ROOT':'private',
+                                    'MULTICA_TOKEN':'secret', 'MULTICA_SERVER_URL':'private'}):
+            env = CliRunner('desktop-api.multica.ai')._env()
+        self.assertFalse(any(k.startswith('MULTICA_TASK_') for k in env))
+        for key in ['MULTICA_AGENT_ID','MULTICA_AGENT_NAME','MULTICA_DAEMON_PORT','MULTICA_TOKEN','MULTICA_SERVER_URL']:
+            self.assertNotIn(key, env)
+
+
+class ProxyBoundaryTests(unittest.TestCase):
+    def test_conflicting_status_time_cannot_establish_proxy_close(self):
+        s = ProxyTests().snapshot()
+        s['events'].append(event('status', 'conflict-status', status='in_progress'))
+        r = build_report(s, now=NOW)['proxy']
+        self.assertEqual(r['coverage']['evidenced_deliveries'], 0)
+        self.assertIsNone(r['flow']['deliveries_24h'])
+
+    def test_adapter_saves_kind_only_not_title(self):
+        s = collect_history(HistoryAdapterTests().runner(), now=NOW)
+        self.assertIn('proxy_exclusion', s['issues'][0])
+        self.assertNotIn('title', s['issues'][0])
+
+    def test_one_denied_workspace_does_not_hide_healthy_workspace(self):
+        s = ProxyTests().snapshot()
+        s['workspace_ids'] = ['w','denied']
+        s['complete'] = False
+        s['inventory_complete'] = False
+        s['errors'] = [dict(workspace_id='denied',resource='issues',reason='permission_denied')]
+        r = build_report(s, now=NOW)
+        self.assertIsNone(r['proxy']['flow']['deliveries_24h'])
+        self.assertEqual(r['workspace_flow']['w']['proxy']['flow']['deliveries_24h'],1)
+        self.assertIsNone(r['workspace_flow']['denied']['proxy']['flow']['deliveries_24h'])
+
+
+class ProxyRetentionTests(unittest.TestCase):
+    def test_old_close_stays_outside_window_after_retention(self):
+        from multica_board.metrics_history import retain_events
+        s=ProxyTests().snapshot(); s['comments_complete']={}
+        for e in s['events']:
+            if e['event_type']=='status': e['at']=iso(NOW-timedelta(days=100))
+        s['events']=[e for e in s['events'] if e['event_type']!='delivery_completed']
+        # Single unambiguous ancient close, no current-window lifecycle.
+        s['events']=[e for e in s['events'] if e['event_type']!='status' or e.get('status')=='done']
+        retain_events(s)
+        self.assertFalse(s['history_complete']['w/p'])
+        self.assertEqual(s['issues'][0]['proxy_completion_source'],'complete_timeline')
+        report=build_report(s,now=NOW)
+        self.assertEqual(report['coverage']['done_candidates'],0)
+        r=report['proxy']
+        self.assertEqual(r['coverage']['done_candidates'],0)
+        self.assertEqual(r['flow']['deliveries_24h'],0)
+
+    def test_recent_close_with_retained_start_gap_has_unknown_cycle(self):
+        from multica_board.metrics_history import retain_events
+        s=ProxyTests().snapshot();s['comments_complete']={}
+        s['events'][0]['at']=iso(NOW-timedelta(days=100))
+        retain_events(s)
+        r=build_report(s,now=NOW)['proxy']
+        self.assertEqual(r['coverage']['evidenced_deliveries'],1)
+        self.assertEqual(r['flow']['deliveries_24h'],1)
+        self.assertIsNone(r['metrics']['cycle_hours']['value'])

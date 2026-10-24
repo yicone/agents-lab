@@ -2,27 +2,37 @@
 
 # Agent 系统效能指标定义
 
-状态：指标口径已决定，等待 Builder 实现。第一版只采集五项：北极星、交付周期中位数、等待占比、一次通过率、每件交付花费。基线从第一条完整采集事件起算，满 14×24 小时；目标值另行拍板，实施不预设阈值。默认覆盖全部 workspace。
+状态：只读指标命令已实现；历史代理交付口径按 ACM-470 更新。第一版只采集五项：北极星、交付周期中位数、等待占比、一次通过率、每件交付花费。基线从第一条完整采集事件起算，满 14×24 小时；目标值另行拍板，实施不预设阈值。默认覆盖全部 workspace。
 
 ## 1. 共同口径
 
 ### 1.1 统计对象：交付件
 
-- 一件交付固定按一个**父 issue**计，不拆分；最终交付须有交付台账证据。
+- 一件交付固定按一个**父 issue**计，不拆分；正式交付须有交付台账证据；历史回补另列 `evidence=proxy` 代理交付。
 - 子 issue 只作为父 issue 的执行证据，不单独计入交付件；子 issue 的 run、等待和花费归入父 issue。
 - 没有父 issue 的独立 issue 自己就是交付件。
 - 父 issue 有多个独立交付结果时仍算一件，不使用 `delivery_unit_id` 拆分。
-- Steward 验收后关单（`done`）表示结论被采纳；周期和一次通过率仍必须有统一交付台账的结束证据。没有台账证据的 `done` 只计入覆盖率，不进入周期和一次通过率。
+- Steward 验收后关单（`done`）表示结论被采纳；周期和一次通过率仍必须有统一交付台账的结束证据。没有台账证据的 `done` 不进入正式台账指标；历史回补可按下述代理规则进入独立代理列。
 - `cancelled` / `canceled` 不算交付，也不进入交付周期、一次通过率分母；若取消前已发生花费，花费进入“未交付成本”单独报告，不摊入每件交付花费。
 - `backlog`、`todo`、`in_progress`、`blocked`、`in_review` 都不是交付完成。
 - 跨 workspace 的 issue 各自保留 `workspace_id`。默认覆盖全部 workspace，不跨 workspace 合并同名 issue；汇总必须保留来源 workspace。
 - 父子关系来自 issue 的 `parent_issue_id` / `parent_identifier`。父 issue 不在采集窗口或跨 workspace 无法确认时，标记 `parent_unknown`，不把子 issue 自动当成独立交付。
 
+### 1.1a 历史代理口径（ACM-470）
+
+- 父 issue 当前以 `done` 关闭可作为历史代理交付；无父的独立 issue 等同父 issue。子 issue 不单计。
+- 排除 `cancelled/canceled`、验收单、复验单，以及纯推送/合并/部署单。采集时按标题识别 issue 类型，只保留 `proxy_exclusion` 原因枚举，不保存标题或正文。无法识别类型的旧快照须重新采集，不按零交付处理。
+- 代理结束取完整 timeline 最后一次 `done`；重新打开后关闭仍只计一件。时间线不全或当前未关闭均不能推断完成；代理行标记 `evidence=proxy`。90 天事件裁剪前保存完整 timeline 的最后关闭时间作为最小库存摘要，避免旧单在每个新窗口误入未知候选；裁剪丢失开始证据时周期/等待仍 unknown。
+- 代理周期与状态等待可计算；注意力、一次通过率、每件成本仍需原有分类、coverage 与成本台账，缺少则 unknown，不能从 done 推断一次通过。
+- 台账从 PR #97 合并当天 **2026-10-24 UTC** 起正式记录。历史代理与正式台账各有分母、覆盖率和每日件数，同一件可能在两列出现，不能相加；本次不补造历史台账，也不启用实时采集或修改 Multica。
+- 报告按每个 workspace 分别输出每日代理/台账件数、五项指标及覆盖率、滚动 24h 与四周日均 × 70% 的示例阈值。70% 只是读数示例，不是已批准告警策略。完整读数未知时另列已观察 24h 下界和样本日均 × 70%，不据此断言触发。无法访问的 workspace 保留 unknown。
+- 使用 Atlas 后端同一只读 profile（`desktop-api.multica.ai`），不使用任务令牌；通过 Board runner 清理任务及 agent 身份变量，并在私有中立 cwd 调用 CLI，不改 profile 配置或输出 token。
+
 ### 1.2 时间边界
 
 - 所有时间存 ISO 8601 UTC；展示可转本地时区，但计算使用 UTC。
 - 交付开始 = 第一次进入 `in_progress` 的时间；没有该状态迁移时回退到父 issue `created_at`。
-- 交付结束 = 统一交付台账记录的结束时间。没有台账证据的 `done` 记为 `completion_time_unknown`，不纳入周期分布，不能用 `updated_at` 冒充结束时间。
+- 交付结束 = 统一交付台账记录的结束时间。正式台账缺证据的 `done` 记为 `completion_time_unknown`；历史代理使用完整 timeline 最后一次 `done` 时间。两者都不能用 `updated_at` 冒充结束时间。
 - 当前统计窗口按结束时间归属；窗口左闭右开。窗口外开始、窗口内结束的交付仍纳入窗口，但报告标记为跨窗口。
 
 ### 1.3 数据可信度
@@ -77,7 +87,7 @@
 
 - issue `created_at`、`parent_issue_id`、workspace、状态、负责人：Multica CLI/API，**现在就能取**。
 - `/api/changes` 的 `issue_status` 迁移和 `at`：**现在就能取**，可补首次 `in_progress`，但只保留 7 天，历史窗口不足。
-- 统一交付台账的结束时间和证据：**需要新采集**。Steward 验收后 `done` 可证明结论被采纳，但没有台账结束证据仍不能作为周期结束时间。
+- 统一交付台账的结束时间和证据：**需要新采集**。Steward 验收后 `done` 可证明结论被采纳，但没有台账结束证据不能作为正式周期结束时间；历史代理周期单列。
 
 **计算与频率**：每小时增量更新，日报和周报按结束时间重算；`/api/changes` 和事件台账保留 90 天，避免历史断层。
 
@@ -125,7 +135,7 @@
 - 用户提出实质修改、验收失败、重新打开、追加实现范围，算一次返工。
 - agent 失败后自动恢复、没有改变交付内容，不算返工；在可靠性指标中单独标为自动恢复警告。
 - 同一父 issue 多次 `in_review`：第一次之后发生实质修改即非一次通过；重复评论不能重复计数。
-- 取消件和没有交付台账证据的 `done` 不进分母，只计入覆盖率；“没有返工记录”不等于一次通过，缺采集标记 unknown。
+- 取消件不进分母；没有交付台账证据的 `done` 不进正式分母，历史代理独立统计；“没有返工记录”不等于一次通过，缺采集标记 unknown。
 - 子 issue 只要是为同一交付件的返工，归父 issue；并行实现子 issue 不算返工。
 
 **来源与状态**：
@@ -133,7 +143,7 @@
 - issue 状态迁移、父子关系：Multica CLI/API 与 `/api/changes`，**现在就能取**，但历史窗口不足。
 - 评论和用户验收/返工分类：Multica CLI `issue comment list`，**现在就能取**；结构化分类和去重逻辑**需要新采集**。
 - run 状态、失败原因、重跑链：`agent tasks`；Board 当前 run 缓存最近 14 天，**现在就能取**但需补采集窗口与关联规则。
-- 统一交付台账的结束证据：**需要新采集**，作为周期和一次通过率的唯一结束证据；没有证据的 `done` 只计覆盖率。
+- 统一交付台账的结束证据：**需要新采集**，作为正式周期和一次通过率的结束证据；历史代理以完整 timeline 最后一次 `done` 结束，不能替代返工分类与覆盖声明。
 
 **计算与频率**：每小时增量计算，日报冻结；首次只报比例、分子、分母、unknown 数和覆盖率，不设目标。
 
@@ -174,7 +184,7 @@
 
 目的：用流速尺驱动 Steward 加速整体交付，不把处置动作自动化或写死。
 
-- **主读数**：滚动 24 小时交付件数，严格按本文件交付件口径；只计有交付台账结束证据的完整交付。
+- **主读数**：滚动 24 小时交付件数，严格按本文件交付件口径；正式列只计有交付台账结束证据的完整交付；历史代理列独立展示。
 - **诊断读数**：在制品数（当前正在推进的父 issue 数）；等待占比，拆成 `waiting_user`、`waiting_quota`、`waiting_agent`；另报返工和覆盖率，防止用少交付或少记录刷主读数。
 - **触发条件**：主读数低于阈值。阈值由历史回补基线决定，例如过去 4 周日均值的 70%；具体数值留给用户拍板，实施时只做参数，不写死。
 - **运行频率**：白天每 2–3 小时由 Steward 例行检查读取一次，日报记录是否触发、诊断结果、采取动作和结果；不在本文授权自动派活、换 agent 或改 issue。
@@ -193,7 +203,7 @@
 ### 3.3 数据来源
 
 - 交付件、父子关系、状态和负责人：Multica CLI 的 issue / workspace 读取，或 Board `/api/issues`；**现在就能取**。
-- 滚动 24 小时交付件：交付台账事件；历史回补阶段用已有 issue `done` 与可确认结束事件，缺台账的 `done` 只进覆盖率；实时阶段由 `delivery_completed` 事件更新。
+- 滚动 24 小时交付件：交付台账事件；历史回补阶段用已有 issue `done` 与可确认结束事件，符合代理规则的 `done` 在独立代理列统计；实时阶段由 `delivery_completed` 事件更新。
 - 在制品：Multica CLI issue 状态，或 Board `/api/issues` 的 `status` / `status_category` / `parent_identifier`；**现在就能取**，按父 issue 去重。
 - 等待占比：Board `/api/changes` 的 `issue_status` 事件，加巡检、quota wait、Wakeup ledger 的 `wait_reason`；状态流转可取，原因需新采集，缺失标 `unknown`。
 - 历史基线：Multica 现有 issue 状态流转、运行记录和评论，尽量最近 4 周；没有历史来源的台账、额度归因、`wait_reason` 标 `unknown` 并单报 coverage。
@@ -227,7 +237,7 @@
 
 只写建议，不创建 issue；顺序可调整，但每步先有读回和覆盖率验证：
 
-1. **历史回补交付件归并层**：读取全部 workspace 的最近 4 周 issue、父子关系、状态流转、运行记录和评论；生成稳定 `delivery_id`，处理取消、跨 workspace、缺父 issue；没有历史来源的台账、额度归因、`wait_reason` 标 `unknown`，输出覆盖率，不改变 Multica 数据。
+1. **历史回补交付件归并层**：读取全部 workspace 的最近 4 周 issue、父子关系、状态流转、运行记录和评论；生成稳定 `delivery_id`，处理取消、跨 workspace、缺父 issue；缺台账时可用独立代理列；没有历史来源的分类、额度归因、`wait_reason` 标 `unknown`，输出覆盖率，不改变 Multica 数据。
 2. **补齐交付事件**：从 issue 状态、评论线程和可用交付证据采集开始、采纳、批准、回复、返工事件；统一结束仍以交付台账为准，只存脱敏枚举和 ID，为人工分类保留可复核引用，不存正文。
 3. **建立等待事件**：接入 `/api/changes` 与巡检/quota ledger，形成 `wait_reason` 的 user/quota/agent/unclassified 四类；处理事件重叠、历史回补、实时增量和幂等。
 4. **建立运行与成本归因**：关联 `agent tasks` run 到父 delivery，接入 `/api/usage` 的 token / `cost_usd_ticks`、CodexBar 快照和 9router Observability（仅在 `enableObservability` 开启时采集）；逐项标记 attributable / unattributed / unknown；Orca 保持未接入。
@@ -242,7 +252,7 @@
 3. 结论是否被采纳，以 Steward 验收后关单（`done`）为准；不要求用户另外确认。
 4. 手动处理只统计台账里有 ID 的动作，没有记录的标为 `unknown`。
 5. `in_review` 只有挂着“等用户批准”的请求时才算 `waiting_user`，其余算 `waiting_agent`（等验收）。
-6. 结束证据统一以交付台账为准。没有证据的 `done` 不算进周期和一次通过率，只计入覆盖率。
+6. 正式结束证据以交付台账为准；历史回补按父 issue `done` 作代理，`evidence=proxy`，与正式台账分列，不能相加。
 7. 失败后自动恢复的运行不算返工，但在可靠性那组里单独标出警告。
 8. `multica_cost` 和 `quota_consumption` 永久分两栏，不相加。价格表放在仓库里，由 Steward 维护。
 9. 基线用历史数据回补：从 Multica 现有历史读取 issue 状态流转、运行记录和评论，尽量取最近 4 周。没有历史来源的台账、额度归因、`wait_reason` 等标为 `unknown`，单独列覆盖率。接入实时采集后，再运行 2 天对账，核对回补和实时采集口径；不一致处单独说明。

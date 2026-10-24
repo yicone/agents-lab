@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,20 @@ from .redact import classify_error
 
 ISSUE_KEYS = {"workspace_id", "id", "parent_issue_id", "status", "created_at", "assignee_id"}
 RUN_KEYS = {"workspace_id", "id", "issue_id", "agent_id", "runtime_id", "status", "created_at", "completed_at"}
+
+
+def proxy_exclusion(title):
+    """Classify issue kind in memory; never retain titles or classify comment prose."""
+    if not isinstance(title, str) or not title.strip():
+        return "unknown_kind"
+    text = title.strip().lower()
+    text = text.lstrip("[【「『\"' ")
+    if re.search(r"独立验收|^(?:(?:真实环境|线上|最终|二次|独立)\s*)?(?:验收(?!标准)|复验)|^(?:acceptance|retest|verification)\b", text):
+        return "acceptance_or_retest"
+    actions = [part.strip() for part in re.split(r"[：:]", text)]
+    if any(re.match(r"^(?:纯)?(?:推送|合并|部署|发布|push\b|merge\b|deploy\b|release\b|rebase/)", action) for action in actions):
+        return "push_merge_deploy_only"
+    return None
 
 
 def _reason(exc):
@@ -79,7 +94,8 @@ def collect_history(runner, *, days=28, now=None, workers=4, previous=None):
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 for failures in pool.map(workspace, [] if previous else workspaces):
                     errors.extend(failures)
-            issues = [{k: r.get(k) for k in ISSUE_KEYS} for r in store.query("SELECT * FROM issues WHERE server=?", (runner.profile,))]
+            issues = [dict({k: r.get(k) for k in ISSUE_KEYS}, proxy_exclusion=proxy_exclusion(r.get("title")))
+                      for r in store.query("SELECT * FROM issues WHERE server=?", (runner.profile,))]
             runs = [{k: r.get(k) for k in RUN_KEYS} for r in store.query("SELECT * FROM tasks WHERE server=?", (runner.profile,))]
         finally:
             store.close()
@@ -225,6 +241,21 @@ def retain_events(snapshot):
     """
     anchor = ts(snapshot.get("recovered_at")) or ts(snapshot["collected_at"])
     cutoff = anchor - timedelta(days=90)
+    # Minimal closure observation belongs to inventory, not the retained event log.
+    # Keep it so an ancient done does not become an unknown completion in every window.
+    status_events = {}
+    for e in snapshot["events"]:
+        if e.get("event_type") == "status" and ts(e.get("at")):
+            status_events.setdefault(f"{e['workspace_id']}/{e['issue_id']}", []).append(e)
+    for issue in snapshot["issues"]:
+        key = f"{issue['workspace_id']}/{issue['id']}"
+        if snapshot["history_complete"].get(key):
+            statuses = status_events.get(key, [])
+            latest = max((ts(e["at"]) for e in statuses), default=None)
+            last = [e for e in statuses if ts(e["at"]) == latest]
+            if last and {e.get("status") for e in last} == {"done"}:
+                issue["proxy_completed_at"] = iso(latest)
+                issue["proxy_completion_source"] = "complete_timeline"
     kept, gaps = [], set()
     for e in snapshot["events"]:
         at = ts(e.get("at"))
