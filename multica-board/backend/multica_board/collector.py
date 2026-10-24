@@ -27,6 +27,7 @@ from .mcp_summary import (
     plain_text as _mcp_name,
     summarize_mcp_config,
 )
+from .delivery_anomaly import delivery_anomaly
 from .redact import classify_error, redact
 from .store import Store
 
@@ -320,6 +321,11 @@ def norm_task(t: dict[str, Any]) -> dict[str, Any]:
     row["error_kind"] = classify_error(err, reason) if (err or reason or t.get("status") == "failed") else None
     if row["error_kind"] is None and t.get("status") == "failed":
         row["error_kind"] = "unknown"
+    row.update(delivery_anomaly(t))
+    row["delivery_checked"] = 1
+    if row["delivery_anomaly"]:
+        row["error_kind"] = None
+        row["error_summary"] = "[Error] An error occurred while processing your request."
     return row
 
 

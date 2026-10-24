@@ -80,6 +80,7 @@ const RUN_STATUS_LABEL = {
 };
 
 const LANES = [
+  { id: "delivery_anomaly", title: "交付异常", hint: "completed，但最终输出为上游错误" },
   { id: "failed", title: "运行失败", hint: "最近一次 run 失败" },
   { id: "blocked", title: "受阻", hint: "status = blocked" },
   { id: "review", title: "待验收", hint: "status = in_review" },
@@ -829,8 +830,8 @@ function issueCard(it, ws, cls) {
   const run = it.latest_run;
   const degraded = isWsDegraded(ws);
   const failedLine =
-    run?.status === "failed"
-      ? h("div", { class: "card-error", title: run.error_summary || "" }, errKindEl(run.error_kind), " ", run.error_summary || "")
+    (run?.status === "failed" || run?.delivery_anomaly)
+      ? h("div", { class: "card-error", title: run.error_summary || "" }, errKindEl(run.error_kind, run.delivery_anomaly ? "交付异常" : "失败"), " ", run.error_summary || "")
       : null;
   const context = [it.project?.title, it.parent_identifier ? `↑ ${it.parent_identifier}` : null].filter(Boolean).join(" · ");
 
@@ -868,7 +869,7 @@ function issueCard(it, ws, cls) {
       h(
         "span",
         { class: "when", title: `最后活动 ${absTime(it.last_activity_at)}` },
-        cls.lane === "failed" && run?.completed_at ? `失败于 ${ago(run.completed_at)}` : ago(it.last_activity_at),
+        (cls.lane === "failed" || cls.lane === "delivery_anomaly") && run?.completed_at ? `结束于 ${ago(run.completed_at)}` : ago(it.last_activity_at),
       ),
     ),
     cls.tags.length || degraded
@@ -978,7 +979,7 @@ function renderIssues() {
   const othersDetail = [...others].sort((a, b) => b[1] - a[1]).map(([s, n]) => `${STATUS_LABEL[s] ?? s} ${n}`).join(" · ");
 
   const sortKey = (e) =>
-    Date.parse((e.cls.lane === "failed" && e.it.latest_run?.completed_at) || e.it.last_activity_at || 0);
+    Date.parse((["failed", "delivery_anomaly"].includes(e.cls.lane) && e.it.latest_run?.completed_at) || e.it.last_activity_at || 0);
   for (const id in lanes) lanes[id].sort((a, b) => sortKey(b) - sortKey(a));
   lanes.stale.reverse();
 
@@ -1003,7 +1004,7 @@ function renderIssues() {
     ),
     h(
       "span",
-      { class: "muted", title: "不在四栏里的打开 issue：有近期活动或有运行中的 run，以及 backlog" },
+      { class: "muted", title: "不在关注栏里的打开 issue：有近期活动或有运行中的 run，以及 backlog" },
       othersTotal ? `其余 ${othersTotal} 条打开 issue 不在关注范围（${othersDetail}）` : "所有打开 issue 都在关注范围内",
     ),
     layerField(ready),
@@ -1080,20 +1081,22 @@ function openRecordDrawer(kind, record, opener) {
 }
 
 function runRow(r) {
-  const cls = r.status === "failed" ? "bad" : r.status === "running" ? "run" : QUEUED_RUN.has(r.status) ? "muted" : r.status === "completed" ? "ok" : "muted";
+  const cls = r.delivery_anomaly || r.status === "failed" ? "bad" : r.status === "running" ? "run" : QUEUED_RUN.has(r.status) ? "muted" : r.status === "completed" ? "ok" : "muted";
   return h(
     "li",
     { class: "run-row" },
     h(
       "div",
       { class: "run-line" },
-      h("span", { class: `tag ${cls}` }, RUN_STATUS_LABEL[r.status] ?? r.status),
+      h("span", { class: `tag ${cls}` }, r.delivery_anomaly ? "交付异常 · completed" : RUN_STATUS_LABEL[r.status] ?? r.status),
       h("span", { class: "run-agent" }, r.agent_name ?? "未知 agent"),
       h("span", { class: "muted", title: `开始 ${absTime(r.started_at)}\n结束 ${absTime(r.completed_at)}` }, ago(r.completed_at ?? r.started_at)),
       r.started_at && r.completed_at ? h("span", { class: "muted" }, `· ${duration(r.started_at, r.completed_at)}`) : null,
     ),
-    r.status === "failed" || r.error_kind
-      ? h("div", { class: "run-error" }, errKindEl(r.error_kind), " ", r.error_summary || "")
+    r.status === "failed" || r.error_kind || r.delivery_anomaly
+      ? h("div", { class: "run-error" }, errKindEl(r.error_kind, r.delivery_anomaly ? "交付异常" : "失败"), " ", r.error_summary || "",
+          r.request_id ? ` · request ID ${r.request_id}` : "", r.model ? ` · ${r.model}` : "",
+          r.delivery_anomaly ? ` · run ${r.task_id} · runtime ${r.runtime_id || "未知"}` : "")
       : null,
   );
 }
@@ -1419,11 +1422,12 @@ function providerSummary(rows) {
     const { a, ws, rt } = row;
     if (a.archived) continue;
     const p = providerOf(row);
-    const s = byP.get(p) ?? { provider: p, agents: 0, ws: new Set(), rts: new Map(), failed: 0, quota: 0, running: 0 };
+    const s = byP.get(p) ?? { provider: p, agents: 0, ws: new Set(), rts: new Map(), delivery_anomalies: 0, failed: 0, quota: 0, running: 0 };
     s.agents += 1;
     if (ws) s.ws.add(ws.id);
     if (rt) s.rts.set(rt.key, rt.status === "online");
     s.failed += a.recent?.failed ?? 0;
+    s.delivery_anomalies += a.recent?.delivery_anomalies ?? 0;
     if (a.recent?.failed && QUOTA_KINDS.has(a.recent.last_error_kind)) s.quota += 1;
     s.running += a.tasks?.running ?? 0;
     byP.set(p, s);
@@ -1530,9 +1534,10 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     h(
       "td",
       { class: "num" },
-      h("span", { class: "ok-n" }, `✓${recent.completed ?? 0}`),
+      h("span", { class: "ok-n", title: "Multica completed 数，包含单列的交付异常" }, `✓${recent.completed ?? 0}`),
       " ",
       h("span", { class: recent.failed ? "bad-n" : "muted" }, `✗${recent.failed ?? 0}`),
+      recent.delivery_anomalies ? h("span", { class: "bad-n" }, `交付异常 ${recent.delivery_anomalies}`) : null,
     ),
     failCell,
   );
@@ -1573,7 +1578,7 @@ function renderAgents() {
     const { a, ws, rt } = row;
     if (!r.archived && a.archived) return false;
     if (r.provider && providerOf(row) !== r.provider) return false;
-    if (r.failedOnly && !a.recent?.failed) return false;
+    if (r.failedOnly && !a.recent?.failed && !a.recent?.delivery_anomalies) return false;
     if (r.offlineOnly && a.runtime_id && rt?.status === "online") return false;
     if (r.hasInstructions && !(typeof a.instructions === "string" && a.instructions.trim())) return false;
     return matchesQuery(r.q, ...agentQueryFields(a, ws, rt));
@@ -1600,7 +1605,7 @@ function renderAgents() {
           { class: "p-sub" },
           h("span", { class: online < s.rts.size ? "bad-n" : "" }, `runtime ${online}/${s.rts.size} 在线`),
           " · ",
-          h("span", { class: s.failed ? "bad-n" : "muted" }, `${state.recentWindowH}h 失败 ${s.failed}`),
+          h("span", { class: s.failed ? "bad-n" : "muted" }, `${state.recentWindowH}h 失败 ${s.failed} · 交付异常 ${s.delivery_anomalies}`),
           s.quota ? h("span", { class: "tag quota" }, `额度/限流 ${s.quota}`) : null,
         ),
       );
@@ -1648,7 +1653,7 @@ function renderAgents() {
         ),
       ),
     ),
-    toggle("failedOnly", `只看 ${state.recentWindowH}h 有失败`),
+    toggle("failedOnly", `只看 ${state.recentWindowH}h 有失败或交付异常`),
     toggle("offlineOnly", "只看离线 / 未绑定"),
     toggle("archived", "显示已归档"),
     toggle("hasInstructions", "只看有指令"),

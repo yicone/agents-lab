@@ -137,7 +137,10 @@ _COLUMNS: dict[str, list[str]] = {}
 # Columns added after the original cache schema was released. Keep these
 # migrations additive and idempotent so existing caches remain readable.
 _ADDITIVE_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
-    "tasks": (("failure_reason", "TEXT"),),
+    "tasks": (
+        ("failure_reason", "TEXT"), ("delivery_anomaly", "TEXT"), ("delivery_checked", "INTEGER"),
+        ("request_id", "TEXT"), ("model", "TEXT"),
+    ),
     "workspace_skills": (("content_hash", "TEXT"),),
     "mcp_servers": (("name_exact", "INTEGER"),),
 }
@@ -417,7 +420,7 @@ class Store:
 
     def known_task_ids(self, server: str, workspace_id: str, agent_id: str) -> dict[str, str]:
         rows = self.query(
-            "SELECT id, status FROM tasks WHERE server=? AND workspace_id=? AND agent_id=?",
+            "SELECT id, status FROM tasks WHERE server=? AND workspace_id=? AND agent_id=? AND delivery_checked=1",
             (server, workspace_id, agent_id),
         )
         return {r["id"]: r["status"] for r in rows}

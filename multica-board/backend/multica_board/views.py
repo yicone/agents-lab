@@ -27,6 +27,7 @@ ATTENTION_BUCKETS = (
     "blocked",
     "agent_updates",
     "failed_runs",
+    "delivery_anomalies",
     "offline_runtimes",
     "missing_hermes_async_delegation",
 )
@@ -373,6 +374,9 @@ class Views:
             "completed_at": t["completed_at"],
             "error_kind": t["error_kind"],
             "error_summary": t["error_summary"],
+            "delivery_anomaly": t.get("delivery_anomaly"),
+            "request_id": t.get("request_id"),
+            "model": t.get("model"),
         }
 
     # --- /api/meta ----------------------------------------------------------
@@ -469,6 +473,7 @@ class Views:
 
         layers = self._layer_index()
         latest: dict[tuple[str, str], dict[str, Any]] = {}
+        last_anomaly: dict[tuple[str, str], dict[str, Any]] = {}
         last_failed: dict[tuple[str, str], dict[str, Any]] = {}
         failed_cutoff = _iso(_now() - LAST_FAILED_WINDOW)
         for t in self.store.query(
@@ -477,6 +482,8 @@ class Views:
         ):
             k = (t["workspace_id"], t["issue_id"])
             latest.setdefault(k, t)
+            if t.get("delivery_anomaly") and (t["completed_at"] or t["created_at"] or "") >= failed_cutoff:
+                last_anomaly.setdefault(k, t)
             if t["status"] == "failed" and (t["completed_at"] or t["created_at"] or "") >= failed_cutoff:
                 last_failed.setdefault(k, t)
 
@@ -484,7 +491,7 @@ class Views:
         for r in self.store.query("SELECT * FROM issues WHERE server=? ORDER BY last_activity_at DESC", (self.server,)):
             ws = r["workspace_id"]
             k = (ws, r["id"])
-            if _closed(r) and k not in last_failed:
+            if _closed(r) and k not in last_failed and k not in last_anomaly:
                 continue
             assignee = None
             if r["assignee_type"] and r["assignee_id"]:
@@ -513,6 +520,7 @@ class Views:
                     "last_activity_at": r["last_activity_at"],
                     "url": self._url(slugs.get(ws), "issues", r["id"]),
                     "latest_run": self._run(latest[k], agent_names) if k in latest else None,
+                    "last_delivery_anomaly": self._run(last_anomaly[k], agent_names) if k in last_anomaly else None,
                     "last_failed_run": (
                         {"task_id": lf["id"], "completed_at": lf["completed_at"], "error_kind": lf["error_kind"]} if lf else None
                     ),
@@ -607,7 +615,7 @@ class Views:
         load: dict[tuple[str, str], dict[str, int]] = {}
         recent: dict[tuple[str, str], dict[str, Any]] = {}
         for t in self.store.query(
-            "SELECT workspace_id, agent_id, issue_id, status, created_at, completed_at, error_kind "
+            "SELECT workspace_id, agent_id, issue_id, status, created_at, completed_at, error_kind, delivery_anomaly "
             "FROM tasks WHERE server=? ORDER BY created_at DESC",
             (self.server,),
         ):
@@ -620,10 +628,12 @@ class Views:
             when = t["completed_at"] or t["created_at"] or ""
             if when < cutoff:
                 continue
-            rc = recent.setdefault(k, {"completed": 0, "failed": 0, "last_failed_at": None,
+            rc = recent.setdefault(k, {"completed": 0, "failed": 0, "delivery_anomalies": 0, "last_failed_at": None,
                                        "last_error_kind": None, "last_failed_issue_identifier": None})
             if t["status"] == "completed":
                 rc["completed"] += 1
+                if t.get("delivery_anomaly"):
+                    rc["delivery_anomalies"] += 1
             elif t["status"] == "failed":
                 rc["failed"] += 1
                 if rc["last_failed_at"] is None or when > rc["last_failed_at"]:
@@ -661,7 +671,7 @@ class Views:
                     "skills": _json_list(a.get("skills_detail_json")),
                     "disabled_runtime_skills": _json_list(a.get("disabled_runtime_skills_json")),
                     "tasks": load.get(k, {"running": 0, "queued": 0}),
-                    "recent": recent.get(k, {"completed": 0, "failed": 0, "last_failed_at": None,
+                    "recent": recent.get(k, {"completed": 0, "failed": 0, "delivery_anomalies": 0, "last_failed_at": None,
                                              "last_error_kind": None, "last_failed_issue_identifier": None}),
                     "url": self._url(slugs.get(ws), "agents", a["id"]),
                 }
@@ -815,6 +825,18 @@ class Views:
                     agent,
                 )
             )
+
+        for task in self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND status='completed' AND delivery_anomaly IS NOT NULL "
+            "AND coalesce(completed_at, created_at, '') >= ?", (self.server, cutoff),
+        ):
+            issue = issue_rows.get((task["workspace_id"], task["issue_id"])) or {}
+            item = _attention_item(issue.get("identifier") or task.get("issue_id") or task["id"],
+                                   issue.get("title"), "delivery_anomaly", task.get("completed_at"),
+                                   agent_names.get((task["workspace_id"], task["agent_id"])))
+            item.update(self._run(task, agent_names))
+            item.update(issue_id=task["issue_id"], agent_id=task["agent_id"])
+            ensure(task["workspace_id"])["delivery_anomalies"].append(item)
 
         for ws_id, item in self._agent_update_items(issue_rows, agent_names, cutoff):
             ensure(ws_id).setdefault("agent_updates", []).append(item)
@@ -1168,7 +1190,24 @@ class Views:
             key=lambda r: (-r["failed"]["d7"], -r["failed"]["h24"], r["name"] is None, r["name"] or "", r["key"])
         )
 
+        anomaly_counts = {"h24": 0, "d7": 0}
+        anomaly_runs = []
+        anomaly_agent_names = {k: r.get("name") for k, r in agent_rows.items()}
+        for task in self.store.query(
+            "SELECT * FROM tasks WHERE server=? AND status='completed' AND delivery_anomaly IS NOT NULL "
+            "AND coalesce(completed_at, created_at, '') >= ? ORDER BY completed_at DESC, id DESC",
+            (self.server, cuts["d7"]),
+        ):
+            when = task["completed_at"] or task["created_at"] or ""
+            for window, cut in cuts.items():
+                if when >= cut:
+                    anomaly_counts[window] += 1
+            anomaly_runs.append({**self._run(task, anomaly_agent_names),
+                                 "workspace_id": task["workspace_id"], "issue_id": task["issue_id"],
+                                 "agent_id": task["agent_id"]})
+
         return {
+            "delivery_anomalies": {"counts": anomaly_counts, "runs": anomaly_runs},
             "generated_at": self.generated_at(),
             "windows": {"h24": RECENT_WINDOW_H, "d7": int(LAST_FAILED_WINDOW.total_seconds() // 3600)},
             "by_provider": by_provider,
