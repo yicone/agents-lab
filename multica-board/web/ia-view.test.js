@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {agentColumns,recentRuns,timeUTC8} from './ia-view.js';
-import {parseHash,formatHash} from './route.js';
+import {agentColumns,recentRuns,timeUTC8,agentFocusControl} from './ia-view.js';
+import {parseHash,formatHash,applyPatch} from './route.js';
 test('status and configuration have distinct task columns; selection keeps config columns',()=>{
  assert.deepEqual(agentColumns(false,false),['Agent','运行或排队','当前任务','24h 失败 / 完成','最近失败','最近运行','同一 Agent']);
  const config=agentColumns(true,false);
@@ -27,4 +27,28 @@ test('same-agent view links retain workspace, agent and query through canonical 
  const config=formatHash({...r,section:'configure'});
  assert.equal(config,'#/configure/agents?ws=clipvibe&q=hello&sel=agent1');
  assert.equal(formatHash({...parseHash(config),section:''}),'#/running?ws=clipvibe&q=hello&sel=agent1');
+});
+
+test('ordinary Agent focus clears on workspace switch and clear, in both views',()=>{
+ for(const section of ['', 'configure']){
+  const route={...parseHash('#/running?ws=clipvibe&sel=clip-agent'),section};
+  assert.equal(applyPatch(route,{ws:'acm-lab'}).sel,'');
+  assert.equal(applyPatch(route,{ws:''}).sel,'');
+  assert.equal(applyPatch(route,{ws:'clipvibe'}).sel,'clip-agent');
+  assert.equal(applyPatch({...route,planMode:true},{ws:'acm-lab'}).sel,'clip-agent');
+  assert.equal(applyPatch({...route,planPage:'new'},{ws:'acm-lab'}).sel,'clip-agent');
+ }
+});
+test('both ordinary views expose removable Agent focus; planner keeps existing selection UI',()=>{
+ const h=(tag,attrs,...children)=>({tag,attrs,children});
+ let clears=0;
+ for(const section of ['', 'configure']){
+  const node=agentFocusControl(h,{sel:'clip-agent',section},[{id:'clip-agent',name:'ClipVibe 产品'}],()=>clears++);
+  assert.match(node.children[0],/仅此 Agent：ClipVibe 产品/);
+  assert.equal(node.children[1].attrs['aria-label'],'清除仅此 Agent 筛选');
+  node.children[1].attrs.onclick();
+ }
+ assert.equal(clears,2);
+ assert.equal(agentFocusControl(h,{sel:'a',planMode:true},[],()=>{}),null);
+ assert.equal(agentFocusControl(h,{sel:''},[],()=>{}),null);
 });

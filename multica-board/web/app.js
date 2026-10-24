@@ -1,7 +1,7 @@
-import { agentColumns, recentRuns, timeUTC8 } from "./ia-view.js";
+import { agentColumns, recentRuns, timeUTC8, agentFocusControl } from "./ia-view.js";
 import { createRuntimeConfig } from "./runtime-config.js";
 import { runtimeIcon } from "./runtime-mark.js";
-import { QUEUED_RUN, classifyIssue, attentionSummary } from "./attention.js";
+import { QUEUED_RUN, classifyIssue, attentionSummary, scopedAttentionSummary } from "./attention.js";
 import {
   decideQueue,
   filterDecide,
@@ -788,7 +788,7 @@ function renderChrome() {
   if (b) {
     banner.replaceChildren(
       ...[
-        h("div", { class: "banner-title" }, b.title),
+        h("div", { class: "banner-title" }, `全局 · ${b.title}`),
         b.message ? h("code", { class: "banner-msg" }, b.message) : null,
         h("div", { class: "banner-hint" }, b.hint),
         h("div", { class: "banner-facts" }, b.facts.filter(Boolean).join(" · ")),
@@ -1014,7 +1014,8 @@ function renderIssues() {
   const wsMap = wsById();
   const { ws: wsSlug, q } = state.route;
   const staleMs = state.staleDays * 86400_000;
-  const summary = attentionSummary(state.fetchError ? null : state.meta, state.issues, now(), staleMs);
+  const summary = scopedAttentionSummary(state.fetchError ? null : state.meta, state.issues, now(), staleMs, wsSlug);
+  const globalSummary = attentionSummary(state.fetchError ? null : state.meta, state.issues, now(), staleMs);
   const lanes = Object.fromEntries(LANES.map((l) => [l.id, []]));
   const others = new Map();
 
@@ -1090,7 +1091,8 @@ function renderIssues() {
   return [h("div", { class: "queue-heading" }, h("h2", null, "待办"),
     h("p", { class: "muted" }, `当前 ${currentScopeLabel(state.meta?.workspaces, wsSlug)} ${Object.values(lanes).reduce((n, rows) => n + rows.length, 0)} 条${wsSlug ? "" : ` · 范围：全部 ${state.meta?.workspaces?.length || 0} 个 workspace`}`),
     h("a", { href: "#/decide" }, "待决事项（ACM Lab） →")),
-    summary.incomplete ? h("p", { class: "decide-note", role: "status" }, `缓存 ${summary.count} 条 · ${summary.unknown.length + summary.missing || 1} 个来源异常。`, ...(state.meta?.workspaces || []).filter(ws => ws.collect_state !== "ok" || !ws.counts).map(ws => h("span", null, ` ${ws.name}：${absTime(ws.last_success_at) || "从未成功"} UTC+8；`)), h("span", null, ` 目录来源时间：${absTime(state.meta?.collector?.last_success_at) || "未知"} UTC+8`)) : null,
+    wsSlug && summary.incomplete ? h("p", { class: "decide-note", role: "status" }, `当前 ${currentScopeLabel(state.meta?.workspaces, wsSlug)}：缓存 ${summary.count} 条 · 当前来源异常，数量未知。`) : null,
+    globalSummary.incomplete ? h("p", { class: "decide-note", role: "status" }, `全局：缓存 ${globalSummary.count} 条 · ${globalSummary.unknown.length + globalSummary.missing || 1} 个来源异常。`, ...(state.meta?.workspaces || []).filter(ws => ws.collect_state !== "ok" || !ws.counts).map(ws => h("span", null, ` ${ws.name}：${absTime(ws.last_success_at) || "从未成功"} UTC+8；`)), h("span", null, ` 目录来源时间：${absTime(state.meta?.collector?.last_success_at) || "未知"} UTC+8`)) : null,
     toolbar, board];
 }
 
@@ -1714,6 +1716,7 @@ function renderAgents() {
     "div",
     { class: "toolbar" },
     switcher,
+    agentFocusControl(h, r, all.map(({a}) => a), () => setRoute({ sel: "" })),
     h(
       "div",
       { class: "seg", role: "group", "aria-label": "分组" },

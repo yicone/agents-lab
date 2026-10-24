@@ -377,6 +377,8 @@ export function applyPatch(route, patch) {
       next.planFix = "";
     }
   }
+  // Ordinary Agent focus belongs to the current workspace. Plan selections are cross-workspace.
+  if (Object.hasOwn(patch, "ws") && patch.ws !== route.ws && route.view === "agents" && !route.planMode && !route.planPage) next.sel = "";
   if (!VIEWS.includes(next.view)) next.view = "map";
   return next;
 }

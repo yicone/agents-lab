@@ -16,3 +16,13 @@ export function runTimestamp(run) {
 export function timeUTC8(iso) {
   return iso && Number.isFinite(Date.parse(iso)) ? new Date(iso).toLocaleString("zh-CN", {hour12:false, timeZone:"Asia/Singapore"}) : "未知时间";
 }
+
+/** Make the same-Agent focus visible and removable in both ordinary views. */
+export function agentFocusControl(h, route, agents, onClear) {
+  if (!route.sel || route.planMode || route.planPage) return null;
+  const ids = route.sel.split(",").filter(Boolean);
+  const names = ids.map(id => agents.find(agent => agent.id === id)?.name || id);
+  return h("span", { class: "agent-focus", role: "group", "aria-label": "仅此 Agent" },
+    `仅此 Agent：${names.join("、")}`,
+    h("button", { type: "button", "aria-label": "清除仅此 Agent 筛选", onclick: onClear }, "显示全部 Agent"));
+}
