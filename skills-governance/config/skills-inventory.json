@@ -1,6 +1,6 @@
 {
   "schema": "skills-inventory/v1",
-  "updated_at": "2026-10-16T17:35:00Z",
+  "updated_at": "2026-10-23T20:11:10Z",
   "description": "Machine-readable source of truth for repository skills and local machine installs. Logseq OS-LOG/Skills 当前状态清单 is a human mirror projected one way from this file. Do not hand-edit a second Obsidian copy.",
   "human_mirror": {
     "page": "OS-LOG/Skills 当前状态清单",
@@ -2652,6 +2652,84 @@
       "visible_paths": [
         "skills/atlas-changelog",
         ".agents/skills/atlas-changelog"
+      ]
+    },
+    {
+      "name": "agent-helpers-locate",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/agent-helpers-locate"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/agent-helpers-locate",
+          "kind": "declared_target",
+          "target": "../../skills/agent-helpers-locate"
+        },
+        {
+          "path": "~/.agents/skills/agent-helpers-locate",
+          "kind": "declared_target",
+          "target": "/Users/tr/Workspace/agents-lab/skills/agent-helpers-locate"
+        }
+      ],
+      "status": "staged",
+      "review_time": null,
+      "baseline_ref": "sha256:10a959dceb94a5e06ba14394239089d097edcfb857ad8328fdd5e280e9f31ad7",
+      "current_version": null,
+      "scope": "cross-repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/agent-helpers-locate"
+      ]
+    },
+    {
+      "name": "session-history-search",
+      "source_class": "local_custom",
+      "authority": {
+        "ownership": "local",
+        "source_authority": "canonical_git",
+        "update_authority": "repository_maintainer",
+        "canonical_path": "skills/session-history-search"
+      },
+      "baseline": {
+        "kind": "content_hash",
+        "subject": "SKILL.md"
+      },
+      "adapters": [
+        {
+          "path": ".agents/skills/session-history-search",
+          "kind": "declared_target",
+          "target": "../../skills/session-history-search"
+        },
+        {
+          "path": "~/.agents/skills/session-history-search",
+          "kind": "declared_target",
+          "target": "/Users/tr/Workspace/agents-lab/skills/session-history-search"
+        }
+      ],
+      "status": "quarantined",
+      "review_time": null,
+      "baseline_ref": "sha256:8370c1a76547a54368b033cd805263430a0a5ed925ae52431366e7d28e0a90fd",
+      "current_version": null,
+      "scope": "cross-repo",
+      "install_shape": "canonical_directory",
+      "local_customization": "none",
+      "customization_mode": "none",
+      "compatibility_constraints": [],
+      "conflict_status": "unreviewed",
+      "visible_paths": [
+        "skills/session-history-search"
       ]
     }
   ]
