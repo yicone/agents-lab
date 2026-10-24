@@ -194,6 +194,9 @@ def _excluded_comment(comment: dict) -> bool:
 
 
 def is_dispatch_class(first: str, content: str) -> bool:
+    # A correction may quote the old dispatch in its evidence paragraph.
+    if first.startswith("巡检误报已核对"):
+        return False
     if config.PROGRESS_CLASS_RE.search(first) and \
             not config.DISPATCH_CLASS_RE.search(first):
         return False
@@ -220,7 +223,11 @@ def _last_comment(comments: list[dict]) -> dict | None:
     target = config.NEXT_TARGET_RE.match(target_line)
     # The handoff line names the destination; later prose often cites the
     # source issue and historical evidence (ACM-378 also names itself).
-    refs = re.findall(r"ACM-\d+", first) or re.findall(r"ACM-\d+", content)
+    # Explicit destination labels in the body outrank incidental references
+    # to the source issue. Multiple destinations remain ambiguous.
+    destinations = re.findall(r"(?:验收单|复验单|重验单)\s*[:：]?\s*(ACM-\d+)", content)
+    refs = (re.findall(r"ACM-\d+", first) or destinations
+            or re.findall(r"ACM-\d+", content))
     return {"id": best[1].get("id"), "author_type": best[1].get("author_type"),
             "author_id": best[1].get("author_id"), "created_at": iso(best[0]),
             "has_valid_mention": bool(config.UUID_MENTION_RE.search(content)),

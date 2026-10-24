@@ -215,6 +215,94 @@ class RecoveryReplay(unittest.TestCase):
         self.assertEqual(result.sent, 0)
         self.assertEqual(result.actions[0]["action"], "unknown_target")
 
+    def test_stale_pending_is_superseded_before_target_resolution(self):
+        for number, body in (
+            (378, "巡检误报已核对。\n源评论写下一步由 Reviewer · Hermes 在 ACM-411 复验。无需重派。ACM-428 等额度。"),
+            (405, "收到，后续已交运维单执行，本角色不重复推送。")):
+            i = self.add(number, "in_progress")
+            self.fake.add_comment(i["id"], comment(body, NOW - timedelta(hours=1),
+                author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+            rec = {"state": "wakeup_pending", "comment_id": "old-source",
+                   "reason": "dispatch_no_wake", "posted_comment_id": "old-patrol"}
+            self.state.setdefault("unwoken", {})[i["id"]] = rec
+            result = self.process(i)
+            self.assertEqual(result.actions[0]["action"], "unwoken_skipped:newer_comment")
+            self.assertEqual(rec["state"], "superseded")
+            self.assertEqual(self.cli.writes_attempted, 0)
+            self.assertFalse(self.fake.wakeups)
+
+    def test_hourly_replay_retires_legacy_pending_without_scheduling_failure(self):
+        self.fake.issues.append(make_issue("ACM-229", "in_progress",
+            uid=config.LEDGER_ISSUE_ID, assignee_id=None))
+        i = self.add(378, "in_progress")
+        self.fake.add_comment(i["id"], comment(
+            "巡检误报已核对。\n源评论写下一步由 Reviewer · Hermes 在 ACM-411 复验。无需重派。ACM-428 等额度。",
+            NOW - timedelta(hours=1), author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+        store = Store(self.root)
+        store.save({"unwoken": {i["id"]: {
+            "state": "wakeup_pending", "reason": "dispatch_no_wake",
+            "comment_id": "old-source", "posted_comment_id": "old-patrol"}}})
+        code, out, err = invoke(self.fake, ["run", "--slot", "2026102410"],
+                                state_dir=self.root, now=NOW)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(last_result(out)["scheduling"], {"errors": 0, "complete": True})
+        self.assertEqual(store.load()["unwoken"][i["id"]]["state"], "superseded")
+        self.assertFalse(self.fake.wakeups)
+
+    def test_stale_pending_dry_run_preserves_record(self):
+        i = self.add(405, "in_progress")
+        self.fake.add_comment(i["id"], comment("已交付，后续由运维单执行。",
+            NOW - timedelta(hours=1), author_type="agent", author_id=BUILDER))
+        rec = {"state": "wakeup_pending", "comment_id": "old-source",
+               "reason": "dispatch_no_wake", "posted_comment_id": "old-patrol"}
+        self.state["unwoken"] = {i["id"]: rec}
+        self.assertEqual(self.process(i, dry=True).actions[0]["action"],
+                         "unwoken_skipped:newer_comment")
+        self.assertEqual(rec["state"], "wakeup_pending")
+        self.assertEqual(self.cli.writes_attempted, 0)
+        self.assertFalse(Store(self.root).path.exists())
+
+    def test_acm378_correction_is_not_new_dispatch(self):
+        i = self.add(378, "in_progress")
+        self.fake.add_comment(i["id"], comment(
+            "巡检误报已核对。\n源评论写下一步由 Reviewer · Hermes 在 ACM-411 复验。无需重派。ACM-428 等额度。",
+            NOW - timedelta(hours=1), author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+        self.assertFalse(facts._last_comment(self.fake.comments[i["id"]])["dispatch_class"])
+        self.assertEqual(self.process(i).actions, [])
+
+    def test_acm446_explicit_review_issue_overrides_source_reference(self):
+        i, target = self.cross_handoff(446, 448,
+            "不需要你做，下一步由 Reviewer · Hermes 做非作者验收。\n\n"
+            "- 已建立验收单 ACM-448，核对 PR #88。\n- ACM-446 当前状态 in_progress。")
+        lc = facts._last_comment(self.fake.comments[i["id"]])
+        self.assertEqual(lc["target_issue_ref"], "ACM-448")
+        self.assertFalse(lc["target_issue_ambiguous"])
+        self.assertEqual(self.process(i).actions[0]["action"], "unwoken_skipped:run_started")
+        self.assertFalse(self.fake.wakeups)
+
+    def test_conflicting_explicit_review_issues_stay_ambiguous(self):
+        lc = facts._last_comment([comment(
+            "不需要你做，下一步由 Reviewer · Hermes 做验收。\n"
+            "已建立验收单 ACM-448；另建复验单 ACM-449。", NOW)])
+        self.assertTrue(lc["target_issue_ambiguous"])
+        self.assertIsNone(lc["target_issue_ref"])
+
+    def test_unknown_target_failure_names_actual_action(self):
+        self.fake.issues.append(make_issue("ACM-229", "in_progress",
+            uid=config.LEDGER_ISSUE_ID, assignee_id=None))
+        i = self.add(378, "in_progress")
+        self.fake.add_comment(i["id"], comment("需要你做：安排复验。",
+            NOW - timedelta(hours=1), author_type="agent", author_id=config.DISPATCHER_AGENT_ID))
+        code, out, err = invoke(self.fake, ["run", "--slot", "2026102410"],
+                                state_dir=self.root, now=NOW)
+        self.assertEqual(code, 2)
+        saved = Store(self.root).load()
+        failure = saved["failures"][-1]
+        self.assertEqual(failure["kind"], "scheduling_incomplete")
+        self.assertIn("unknown_target", failure["message"])
+        self.assertIn(i["id"], failure["message"])
+        self.assertTrue(last_result(out)["coverage"]["complete"])
+
     def test_wakeup_failure_is_unhealthy_even_when_scan_complete(self):
         i = self.quota()
         self.fake.fail_handler = lambda argv: (
