@@ -3,6 +3,7 @@ export const WRITE_FIELDS = [
   ["runtime_id", "Runtime"], ["model", "模型"], ["thinking_level", "推理级别"],
   ["service_tier", "Tier"], ["custom_model", "custom_args · --model"],
 ];
+const MODEL_AVAILABILITY_WARNING = "未校验当前账号的模型可用性；保存成功不代表能运行，下一次任务可能失败，请先核对该 runtime 和账号支持的模型。Runtime 在线仅表示运行时在线，不代表模型可用。";
 export const actionValue = value => value === null ? "默认（null）" : value === "" ? "空字符串（显式清除）" : String(value);
 export const actionMessages = {
   permission_denied: "没有写入权限，请核对授权码和目标范围。",
@@ -112,6 +113,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
       h("div", { class: "table-wrap" }, h("table", { class: "matrix" },
         h("thead", null, h("tr", null, ...["字段", "当前（缓存）", "目标操作"].map(t => h("th", null, t)))),
         h("tbody", null, ...rows))),
+      h("p", { class: "runtime-warning" }, MODEL_AVAILABILITY_WARNING),
       h("div", { class: "runtime-actions" },
         button("预览差异", e => { lastFocus = e.currentTarget; void run(() => call("preview", { ...selected, changes: collectChanges(operations) })); }),
         button("对账上次操作", () => void run(() => call("reconcile", selected)))));
@@ -140,8 +142,9 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
       h("p", null, wsName(target), " / ", cachedAgent(target)?.name || "已授权 Agent"),
       h("div", { class: "table-wrap" }, h("table", { class: "matrix" },
         h("thead", null, h("tr", null, ...["字段", "修改前", "修改后"].map(t => h("th", null, t)))), h("tbody", null, ...diff))),
-      h("p", { class: "muted" }, "有效至 ", new Date(plan.expires_at * 1000).toLocaleTimeString(), "。配置变化或活动任务会阻止提交。"),
-      h("p", { class: "runtime-warning" }, "仅影响下一次运行；会话与工作目录不会迁移。提交前会复读核对，但 Multica CLI 没有条件更新，复读和提交之间仍可能被并发写入。读回不一致时会锁定目标，须先对账；并非所有并发改动都能检出。"),
+      h("p", { class: "muted" }, "有效至 ", new Date(plan.expires_at * 1000).toLocaleTimeString(), "。提交前检查发现配置变化或活动任务时会阻止。"),
+      h("p", { class: "runtime-warning" }, MODEL_AVAILABILITY_WARNING),
+      h("p", { class: "runtime-warning" }, "仅影响下一次运行。会话与工作目录不会迁移。提交前会复读核对。Multica CLI 没有条件更新，复读和提交之间仍可能被并发写入。读回不一致时会锁定目标，须先对账。并非所有并发改动都能检出。"),
       h("label", { class: "check" }, h("input", { type: "checkbox", checked, disabled: busy, onchange: e => {
         checked = e.target.checked; confirm.disabled = !canConfirm(plan, checked, busy);
       } }), "我已核对本次范围和逐项差异"),
