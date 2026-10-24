@@ -38,7 +38,7 @@ class RetryCase(unittest.TestCase):
         self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
         self.fake.issues = [
             make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None),
+            make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None),
         ]
         # Pre-seed agent names used in retry/escalation bodies.
         state = Store(self.state_dir).load()
@@ -160,7 +160,7 @@ class TestRetryWrite(RetryCase):
                 self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
                 self.fake.issues = [
                     make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-                    make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                    make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
                 issue, r = self.add_error_issue()
                 if why == "assignee_changed":
                     # detection requires pe.agent_id == assignee at guard time
