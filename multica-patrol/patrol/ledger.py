@@ -38,6 +38,13 @@ def _age(now, anchor_iso) -> str:
 
 
 SUGGESTIONS = {
+    "dispatch_target_unknown": "交接目标无法确认；请调度核对，不回退到本单负责人。",
+
+    "assigned_no_task": "已指派但没有任务记录；核查创建链路后由调度决定。",
+    "queued_unclaimed": "已有 queued/dispatched 任务尚未领取，禁止重复派活。",
+    "delivery_status_not_updated": "已有交付，核对状态与审阅；禁止补派。",
+    "quota_wait": "绑定原失败 run、目标 agent 与复查时间，以一次性 Wakeup 等待。",
+
     "in_progress_no_active_run": "no active run and no progress; check whether the run died or the issue should be re-dispatched",
     "in_review_stale": "in review over 24h; needs a human/agent decision or status move",
     "blocked_stale": "blocked over 48h; re-check whether the blocker still holds",
@@ -108,7 +115,7 @@ def render_batch(batch_id: str, mode_tag: str, slot: str, scan_kind: str, covera
             lines.append(
                 f"- {_mention(row['issue'])} comment_id={row.get('comment_id')} "
                 f"comment_at={row.get('comment_at')} action={row['action']}{tag} "
-                f"wakeup_id={row.get('wakeup_id')} error={redact(row.get('error') or 'none', 500)}"
+                f"wakeup_id={row.get('wakeup_id')} recheck_at={row.get('recheck_at')} error={redact(row.get('error') or 'none', 500)}"
                 + (" 将建 wakeup（1m）" if row["action"] == "would_create_wakeup" else ""))
     lines.append("")
     lines.append(f"dedupe 抑制：{suppressed}（涉及 {suppressed_keys} 个 key）")

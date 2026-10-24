@@ -150,6 +150,8 @@ def process_error_retries(store, cli, state, per_issue: dict, now,
             continue  # never retry/escalate-write on ledger, inbox, or ACM-215
         f = entry.get("facts") or {}
         pe = f.get("provider_error")
+        if pe and pe.get("error_kind") == "quota":
+            continue  # quota recovery uses a guarded one-shot wait, never immediate retry
         rec = records.get(issue_id)
         ident = issue.get("identifier", issue_id)
 

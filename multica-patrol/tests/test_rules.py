@@ -221,35 +221,16 @@ class DispatchNoWake(unittest.TestCase):
             self.assertNotIn("dispatch_no_wake",
                              reasons(rules.evaluate(issue2, f2, BASE_NOW)))
 
-    def test_mention_of_assignee_suppresses(self):
-        uuid_a = "11111111-2222-3333-4444-555555555555"
+    def test_mentions_defer_to_resolved_target_guards(self):
+        # A source assignee mention/run cannot suppress a handoff to another
+        # agent on another issue. Process guards resolve the target first.
         issue, f = self._issue_facts(
-            self._lc(mentioned_agent_ids=[uuid_a.lower()]), assignee=uuid_a)
-        self.assertNotIn("dispatch_no_wake", reasons(rules.evaluate(issue, f, BASE_NOW)))
-        # a valid mention of some OTHER agent does not suppress
-        issue, f = self._issue_facts(
-            self._lc(mentioned_agent_ids=["aaaaaaaa-2222-3333-4444-555555555555"]),
-            assignee=uuid_a)
+            self._lc(mentioned_agent_ids=["a1"],
+                     first_line_target_name="Reviewer · Hermes",
+                     target_issue_ref="ACM-411"),
+            runs=[{"id": "source-run", "status": "completed", "agent_id": "a1",
+                   "started_at": iso(BASE_NOW - timedelta(minutes=1))}])
         self.assertIn("dispatch_no_wake", reasons(rules.evaluate(issue, f, BASE_NOW)))
-
-    def test_run_gates(self):
-        comment_at = BASE_NOW - timedelta(minutes=16)
-        later = iso(comment_at + timedelta(minutes=5))
-        before = iso(comment_at - timedelta(minutes=5))
-        for r, expected in (
-                ({"id": "r1", "status": "queued", "agent_id": "a1",
-                  "started_at": later}, False),
-                ({"id": "r2", "status": "cancelled", "agent_id": "a1",
-                  "started_at": later}, False),
-                ({"id": "r3", "status": "running", "agent_id": None,
-                  "started_at": later}, False),
-                ({"id": "r4", "status": "completed", "agent_id": "a1",
-                  "started_at": before, "completed_at": before}, True),
-                ({"id": "r5", "status": "completed", "agent_id": "other",
-                  "started_at": later}, True)):
-            issue, f = self._issue_facts(self._lc(), runs=[r])
-            got = reasons(rules.evaluate(issue, f, BASE_NOW))
-            self.assertEqual("dispatch_no_wake" in got, expected, r)
 
 
 class DispatchClassRegex(unittest.TestCase):

@@ -261,6 +261,16 @@ def run_hourly(args, ctx) -> int:
             {"issue_id": row["issue"]["id"],
              **{key: value for key, value in row.items() if key != "issue"}}
             for row in unw_res.actions]
+        scheduling_errors = [r for r in unw_res.actions
+                             if r["action"] in ("wakeup_failed", "wakeup_uncertain",
+                                                "pending_uncertain", "unknown_target",
+                                                "unwoken_skipped:read_error",
+                                                "unwoken_skipped:unknown_target_issue",
+                                                "unwoken_skipped:unknown_source")]
+        result["scheduling"] = {"errors": len(scheduling_errors),
+                                "complete": not scheduling_errors}
+        if scheduling_errors and not dry_run:
+            fail("wakeup_failed", f"{len(scheduling_errors)} scheduling action(s) unresolved")
         violation = err_res.identity_violation or unw_res.identity_violation
         if violation and not dry_run:
             state["identity_violation"] = {"at": iso(now), "detail": violation}
@@ -270,6 +280,32 @@ def run_hourly(args, ctx) -> int:
             _err(err, f"identity_violation: {violation}")
             result["self_failures_consecutive"] = state["consecutive_failures"]
             return finish(3, "held")
+
+        resolved_actions = {r["issue"]["id"]: r for r in unw_res.actions
+                            if r.get("reason") == "dispatch_no_wake"}
+        for row in rows:
+            action = resolved_actions.get(row["issue"]["id"], {}).get("action", "")
+            if "dispatch_no_wake" in row["reasons"] and action.startswith("unwoken_skipped:"):
+                row["reasons"].remove("dispatch_no_wake")
+            elif "dispatch_no_wake" in row["reasons"] and action == "unknown_target":
+                row["reasons"] = ["dispatch_target_unknown" if r == "dispatch_no_wake" else r
+                                  for r in row["reasons"]]
+        rows = [row for row in rows if row["reasons"]]
+        result["findings_count"] = len(rows)
+        # Rejected candidates must not acquire a no-wake dedupe/escalation key.
+        rejected = {i for i, r in resolved_actions.items()
+                    if r["action"].startswith("unwoken_skipped:") or r["action"] == "unknown_target"}
+        rejected_keys = set()
+        for i in rejected:
+            entry = scanned["per_issue"][i]
+            rejected_keys.update(ledger.dedupe_key(entry["issue"], f)
+                                 for f in entry["findings"] if f["reason"] == "dispatch_no_wake")
+        active_keys = [key for key in active_keys if key not in rejected_keys]
+        standing_keys.difference_update(rejected_keys)
+        escalate_keys = [key for key in escalate_keys if key not in rejected_keys]
+        if not dry_run:
+            for key in rejected_keys:
+                alerted.pop(key, None)
 
         duration = ctx["monotonic"]() - started
         now_sgt = now.astimezone(SGT)
@@ -367,7 +403,7 @@ def run_hourly(args, ctx) -> int:
             selfreport.clear_streak(state)
         state["slots"][slot] = {"status": "posted", "at": iso(now),
                                 "comment_id": pub.get("comment_id")}
-        state["previous_run_complete"] = coverage["complete"]
+        state["previous_run_complete"] = coverage["complete"] and not run_failed["flag"]
         if full:
             state["last_full_scan_at"] = iso(now)
         if unresolved:
@@ -379,6 +415,9 @@ def run_hourly(args, ctx) -> int:
         result["self_failures_consecutive"] = state.get("consecutive_failures") or 0
         if not coverage["complete"]:
             _err(err, f"coverage incomplete: {len(coverage['errors'])} error(s)")
+            return finish(2, pub["status"], pub.get("comment_id"))
+        if run_failed["flag"]:
+            _err(err, "scheduling incomplete; see scheduling errors and ledger")
             return finish(2, pub["status"], pub.get("comment_id"))
         return finish(0, pub["status"], pub.get("comment_id"))
     except Exception as exc:

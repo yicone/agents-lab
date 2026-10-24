@@ -91,4 +91,4 @@ MENTION_RE = re.compile(r"mention://(agent|member)/")
 AGENT_MENTION_RE = re.compile(
     r"mention://agent/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
     r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})")
-NEXT_TARGET_RE = re.compile(r"^不需要你做，下一步由\s*(?P<name>[^\s：:]+)\s*做")
+NEXT_TARGET_RE = re.compile(r"^不需要你做，下一步由\s*(?P<name>.+?)\s*(?:在\s*ACM-\d+\s*(?:复验|重验|验收)|做)")

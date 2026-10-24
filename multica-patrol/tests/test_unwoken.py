@@ -69,7 +69,7 @@ class UnwokenCase(unittest.TestCase):
 
 class DispatchCase(UnwokenCase):
     def add_dispatch(self, identifier="ACM-600", assignee_id=AGENT,
-                     content="需要你做：实现方案并回报结果。",
+                     content="不需要你做，下一步由 WorkerAgent 做：实现方案并回报结果。",
                      minutes_ago=40, cid="lc-1",
                      author_type="agent", author_id=config.DISPATCHER_AGENT_ID,
                      entered_minutes_ago=60, target_run=None):
@@ -356,9 +356,9 @@ class TestBoundariesGates(UnwokenCase):
 class TestDispatchNoWakeGates(DispatchCase):
     def test_name_only_other_and_member_mentions_still_fire(self):
         for n, content in enumerate((
-                "需要你做：改完回报 [@副调度](mention://agent/副调度)",
-                f"需要你做：派活给 [@x](mention://agent/{OTHER_UUID})",
-                f"需要你做：[@y](mention://member/{OTHER_UUID}) 已知悉")):
+                "不需要你做，下一步由 WorkerAgent 做：改完回报 [@副调度](mention://agent/副调度)",
+                f"不需要你做，下一步由 WorkerAgent 做：派活给 [@x](mention://agent/{OTHER_UUID})",
+                f"不需要你做，下一步由 WorkerAgent 做：[@y](mention://member/{OTHER_UUID}) 已知悉")):
             self.tmp2 = tempfile.TemporaryDirectory()
             self.state_dir = Path(self.tmp2.name)
             self.fake = FakeMultica()

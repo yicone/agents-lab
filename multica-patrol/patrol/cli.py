@@ -116,7 +116,7 @@ class PatrolCLI:
                           marker_prefix: str = config.UNWOKEN_PREFIX) -> CliResult:
         raise CommandNotAllowed("supplement comments are disabled; use wakeup")
 
-    def run_unwoken_wakeup(self, issue_id: str, instruction: str) -> CliResult:
+    def run_unwoken_wakeup(self, issue_id: str, instruction: str, *, at: str | None = None) -> CliResult:
         """Use a run-local file: CLI rejects instruction files outside cwd."""
         if issue_id not in self.unwoken_permitted:
             raise CommandNotAllowed(f"unwoken wakeup not permitted for {issue_id}")
@@ -129,7 +129,7 @@ class PatrolCLI:
             self.writes_attempted += 1
             return self._spawn([
                 self.binary, "issue", "wakeup", "create", issue_id,
-                "--kind", "at", "--after", "1m",
+                "--kind", "at", *(["--at", at] if at else ["--after", "1m"]),
                 "--agent-id", config.DISPATCHER_AGENT_ID,
                 "--instruction-file", str(path), "--output", "json",
             ], write=True)
