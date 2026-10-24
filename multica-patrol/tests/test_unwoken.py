@@ -29,7 +29,7 @@ class UnwokenCase(unittest.TestCase):
         self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
         self.fake.issues = [
             make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+            make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
         state = Store(self.state_dir).load()
         state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
         Store(self.state_dir).save(state)
@@ -327,7 +327,7 @@ class TestBoundariesGates(UnwokenCase):
             self.fake = FakeMultica()
             self.fake.issues = [
                 make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
             issue = self.add_handoff(minutes_ago=mins)
             invoke(self.fake, ["run", "--slot", "2026102221"], state_dir=self.state_dir)
             self.assertEqual(len(self.fake.wakeups.get(issue["id"], [])), expect, mins)
@@ -365,7 +365,7 @@ class TestDispatchNoWakeGates(DispatchCase):
             self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
             self.fake.issues = [
                 make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
             state = Store(self.state_dir).load()
             state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
             Store(self.state_dir).save(state)
@@ -406,7 +406,7 @@ class TestDispatchNoWakeGates(DispatchCase):
                 self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
                 self.fake.issues = [
                     make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-                    make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                    make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
                 state = Store(self.state_dir).load()
                 state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
                 Store(self.state_dir).save(state)
@@ -430,7 +430,7 @@ class TestDispatchNoWakeGates(DispatchCase):
             self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
             self.fake.issues = [
                 make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
             state = Store(self.state_dir).load()
             state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
             Store(self.state_dir).save(state)
@@ -446,7 +446,7 @@ class TestDispatchNoWakeGates(DispatchCase):
         self.assertEqual(self.fake.wakeups.get(issue["id"], []), [])
 
     def test_exempt_targets_no_write(self):
-        for ident, uid in (("ACM-215", None), ("ACM-216", config.INBOX_ISSUE_ID),
+        for ident, uid in (("ACM-215", None), ("ACM-487", config.INBOX_ISSUE_ID),
                            ("ACM-229", config.LEDGER_ISSUE_ID)):
             issue = self.add_dispatch(ident, cid=f"lc-{ident}")
             if uid:
@@ -463,7 +463,7 @@ class TestDispatchNoWakeGates(DispatchCase):
             self.fake.agents.append({"id": AGENT, "name": "WorkerAgent"})
             self.fake.issues = [
                 make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-                make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
+                make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None)]
             state = Store(self.state_dir).load()
             state["agent_names"] = {config.DISPATCHER_AGENT_ID: "副调度", AGENT: "WorkerAgent"}
             Store(self.state_dir).save(state)

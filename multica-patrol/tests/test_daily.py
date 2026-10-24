@@ -27,7 +27,7 @@ class DailyCase(unittest.TestCase):
         self.fake = FakeMultica()
         self.fake.issues = [
             make_issue("ACM-229", "in_progress", uid=config.LEDGER_ISSUE_ID, assignee_id=None),
-            make_issue("ACM-216", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None),
+            make_issue("ACM-487", "in_progress", uid=config.INBOX_ISSUE_ID, assignee_id=None),
         ]
         self.body_file = self.state_dir / "daily.md"
 
