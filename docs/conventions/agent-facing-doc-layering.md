@@ -1,6 +1,6 @@
 # Agent-Facing Document Layering
 
-Current placement standard (ACM-384, implemented by ACM-387): short repository-wide constraints belong in the root `AGENTS.md`; subproject constraints belong in nested `AGENTS.md` files without repeating the root. Multi-step workflows belong in repository skills, with canonical sources in `skills/` and symlink entrypoints in `.agents/skills/`. Agent instructions define roles, permissions, and delivery; `docs/` holds explanations, contracts, and historical material, rather than an additional normative entrypoint.
+Current placement standard (ACM-384, implemented by ACM-387): short repository-wide constraints belong in the root `AGENTS.md`; subproject constraints belong in nested `AGENTS.md` files without repeating the root. Multi-step workflows belong in repository skills, with canonical sources in `skills/` or `skills-governance/skills/` and symlink entrypoints in `.agents/skills/`. Agent instructions define roles, permissions, and delivery; `docs/` holds explanations, contracts, and historical material, rather than an additional normative entrypoint.
 
 The older “principles in docs” template and mandatory-startup examples below are historical reference only. They do not require loading `session-start.md` for every conversation or override the current placement standard.
 

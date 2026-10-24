@@ -5,7 +5,7 @@
 ## 规则归属
 
 - 全仓短约束在本文件；子项目约束在对应目录 AGENTS.md，不重复根规则。
-- 多步任务流程正文在 `skills/`，通过 `.agents/skills/<name>/SKILL.md` 的 symlink 入口发现，保持单源。
+- 多步任务流程正文在 `skills/` 或 `skills-governance/skills/`，通过 `.agents/skills/<name>/SKILL.md` 的 symlink 入口发现，保持单源。
 - agent instructions 只定义角色、权限边界和交付；docs 保留说明、契约和历史材料，不另作规范入口。
 - 仓库特定规则与 skills 不得未经审定推广到其它项目；通用流程也不得隐式覆盖本仓约束。
 - 规则保持 runtime 无关；关键停止条件直接写在适用入口，不藏在深层引用中。
