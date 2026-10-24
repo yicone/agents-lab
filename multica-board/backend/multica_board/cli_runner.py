@@ -110,6 +110,7 @@ class CliRunner:
     retries: int = 2
     backoff_s: float = 1.5
     max_parallel: int = 4
+    task_scoped: bool = False
     _exec: Callable[..., subprocess.CompletedProcess] = field(default=subprocess.run, repr=False)
     _sleep: Callable[[float], None] = field(default=time.sleep, repr=False)
 
@@ -117,6 +118,13 @@ class CliRunner:
         self._slots = threading.BoundedSemaphore(max(1, self.max_parallel))
 
     def _env(self) -> dict[str, str]:
+        if self.task_scoped:
+            # Keep the current task identity; never fall back to an Owner profile.
+            if not os.environ.get("MULTICA_TASK_CONFIG_ROOT"):
+                raise CliError("task-scoped CLI requires the current task config root")
+            env = dict(os.environ)
+            env["GODEBUG"] = "tlsmlkem=0"
+            return env
         env = {
             k: v
             for k, v in os.environ.items()

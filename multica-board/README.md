@@ -1,6 +1,6 @@
 # Multica Board
 
-本地只读、跨 workspace 的 Multica 看板（ACM-161 第一阶段）。默认只监听 `127.0.0.1`，可显式开放受信任网络访问，没有任何写接口。
+本地只读、跨 workspace 的 Multica 看板（ACM-161 第一阶段）。默认只监听 `127.0.0.1`，可显式开放受信任网络只读访问。ACM-458 新增默认关闭的单 agent runtime 写入入口，仅允许回环监听。
 
 ```text
 multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multica-board）→ 127.0.0.1 上的 GET-only API + 静态页面
@@ -12,6 +12,50 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `docs/api-contract.md`：前后端只读 API 契约（v0.5）。改契约先在 ACM-163 说。
 - `docs/frontend-design.md`：信息架构与交互设计。
 - `docs/design-system.md`：信息结构、版式模式、组件与视觉规范，以及新板块设计检查清单（新板块从这里开始）。
+
+## 模型 / runtime 写入（ACM-458，本地候选，未部署）
+
+页面为 `#/configure/runtime`；顶栏由另一任务负责，本改动不加导航。先交公共管线和单 agent，批量请求一律拒绝。旧 G1 计划页和只读 CLI runner 保持只读，不能把 G1 hash 当成批准。
+
+写入口需要启动参数 `--write-policy /private/path/policy.json`。策略是操作者本人安装的 0600 普通文件，不允许符号链接。无策略时所有 POST 仍为 405；启用后仅接受回环监听、回环来源和与 Host 完全相同的 HTTP Origin，不开放网络写入口。浏览器必须提供独立授权码 `X-Atlas-Write-Token`（不写 URL、日志或 localStorage，离开页面清除）。策略只保存授权码 SHA-256，实际授权码应由操作者用安全随机数生成并妥善保存，不应使用下面 fixture 的固定字符串。
+
+在 Multica 托管任务内做已授权验证时，显式加 `--task-scoped`：保留当前任务注入的 CLI 身份，缺少 task config root 时失败，不回退到 Owner 的本机登录。写入策略的所有目标和 `--workspace` 必须只指向当前任务 workspace，不能配 `--all-workspaces`。普通桌面启动仍沿用默认 profile 隔离。
+
+策略字段：
+
+- `profile`：与 serve 的 `--profile` 完全一致。
+- `server_identity`：规范化服务 origin；执行时和 `auth status` 复核。
+- `actor_id`：用户 UUID；执行时和 `user profile get` 的 `id` 复核。当前版本仅支持本人拥有、未归档且 idle 的 agent，不能借管理员权限改别人的 agent。
+- `token_sha256`：独立随机授权码的 64 位小写 SHA-256。
+- `targets`：明确的对象数组，每项只含 `workspace_id`、`agent_id`、`audit_issue_id` UUID。审计 issue 必须在目标 workspace；执行前读回校验。没有通配目标。
+
+仅 `POST /api/runtime-actions/{catalog,status,preview,execute,rollback,reconcile}` 接受写协议，Content-Type 必须为 application/json，最大 16KiB，重复键、额外字段、查询串、分块 body 均拒绝。除 `GET /api/runtime-actions` 返回 enabled 外，不提供无授权目标清单。各 POST body：
+
+| 操作 | Body | 结果 |
+|---|---|---|
+| catalog | `{}` | 授权范围、最近 20 个操作摘要、并发限制 |
+| status | `{id}` | 指定已执行操作的本地审计结果，无确认码 |
+| preview | `{workspace_id,agent_id,changes}` | 实时 old/new、版本、300 秒期限和一次性确认码 |
+| execute | `{id,confirmation}` | 消费确认后执行，读回相等才是 applied |
+| rollback | `{id}` | 创建单独回滚预览，不执行；仍需 execute 确认 |
+| reconcile | `{workspace_id,agent_id}` | 只读对账 unknown，无法确定则继续锁住目标 |
+
+`changes` 白名单：`runtime_id`、`model`、`thinking_level`、`service_tier`、`custom_model`（只代表 custom_args 的 --model）。省略=保持，null=CLI 显式清除（model / thinking_level / service_tier 映射为空字符串），null 和空字符串在快照里保留区别；runtime_id 不能清除。custom_model 的 null 代表移除 --model，空字符串拒绝。其它 custom_args 不展示、不持久化；包含其它参数时禁止改写 custom_model，防止覆盖秘密或无关参数。独立模型和 custom_model 冲突时拒绝；Codex/OpenClaw 不允许 custom_model。模型/推理/Tier 支持性最终仍由 Multica 和 daemon 校验。ACM-458 真实验证发现 Copilot Free 的本机 /model 清单仅允许 Auto：gpt-5-mini、gpt-5.4 可以被写入配置，但运行被 provider 拒绝。这证明写前还需要接入与账号绑定的 runtime 模型可用性校验；现有 runtime list 不含该清单，本实现不能把配置保存成功当作模型可用或运行成功。验证先读取 provider /model，再用 auto；实际模型从 provider session 日志取证，不从配置推断。
+
+每次执行先复核身份、ownership、workspace、审计落点、agent idle、完整分页任务清单（运行与排队均阻止），复读版本与预览比较；确认单在任何检查前原子消费，过期/冲突/失败都必须重新预览。CLI 写入无重试，回执丢失或读回不符标 unknown，目标锁住直至 reconcile；多进程通过审计文件排它锁拒绝第二写入服务。重启丢弃批准码，保留 executing/unknown 锁和回滚记录。回滚先核对配置指纹（包含完整 custom_args 的哈希），避免运行状态更新 updated_at 时误判配置冲突；生成新预览后，提交仍复核完整版本。配置被改动仍拒绝回滚。
+
+本地 `<db-stem>-write-audit.jsonl` 是 0600 只追加日志，每次提交前 fsync；保存白名单 old/new、身份、资源、结果和回滚关联，不存授权码、秘密字段、custom_args 原文或 CLI 原始错误。同时在策略绑定 issue 留一条只含字段名和结果的脱敏评论。评论回执未知只记录 audit_unknown，禁止自动重发。日志不可读或身份不符拒绝启动。日志应保留到运维完成对账，不能靠删日志解除未知状态。
+
+**并发限制（用户 2026-10-24 已接受）**：提交前会复读核对，但 Multica CLI 没有条件更新或活动任务提交栅栏，复读和提交之间仍可能被并发写入或开始新任务。写后读回发现不一致时会标记 unknown 并锁定目标，必须先对账；这不能保证检出所有交错情况，例如并发值被本次提交覆盖后，读回仍可能等于目标。因此不能宣称原子 CAS 或并发绝对安全。批量后置，后续需要平台栅栏能力。配置读回成功只证明配置已写入；下一次运行使用的实际模型保持「未知」，本轮没有推断生效证据。
+
+仅本地 fixture 验证，不会调用真实 CLI：
+
+```sh
+python3 multica-board/backend/tests/runtime_write_fixture_server.py --port 8798
+# 浏览器访问 http://127.0.0.1:8798/#/configure/runtime
+# fixture 授权码：fixture authorization
+# --scenario unknown / empty / disabled 可查看隔离失败场景。
+```
 
 ## 运行
 

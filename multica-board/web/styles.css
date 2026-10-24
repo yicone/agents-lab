@@ -1025,3 +1025,24 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .config-links { display: flex; flex-wrap: wrap; gap: 16px; }
 .queue-heading h2 { margin-bottom: 8px; }
 .tab-badge.tone-warn { background: var(--warn); color: var(--bg); }
+
+/* Scoped runtime write surface; shared chrome is owned by the navigation task. */
+.runtime-config { display: grid; gap: 12px; max-width: 1100px; margin: 0 auto; }
+.runtime-config h2, .runtime-config h3, .runtime-config p { margin: 0; }
+.runtime-config .plan-card { display: grid; gap: 12px; }
+.runtime-config td, .runtime-config th { overflow-wrap: anywhere; }
+.runtime-config td input, .runtime-config td select { max-width: 100%; margin: 4px; }
+.runtime-config input, .runtime-config select { color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+.runtime-config button { cursor: pointer; border: 1px solid var(--line); border-radius: 4px; background: var(--panel-2); color: var(--text); padding: 6px 10px; width: fit-content; }
+.runtime-config button:hover:not(:disabled) { border-color: var(--accent); }
+.runtime-config :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.runtime-config button:disabled { cursor: default; opacity: .5; }
+.runtime-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.runtime-warning { color: var(--warn); }
+.runtime-overlay { position: fixed; inset: 0; z-index: 100; background: #0008; display: grid; place-items: center; padding: 16px; }
+.runtime-confirm { width: min(680px, 100%); max-height: 90vh; overflow: auto; background: var(--panel); }
+@media (max-width: 620px) {
+  .runtime-config .matrix { min-width: 0; width: 100%; }
+  .runtime-config td, .runtime-config th { padding: 6px 4px; }
+  .runtime-config td input, .runtime-config td select { width: 100%; margin: 4px 0; }
+}
