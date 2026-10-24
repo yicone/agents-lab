@@ -633,7 +633,7 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(it["member"]["latest_run"]["status"], "running")
         expected = {"key", "workspace_id", "id", "identifier", "title", "status", "status_category", "priority",
                     "assignee", "project", "parent_identifier", "due_date", "created_at", "last_activity_at", "url",
-                    "latest_run", "last_failed_run", "layer"}
+                    "latest_run", "last_failed_run", "last_delivery_anomaly", "layer"}
         self.assertEqual(set(child), expected)
         self.assertEqual(child["layer"]["primary"], None)
         self.assertEqual(child["layer"]["source"], {"primary": None, "involved": None, "governance": None})

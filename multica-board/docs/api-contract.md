@@ -707,3 +707,13 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 ## 用户补采 inventory（ACM-332，本地待验收）
 
 `GET /api/agents` 增加 `owner_inventory`，以 workspace UUID 为键，值含 `status`（`ok/error`）、`error`（固定错误码或 null）、`collected_at`（UTC）、`slug`。补采 agent 增加 `inventory_source: "user-cli:desktop-api.multica.ai"`、`inventory_collected_at`；常规缓存行这两个字段为 null。成功快照替代对应 workspace agent 列表，失败回退常规缓存。快照只匹配同名 profile，读取不触发 CLI，不改变 SQLite，也不改变常规采集状态。`/api/meta` 在缺少常规 workspace 行时补入成功快照的 workspace 供筛选使用，`collect_state=never`、`counts=null`，不冒充完整采集成功。
+
+### ACM-409：交付异常（拟合入）
+
+采集只检查 completed run 的 `result.output`，允许首尾空白，整段严格匹配已知 OpenAI processing-request 错误文案。引用、代码块、讨论、非 completed 与其他未知错误文案不作推断。原始正文不入缓存；不修改 Multica 状态、不自动重跑。旧缓存行增加检查标记，首次重新采集前不会用作增量终态停止点；仍遵守原有 run_days 和页数上限。
+
+- run 增加 `delivery_anomaly: "upstream_error" | null`、`request_id`、`model`；模型仅取 run 的 usage，缺失或多个模型保留 null。异常摘要为固定文案。
+- `/api/issues` 增加 `last_delivery_anomaly`（7d，结构同 run）；关闭 issue 如仍有 7d 异常证据也可返回。最新 run 异常进入 Issues 独立交付异常栏，后续正常 run 保留历史提示。
+- `/api/agents` 的 recent 增加 `delivery_anomalies`（24h），这是 completed 的子集，与 failed 分开。
+- `/api/stats/failures` 增加 `delivery_anomalies: {counts: {h24, d7}, runs: [...]}`；runs 覆盖 7d，含 task_id、workspace_id、issue_id、agent_id/name、runtime_id、model、request_id、completed_at 和原始 status。原有 failed 分组和原因统计保持原口径。
+- `/api/attention` 增加 workspace bucket `delivery_anomalies`（24h），每条保留上述证据；text 格式也列出独立计数。failed_runs 不计入这类异常。

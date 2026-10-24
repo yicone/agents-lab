@@ -342,7 +342,7 @@ export function renderAgentDrawer(h, ctx, drawer) {
       "section",
       null,
       h("h3", { class: "drawer-sub" }, "最近运行"),
-      h("p", null, `${ctx.recentWindowH}h 完成 ${recent.completed ?? 0} · 失败 ${recent.failed ?? 0}`),
+      h("p", null, `${ctx.recentWindowH}h 完成 ${recent.completed ?? 0} · 失败 ${recent.failed ?? 0} · 交付异常 ${recent.delivery_anomalies ?? 0}（完成数中的异常）`),
       h(
         "p",
         null,

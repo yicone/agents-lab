@@ -252,7 +252,7 @@ button, select, input { font: inherit; color: inherit; }
 
 .lanes {
   display: grid;
-  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, minmax(200px, 1fr));
   gap: 12px;
   align-items: start;
 }
