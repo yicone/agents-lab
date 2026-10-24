@@ -6,7 +6,7 @@ export const MCP_SCOPE = "范围：本机各工具全局 MCP 配置、agents-lab
 
 /** "shared" shows the filter. "decide" / "skills" / "mcp" show a fixed scope. "none" shows neither. */
 export function filterChrome(view) {
-  if (view === "issues" || view === "agents") return "shared";
+  if (view === "issues" || view === "agents" || view === "runs") return "shared";
   if (view === "decide") return "decide";
   if (view === "skills") return "skills";
   if (view === "mcp") return "mcp";

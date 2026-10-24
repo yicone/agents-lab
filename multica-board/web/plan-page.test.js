@@ -115,7 +115,7 @@ test("the mock plan list route mounts no null text node in the real document", a
     }
     ws.close();
     assert.ok(view, "mock plan list did not render");
-    assert.equal(view.hash, "#/agents/plans");
+    assert.equal(view.hash, "#/running/changes");
     assert.equal(view.direct.some((text) => text === "null"), false);
     assert.equal(view.texts.some((text) => text === "null"), false);
     assert.ok(view.texts.some((text) => text.includes("计划目录 · 最近一份")));

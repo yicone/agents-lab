@@ -17,8 +17,8 @@ test("narrow top tabs wrap inside the viewport instead of hiding Skills", () => 
 });
 
 test("top tabs stay keyboard links and show a focus ring", () => {
-  for (const view of ["map", "decide", "issues", "agents", "skills", "mcp"]) {
-    assert.match(html, new RegExp(`<a class="tab" data-view="${view}" href="#/${view}">`));
+  for (const view of ["issues", "running", "configure", "map", "settings"]) {
+    assert.match(html, new RegExp(`<a class="tab" data-view="${view}" href="#/${view}"`));
   }
   assert.match(css, /\.tab:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--accent\)/);
 });

@@ -15,12 +15,11 @@
     <div class="topbar-row">
       <h1 class="brand"><img class="brand-mark" src="favicon.svg" width="16" height="16" alt="Agent Atlas">Agent Atlas</h1>
       <nav class="tabs" aria-label="视图">
-        <a class="tab" data-view="map" href="#/map">地图 <kbd>1</kbd></a>
-        <a class="tab" data-view="decide" href="#/decide">待你决定 <span id="decide-badge" class="tab-badge" hidden></span> <kbd>2</kbd></a>
-        <a class="tab" data-view="issues" href="#/issues">Issues <kbd>3</kbd></a>
-        <a class="tab" data-view="agents" href="#/agents">Agents <kbd>4</kbd></a>
-        <a class="tab" data-view="skills" href="#/skills">Skills <span id="skills-badge" class="tab-badge skills" hidden></span> <kbd>5</kbd></a>
-        <a class="tab" data-view="mcp" href="#/mcp">MCP <span id="mcp-badge" class="tab-badge" hidden></span> <kbd>6</kbd></a>
+        <a class="tab" data-view="issues" href="#/issues">要我处理的 <span id="issues-badge" class="tab-badge" hidden></span> <kbd>1</kbd></a>
+        <a class="tab" data-view="running" href="#/running">在跑什么 <kbd>2</kbd></a>
+        <a class="tab" data-view="configure" href="#/configure">配置台 <kbd>3</kbd></a>
+        <a class="tab" data-view="map" href="#/map">地图 <kbd>4</kbd></a>
+        <a class="tab" data-view="settings" href="#/settings" aria-label="设置" title="设置">⚙</a>
       </nav>
       <span id="snapshot" class="snapshot" aria-live="polite"></span>
       <label class="search">
@@ -32,6 +31,7 @@
     <div id="banner" class="banner" role="alert" hidden></div>
     <div id="health" class="health" aria-label="页面范围"></div>
   </header>
+  <nav id="subnav" class="subnav" aria-label="子视图"></nav>
   <main id="main" class="main"></main>
   <aside id="drawer" class="drawer" aria-label="issue 详情" hidden></aside>
 </body>

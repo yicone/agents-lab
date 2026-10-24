@@ -244,3 +244,9 @@ test("queue zero counts are muted, partial question marks and nonzero tones surv
     }
   }
 });
+
+test("invalid MCP badge explains the failure even without detail", () => {
+  assert.equal(badgeTone(invalidFx), "bad");
+  assert.match(badgeTitle(invalidFx), /mcp-sources.json 无效/);
+  assert.match(badgeTitle({ok:false}), /来源内容未通过校验/);
+});

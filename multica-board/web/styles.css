@@ -161,7 +161,7 @@ button, select, input { font: inherit; color: inherit; }
 .ws-clear:hover:not(:disabled) { background: var(--panel-2); }
 .ws-clear:disabled { color: var(--faint); cursor: default; }
 .skills-source { color: var(--muted); font-size: 12px; }
-.tab-badge.skills { background: var(--bad); color: #fff; }
+.tab-badge.skills { background: var(--warn); color: var(--bg); }
 .ws-chip {
   display: inline-flex;
   align-items: center;
@@ -1016,3 +1016,12 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .warn-n { color: var(--warn); font-weight: 600; }
 .tool-mark.off { color: var(--muted); }
 .tool-mark.off sup { font-size: 9px; color: var(--muted); margin-left: 1px; }
+
+.subnav { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+.subnav[hidden] { display: none; }
+.subnav a, .config-links a { display: inline-flex; gap: 6px; align-items: center; padding: 7px 10px; color: var(--muted); text-decoration: none; border-radius: 6px; }
+.subnav a.active { color: var(--accent); background: var(--panel-2); }
+.subnav a:focus-visible, .config-links a:focus-visible { outline: 2px solid var(--accent); }
+.config-links { display: flex; flex-wrap: wrap; gap: 16px; }
+.queue-heading h2 { margin-bottom: 8px; }
+.tab-badge.tone-warn { background: var(--warn); color: var(--bg); }
