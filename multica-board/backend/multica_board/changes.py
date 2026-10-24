@@ -1,7 +1,7 @@
 """Incremental change log policy for GET /api/changes.
 
 The first successful snapshot of a resource is a baseline and emits nothing.
-Later collects append only the deltas the contract lists. Retention is 7 days.
+Later collects append only the deltas the contract lists. Retention is 90 days.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-CHANGE_RETENTION_DAYS = 7
+CHANGE_RETENTION_DAYS = 90
 CHANGES_PAGE = 500
 SINCE_ERROR = "since must be an ISO-8601 UTC timestamp or a cursor"
 KIND_ERROR = "kind must be status, issue_status, assignee, issue_assignee, run, run_failed, or runtime"

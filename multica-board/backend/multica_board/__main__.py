@@ -228,21 +228,27 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--static-dir", type=Path, default=DEFAULT_STATIC, help="frontend directory served at / (default ../web)")
     s.add_argument("--plan-dir", type=Path, default=DEFAULT_PLAN_DIR, help="private G1 plan directory (read-only HTTP)")
 
+    from .metrics_cli import register
+    register(sub, _common)
+
     a = p.parse_args(argv)
     logging.basicConfig(
-        level=logging.DEBUG if a.verbose else logging.INFO,
+        level=logging.DEBUG if getattr(a, "verbose", False) else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         stream=sys.stderr,
     )
     try:
+        if a.cmd.startswith("metrics"):
+            from .metrics_cli import command
+            return command(a, _runner)
         return {
             "workspaces": cmd_workspaces,
             "collect": cmd_collect,
             "collect-usage": cmd_collect_usage,
             "serve": cmd_serve,
         }[a.cmd](a)
-    except ValueError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except (ValueError, CliError, OSError) as exc:
+        print(f"error: {redact(str(exc))}", file=sys.stderr)
         return 2
 
 

@@ -105,7 +105,7 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 - `error_kind`：契约枚举加 `process`。匹配顺序：quota → rate_limit → auth → model_unavailable → daemon_restart → timeout → network → cancelled → process → unknown。`error_summary` 已脱敏，截断到 200 字符。
 - `collect_state`：从未完整成功为 `never`（`counts=null`）；最近一轮有失败为 `error`；上次成功超过 3 个采集周期为 `stale`；否则 `ok`。
 - `error.kind=auth`（403、401、撤权，或 CLI 返回的数据属于别的 workspace）时清空该 workspace 的缓存，`counts=null`。
-- `/api/changes`：省略 `since` 只返回当前 cursor。`since` 为 ISO 时间或上次的 cursor，返回此后的 issue 状态/指派变化、新 run、run 失败、runtime 上下线，并附新 cursor。`?kind=status` 只返回状态迁移（别名 `issue_status`；省略则不过滤），翻页时 cursor 和 `kind` 一起带上。每种资源第一次成功快照只建基线。变更保留 7 天；历史不完整时 `reset: true`（仍是 200），客户端应重拉全量。单次最多 500 条。
+- `/api/changes`：省略 `since` 只返回当前 cursor。`since` 为 ISO 时间或上次的 cursor，返回此后的 issue 状态/指派变化、新 run、run 失败、runtime 上下线，并附新 cursor。`?kind=status` 只返回状态迁移（别名 `issue_status`；省略则不过滤），翻页时 cursor 和 `kind` 一起带上。每种资源第一次成功快照只建基线。变更保留 90 天；历史不完整时 `reset: true`（仍是 200），客户端应重拉全量。单次最多 500 条。
 
 ## 安全边界
 
@@ -139,3 +139,21 @@ python3 -m multica_board serve --all-workspaces --port 8765 \
 3. 将既有 Tailscale Serve 的 HTTPS `:8443` 后端从 `127.0.0.1:8766` 改为 `127.0.0.1:8765`，保持 tailnet-only、不开 Funnel。具体命令先按机器上 `tailscale serve --help` 核对；确认代理保留的实际 Host 与白名单一致，不依赖转发器改写。手机验证 HTTPS 页面与 API 加载。
 4. 全部通过后，再卸载 `one.yic.atlas-lan-forward` 和 `one.yic.atlas-ts-forward` 的 launchd 作业，禁用对应自动启动配置，保留备份；先不删除 `~/.local/bin/lan-forward.py`。确认 8766 转发监听消失，8765 和 HTTPS 8443 继续可用。
 5. 失败时恢复原 Board 启动参数 / 部署版本、两个转发器作业和 Tailscale Serve 的旧后端，再验证原有入口。网卡 IP 变化时需同步更新绑定与白名单。
+
+### 效能指标与流速（ACM-462）
+
+从 `multica-board` 目录运行，只读 Multica；快照写入本地私有文件，不接前端或日报：
+
+```sh
+PYTHONPATH=backend python3 -m multica_board metrics-backfill --snapshot metrics-history.json
+PYTHONPATH=backend python3 -m multica_board metrics --snapshot metrics-history.json
+PYTHONPATH=backend python3 -m multica_board metrics --snapshot metrics-history.json --threshold 3 --wip-floor 2 --rework-ceiling 1
+PYTHONPATH=backend python3 -m multica_board metrics --snapshot metrics-history.json --format markdown
+PYTHONPATH=backend python3 -m multica_board metrics-reconcile --backfill backfill.json --realtime realtime.json
+```
+
+默认回补全部可见 workspace、最近 28 天的 run、issue 生命周期和评论，脱敏事件快照最多保留 90 天。`metrics-backfill --resume` 复用成功读取，只重试失败的 timeline/comment，保留原库存时点和 workspace 权限缺口；要刷新库存或权限变化须重新回补。复用 Board 的 issue/run 分页、scope 校验和 CLI runner；不调用巡检写入、CodexBar 或另一份 usage 采集。常驻 Board profile 不可用的任务环境可显式加 `metrics-backfill --task-identity` 使用当前任务身份，范围仍限该身份可见 workspace；不切换身份或修改配置。`metrics` 是纯本地只读命令，默认快照超过 24 小时即标来源未知；`--now` 冻结基线时点用于复现，不能用于伪装实时读数。
+
+`--ledger events.json` 接受人工核实后的脱敏枚举事件，格式见 `backend/multica_board/metrics_cli.py` 模块说明。结束必须有 `source=delivery_ledger`、`event_type=delivery_completed`、`confidence=complete`、`delivery_evidence` 不透明 ID。完整 attention/rework/cost 通道通过 coverage 事件显式声明 `since/until`；没有事件不证明零次注意力、零返工或零成本。原始评论 ID 用作分类事件 ID（同一操作只归一类）；无分类的历史评论只保留引用，不能猜批准或返工。取消成本单列，额度不分摊、不与 Multica 原始 cost_usd_ticks 相加。未来实时采集沿用相同事件 ID；连续 2 天对账后再确认一致性，本命令不冒充已经完成对账。
+
+输出包含五项指标的已知数/候选数/coverage、周期 P90、每日 UTC 24 小时窗口交付数、滚动 24h、在制品、当前等待分类和返工诊断。缺台账 done 不算交付；分页不完整、workspace 不符、服务端截断和过期快照均显式 unknown。阈值默认不设，示例参数仅演示用法，不代表批准的目标。建议动作只供 Steward 判断，不执行派活或修改 issue。
