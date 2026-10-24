@@ -404,7 +404,7 @@ def reconcile(backfill, realtime):
     matched = 0
     for k in sorted(common):
         a, b = left[k], right[k]
-        fields = [f for f in ("issue_id", "event_type", "wait_reason", "delivery_evidence", "confidence") if a.get(f) != b.get(f)]
+        fields = [f for f in ("issue_id", "event_type", "status", "previous_status", "wait_reason", "delivery_evidence", "confidence") if a.get(f) != b.get(f)]
         ta, tb = ts(a.get("at")), ts(b.get("at"))
         delta = (tb - ta).total_seconds() if ta and tb else None
         if fields or delta != 0:

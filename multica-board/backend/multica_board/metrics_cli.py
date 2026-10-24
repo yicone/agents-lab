@@ -138,6 +138,9 @@ def register(sub, common):
     r = sub.add_parser("metrics-reconcile", help="read and compare normalized backfill/realtime events")
     r.add_argument("--backfill", type=Path, required=True)
     r.add_argument("--realtime", type=Path, required=True)
+    r.add_argument("--event-type", help="compare only this normalized event type")
+    r.add_argument("--since", help="compare only events in this UTC window, left inclusive")
+    r.add_argument("--until", help="compare only events before this UTC timestamp")
 
 
 def command(args, runner_factory):
@@ -157,7 +160,20 @@ def command(args, runner_factory):
         return 0 if snapshot["complete"] else 2
     if args.cmd == "metrics-reconcile":
         a, b = (json.loads(p.read_text(encoding="utf-8")) for p in (args.backfill, args.realtime))
-        result = reconcile(a["events"], b["events"])
+        since, until = ts(args.since), ts(args.until)
+        if (args.since and since is None) or (args.until and until is None) or (since and until and since >= until):
+            raise ValueError("invalid reconciliation window")
+        def window(events):
+            return [e for e in events if (not args.event_type or e.get("event_type") == args.event_type) and ts(e.get("at")) and
+                    (since is None or ts(e["at"]) >= since) and (until is None or ts(e["at"]) < until)]
+        result = reconcile(window(a["events"]), window(b["events"]))
+        invalid = {name: sum(not ts(e.get("at")) for e in snapshot["events"]
+                             if not args.event_type or e.get("event_type") == args.event_type)
+                   for name, snapshot in (("backfill", a), ("realtime", b))}
+        result["invalid_timestamps"] = invalid
+        if any(invalid.values()):
+            result["status"] = "unknown"
+        result["since"], result["until"] = args.since, args.until
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     now = ts(args.now) if args.now else None
