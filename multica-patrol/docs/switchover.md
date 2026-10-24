@@ -81,3 +81,16 @@
 - 手动运行与自然整点由启动器按触发上下文判别；判别不了按 schedule 处理，Reviewer 观察时以 run 触发来源为准，不以台账标记为准。
 - slot 取整点（≥55 分钟视为下一个整点）；延迟 ≥55 分钟的 run 会被记到下一个 slot。
 - 单元测试用离线 fixture，只证明规则与协议；不是自然整点实测。
+
+
+### ACM-438 巡检判断与额度等待（本地实现，未部署）
+
+已指派 todo/backlog 深查任务与交付：15 分钟无任务记录标为 assigned_no_task；已有 queued/dispatched 但未启动标为 queued_unclaimed；completed 且时间窗内有正常 agent 交付评论标为 delivery_status_not_updated，只核对状态，不补派。单次终止失败超过 10 分钟且无后继任务即可报告，保留现有失败分类，不用 attempt/max_attempts 猜平台会重试。
+
+规则 10 支持带空格的名称及“在 ACM-411 复验”。写入和 dry-run 都读取目标 issue 的负责人、状态与任务；目标未知只记 unknown_target，不回退源单负责人。多目标/多单引用无法唯一定位时保守标未知。待唤醒旧记录也重读，已被新交付替代就不再创建。
+
+quota/usage limit 复用既有 classify_error、ledger 和一次性 at Wakeup（唤醒调度作判断，不直接重跑）。记录绑定原失败 run、目标 agent、复查时间；同一原失败 run 永不按 24h 再挂等待。优先使用 reset_at，Codex “try again at h:mm AM/PM” 按本机 SGT 解释、跨午夜取下一日；提示已过期或不能解析时 1 分钟后交调度核实，提示绝不作为额度恢复证明。指令要求到点读新鲜额度、最新交付/负责人/活动任务，只在全部满足且有原授权时恢复一次，读回关联新 run；缺证据由调度裁定。未新增额度采集旁路、账号切换或自动 rerun。
+
+健康输出分别列 coverage 与 scheduling。Wakeup 创建失败/结果不确定/读取失败/目标未知计入 scheduling.errors；真实运行返回非零并保留 self-report，不能用 coverage.complete 或 exit0 代表接力成功。dry-run 仅验证读路径及拟定动作，不验证真实 Wakeup 触发或恢复。
+
+离线回放：在 multica-patrol 下运行 python3 -m unittest tests.test_recovery -v。374/409/422/378/405 为调查证据重建的历史 fixture，非当前线上状态、非自然整点验收。线上接力和真实额度读取/一次恢复须批准部署后独立验证。

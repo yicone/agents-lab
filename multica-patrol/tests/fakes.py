@@ -139,7 +139,7 @@ class FakeMultica:
                 return out({"issues": page, "has_more": offset + limit < len(matched),
                             "limit": limit, "offset": offset, "total": len(matched)})
             if words[:2] == ["issue", "get"]:
-                issue = next((i for i in self.issues if i["id"] == words[2]), None)
+                issue = next((i for i in self.issues if words[2] in (i["id"], i.get("identifier"))), None)
                 if issue is None:
                     return fail("not found", 2)
                 return out(issue)

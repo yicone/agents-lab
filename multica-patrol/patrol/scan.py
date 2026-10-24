@@ -57,6 +57,14 @@ def _next_due_at(issue: dict, f: dict, now) -> object:
         anchor = max([t for t in (entered, last_comment_at) if t], default=None)
         if anchor:
             candidates.append(anchor + timedelta(seconds=config.UNWOKEN_GRACE_S))
+    if status in config.LIGHT_STATUSES and issue.get("assignee_id"):
+        assigned = facts.parse_ts(f.get("assigned_at")) or entered
+        if assigned:
+            candidates.append(assigned + timedelta(seconds=config.UNWOKEN_GRACE_S))
+        for run in f.get("runs") or []:
+            queued = facts.parse_ts(run.get("created_at"))
+            if queued and run.get("status") in config.ACTIVE_RUN_STATUSES and not run.get("started_at"):
+                candidates.append(queued + timedelta(seconds=config.UNWOKEN_GRACE_S))
     if status in config.LIGHT_STATUSES:
         candidates.append(now + timedelta(seconds=config.LIGHT_RECHECK_S))
     future = [c for c in candidates if c > now]
@@ -145,6 +153,9 @@ def run_scan(cli, state: dict, full: bool, now, monotonic) -> dict:
     """Returns {issues, per_issue: {id: {issue, facts, findings}}, coverage}."""
     discovered, errors, shelved_ids = discover(cli)
     cache = state.setdefault("cache", {})
+    if state.get("facts_revision") != 3:
+        cache.clear()
+        state["facts_revision"] = 3
     universe_ids = {i["id"] for i in discovered}
     for stale_id in [k for k in cache if k not in universe_ids or k in shelved_ids]:
         del cache[stale_id]

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from . import config
+from .cli import CliError
+from .redact import classify_error
 
 SGT = timezone(config.SGT_OFFSET)
 
@@ -109,35 +112,42 @@ def derive_anchors(issue: dict, activities: list[dict], comments: list[dict],
     }
 
 
+def _list_data(result, label):
+    if not isinstance(result.data, list):
+        raise CliError(f"{label} returned a non-list response")
+    return result.data
+
+
 def collect_facts(cli, issue: dict, now: datetime) -> dict:
     """Deep check for one issue: timeline, comments, wakeups, active/failed runs."""
     issue_id = issue["id"]
     timeline_res = cli.run_json(
         ["issue", "timeline", issue_id, "--activity-only", "--output", "json"])
-    activities = timeline_res.data if isinstance(timeline_res.data, list) else []
+    activities = _list_data(timeline_res, "timeline")
     timeline_partial = "truncated" in (timeline_res.stderr or "")
 
     since = iso(now - timedelta(seconds=config.COMMENTS_WINDOW_S))
     comments_res = cli.run_json(
         ["issue", "comment", "list", issue_id, "--since", since, "--compact",
          "--output", "json"])
-    comments = comments_res.data if isinstance(comments_res.data, list) else []
+    comments = _list_data(comments_res, "comments")
 
     wakeups_res = cli.run_json(["issue", "wakeup", "list", issue_id, "--output", "json"])
-    wakeups = wakeups_res.data if isinstance(wakeups_res.data, list) else []
+    wakeups = _list_data(wakeups_res, "wakeups")
 
     active_res = cli.run_json(["issue", "runs", issue_id, "--active", "--output", "json"])
-    active_runs = active_res.data if isinstance(active_res.data, list) else []
+    active_runs = _list_data(active_res, "active runs")
 
     runs = []
-    if (issue.get("assignee_id") and not active_runs
+    if (issue.get("assignee_id") and issue.get("status") in ("todo", "backlog")) \
+            or (issue.get("assignee_id") and not active_runs
             and issue.get("status") not in ("done", "cancelled")) \
             or issue.get("status") in ("blocked", "in_review") \
         or (issue.get("status") == "in_progress" and issue.get("assignee_id")):
         # blocked/in_review always need the full runs list (unwoken-handoff
         # rule); assigned in_progress too (dispatch-without-wake rule).
         runs_res = cli.run_json(["issue", "runs", issue_id, "--output", "json"])
-        runs = runs_res.data if isinstance(runs_res.data, list) else []
+        runs = _list_data(runs_res, "runs")
 
     anchors = derive_anchors(issue, activities, comments, timeline_partial)
     provider_error = _detect_provider_error(runs, comments, now)
@@ -148,6 +158,7 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
     ]
     return {
         "entered_status_at": iso(anchors["entered_status_at"]),
+        "assigned_at": iso(_latest(activities, "assignee_changed")),
         "last_progress_at": iso(anchors["last_progress_at"]),
         "approval_wait_at": iso(anchors["approval_wait_at"]),
         "evidence_partial": anchors["evidence_partial"],
@@ -155,6 +166,7 @@ def collect_facts(cli, issue: dict, now: datetime) -> dict:
         "runs": [compact_run(r) for r in runs],
         "last_comment": _last_comment(comments),
         "provider_error": provider_error,
+        "delivery": _delivery(runs, comments),
         "wakeups": wakeups_small,
         "checked_at": iso(now),
     }
@@ -164,7 +176,9 @@ def compact_run(r: dict) -> dict:
     return {"id": r.get("id"), "status": r.get("status"), "attempt": r.get("attempt"),
             "max_attempts": r.get("max_attempts"), "created_at": r.get("created_at"),
             "started_at": r.get("started_at"), "dispatched_at": r.get("dispatched_at"),
-            "completed_at": r.get("completed_at"), "agent_id": r.get("agent_id")}
+            "completed_at": r.get("completed_at"), "agent_id": r.get("agent_id"),
+            "error_kind": r.get("error_kind") or classify_error(r.get("error"), r.get("failure_reason")),
+            "recheck_at": r.get("recheck_at") or quota_recheck_at(r)}
 
 
 _INFRA_PREFIXES = ("[patrol-", "[dispatch-batch:")
@@ -202,14 +216,21 @@ def _last_comment(comments: list[dict]) -> dict | None:
         return None
     content = best[1].get("content") or ""
     first = next((ln.strip() for ln in content.splitlines() if ln.strip()), "")
-    target = config.NEXT_TARGET_RE.match(first)
+    target_line = re.sub(r"\[@([^\]]+)\]\(mention://agent/[^)]+\)", r"\1", first)
+    target = config.NEXT_TARGET_RE.match(target_line)
+    # The handoff line names the destination; later prose often cites the
+    # source issue and historical evidence (ACM-378 also names itself).
+    refs = re.findall(r"ACM-\d+", first) or re.findall(r"ACM-\d+", content)
     return {"id": best[1].get("id"), "author_type": best[1].get("author_type"),
             "author_id": best[1].get("author_id"), "created_at": iso(best[0]),
             "has_valid_mention": bool(config.UUID_MENTION_RE.search(content)),
             "mentioned_agent_ids": [u.lower() for u in
                                     config.AGENT_MENTION_RE.findall(content)],
             "dispatch_class": is_dispatch_class(first, content),
-            "first_line_target_name": target.group("name") if target else None}
+            "first_line_target_name": target.group("name").strip() if target else None,
+            "target_issue_ref": refs[0] if len(set(refs)) == 1 else None,
+            "target_issue_ambiguous": len(set(refs)) > 1,
+            "is_error": content.lstrip().startswith("[Error]")}
 
 
 def _detect_provider_error(runs: list[dict], comments: list[dict], now) -> dict | None:
@@ -229,19 +250,21 @@ def _detect_provider_error(runs: list[dict], comments: list[dict], now) -> dict 
     agent_id = newest.get("agent_id")
     hit = None
     for c in comments or []:
-        if c.get("author_type") != "agent" or c.get("author_id") != agent_id:
+        if c.get("type") != "comment" or _excluded_comment(c):
             continue
-        if not (c.get("content") or "").lstrip().startswith("[Error]"):
+        if c.get("author_type") != "agent" or c.get("author_id") != agent_id:
             continue
         ts = parse_ts(c.get("created_at"))
         if ts is None or started is None or ts < started or ts > window_end:
             continue
         if hit is None or ts > hit[0]:
             hit = (ts, c)
-    if hit is None:
+    if hit is None or not (hit[1].get("content") or "").lstrip().startswith("[Error]"):
         return None
     stale = (now - completed).total_seconds() > config.ERROR_RUN_WINDOW_S
     return {"run_id": newest.get("id"), "agent_id": agent_id,
+            "error_kind": classify_error(hit[1].get("content")),
+            "recheck_at": quota_recheck_at({**newest, "error": hit[1].get("content")}),
             "comment_id": hit[1].get("id"), "error_at": iso(hit[0]),
             "completed_at": iso(completed), "started_at": iso(started),
             "stale": stale}
@@ -251,17 +274,12 @@ def collect_light_facts(cli, issue: dict, now: datetime) -> dict:
     """Cheap facts for todo/backlog issues (approved_unassigned; the failed-run
     rule also applies when an assignee is set, so fetch the full list then)."""
     if issue.get("assignee_id"):
-        runs_res = cli.run_json(["issue", "runs", issue["id"], "--output", "json"])
-        runs = [compact_run(r)
-                for r in (runs_res.data if isinstance(runs_res.data, list) else [])]
-        active_runs = [{"id": r["id"], "status": r["status"]}
-                       for r in runs if r["status"] in config.ACTIVE_RUN_STATUSES]
-    else:
-        runs = []
-        active_res = cli.run_json(
-            ["issue", "runs", issue["id"], "--active", "--output", "json"])
-        active_runs = [{"id": r.get("id"), "status": r.get("status")}
-                       for r in (active_res.data if isinstance(active_res.data, list) else [])]
+        return collect_facts(cli, issue, now)
+    runs = []
+    active_res = cli.run_json(
+        ["issue", "runs", issue["id"], "--active", "--output", "json"])
+    active_runs = [{"id": r.get("id"), "status": r.get("status")}
+                   for r in (_list_data(active_res, "active runs"))]
     return {
         "entered_status_at": iso(parse_ts(issue.get("updated_at")) or parse_ts(issue.get("created_at"))),
         "last_progress_at": iso(parse_ts(issue.get("last_activity_at"))
@@ -275,3 +293,46 @@ def collect_light_facts(cli, issue: dict, now: datetime) -> dict:
         "wakeups": [],
         "checked_at": iso(now),
     }
+
+
+def quota_recheck_at(run):
+    """Provider clock hints use the patrol's configured SGT timezone.
+    Unknown hints request immediate dispatcher judgement, never guessed recovery.
+    """
+    explicit = parse_ts(run.get("reset_at"))
+    if explicit:
+        return iso(explicit)
+    completed = parse_ts(run.get("completed_at"))
+    match = re.search(r"try again at (\d{1,2}):(\d{2})\s*(AM|PM)", run.get("error") or "", re.I)
+    if not completed or not match:
+        return None
+    hour, minute = int(match[1]), int(match[2])
+    if not 1 <= hour <= 12 or minute > 59:
+        return None
+    local = completed.astimezone(SGT)
+    reset = local.replace(hour=hour % 12 + (12 if match[3].upper() == "PM" else 0),
+                          minute=minute, second=0, microsecond=0)
+    if reset < local:
+        reset += timedelta(days=1)
+    return iso(reset)
+
+
+def _delivery(runs, comments):
+    """Positive delivery evidence only; never infer delivery from exit0 alone."""
+    for run in runs:
+        if run.get("status") != "completed":
+            continue
+        started = parse_ts(run.get("started_at"))
+        ended = parse_ts(run.get("completed_at"))
+        if not started or not ended:
+            continue
+        candidates = [c for c in comments if c.get("author_type") == "agent"
+                      and c.get("author_id") == run.get("agent_id")
+                      and c.get("type") == "comment" and not _excluded_comment(c)
+                      and started <= (parse_ts(c.get("created_at")) or started - timedelta(seconds=1))
+                          <= ended + timedelta(seconds=120)]
+        newest = max(candidates, key=lambda c: c["created_at"], default=None)
+        if newest and not (newest.get("content") or "").lstrip().startswith("[Error]"):
+            return {"run_id": run.get("id"), "comment_id": newest.get("id"),
+                    "created_at": newest.get("created_at")}
+    return None
