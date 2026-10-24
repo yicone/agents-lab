@@ -69,28 +69,51 @@ def load_ledger(path):
 
 
 def render_markdown(report):
-    lines = ["# 四周历史回补基线", "", f"UTC 窗口：{report['since']} — {report['until']}（左闭右开）",
-             f"采集：{report['collected_at']}；来源状态：{report['source_status']}", "",
-             "缺台账的 done 只作覆盖率候选；不以 updated_at 推断结束，不将 unknown 写成 0。",
-             "每日窗口按冻结时点向前划分 24 小时，不是本地日历日。", "",
-             "| 指标 | 基线 | 已知/候选 | 覆盖率 |", "|---|---:|---:|---:|"]
     def fmt(value):
         return "unknown" if value is None else f"{value:.4f}" if isinstance(value, float) else str(value)
-    for name, metric in report["metrics"].items():
-        lines.append(f"| {name} | {fmt(metric['value'])} | {metric.get('known', 'unknown')}/{metric.get('candidates', 'unknown')} | {fmt(metric.get('coverage'))} |")
-    lines += [f"\n周期 P90（小时）：{fmt(report['metrics']['cycle_hours']['p90'])}",
-              f"\n流速：24h={fmt(report['flow']['deliveries_24h'])}；在制品={fmt(report['flow']['wip'])}；阈值={fmt(report['flow']['threshold'])}；触发={fmt(report['flow']['triggered'])}",
-              "", "## 每日交付", "", "| UTC 起点 | 完整交付 | 已观察到的台账交付（下界） | 父 issue done 信号（非交付） |", "|---|---:|---:|---:|"]
-    lines += [f"| {d['since']} | {fmt(d['deliveries'])} | {d['observed_deliveries']} | {d['observed_done_signals']} |" for d in report["daily"]]
-    lines += ["", "## Workspace 覆盖", "", "| Workspace ID | 来源状态 | 在制品 | done 候选 | 有证据交付 |", "|---|---|---:|---:|---:|"]
+
+    def metrics(left, right):
+        lines = ["| 指标 | 台账值 | 台账已知/候选（覆盖率） | 代理值 | 代理已知/候选（覆盖率） |",
+                 "|---|---:|---|---:|---|"]
+        for name, m in left["metrics"].items():
+            p = right["metrics"][name]
+            lines.append(f"| {name} | {fmt(m['value'])} | {m['known']}/{m['candidates']} ({fmt(m['coverage'])}) | {fmt(p['value'])} | {p['known']}/{p['candidates']} ({fmt(p['coverage'])}) |")
+        lines.append(f"周期 P90（小时）：台账={fmt(left['metrics']['cycle_hours']['p90'])}；代理={fmt(right['metrics']['cycle_hours']['p90'])}")
+        return lines
+
+    def flow(left, right):
+        lines = ["| 口径 | 四周日均 | 70% 示例阈值 | 滚动 24h | 触发 |", "|---|---:|---:|---:|---|"]
+        for label, item in (("ledger", left), ("proxy", right)):
+            f = item["flow"]["example_70_percent"]
+            lines.append(f"| {label} | {fmt(f['daily_mean'])} | {fmt(f['threshold'])} | {fmt(f['deliveries_24h'])} | {fmt(f['triggered'])} |")
+        return lines
+
+    def daily(left, right):
+        lines = ["| UTC 起点 | 台账完整件数 | 已观察台账（下界） | 代理完整件数 | 已观察代理（下界） |",
+                 "|---|---:|---:|---:|---:|"]
+        for d, p in zip(left["daily"], right["daily"]):
+            lines.append(f"| {d['since']} | {fmt(d['deliveries'])} | {d['observed_deliveries']} | {fmt(p['deliveries'])} | {p['observed_deliveries']} |")
+        return lines
+
+    proxy = report["proxy"]
+    lines = ["# 四周历史回补基线 v2", "", f"UTC 窗口：{report['since']} — {report['until']}（左闭右开）",
+             f"采集：{report['collected_at']}；来源状态：{report['source_status']}", "",
+             "代理交付 evidence=proxy：父 issue 当前 done，以完整 timeline 最后一次 done 为结束；排除取消、验收/复验、纯推送/合并/部署单。",
+             "代理与台账独立统计，同一件可在两列出现，禁止相加。台账自 2026-10-24（UTC 合并当天）正式记录，历史缺证据不补造。",
+             "未识别类型、缺历史或不可访问均 unknown；不以 updated_at 推断结束。每日按冻结时点向前划分 24h，非本地日历日。",
+             "70% 仅展示示例，不是已批准的告警阈值；来源不全时不输出确定触发。", "", "## 五项指标（额度独立附列）", ""]
+    lines += metrics(report, proxy) + ["", "## 滚动 24 小时", ""] + flow(report, proxy)
+    lines += ["", "## 每日交付", ""] + daily(report, proxy)
     for ws, item in report["workspace_flow"].items():
-        lines.append(f"| {ws} | {item['source_status']} | {fmt(item['wip'])} | {fmt(item['done_candidates'])} | {fmt(item['evidenced_deliveries'])} |")
-    lines += ["", "## 覆盖率与限制", "", "```json", json.dumps(report["coverage"], ensure_ascii=False, indent=2), "```",
-              "", "历史评论只保留 ID、作者类型、时间；批准/回复/返工尚无人工分类时保持 unknown。",
-              "手动处理、交付结束台账、逐 run 成本和额度归因没有历史来源时不估算。Multica cost_usd_ticks 保留原单位；额度永久分栏，不相加。",
-              "9router Observability 未接入，不读取数据库或开关配置；关闭或缺数据均 unknown。",
-              "本次为历史回补；实时接入后连续 2 天对账尚未完成。对账命令可输出匹配、仅回补、仅实时、时间差和口径差异。",
-              f"采集错误数：{len(report['source_errors'])}。错误只保留资源、ID 和原因枚举。", ""]
+        left, right = item["ledger"], item["proxy"]
+        lines += ["", f"## Workspace {ws}", "", f"来源：{item['source_status']}；在制品：{fmt(item['wip'])}", ""]
+        lines += metrics(left, right) + [""] + flow(left, right) + [""] + daily(left, right)
+    lines += ["", "## 覆盖率与限制", "", "```json", json.dumps({"ledger": report["coverage"], "proxy": proxy["coverage"],
+              "proxy_exclusions": report["proxy_exclusions"]}, ensure_ascii=False, indent=2), "```", "",
+              "批准/回复/返工未分类、手动处理无台账、逐 run 成本与额度不可归因时保持 unknown。等待仅恢复状态桶，原因不明保留 waiting_unclassified。",
+              "Multica cost_usd_ticks 保留原单位；额度永久分栏，不相加。9router Observability 未接入。",
+              "本次是历史回补，未完成实时接入后连续 2 天对账。",
+              f"采集错误数：{len(report['source_errors'])}；错误仅保留资源、ID、原因枚举。", ""]
     return "\n".join(lines)
 
 

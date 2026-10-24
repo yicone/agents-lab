@@ -42,7 +42,8 @@ READ_ONLY_COMMANDS: frozenset[tuple[str, ...]] = frozenset(
 
 # The child CLI must authenticate only through --profile. Inherited task/agent credentials or
 # overrides would silently scope it to another identity or workspace.
-_STRIPPED_ENV = ("MULTICA_WORKSPACE_ID", "MULTICA_TOKEN", "MULTICA_SERVER_URL")
+_STRIPPED_ENV = ("MULTICA_WORKSPACE_ID", "MULTICA_TOKEN", "MULTICA_SERVER_URL",
+                 "MULTICA_AGENT_ID", "MULTICA_AGENT_NAME", "MULTICA_DAEMON_PORT")
 _STRIPPED_ENV_PREFIXES = ("MULTICA_TASK_",)
 
 _NEXT_CURSOR = re.compile(r'--before\s+"([^"]+)"')

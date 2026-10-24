@@ -1,4 +1,4 @@
-"""Pure delivery metrics. No network, writes, body classification or inferred completion.
+"""Pure delivery metrics. No network, writes or comment-body classification.
 
 Input is the minimized snapshot produced by metrics_history and an optional curated
 ledger. A ledger coverage event attests a complete channel over [since, until).
@@ -114,7 +114,8 @@ def _waiting(events, start, end, timeline_complete):
     return {k: v / seconds for k, v in buckets.items()} if seconds > 0 else None
 
 
-def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
+def _build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
+                 evidence="ledger",
                  wip_floor=None, rework_ceiling=None, max_age_hours=24):
     now = now or datetime.now(UTC)
     if not 1 <= days <= 90 or not math.isfinite(max_age_hours) or max_age_hours <= 0:
@@ -127,6 +128,10 @@ def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
     fresh = bool(collected and timedelta(0) <= now - collected <= timedelta(hours=max_age_hours))
     source_complete = bool(snapshot.get("complete")) and fresh
     index, parent = roots(snapshot.get("issues", []))
+    if evidence == "proxy":
+        source_complete = source_complete and not any(root is None for root in parent.values()) and all(
+            "proxy_exclusion" in i and i.get("proxy_exclusion") != "unknown_kind"
+            for key, i in index.items() if parent.get(key) == key and i.get("status") == "done")
     raw_events = list(snapshot.get("events", []))
     # A curated classification enriches an observed comment using the SAME source ID.
     # A mismatched issue or timestamp is still a conflict, never a silent override.
@@ -172,6 +177,16 @@ def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
         ends = {ts(e["at"]) for e in complete_events}
         end = next(iter(ends)) if len(ends) == 1 else None
         status = issue.get("status")
+        if evidence == "proxy":
+            # Only a complete, root-owned status timeline establishes the final close.
+            # Reopen/reclose is one delivery at its latest done, never one per transition.
+            eligible = "proxy_exclusion" in issue and issue["proxy_exclusion"] is None
+            if not eligible:
+                continue
+            past = [e for e in statuses if ts(e["at"]) < now]
+            ambiguous = any(len({e.get("status") for e in past if ts(e["at"]) == at}) > 1
+                            for at in {ts(e["at"]) for e in past})
+            end = ts(past[-1]["at"]) if history_ok and not ambiguous and past and past[-1].get("status") == "done" else None
         valid = bool(status == "done" and end and end < now and (not begin or begin <= end))
         # done-without-ledger stays in the coverage population even if updated_at changed later.
         done_times = [ts(e["at"]) for e in statuses if e.get("status") == "done" and start <= ts(e["at"]) < now]
@@ -179,7 +194,7 @@ def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
             e.get("status") == "done" for e in statuses))
         candidate = bool(status == "done" and ((end and start <= end < now) or unknown_end_in_window))
         row = {"delivery_id": f"{key[0]}/{key[1]}", "workspace_id": key[0], "issue_id": key[1],
-               "agent_id": issue.get("assignee_id"), "status": status, "candidate": candidate,
+               "agent_id": issue.get("assignee_id"), "status": status, "candidate": candidate, "evidence": evidence,
                "completed_at": iso(end) if valid else None,
                "start_at": iso(begin) if begin else None, "cross_window": bool(begin and begin < start),
                "cycle_hours": (end - begin).total_seconds() / 3600 if valid and begin else None,
@@ -307,7 +322,7 @@ def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
             metric["value"], metric["status"] = None, "unknown"
         cycle["p90"] = None
         waiting_metric["by_reason"] = dict.fromkeys(sorted(WAIT))
-    return {"schema_version": 1, "since": iso(start), "until": iso(now), "collected_at": snapshot.get("collected_at"),
+    return {"schema_version": 2, "evidence": evidence, "since": iso(start), "until": iso(now), "collected_at": snapshot.get("collected_at"),
             "source_status": "complete" if source_complete else "unknown" if not fresh else "partial",
             "source_errors": snapshot.get("errors", []), "metrics": metrics, "daily": daily,
             "flow": {"deliveries_24h": throughput, "observed_deliveries_24h": len(recent),
@@ -328,6 +343,49 @@ def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
                          for rows in [[d for d in valid if (d["agent_id"] or "unknown") == agent]]},
             "by_workspace": dict(Counter(d["workspace_id"] for d in valid)),
             "deliveries": deliveries}
+
+
+def build_report(snapshot, ledger=(), *, now=None, days=28, threshold=None,
+                 wip_floor=None, rework_ceiling=None, max_age_hours=24):
+    """Keep historical proxy and formal ledger populations independent, never sum them."""
+    now = now or datetime.now(UTC)
+    options = dict(now=now, days=days, threshold=threshold, wip_floor=wip_floor,
+                   rework_ceiling=rework_ceiling, max_age_hours=max_age_hours)
+    ledger = list(ledger)
+    report = _build_report(snapshot, ledger, **options)
+    proxy = _build_report(snapshot, ledger, evidence="proxy", **options)
+    report["proxy"] = proxy
+    report["ledger_recording_since"] = "2026-10-24T00:00:00Z"
+    report["proxy_exclusions"] = dict(Counter(
+        i.get("proxy_exclusion", "unknown_kind") for i in snapshot.get("issues", [])
+        if not i.get("parent_issue_id") and i.get("proxy_exclusion", "unknown_kind")))
+    def example(item):
+        counts = item["coverage"]
+        complete = (item["source_status"] == "complete" and
+                    counts["done_candidates"] == counts["evidenced_deliveries"] and
+                    not counts["parent_unknown"])
+        mean = counts["evidenced_deliveries"] / days
+        item["flow"]["example_70_percent"] = {
+            "daily_mean": mean if complete else None,
+            "threshold": mean * .7 if complete else None,
+            "deliveries_24h": item["flow"]["deliveries_24h"],
+            "triggered": item["flow"]["deliveries_24h"] < mean * .7 if complete else None,
+            "example_only": True}
+    example(report)
+    example(proxy)
+    for ws, flow in report["workspace_flow"].items():
+        local = dict(snapshot)
+        local["workspace_ids"] = [ws]
+        for field in ("issues", "runs", "events", "errors"):
+            local[field] = [r for r in snapshot.get(field, []) if r.get("workspace_id") == ws]
+        local["complete"] = not local["errors"] and flow["source_status"] == "complete"
+        local["inventory_complete"] = not any(e["resource"] == "issues" for e in local["errors"])
+        local_ledger = [e for e in ledger if e.get("workspace_id") == ws]
+        flow["ledger"] = _build_report(local, local_ledger, **options)
+        flow["proxy"] = _build_report(local, local_ledger, evidence="proxy", **options)
+        example(flow["ledger"])
+        example(flow["proxy"])
+    return report
 
 
 def reconcile(backfill, realtime):

@@ -152,8 +152,10 @@ PYTHONPATH=backend python3 -m multica_board metrics --snapshot metrics-history.j
 PYTHONPATH=backend python3 -m multica_board metrics-reconcile --backfill backfill.json --realtime realtime.json
 ```
 
-默认回补全部可见 workspace、最近 28 天的 run、issue 生命周期和评论，脱敏事件快照最多保留 90 天。`metrics-backfill --resume` 复用成功读取，只重试失败的 timeline/comment，保留原库存时点和 workspace 权限缺口；要刷新库存或权限变化须重新回补。复用 Board 的 issue/run 分页、scope 校验和 CLI runner；不调用巡检写入、CodexBar 或另一份 usage 采集。常驻 Board profile 不可用的任务环境可显式加 `metrics-backfill --task-identity` 使用当前任务身份，范围仍限该身份可见 workspace；不切换身份或修改配置。`metrics` 是纯本地只读命令，默认快照超过 24 小时即标来源未知；`--now` 冻结基线时点用于复现，不能用于伪装实时读数。
+默认回补全部可见 workspace、最近 28 天的 run、issue 生命周期和评论，脱敏事件快照最多保留 90 天。`metrics-backfill --resume` 复用成功读取，只重试失败的 timeline/comment，保留原库存时点和 workspace 权限缺口；要刷新库存或权限变化须重新回补。复用 Board 的 issue/run 分页、scope 校验和 CLI runner；不调用巡检写入、CodexBar 或另一份 usage 采集。常驻 Board profile 不可用的任务环境可显式加 `metrics-backfill --task-identity` 使用当前任务身份，范围仍限该身份可见 workspace；不切换身份或修改配置。ACM-470 全 workspace 基线使用 Atlas 自己的 `--profile desktop-api.multica.ai`，不用 `--task-identity`；runner 同时清除继承的 agent/daemon 身份环境，避免覆盖 profile。`metrics` 是纯本地只读命令，默认快照超过 24 小时即标来源未知；`--now` 冻结基线时点用于复现，不能用于伪装实时读数。
 
 `--ledger events.json` 接受人工核实后的脱敏枚举事件，格式见 `backend/multica_board/metrics_cli.py` 模块说明。结束必须有 `source=delivery_ledger`、`event_type=delivery_completed`、`confidence=complete`、`delivery_evidence` 不透明 ID。完整 attention/rework/cost 通道通过 coverage 事件显式声明 `since/until`；没有事件不证明零次注意力、零返工或零成本。原始评论 ID 用作分类事件 ID（同一操作只归一类）；无分类的历史评论只保留引用，不能猜批准或返工。取消成本单列，额度不分摊、不与 Multica 原始 cost_usd_ticks 相加。未来实时采集沿用相同事件 ID；连续 2 天对账后再确认一致性，本命令不冒充已经完成对账。
 
 输出包含五项指标的已知数/候选数/coverage、周期 P90、每日 UTC 24 小时窗口交付数、滚动 24h、在制品、当前等待分类和返工诊断。缺台账 done 不算交付；分页不完整、workspace 不符、服务端截断和过期快照均显式 unknown。阈值默认不设，示例参数仅演示用法，不代表批准的目标。建议动作只供 Steward 判断，不执行派活或修改 issue。
+
+历史回补 v2 将父 issue done 作为 `evidence=proxy` 独立列，排除取消、验收/复验和纯推送/合并/部署单；台账自 2026-10-24 UTC 正式记录。代理与台账分别展示每日件数、五项指标与覆盖率、70% 示例阈值读数，不相加。详见 `docs/metrics.md`。
