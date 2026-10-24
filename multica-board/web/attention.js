@@ -24,3 +24,18 @@ export function classifyIssue(it, nowMs, staleMs) {
   if (it.priority === "urgent" || it.priority === "high") tags.push(["prio", it.priority === "urgent" ? "紧急" : "高优"]);
   return { lane, tags };
 }
+
+/** Collection gaps must never become an empty, healthy queue. Count is unfiltered. */
+export function attentionSummary(meta, issues, nowMs, staleMs, expected = 11) {
+  const workspaces = meta?.workspaces || [];
+  const unknown = workspaces.filter(w => w.collect_state !== "ok" || !w.counts).map(w => w.name || w.slug);
+  const missing = Math.max(0, expected - workspaces.length);
+  const rows = (issues || []).map(it => classifyIssue(it, nowMs, staleMs)).filter(c => c.lane);
+  const count = rows.length;
+  const bad = rows.some(c => ["failed", "delivery_anomaly"].includes(c.lane));
+  const incomplete = !meta || Boolean(meta.collector?.error) || missing > 0 || unknown.length > 0;
+  return { count, unknown, missing, incomplete,
+    tone: incomplete ? "unknown" : bad ? "bad" : count ? "warn" : "none",
+    text: incomplete ? "?" : count ? String(count) : "",
+    title: `跨 workspace ${incomplete ? "已知待处理" : "待处理"} ${count} 条${incomplete ? `（数量未知：${[...unknown, ...(meta?.collector?.error ? ["workspace 目录读取失败"] : []), ...(missing ? [`另 ${missing} 个 workspace 未采集`] : [])].join("、")}）` : ""}` };
+}

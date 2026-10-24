@@ -1,6 +1,6 @@
 /** Hash routes for Agent Atlas. Legacy hashes redirect with location.replace. */
 
-export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "usage"];
+export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "usage", "configure", "runs", "schedules", "health", "settings"];
 
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
@@ -37,7 +37,7 @@ function fieldToken(raw) {
 }
 
 export function viewForKey(key) {
-  return { 1: "map", 2: "decide", 3: "issues", 4: "agents", 5: "skills", 6: "mcp" }[key] || null;
+  return { 1: "issues", 2: "agents", 3: "configure", 4: "map" }[key] || null;
 }
 
 /** `[` moves up the map (toward L5); `]` moves down (toward L1). Wraps L1↔L5. */
@@ -67,8 +67,13 @@ function withQuery(path, params) {
  */
 export function redirectHash(hash) {
   const { path, params } = splitHash(hash);
-  if (path === "issues" || path === "agents" || path === "skills" || path === "mcp" || path === "decide" || path === "usage") return null;
-  if (agentsPlan(path)) return null;
+  const aliases = { agents: "running", usage: "running/usage", skills: "configure/skills", mcp: "configure/mcp",
+    "l2/agents": "running", "l3/skills": "configure/skills", "l3/mcp": "configure/mcp" };
+  if (Object.hasOwn(aliases, path)) return withQuery(aliases[path], params);
+  if (agentsPlan(path)) return withQuery(path === "agents/plan/new" ? "running/changes/new" : path.replace("agents/plans", "running/changes"), params);
+  if (path === "running/changes" || path === "running/changes/new" || /^running\/changes\/[^/]+$/.test(path)) return null;
+  if (["running", "running/agents", "running/usage", "running/runs", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/mcp", "configure/runtime", "settings"].includes(path)) return null;
+  if (path === "issues" || path === "decide") return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
     const rest = path.slice(4);
@@ -76,9 +81,6 @@ export function redirectHash(hash) {
     return "#/map";
   }
   if (path === "l5/attention") return "#/issues";
-  if (path === "l2/agents") return "#/agents";
-  if (path === "l3/skills") return "#/skills";
-  if (path === "l3/mcp") return "#/mcp";
   if (path === "gov") return "#/map/all?gov=1";
 
   const legacy = /^l([1-5])(?:\/(.*))?$/i.exec(path);
@@ -102,6 +104,7 @@ function pick(value, allowed, fallback) {
 export function emptyRoute() {
   return {
     view: "map",
+    section: "",
     layer: "",
     scope: "primary",
     match: "primary",
@@ -146,11 +149,17 @@ export function emptyRoute() {
 export function parseHash(hash) {
   const redirected = redirectHash(hash);
   const source = redirected || (hash ? hash : "#/map");
-  const { path, params } = splitHash(source.startsWith("#") ? source : `#${source}`);
+  let { path, params } = splitHash(source.startsWith("#") ? source : `#${source}`);
   const route = emptyRoute();
   route.ws = params.get("ws") || "";
   route.q = params.get("q") || "";
 
+  if (path.startsWith("configure/")) route.section = "configure";
+  const currentPaths = { running: "agents", "running/agents": "agents", "running/usage": "usage", "running/runs": "runs", "running/schedules": "schedules", "running/health": "health", "configure/agents": "agents", "configure/skills": "skills", "configure/mcp": "mcp", "configure/runtime": "configure" };
+  if (path === "configure/runtime") route.section = "runtime";
+  if (path === "running/changes/new") path = "agents/plan/new";
+  else if (path === "running/changes" || path.startsWith("running/changes/")) path = path.replace("running/changes", "agents/plans");
+  path = currentPaths[path] || path;
   const sub = agentsPlan(path);
   if (sub) {
     route.view = "agents";
@@ -162,6 +171,7 @@ export function parseHash(hash) {
   else if (path === "skills") route.view = "skills";
   else if (path === "mcp") route.view = "mcp";
   else if (path === "usage") route.view = "usage";
+  else if (["configure", "runs", "schedules", "health", "settings"].includes(path)) route.view = path;
   else route.view = "map";
 
   if (route.view === "map") {
@@ -295,6 +305,12 @@ export function formatHash(route) {
     if (r.mcpAssigned) p.set("assigned", "1");
     if (r.mcpTidy) p.set("tidy", "1");
   }
+  if (path === "agents/plan/new") path = "running/changes/new";
+  else if (path === "agents/plans" || path.startsWith("agents/plans/")) path = path.replace("agents/plans", "running/changes");
+  else if (path === "agents") path = r.section === "configure" ? "configure/agents" : "running";
+  else if (path === "skills" || path === "mcp") path = `configure/${path}`;
+  else if (["usage", "runs", "schedules", "health"].includes(path)) path = `running/${path}`;
+  else if (path === "configure" && r.section === "runtime") path = "configure/runtime";
   return withQuery(path, p);
 }
 
@@ -313,12 +329,13 @@ export function canonicalHash(hash) {
 export function historyWrite(currentHash, nextHash, patch) {
   if (canonicalHash(currentHash) === canonicalHash(nextHash)) return "noop";
   const keys = patch && typeof patch === "object" ? Object.keys(patch) : [];
-  if (keys.some((key) => key === "view" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind")) return "push";
+  if (keys.some((key) => key === "view" || key === "section" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind")) return "push";
   return "replace";
 }
 
 export function applyPatch(route, patch) {
   const next = { ...emptyRoute(), ...route, ...patch };
+  if (patch.view && patch.view !== route.view && !("section" in patch)) next.section = "";
   if (patch.view && patch.view !== route.view && !Object.prototype.hasOwnProperty.call(patch, "layer")) {
     next.layer = "";
     next.gov = false;
@@ -366,4 +383,11 @@ export function applyPatch(route, patch) {
 
 export function locationHash(hash) {
   return `${location.pathname}${location.search}${hash}`;
+}
+
+export function navGroup(route) {
+  if (["issues", "decide"].includes(route.view)) return "issues";
+  if (["skills", "mcp", "configure"].includes(route.view) || route.section === "configure") return "configure";
+  if (["agents", "usage", "runs", "schedules", "health"].includes(route.view)) return "running";
+  return route.view;
 }

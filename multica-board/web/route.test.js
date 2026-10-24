@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyPatch, formatHash, historyWrite, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, formatHash, navGroup, historyWrite, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
 
 test("runtime deep links survive initial load and whitelist follows payload columns", () => {
   assert.equal(parseHash("#/skills?tool=grok").tool, "grok");
@@ -17,23 +17,23 @@ test("#/issues stays", () => {
   assert.equal(redirectHash("#/issues?ws=acm-lab&q=桥"), null);
 });
 
-test("#/agents stays", () => {
-  assert.equal(redirectHash("#/agents"), null);
-  assert.equal(redirectHash("#/agents?group=provider&failed=1"), null);
+test("#/agents redirects to running", () => {
+  assert.equal(redirectHash("#/agents"), "#/running");
+  assert.equal(redirectHash("#/agents?group=provider&failed=1"), "#/running?group=provider&failed=1");
 });
 
-test("#/skills stays", () => {
-  assert.equal(redirectHash("#/skills"), null);
-  assert.equal(redirectHash("#/skills?q=guard"), null);
+test("#/skills redirects to configure", () => {
+  assert.equal(redirectHash("#/skills"), "#/configure/skills");
+  assert.equal(redirectHash("#/skills?q=guard"), "#/configure/skills?q=guard");
 });
 
-test("#/usage stays", () => {
-  assert.equal(redirectHash("#/usage"), null);
-  assert.equal(redirectHash("#/usage?q=hermes"), null);
+test("#/usage redirects to running usage", () => {
+  assert.equal(redirectHash("#/usage"), "#/running/usage");
+  assert.equal(redirectHash("#/usage?q=hermes"), "#/running/usage?q=hermes");
   const route = parseHash("#/usage?q=hermes");
   assert.equal(route.view, "usage");
   assert.equal(route.q, "hermes");
-  assert.equal(formatHash(route), "#/usage?q=hermes");
+  assert.equal(formatHash(route), "#/running/usage?q=hermes");
   assert.equal(applyPatch({ view: "map" }, { view: "usage" }).view, "usage");
 });
 
@@ -46,7 +46,7 @@ test("skills filters round-trip", () => {
   assert.equal(route.custom, true);
   assert.equal(route.debt, true);
   assert.equal(route.skillGroup, "tool");
-  assert.equal(formatHash(route), "#/skills?q=vis&source=runtime_plugin&status=version_changed&tool=codex&custom=1&debt=1&group=tool");
+  assert.equal(formatHash(route), "#/configure/skills?q=vis&source=runtime_plugin&status=version_changed&tool=codex&custom=1&debt=1&group=tool");
 });
 
 test("#/l5/attention goes to issues", () => {
@@ -55,11 +55,11 @@ test("#/l5/attention goes to issues", () => {
 });
 
 test("#/l2/agents goes to agents", () => {
-  assert.equal(redirectHash("#/l2/agents"), "#/agents");
+  assert.equal(redirectHash("#/l2/agents"), "#/running");
 });
 
 test("#/l3/skills goes to skills", () => {
-  assert.equal(redirectHash("#/l3/skills"), "#/skills");
+  assert.equal(redirectHash("#/l3/skills"), "#/configure/skills");
 });
 
 test("#/lN and #/lN/issues keep scope and land on the layer", () => {
@@ -118,7 +118,7 @@ test("parse keeps decide, issues, and agent params", () => {
   assert.equal(agents.view, "agents");
   assert.equal(agents.group, "provider");
   assert.equal(agents.failedOnly, true);
-  assert.equal(formatHash(agents), "#/agents?group=provider&provider=codex&failed=1&offline=1&archived=1");
+  assert.equal(formatHash(agents), "#/running?group=provider&provider=codex&failed=1&offline=1&archived=1");
 });
 
 test("legacy hash parses as the destination, so a refresh stays there", () => {
@@ -140,23 +140,23 @@ test("switching views by number does not keep the previous layer filter", () => 
 
 test("workspace chip, clear, and tab changes push one history step", () => {
   assert.equal(historyWrite("#/issues", "#/issues?ws=acm-lab", { ws: "acm-lab" }), "push");
-  assert.equal(historyWrite("#/agents?ws=acm-lab", "#/agents", { ws: "" }), "push");
-  assert.equal(historyWrite("#/issues?ws=acm-lab", "#/agents?ws=acm-lab", { view: "agents" }), "push");
-  assert.equal(historyWrite("#/map", "#/skills", { view: "skills" }), "push");
+  assert.equal(historyWrite("#/agents?ws=acm-lab", "#/running", { ws: "" }), "push");
+  assert.equal(historyWrite("#/issues?ws=acm-lab", "#/running?ws=acm-lab", { view: "agents" }), "push");
+  assert.equal(historyWrite("#/map", "#/configure/skills", { view: "skills" }), "push");
 });
 
 test("repeat clicks, refreshes, and equivalent deep links do not add history", () => {
   assert.equal(historyWrite("#/issues?ws=clipvibe", "#/issues?ws=clipvibe", { ws: "clipvibe" }), "noop");
-  assert.equal(historyWrite("#/skills", "#/skills", { view: "skills" }), "noop");
+  assert.equal(historyWrite("#/skills", "#/configure/skills", { view: "skills" }), "noop");
   assert.equal(historyWrite("#/issues", "#/issues", { ws: "" }), "noop");
   assert.equal(historyWrite("#/issues?q=a&ws=acm-lab", "#/issues?ws=acm-lab&q=a", { view: "issues" }), "noop");
-  assert.equal(historyWrite("#/l2/agents", "#/agents", { view: "agents" }), "noop");
+  assert.equal(historyWrite("#/l2/agents", "#/running", { view: "agents" }), "noop");
 });
 
 test("search and other controls replace the current entry", () => {
   assert.equal(historyWrite("#/issues?ws=acm-lab", "#/issues?ws=acm-lab&q=a", { q: "a" }), "replace");
   assert.equal(historyWrite("#/issues", "#/issues?layer=l3", { layer: "l3" }), "replace");
-  assert.equal(historyWrite("#/agents", "#/agents?failed=1", { failedOnly: true }), "replace");
+  assert.equal(historyWrite("#/agents", "#/running?failed=1", { failedOnly: true }), "replace");
 });
 
 test("back and forward restore each chip, clear, and tab step", () => {
@@ -192,10 +192,10 @@ test("back and forward restore each chip, clear, and tab step", () => {
   assert.equal(commit({ ws: "" }), "push");
   assert.equal(commit({ view: "agents" }), "noop");
   assert.equal(commit({ q: "桥" }), "replace");
-  assert.equal(stack[index], "#/agents?q=%E6%A1%A5");
+  assert.equal(stack[index], "#/running?q=%E6%A1%A5");
 
   back();
-  assert.equal(formatHash(route), "#/agents?ws=acm-lab");
+  assert.equal(formatHash(route), "#/running?ws=acm-lab");
   back();
   assert.equal(formatHash(route), "#/issues?ws=acm-lab");
   back();
@@ -205,16 +205,16 @@ test("back and forward restore each chip, clear, and tab step", () => {
   assert.equal(route.ws, "acm-lab");
 
   assert.equal(commit({ view: "skills" }), "push");
-  assert.equal(stack[index], "#/skills?ws=acm-lab");
+  assert.equal(stack[index], "#/configure/skills?ws=acm-lab");
   assert.equal(stack.includes("#/agents?q=%E6%A1%A5"), false);
   assert.equal(index, stack.length - 1);
 });
 
 test("switch-plan routes stay on Agents and round-trip", () => {
-  assert.equal(redirectHash("#/agents/plan/new"), null);
-  assert.equal(redirectHash("#/agents/plans"), null);
-  assert.equal(redirectHash("#/agents/plans/hist"), null);
-  assert.equal(redirectHash("#/agents?plan=1&sel=aaa,bbb"), null);
+  assert.equal(redirectHash("#/agents/plan/new"), "#/running/changes/new");
+  assert.equal(redirectHash("#/agents/plans"), "#/running/changes");
+  assert.equal(redirectHash("#/agents/plans/hist"), "#/running/changes/hist");
+  assert.equal(redirectHash("#/agents?plan=1&sel=aaa,bbb"), "#/running?plan=1&sel=aaa%2Cbbb");
 
   const selecting = parseHash("#/agents?plan=1&group=provider&failed=1&sel=aaa,bbb");
   assert.equal(selecting.view, "agents");
@@ -236,7 +236,7 @@ test("switch-plan routes stay on Agents and round-trip", () => {
   assert.equal(compose.model, "set:gpt");
   assert.equal(compose.effort, "clear");
   assert.equal(compose.tier, "omit");
-  assert.equal(formatHash(compose), "#/agents/plan/new?sel=aaa%2Cbbb&rt=rt-1&model=set%3Agpt&effort=clear");
+  assert.equal(formatHash(compose), "#/running/changes/new?sel=aaa%2Cbbb&rt=rt-1&model=set%3Agpt&effort=clear");
   const restored = parseHash("#/agents/plan/new?from=hist&sel=aaa&model=conflict");
   assert.equal(restored.fromPlan, "hist");
   assert.equal(restored.model, "conflict");
@@ -247,9 +247,9 @@ test("switch-plan routes stay on Agents and round-trip", () => {
   assert.equal(review.planPage, "review");
   assert.equal(review.planId, "hist");
   assert.equal(review.bucket, "blocked");
-  assert.equal(formatHash(review), "#/agents/plans/hist?bucket=blocked");
+  assert.equal(formatHash(review), "#/running/changes/hist?bucket=blocked");
   assert.equal(parseHash("#/agents/plans?fix=empty").planFix, "empty");
-  assert.equal(formatHash(parseHash("#/agents/plans?fix=empty")), "#/agents/plans?fix=empty");
+  assert.equal(formatHash(parseHash("#/agents/plans?fix=empty")), "#/running/changes?fix=empty");
 });
 
 test("leaving Agents clears the plan subview, and plan steps push history", () => {
@@ -259,14 +259,14 @@ test("leaving Agents clears the plan subview, and plan steps push history", () =
   assert.equal(map.planId, "");
   assert.equal(map.fromPlan, "");
   assert.equal(formatHash(map), "#/map");
-  assert.equal(historyWrite("#/agents?plan=1&sel=aaa", "#/agents/plan/new?sel=aaa", { planPage: "new", planMode: false }), "push");
-  assert.equal(historyWrite("#/agents/plan/new?sel=aaa", "#/agents?plan=1&sel=aaa", { planPage: "", planMode: true }), "push");
-  assert.equal(historyWrite("#/agents/plans", "#/agents/plans/hist", { planPage: "review", planId: "hist" }), "push");
-  assert.equal(historyWrite("#/agents?plan=1&sel=aaa", "#/agents?plan=1&sel=aaa,bbb", { sel: "aaa,bbb" }), "replace");
+  assert.equal(historyWrite("#/agents?plan=1&sel=aaa", "#/running/changes/new?sel=aaa", { planPage: "new", planMode: false }), "push");
+  assert.equal(historyWrite("#/agents/plan/new?sel=aaa", "#/running?plan=1&sel=aaa", { planPage: "", planMode: true }), "push");
+  assert.equal(historyWrite("#/agents/plans", "#/running/changes/hist", { planPage: "review", planId: "hist" }), "push");
+  assert.equal(historyWrite("#/agents?plan=1&sel=aaa", "#/running?plan=1&sel=aaa,bbb", { sel: "aaa,bbb" }), "replace");
 });
 
 test("number keys follow the top bar, and [ ] walk the layers", () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 6].map((n) => viewForKey(String(n))), ["map", "decide", "issues", "agents", "skills", "mcp"]);
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map((n) => viewForKey(String(n))), ["issues", "agents", "configure", "map", null, null]);
   assert.equal(stepLayer("l5", "next"), "l4");
   assert.equal(stepLayer("l1", "next"), "l5");
   assert.equal(stepLayer("l1", "prev"), "l2");
@@ -280,27 +280,27 @@ test("agents subviews round-trip and leaving the page clears them", () => {
   assert.equal(bots.kind, "bots");
   assert.equal(bots.botLinked, true);
   assert.equal(bots.q, "职责");
-  assert.equal(formatHash(bots), "#/agents?ws=alpha-lab&q=%E8%81%8C%E8%B4%A3&kind=bots&linked=1");
+  assert.equal(formatHash(bots), "#/running?ws=alpha-lab&q=%E8%81%8C%E8%B4%A3&kind=bots&linked=1");
   const instructions = parseHash("#/agents?has_instructions=1");
   assert.equal(instructions.hasInstructions, true);
   assert.equal(instructions.kind, "");
-  assert.equal(formatHash(instructions), "#/agents?has_instructions=1");
-  assert.equal(formatHash(parseHash("#/agents?plan=1")), "#/agents?plan=1");
+  assert.equal(formatHash(instructions), "#/running?has_instructions=1");
+  assert.equal(formatHash(parseHash("#/agents?plan=1")), "#/running?plan=1");
   const left = applyPatch(bots, { view: "map" });
   assert.equal(left.kind, "");
   assert.equal(left.botLinked, false);
   assert.equal(formatHash(left), "#/map?ws=alpha-lab&q=%E8%81%8C%E8%B4%A3");
-  assert.equal(historyWrite("#/agents", "#/agents?kind=bots", { kind: "bots" }), "push");
-  assert.equal(historyWrite("#/agents", "#/agents?has_instructions=1", { hasInstructions: true }), "replace");
+  assert.equal(historyWrite("#/agents", "#/running?kind=bots", { kind: "bots" }), "push");
+  assert.equal(historyWrite("#/agents", "#/running?has_instructions=1", { hasInstructions: true }), "replace");
 });
 
 test("cloud pseudo source round-trips and bogus sources still drop", () => {
   const route = parseHash("#/skills?source=cloud");
   assert.equal(route.source, "cloud");
-  assert.equal(formatHash(route), "#/skills?source=cloud");
+  assert.equal(formatHash(route), "#/configure/skills?source=cloud");
   assert.equal(parseHash("#/skills?source=cloud&status=stale").skillStatus, "stale");
   assert.equal(parseHash("#/skills?source=bogus").source, "");
-  assert.equal(formatHash(parseHash("#/skills?source=bogus")), "#/skills");
+  assert.equal(formatHash(parseHash("#/skills?source=bogus")), "#/configure/skills");
 });
 
 test("unrecorded reconciliation filter round trips through a deep link", () => {
@@ -327,16 +327,16 @@ test("mcp route: parse, serialize, whitelist, legacy drop and l3 redirect", () =
   assert.equal(r.mcpTidy, true);
   assert.equal(r.ws, "alpha-lab");
   assert.equal(r.q, "lin");
-  assert.equal(formatHash(r), "#/mcp?ws=alpha-lab&q=lin&source=both&status=differs&tool=cursor&group=tool&assigned=1&tidy=1");
+  assert.equal(formatHash(r), "#/configure/mcp?ws=alpha-lab&q=lin&source=both&status=differs&tool=cursor&group=tool&assigned=1&tidy=1");
   const legacy = parseHash("#/mcp?view=list&issue=shadowed&archived=1");
   assert.equal(legacy.mcpView, undefined);
-  assert.equal(formatHash(legacy), "#/mcp");
+  assert.equal(formatHash(legacy), "#/configure/mcp");
   const bad = parseHash("#/mcp?source=nope&status=nope&group=nope");
   assert.equal(bad.source, "");
   assert.equal(bad.mcpStatus, "");
   assert.equal(bad.mcpGroup, "source");
-  assert.equal(formatHash(bad), "#/mcp");
-  assert.equal(redirectHash("#/l3/mcp"), "#/mcp");
+  assert.equal(formatHash(bad), "#/configure/mcp");
+  assert.equal(redirectHash("#/l3/mcp"), "#/configure/mcp");
   const left = applyPatch(parseHash("#/mcp?source=both&status=differs&tool=cursor&assigned=1&tidy=1"), { view: "skills" });
   // source is shared between boards; MCP-specific filters are cleared
   assert.equal(left.source, "both");
@@ -344,4 +344,32 @@ test("mcp route: parse, serialize, whitelist, legacy drop and l3 redirect", () =
   assert.equal(left.mcpGroup, "source");
   assert.equal(left.mcpAssigned, false);
   assert.equal(left.mcpTidy, false);
+});
+
+test("IA v2 canonical routes round trip without alias loops", () => {
+  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/schedules", "#/running/health", "#/configure", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/runtime", "#/settings"]) {
+    assert.equal(redirectHash(hash), null, hash);
+    assert.equal(formatHash(parseHash(hash)), hash, hash);
+  }
+  assert.equal(navGroup(parseHash("#/configure/agents")), "configure");
+  assert.equal(navGroup(parseHash("#/running")), "running");
+  assert.equal(navGroup(parseHash("#/decide")), "issues");
+});
+test("legacy bookmarks preserve filters and become canonical in one replacement", () => {
+  for (const [old, current] of [["agents","running"],["skills","configure/skills"],["mcp","configure/mcp"],["usage","running/usage"]]) {
+    const redirected = redirectHash(`#/${old}?ws=alpha&q=test`);
+    assert.equal(redirected, `#/${current}?ws=alpha&q=test`);
+    assert.equal(redirectHash(redirected), null);
+  }
+  const route = parseHash("#/configure/agents?ws=alpha&has_instructions=1");
+  assert.equal(route.hasInstructions, true);
+  assert.equal(formatHash(route), "#/configure/agents?ws=alpha&has_instructions=1");
+});
+
+test("switching status/configuration preserves identity and filters", () => {
+  const route = parseHash("#/configure/agents?ws=alpha&has_instructions=1");
+  const running = applyPatch(route, {view:"agents", section:""});
+  assert.equal(formatHash(running), "#/running?ws=alpha&has_instructions=1");
+  assert.equal(historyWrite(formatHash(route), formatHash(running), {section:""}), "push");
+  assert.equal(formatHash(applyPatch(route, {view:"issues"})), "#/issues?ws=alpha");
 });

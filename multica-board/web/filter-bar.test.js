@@ -65,7 +65,7 @@ test("a hidden Agents filter stays in the URL until it is cleared", () => {
   assert.equal(agents.view, "agents");
   assert.equal(agents.ws, "acm-lab");
   assert.equal(filterChrome(agents.view), "shared");
-  assert.equal(formatHash(agents), "#/agents?ws=acm-lab");
+  assert.equal(formatHash(agents), "#/running?ws=acm-lab");
 
   const decide = applyPatch(agents, { view: "decide" });
   assert.equal(decide.ws, "acm-lab");
@@ -75,14 +75,14 @@ test("a hidden Agents filter stays in the URL until it is cleared", () => {
   const skills = applyPatch(decide, { view: "skills" });
   assert.equal(skills.ws, "acm-lab");
   assert.equal(filterChrome(skills.view), "skills");
-  assert.equal(formatHash(skills), "#/skills?ws=acm-lab");
+  assert.equal(formatHash(skills), "#/configure/skills?ws=acm-lab");
 
   const cleared = applyPatch(parseHash("#/agents?ws=acm-lab&failed=1"), { ws: "" });
   assert.equal(cleared.ws, "");
   assert.equal(cleared.failedOnly, true);
-  assert.equal(formatHash(cleared), "#/agents?failed=1");
+  assert.equal(formatHash(cleared), "#/running?failed=1");
 
   const deep = parseHash("#/agents?ws=beta-coach");
   assert.equal(deep.ws, "beta-coach");
-  assert.equal(formatHash(deep), "#/agents?ws=beta-coach");
+  assert.equal(formatHash(deep), "#/running?ws=beta-coach");
 });

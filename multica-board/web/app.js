@@ -1,5 +1,5 @@
 import { runtimeIcon } from "./runtime-mark.js";
-import { QUEUED_RUN, classifyIssue } from "./attention.js";
+import { QUEUED_RUN, classifyIssue, attentionSummary } from "./attention.js";
 import {
   decideQueue,
   filterDecide,
@@ -11,7 +11,7 @@ import {
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar } from "./filter-bar.js";
-import { applyPatch, formatHash, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, formatHash, navGroup, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
 import { mapPlanDetail, mapPlanList } from "./plan-api.js";
 import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
@@ -616,7 +616,7 @@ function mcpSources() {
   return sources.map((source) =>
     h(
       "span",
-      { class: `src-chip state-${source.state}`, title: source.detail || "" },
+      { class: `src-chip state-${source.state}`, title: source.detail || (source.state === "invalid" ? "数据无效：来源内容未通过校验，请检查来源配置或重新采集。" : source.state) },
       h("span", { class: "dot" }),
       source.label,
       source.detail ? h("span", { class: "chip-detail" }, source.detail) : null,
@@ -720,25 +720,39 @@ function workspaceChip(ws) {
 
 function renderChrome() {
   document.querySelectorAll(".tab").forEach((t) => {
-    const active = t.dataset.view === state.route.view;
+    const active = t.dataset.view === navGroup(state.route);
     t.classList.toggle("active", active);
     t.setAttribute("aria-current", active ? "page" : "false");
-    t.href = formatHash(applyPatch(state.route, { view: t.dataset.view }));
+    t.href = formatHash(applyPatch(state.route, {
+      view: t.dataset.view === "running" ? "agents" : t.dataset.view,
+      section: "", planPage: "", planMode: false,
+    }));
   });
+  renderSubnav();
+  const summary = attentionSummary(state.fetchError ? null : state.meta, state.issues, now(), state.staleDays * 86400_000);
+  const issuesBadge = document.getElementById("issues-badge");
+  issuesBadge.hidden = summary.tone === "none";
+  issuesBadge.textContent = summary.text;
+  issuesBadge.title = summary.title;
+  issuesBadge.className = `tab-badge tone-${summary.tone}`;
+  issuesBadge.setAttribute("aria-label", summary.title);
   const badge = document.getElementById("decide-badge");
   if (badge) {
     const total = state.meta ? currentDecide().summary.total : 0;
-    badge.hidden = total === 0;
-    badge.textContent = total ? String(total) : "";
-    badge.title = total ? `ACM Lab 待验收和受阻 ${total} 条` : "";
+    const acm = acmWorkspace();
+    const unknown = !state.meta || Boolean(state.fetchError) || !acm || acm.collect_state !== "ok" || !acm.counts;
+    badge.hidden = !unknown && total === 0;
+    badge.textContent = unknown ? "?" : total ? String(total) : "";
+    badge.className = `tab-badge tone-${unknown ? "unknown" : "warn"}`;
+    badge.title = unknown ? "ACM Lab 数据未读取或不完整，待决定数量未知" : total ? `ACM Lab 待验收和受阻 ${total} 条` : "";
   }
   const mcpBadge = document.getElementById("mcp-badge");
   if (mcpBadge) {
-    const tone = mcpBadgeTone(state.mcp);
+    const tone = !state.mcp || state.mcp.absent ? "unknown" : mcpBadgeTone(state.mcp);
     const total = mcpBadgeOf(state.mcp);
-    const title = mcpBadgeTitle(state.mcp);
-    mcpBadge.hidden = tone === "none" || (!total && tone !== "unknown");
-    mcpBadge.textContent = tone === "unknown" ? "?" : total ? String(total) : "";
+    const title = !state.mcp || state.mcp.absent ? "MCP 尚未接入，数量未知" : mcpBadgeTitle(state.mcp);
+    mcpBadge.hidden = tone === "none" || (!total && tone !== "unknown" && state.mcp?.ok !== false);
+    mcpBadge.textContent = state.mcp?.ok === false && !state.mcp.absent ? "!" : tone === "unknown" ? "?" : total ? String(total) : "";
     mcpBadge.className = `tab-badge${tone === "bad" ? " tone-bad" : tone === "unknown" ? " tone-unknown" : ""}`;
     mcpBadge.title = title;
     mcpBadge.setAttribute("aria-label", title);
@@ -746,9 +760,11 @@ function renderChrome() {
   const skillsBadge = document.getElementById("skills-badge");
   if (skillsBadge) {
     const total = badgeOf(state.skills);
-    skillsBadge.hidden = total === 0;
-    skillsBadge.textContent = total ? String(total) : "";
-    skillsBadge.title = total ? `Skills 待处理 ${total} 条，基线债不计入` : "";
+    const unknown = !state.skills || state.skills.ok === false;
+    skillsBadge.className = `tab-badge tone-${unknown ? "unknown" : "warn"}`;
+    skillsBadge.hidden = !unknown && total === 0;
+    skillsBadge.textContent = unknown ? "?" : total ? String(total) : "";
+    skillsBadge.title = unknown ? "Skills 数据未知，尚未读取或读取失败" : total ? `Skills 待处理 ${total} 条，基线债不计入` : "";
   }
 
   const hs = health();
@@ -807,6 +823,47 @@ function renderChrome() {
     healthEl.hidden = true;
     healthEl.replaceChildren();
   }
+}
+
+function renderSubnav() {
+  const group = navGroup(state.route);
+  const links = group === "issues" ? [["#/issues", "全部 workspace"], ["#/decide", "ACM Lab 待你决定", "decide-badge"]]
+    : group === "running" ? [["#/running", "Agents 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "运行记录"], ["#/running/schedules", "定时任务"], ["#/running/health", "运行状况"]]
+    : group === "configure" ? [["#/configure", "配置台"], ["#/configure/agents", "Agents 配置"], ["#/configure/skills", "Skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/runtime", "模型 / runtime"]] : [];
+  const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
+  const el = document.getElementById("subnav");
+  el.hidden = !links.length;
+  if (el.dataset.group !== group) {
+    el.dataset.group = group;
+    el.replaceChildren(...links.map(([href, label, id]) => h("a", {
+      href, "data-path": href,
+    }, label, id ? h("span", { id, class: "tab-badge", hidden: true }) : null)));
+  }
+  el.querySelectorAll("a").forEach(link => {
+    const path = link.dataset.path;
+    const target = parseHash(path);
+    link.href = formatHash({ ...target, ws: state.route.ws, q: state.route.q });
+    link.classList.toggle("active", current === path);
+    link.setAttribute("aria-current", current === path ? "page" : "false");
+  });
+}
+
+function renderContainer() {
+  const view = state.route.view;
+  if (view === "configure") return [h("h2", null, "配置台"),
+    h("p", { class: "muted" }, "查看 Agents 配置、Skills 和 MCP；模型 / runtime 调整从独立入口进入。"),
+    h("div", { class: "config-links" }, ...[["agents", "Agents 配置"], ["skills", "Skills"], ["mcp", "MCP"], ["runtime", "模型 / runtime"]].map(([path, label]) => h("a", { href: formatHash({ ...parseHash(`#/configure/${path}`), ws: state.route.ws, q: state.route.q }) }, label))),
+    state.route.section === "runtime" ? h("p", { role: "status", class: "decide-note" }, "模型 / runtime 配置尚未接入。") : null];
+  if (view === "settings") return [h("h2", null, "设置"), h("p", null, "看板每 15 秒检查快照；停滞阈值可在「要我处理的」调整。"), h("p", { class: "muted" }, "数据源状态见顶栏。更多本地偏好设置尚未接入。")];
+  if (view === "runs") {
+    const ws = wsById();
+    const rows = state.issues.filter(it => it.latest_run && (!state.route.ws || ws.get(it.workspace_id)?.slug === state.route.ws) && matchesQuery(state.route.q, it.identifier, it.title, it.latest_run.agent_name))
+      .sort((a,b) => Date.parse(b.latest_run.created_at || 0) - Date.parse(a.latest_run.created_at || 0));
+    return [h("h2", null, "运行记录"), h("p", { class: "muted" }, "按 issue 展示缓存中的最近运行，点击查看该 issue 的运行历史；不是全部运行。"),
+      ...rows.map(it => h("div", { class: "toolbar" }, h("span", null, `${ws.get(it.workspace_id)?.name || "未知 workspace"} · ${it.identifier} · ${RUN_STATUS_LABEL[it.latest_run.status] || it.latest_run.status}`), h("button", { type: "button", onclick: () => openDrawer(it) }, "运行记录"))),
+      !rows.length ? h("p", { class: "muted" }, "当前缓存没有匹配的运行记录；不代表没有运行。") : null];
+  }
+  return [h("h2", null, view === "schedules" ? "定时任务" : "运行状况"), h("p", { class: "decide-note", role: "status" }, "未接入：尚无此视图的数据来源。")];
 }
 
 // ---------- issues view ----------
@@ -957,6 +1014,7 @@ function renderIssues() {
   const wsMap = wsById();
   const { ws: wsSlug, q } = state.route;
   const staleMs = state.staleDays * 86400_000;
+  const summary = attentionSummary(state.fetchError ? null : state.meta, state.issues, now(), staleMs);
   const lanes = Object.fromEntries(LANES.map((l) => [l.id, []]));
   const others = new Map();
 
@@ -1022,14 +1080,18 @@ function renderIssues() {
           "header",
           { class: "lane-head", title: l.hint },
           h("span", { class: "lane-title" }, l.title),
-          h("span", { class: "count" }, lanes[l.id].length),
+          h("span", { class: "count", title: "已知事项数量；来源缺失时总数未知" }, summary.incomplete ? (lanes[l.id].length ? `${lanes[l.id].length} · ?` : "?") : lanes[l.id].length),
         ),
-        lanes[l.id].length ? laneBody(l.id, lanes[l.id]) : h("div", { class: "empty" }, "无"),
+        lanes[l.id].length ? laneBody(l.id, lanes[l.id]) : h("div", { class: "empty" }, summary.incomplete ? "未知（来源不全）" : "无"),
       ),
     ),
   );
 
-  return [toolbar, board];
+  return [h("div", { class: "queue-heading" }, h("h2", null, "要我处理的"),
+    h("p", { class: "muted" }, `范围：全部 11 个 workspace；当前快照可见 ${state.meta?.workspaces?.length || 0} 个。`),
+    h("a", { href: "#/decide" }, "ACM Lab 待你决定 →")),
+    summary.incomplete ? h("p", { class: "decide-note", role: "status" }, summary.title, "。下方保留已知事项，空栏不代表没有待处理。") : null,
+    toolbar, board];
 }
 
 // ---------- runs drawer ----------
@@ -1555,7 +1617,9 @@ function onAgentKind(id) {
 function renderAgents() {
   const r = state.route;
   const planMode = r.planMode && !r.planPage && r.kind !== "bots";
-  const switcher = kindSwitch(h, { route: r, planMode, onKind: onAgentKind });
+  const switcher = h("div", { class: "toolbar" },
+    kindSwitch(h, { route: r, planMode, onKind: onAgentKind }),
+    h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行状态与配置视图" }, r.section === "configure" ? "查看运行状态 →" : "查看 Agents 配置 →"));
   if (r.kind === "bots" && !r.planPage) {
     return renderBotPage(h, {
       route: r,
@@ -2156,7 +2220,7 @@ function renderMain() {
   const listScroll = sameView ? captureScroll(main, SKILLS_LIST_SCROLL) : [];
   const windowScroll = sameView ? { top: window.scrollY || 0, left: window.scrollX || 0 } : null;
   renderedView = view;
-  const empty = emptyState();
+  const empty = ["configure", "schedules", "health", "settings"].includes(view) ? null : emptyState();
   if (empty) {
     main.replaceChildren(h("div", { class: "empty big" }, empty));
     restoreViewScroll(main, listScroll, windowScroll);
@@ -2164,6 +2228,7 @@ function renderMain() {
   }
   const ctx = atlasCtx();
   const parts =
+    ["configure", "runs", "schedules", "health", "settings"].includes(view) ? renderContainer() :
     view === "agents" && state.route.planPage
       ? renderPlanPage()
       : view === "agents"
@@ -2245,7 +2310,7 @@ document.addEventListener("keydown", (e) => {
     const next = viewForKey(e.key);
     if (next === "agents") {
       const resetPlan = state.route.planPage || state.route.planMode;
-      setRoute({ view: "agents", kind: "", ...(resetPlan ? { planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" } : {}) });
+      setRoute({ view: "agents", section: "", kind: "", ...(resetPlan ? { planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" } : {}) });
     } else setRoute({ view: next });
   }
   else if ((e.key === "[" || e.key === "]") && state.route.view === "map" && /^l[1-5]$/.test(state.route.layer)) {
@@ -2256,13 +2321,9 @@ document.addEventListener("keydown", (e) => {
 
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", (e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return;
     e.preventDefault();
-    if (t.dataset.view === "agents") {
-      const resetPlan = state.route.planPage || state.route.planMode;
-      setRoute({ view: "agents", kind: "", ...(resetPlan ? { planPage: "", planMode: false, planId: "", fromPlan: "", sel: "" } : {}) });
-      return;
-    }
-    setRoute({ view: t.dataset.view });
+    location.hash = t.getAttribute("href");
   }),
 );
 

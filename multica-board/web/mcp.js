@@ -59,11 +59,13 @@ export function badgeOf(payload) {
 }
 
 export function badgeTone(payload) {
+  if (payload?.ok === false && !payload.absent) return "bad";
   return payload?.attention?.tone || "none";
 }
 
 /** 角标 title/aria-label 文案（§5）。 */
 export function badgeTitle(payload) {
+  if (payload?.ok === false && !payload.absent) return `MCP 数据无效：${payload.error?.message || (typeof payload.error === "string" ? payload.error : "来源内容未通过校验，请检查配置或重新采集")}`;
   const att = payload?.attention || {};
   const tone = att.tone || "none";
   const counts = att.counts || {};
