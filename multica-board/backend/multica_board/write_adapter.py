@@ -81,7 +81,8 @@ class MulticaWriteAdapter:
         try:
             proc = self.runner._exec(argv, capture_output=True, text=True,
                                      timeout=self.runner.timeout_s, cwd=neutral_cwd(),
-                                     env={k: v for k, v in self.runner._env().items() if not k.startswith('MULTICA_')},
+                                     env=(self.runner._env() if self.runner.task_scoped else
+                                          {k: v for k, v in self.runner._env().items() if not k.startswith('MULTICA_')}),
                                      stdin=subprocess.DEVNULL)
         except (subprocess.TimeoutExpired, OSError):
             raise WriteError('cli_result_unknown') from None

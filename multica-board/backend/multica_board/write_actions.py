@@ -63,6 +63,15 @@ def load_policy(path, profile):
     return value
 
 
+def validate_task_scope(policy, workspaces, all_workspaces):
+    """A task-scoped writer may use only the injected workspace, never Owner fallback."""
+    task_workspace = os.environ.get("MULTICA_WORKSPACE_ID")
+    if (not os.environ.get("MULTICA_TASK_CONFIG_ROOT") or not task_workspace
+            or all_workspaces or workspaces != [task_workspace]
+            or any(t["workspace_id"] != task_workspace for t in policy["targets"])):
+        raise ValueError("task-scoped writes require exactly the current workspace")
+
+
 class Journal:
     """One writer per append-only owner-private journal, across listener processes."""
     def __init__(self, path):

@@ -64,6 +64,7 @@ def _runner(a: argparse.Namespace) -> CliRunner:
         binary=a.multica_bin,
         timeout_s=getattr(a, "timeout", 60.0),
         max_parallel=getattr(a, "max_cli", 4),
+        task_scoped=getattr(a, "task_scoped", False) is True,
     )
 
 
@@ -145,11 +146,13 @@ def cmd_serve(a: argparse.Namespace) -> int:
     journal = None
     try:
         if getattr(a, "write_policy", None):
-            from .write_actions import Journal, RuntimeActions, load_policy
+            from .write_actions import Journal, RuntimeActions, load_policy, validate_task_scope
             from .write_adapter import MulticaWriteAdapter
             if any(host not in {"127.0.0.1", "::1"} for host in hosts):
                 raise ValueError("runtime writes require loopback-only listeners")
             policy = load_policy(a.write_policy, a.profile)
+            if getattr(a, "task_scoped", False) is True:
+                validate_task_scope(policy, a.workspace, a.all_workspaces)
             journal = Journal(a.db.with_name(a.db.stem + "-write-audit.jsonl"))
             actions = RuntimeActions(MulticaWriteAdapter(runner, policy), policy, journal)
         servers = bind_servers(hosts, a.port, views, static_dir=static, plan_dir=a.plan_dir,
@@ -196,7 +199,7 @@ def cmd_serve(a: argparse.Namespace) -> int:
             thread.start()
             host, port = httpd.server_address[:2]
             shown = f"[{host}]" if ":" in host else host
-            log.info("serving read-only board on http://%s:%s (static: %s)", shown, port, static or "none")
+            log.info("serving board on http://%s:%s (runtime writes: %s; static: %s)", shown, port, actions is not None, static or "none")
             print(f"multica-board listening on http://{shown}:{port}", flush=True)
         for thread in threads:
             thread.join()
@@ -240,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--full-every", type=int, default=30, help="every Nth cycle is a full run-history pass")
     s.add_argument("--app-url", default="https://multica.ai", help="web app base URL for deep links")
     s.add_argument("--static-dir", type=Path, default=DEFAULT_STATIC, help="frontend directory served at / (default ../web)")
+    s.add_argument("--task-scoped", action="store_true", help="use the current injected task CLI identity, without Owner fallback")
     s.add_argument("--write-policy", type=Path, help="opt-in owner-private runtime write policy; loopback only")
     s.add_argument("--plan-dir", type=Path, default=DEFAULT_PLAN_DIR, help="private G1 plan directory (read-only HTTP)")
 

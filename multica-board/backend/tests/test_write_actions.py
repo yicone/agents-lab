@@ -8,10 +8,10 @@ import sys
 import tempfile
 import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from multica_board.write_actions import Journal, RuntimeActions, load_policy
+from multica_board.write_actions import Journal, RuntimeActions, load_policy, validate_task_scope
 from multica_board.write_adapter import MulticaWriteAdapter, WriteError, custom_model, project_agent, fingerprint
 from multica_board.cli_runner import CliRunner, CliResult
 
@@ -373,6 +373,23 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(args[:5], ['agent', 'update', AGENT, '--model', ''])
         self.assertEqual(json.loads(args[-1]), ['--model', 'claude-sonnet'])
 
+    def test_task_scoped_env_keeps_only_current_task_identity_without_owner_fallback(self):
+        import subprocess
+        env = {'MULTICA_TASK_CONFIG_ROOT': '/fixture/task', 'MULTICA_TOKEN': 'fixture-task',
+               'MULTICA_WORKSPACE_ID': WS, 'PATH': '/fixture/bin'}
+        with patch.dict(os.environ, env, clear=True):
+            runner = CliRunner('fixture', task_scoped=True)
+            runner._exec = Mock(return_value=subprocess.CompletedProcess([], 0, '{}', ''))
+            MulticaWriteAdapter(runner, POLICY).apply((WS, AGENT), {'model': 'next'})
+            child = runner._exec.call_args.kwargs['env']
+            self.assertEqual(child['MULTICA_TASK_CONFIG_ROOT'], '/fixture/task')
+            self.assertEqual(child['MULTICA_WORKSPACE_ID'], WS)
+            self.assertEqual(child['MULTICA_TOKEN'], 'fixture-task')
+        with patch.dict(os.environ, {}, clear=True):
+            from multica_board.cli_runner import CliError
+            with self.assertRaises(CliError):
+                CliRunner('fixture', task_scoped=True)._env()
+
     def test_subprocess_write_no_retries_env_or_secret_error(self):
         import subprocess
         runner = CliRunner('fixture', retries=10)
@@ -386,6 +403,16 @@ class AdapterTests(unittest.TestCase):
 
 
 class PolicyTests(unittest.TestCase):
+    def test_task_scope_rejects_cross_workspace_or_owner_fallback(self):
+        with patch.dict(os.environ, {'MULTICA_TASK_CONFIG_ROOT':'/fixture/task','MULTICA_WORKSPACE_ID':WS}, clear=True):
+            validate_task_scope(POLICY, [WS], False)
+            for workspaces, all_workspaces in (([OTHER],False),([WS,OTHER],False),([WS],True)):
+                with self.assertRaises(ValueError): validate_task_scope(POLICY,workspaces,all_workspaces)
+            changed = dict(POLICY,targets=[dict(POLICY['targets'][0],workspace_id=OTHER)])
+            with self.assertRaises(ValueError): validate_task_scope(changed,[WS],False)
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValueError): validate_task_scope(POLICY,[WS],False)
+
     def test_private_policy_validation(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'policy.json'

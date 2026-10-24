@@ -19,6 +19,8 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 
 写入口需要启动参数 `--write-policy /private/path/policy.json`。策略是操作者本人安装的 0600 普通文件，不允许符号链接。无策略时所有 POST 仍为 405；启用后仅接受回环监听、回环来源和与 Host 完全相同的 HTTP Origin，不开放网络写入口。浏览器必须提供独立授权码 `X-Atlas-Write-Token`（不写 URL、日志或 localStorage，离开页面清除）。策略只保存授权码 SHA-256，实际授权码应由操作者用安全随机数生成并妥善保存，不应使用下面 fixture 的固定字符串。
 
+在 Multica 托管任务内做已授权验证时，显式加 `--task-scoped`：保留当前任务注入的 CLI 身份，缺少 task config root 时失败，不回退到 Owner 的本机登录。写入策略的所有目标和 `--workspace` 必须只指向当前任务 workspace，不能配 `--all-workspaces`。普通桌面启动仍沿用默认 profile 隔离。
+
 策略字段：
 
 - `profile`：与 serve 的 `--profile` 完全一致。
@@ -38,7 +40,7 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 | rollback | `{id}` | 创建单独回滚预览，不执行；仍需 execute 确认 |
 | reconcile | `{workspace_id,agent_id}` | 只读对账 unknown，无法确定则继续锁住目标 |
 
-`changes` 白名单：`runtime_id`、`model`、`thinking_level`、`service_tier`、`custom_model`（只代表 custom_args 的 --model）。省略=保持，null=CLI 显式清除（model / thinking_level / service_tier 映射为空字符串），null 和空字符串在快照里保留区别；runtime_id 不能清除。custom_model 的 null 代表移除 --model，空字符串拒绝。其它 custom_args 不展示、不持久化；包含其它参数时禁止改写 custom_model，防止覆盖秘密或无关参数。独立模型和 custom_model 冲突时拒绝；Codex/OpenClaw 不允许 custom_model。模型/推理/Tier 支持性最终仍由 Multica 和 daemon 校验，本轮未验证真实 provider 组合。
+`changes` 白名单：`runtime_id`、`model`、`thinking_level`、`service_tier`、`custom_model`（只代表 custom_args 的 --model）。省略=保持，null=CLI 显式清除（model / thinking_level / service_tier 映射为空字符串），null 和空字符串在快照里保留区别；runtime_id 不能清除。custom_model 的 null 代表移除 --model，空字符串拒绝。其它 custom_args 不展示、不持久化；包含其它参数时禁止改写 custom_model，防止覆盖秘密或无关参数。独立模型和 custom_model 冲突时拒绝；Codex/OpenClaw 不允许 custom_model。模型/推理/Tier 支持性最终仍由 Multica 和 daemon 校验。ACM-458 真实验证发现 Copilot Free 的本机 /model 清单仅允许 Auto：gpt-5-mini、gpt-5.4 可以被写入配置，但运行被 provider 拒绝。这证明写前还需要接入与账号绑定的 runtime 模型可用性校验；现有 runtime list 不含该清单，本实现不能把配置保存成功当作模型可用或运行成功。验证先读取 provider /model，再用 auto；实际模型从 provider session 日志取证，不从配置推断。
 
 每次执行先复核身份、ownership、workspace、审计落点、agent idle、完整分页任务清单（运行与排队均阻止），复读版本与预览比较；确认单在任何检查前原子消费，过期/冲突/失败都必须重新预览。CLI 写入无重试，回执丢失或读回不符标 unknown，目标锁住直至 reconcile；多进程通过审计文件排它锁拒绝第二写入服务。重启丢弃批准码，保留 executing/unknown 锁和回滚记录。
 
