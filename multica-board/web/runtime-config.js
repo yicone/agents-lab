@@ -53,6 +53,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
   let message = "", busy = false, checked = false, generation = 0, expiry = null;
   let operations = {}, lastFocus = null;
   let availabilityChecked = false;
+  let connection = "checking", tokenRequired = null;
   const call = async (op, body) => {
     const response = await request("/api/runtime-actions/" + op, {
       method: "POST", headers: { "Content-Type": "application/json", "X-Atlas-Write-Token": token },
@@ -180,7 +181,13 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
     ];
     if (disabledReason) {
       children.push(h("p", { class: "muted" }, disabledReason));
-    } else if (!catalog) {
+    } else if (connection === "readonly") {
+      children.push(h("p", { class: "muted", role: "status" }, actionMessages.method_not_allowed));
+    } else if (connection === "checking") {
+      children.push(h("p", { role: "status" }, "正在连接…"));
+    } else if (connection === "error" || (!catalog && tokenRequired === false)) {
+      children.push(button("连接", () => void connect()));
+    } else if (!catalog && tokenRequired === true) {
       const password = h("input", { type: "password", "aria-label": "写入授权码", autocomplete: "off", oninput: e => { token = e.target.value; } });
       children.push(h("section", { class: "plan-card" },
         h("h3", null, "连接写入权限"),
@@ -221,6 +228,35 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
     root.replaceChildren(...children);
     if (plan && !hadDialog) root.querySelector('[role="dialog"] button')?.focus();
   }
+  async function connect() {
+    if (busy) return;
+    const gen = generation;
+    connection = "checking"; busy = true; message = ""; draw();
+    try {
+      const capabilityResponse = await request("/api/runtime-actions", { cache: "no-store", credentials: "omit" });
+      if (!capabilityResponse.ok) throw new Error("capability_unavailable");
+      const capability = await capabilityResponse.json();
+      if (gen !== generation) return;
+      if (capability.enabled === false) { connection = "readonly"; return; }
+      if (capability.enabled !== true) throw new Error("capability_unknown");
+      const featureResponse = await request("/api/features", { cache: "no-store", credentials: "omit" });
+      if (!featureResponse.ok) throw new Error("features_unavailable");
+      const features = await featureResponse.json();
+      if (gen !== generation) return;
+      if (typeof features.write_token_required !== "boolean") throw new Error("features_unknown");
+      tokenRequired = features.write_token_required;
+      connection = "ready";
+      if (!tokenRequired) catalog = await call("catalog", {});
+      if (gen !== generation) { catalog = null; return; }
+    } catch (error) {
+      if (gen !== generation) return;
+      connection = "error";
+      message = actionMessages[error.code] || "接口不可用，请核对服务；已提交的操作请先对账。";
+    } finally {
+      if (gen === generation) { busy = false; draw(); }
+    }
+  }
   draw();
+  if (!disabledReason) void connect();
   return { element: root, dispose() { generation++; clearTimeout(expiry); token = ""; plan = null; catalog = null; result = null; root.replaceChildren(); } };
 }

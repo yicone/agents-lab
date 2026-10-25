@@ -54,6 +54,8 @@ test("unavailable preview sends an acknowledgement bound to its id only after bo
   const calls = [];
   let seq = 0;
   const view = createRuntimeConfig(h, () => ({ agents: [], runtimes: [], workspaces: [] }), async (url, options) => {
+    if (url === "/api/runtime-actions") return { ok: true, json: async () => ({ enabled: true }) };
+    if (url === "/api/features") return { ok: true, json: async () => ({ write_token_required: true }) };
     const body = JSON.parse(options.body); calls.push({ url, body });
     return { ok: true, json: async () => url.endsWith("catalog") ? { targets: [target] }
       : url.endsWith("preview") ? { id: `preview-${++seq}`, confirmation: "fixture-confirmation",
@@ -67,6 +69,7 @@ test("unavailable preview sends an acknowledgement bound to its id only after bo
   const settle = () => new Promise(resolve => setImmediate(resolve));
   const checkboxes = () => nodes(find(n => n.attrs.role === "dialog")).filter(n => n.tag === "input");
   try {
+    await settle();
     find(n => n.tag === "form").attrs.onsubmit({ preventDefault() {} }); await settle();
     button("调整配置").attrs.onclick();
     find(n => n.attrs["aria-label"] === "模型 操作").attrs.onchange({ target: { value: "set" } });
@@ -96,6 +99,8 @@ for (const field of ["model", "runtime_id", "custom_model"]) {
       runtimes: [{ id: "rt", workspace_id: "ws", name: "Runtime", status: "online" }],
       workspaces: [{ id: "ws", name: "Workspace" }],
     }), async (url, options) => {
+      if (url === "/api/runtime-actions") return { ok: true, json: async () => ({ enabled: true }) };
+      if (url === "/api/features") return { ok: true, json: async () => ({ write_token_required: true }) };
       calls.push(url);
       const changes = JSON.parse(options.body).changes;
       return { ok: true, json: async () => url.endsWith("catalog") ? { targets: [target] } : {
@@ -106,6 +111,7 @@ for (const field of ["model", "runtime_id", "custom_model"]) {
     const find = predicate => nodes(view.element).find(predicate);
     const settle = () => new Promise(resolve => setImmediate(resolve));
     try {
+      await settle();
       find(n => n.tag === "form").attrs.onsubmit({ preventDefault() {} });
       await settle();
       find(n => n.tag === "button" && text(n) === "调整配置").attrs.onclick();
@@ -127,3 +133,68 @@ for (const field of ["model", "runtime_id", "custom_model"]) {
     } finally { view.dispose(); }
   });
 }
+
+const settleConnection = () => new Promise(resolve => setImmediate(resolve));
+const emptyData = () => ({ agents: [], runtimes: [], workspaces: [] });
+const hasPassword = view => nodes(view.element).some(n => n.attrs["aria-label"] === "写入授权码");
+for (const required of [false, true]) {
+  test(`write capability loads before token gate (${required}) and never flashes a password`, async () => {
+    const calls = [];
+    const view = createRuntimeConfig(h, emptyData, async (url, options) => {
+      calls.push({ url, options });
+      return { ok: true, json: async () => url === "/api/runtime-actions" ? { enabled: true }
+        : url === "/api/features" ? { write_token_required: required } : { targets: [] } };
+    });
+    try {
+      assert.equal(hasPassword(view), false);
+      await settleConnection();
+      assert.equal(hasPassword(view), required);
+      assert.deepEqual(calls.map(c => c.url), ["/api/runtime-actions", "/api/features", ...(!required ? ["/api/runtime-actions/catalog"] : [])]);
+      if (!required) {
+        assert.ok(text(view.element).includes("策略中没有授权目标"));
+        assert.equal(calls.at(-1).options.headers["X-Atlas-Write-Token"], "");
+      }
+    } finally { view.dispose(); }
+  });
+}
+test("read-only capability suppresses token, features and catalog requests", async () => {
+  const calls = [];
+  const view = createRuntimeConfig(h, emptyData, async url => {
+    calls.push(url);
+    return { ok: true, json: async () => ({ enabled: false }) };
+  });
+  await settleConnection();
+  assert.equal(hasPassword(view), false);
+  assert.deepEqual(calls, ["/api/runtime-actions"]);
+  assert.ok(text(view.element).includes("写入口未启用"));
+  view.dispose();
+});
+for (const failure of ["capability-http", "capability-shape", "features-http", "features-shape", "catalog"]) {
+  test(`${failure} cannot invent a token requirement and can retry`, async () => {
+    let failing = true;
+    const view = createRuntimeConfig(h, emptyData, async url => {
+      if (url === "/api/runtime-actions") return { ok: !(failing && failure === "capability-http"), json: async () => failing && failure === "capability-shape" ? {} : { enabled: true } };
+      if (url === "/api/features") return { ok: !(failing && failure === "features-http"), json: async () => failing && failure === "features-shape" ? {} : { write_token_required: false } };
+      return { ok: !(failing && failure === "catalog"), status: 403, json: async () => failing && failure === "catalog" ? { error: { code: "permission_denied" } } : { targets: [] } };
+    });
+    await settleConnection();
+    assert.equal(hasPassword(view), false);
+    assert.ok(nodes(view.element).some(n => n.attrs.role === "alert"));
+    failing = false;
+    nodes(view.element).find(n => n.tag === "button" && text(n) === "连接").attrs.onclick();
+    await settleConnection();
+    assert.ok(text(view.element).includes("策略中没有授权目标"));
+    view.dispose();
+  });
+}
+test("disabled fixture and disposed component never load or redraw capabilities", async () => {
+  let calls = 0, release;
+  const disabled = createRuntimeConfig(h, emptyData, () => { calls++; }, "fixture");
+  assert.equal(calls, 0);
+  disabled.dispose();
+  const view = createRuntimeConfig(h, emptyData, () => new Promise(resolve => { release = resolve; }));
+  view.dispose();
+  release({ ok: true, json: async () => ({ enabled: true }) });
+  await settleConnection();
+  assert.deepEqual(view.element.children, []);
+});

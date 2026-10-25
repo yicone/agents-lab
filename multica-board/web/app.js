@@ -1761,7 +1761,7 @@ function renderAgents() {
   );
 
   const table = rows.length
-    ? h("div", { class: "table-wrap sticky-head" }, h("table", { class: "matrix" }, head, bodies))
+    ? h("div", { class: "table-wrap sticky-head", tabindex: 0, role: "region", "aria-label": r.section === "configure" ? "Agent 配置" : "Agent 状态" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
   const inventory = Object.entries(state.ownerInventory || {})
