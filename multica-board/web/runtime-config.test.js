@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { actionValue, collectChanges, canConfirm, createRuntimeConfig } from "./runtime-config.js";
+import { actionValue, collectChanges, canConfirm, createRuntimeConfig, availabilityText } from "./runtime-config.js";
 import { parseHash, formatHash, redirectHash } from "./route.js";
 
 test("runtime route is isolated from topbar and survives deep linking", () => {
@@ -36,6 +36,57 @@ function text(root) {
   return (root.children || []).map(x => typeof x === "object" ? text(x) : x).join(" ");
 }
 const warning = "未校验当前账号的模型可用性；保存成功不代表能运行，下一次任务可能失败，请先核对该 runtime 和账号支持的模型";
+test("three availability states and the extra checkbox fail closed", () => {
+  for (const [status, label] of [["available", "可用"], ["unavailable", "不可用"], ["unknown", "未知"]]) {
+    assert.ok(availabilityText({ status }).includes(`模型可用性：${label}`));
+  }
+  assert.ok(availabilityText(null).includes("未知"));
+  assert.ok(availabilityText({ status: "unexpected" }).includes("未知"));
+  const p = { expires_at: 100, availability: { requires_extra_confirmation: true } };
+  assert.equal(canConfirm(p, true, false, 1), false);
+  assert.equal(canConfirm(p, true, false, 1, true), true);
+  assert.equal(canConfirm(p, false, false, 1, true), false);
+  assert.equal(canConfirm(p, true, false, 100000, true), false);
+});
+
+test("unavailable preview sends an acknowledgement bound to its id only after both checks", async () => {
+  const target = { workspace_id: "ws", agent_id: "agent" };
+  const calls = [];
+  let seq = 0;
+  const view = createRuntimeConfig(h, () => ({ agents: [], runtimes: [], workspaces: [] }), async (url, options) => {
+    const body = JSON.parse(options.body); calls.push({ url, body });
+    return { ok: true, json: async () => url.endsWith("catalog") ? { targets: [target] }
+      : url.endsWith("preview") ? { id: `preview-${++seq}`, confirmation: "fixture-confirmation",
+        state: "awaiting_confirmation", target: ["ws", "agent"], changes: body.changes,
+        before: {}, after: body.changes, expires_at: Date.now() / 1000 + 60,
+        availability: { status: "unavailable", requires_extra_confirmation: true } }
+      : { state: "applied" } };
+  });
+  const find = predicate => nodes(view.element).find(predicate);
+  const button = label => find(n => n.tag === "button" && text(n) === label);
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  const checkboxes = () => nodes(find(n => n.attrs.role === "dialog")).filter(n => n.tag === "input");
+  try {
+    find(n => n.tag === "form").attrs.onsubmit({ preventDefault() {} }); await settle();
+    button("调整配置").attrs.onclick();
+    find(n => n.attrs["aria-label"] === "模型 操作").attrs.onchange({ target: { value: "set" } });
+    find(n => n.attrs["aria-label"] === "模型 目标").attrs.oninput({ target: { value: "denied-model" } });
+    button("预览差异").attrs.onclick({}); await settle();
+    assert.ok(text(view.element).includes("模型可用性：不可用"));
+    const [extra, normal] = checkboxes();
+    normal.attrs.onchange({ target: { checked: true } });
+    assert.equal(button("确认写入").disabled, true);
+    extra.attrs.onchange({ target: { checked: true } });
+    assert.equal(button("确认写入").disabled, false);
+    button("取消").attrs.onclick();
+    button("预览差异").attrs.onclick({}); await settle();
+    assert.equal(checkboxes()[0].attrs.checked, false);
+    assert.equal(button("确认写入").attrs.disabled, true);
+    checkboxes().forEach(n => n.attrs.onchange({ target: { checked: true } }));
+    button("确认写入").attrs.onclick(); await settle();
+    assert.deepEqual(calls.at(-1).body, { id: "preview-2", confirmation: "fixture-confirmation", availability_confirmation: "preview-2" });
+  } finally { view.dispose(); }
+});
 for (const field of ["model", "runtime_id", "custom_model"]) {
   test(`availability warning is visible before preview and confirmation for ${field}`, async () => {
     const target = { workspace_id: "ws", agent_id: "agent" };

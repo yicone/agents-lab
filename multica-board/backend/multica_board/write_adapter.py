@@ -73,6 +73,12 @@ class MulticaWriteAdapter:
     def __init__(self, runner, policy):
         self.runner, self.policy = runner, policy
 
+    def model_availability(self, target, after):
+        # runtime list has no provider-account model entitlement source. Local
+        # CLI login state cannot be attributed to an arbitrary target runtime.
+        # Do not launch a prompt or inspect auth files to guess that binding.
+        return None
+
     def _call(self, args, ws=None):
         argv = [self.runner.binary, '--profile', self.runner.profile,
                 '--server-url', self.policy['server_identity']]

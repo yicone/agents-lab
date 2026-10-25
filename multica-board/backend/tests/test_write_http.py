@@ -56,6 +56,25 @@ class WriteHttpTests(unittest.TestCase):
         self.assertEqual(self.request('execute', {'id':p['id'], 'confirmation':p['confirmation']})[0], 409)
         self.assertEqual(len(self.adapter.writes), 1)
 
+    def test_availability_ack_is_checked_by_http_backend(self):
+        import time
+        from test_model_availability import evidence
+        self.adapter.model_availability = lambda *_: evidence('unavailable', now=time.time(), model='next')
+        def preview():
+            status, p = self.request('preview', dict(workspace_id=WS, agent_id=AGENT, changes={'model': 'next'}))
+            self.assertEqual(status, 200)
+            self.assertEqual(p['availability']['status'], 'unavailable')
+            return p
+        p = preview()
+        status, error = self.request('execute', {'id': p['id'], 'confirmation': p['confirmation']})
+        self.assertEqual(status, 409)
+        self.assertEqual(error['error']['code'], 'availability_confirmation_required')
+        self.assertFalse(self.adapter.writes)
+        p = preview()
+        status, result = self.request('execute', {'id': p['id'], 'confirmation': p['confirmation'],
+                                                 'availability_confirmation': p['id']})
+        self.assertEqual((status, result['state']), (200, 'applied'))
+
     def test_token_origin_fetch_site_and_content_type(self):
         for headers in ({'Origin':None}, {'Origin':'null'}, {'Origin':'http://elsewhere.invalid'},
                         {'Origin':self.origin + '/path'}, {'X-Atlas-Write-Token':None},
