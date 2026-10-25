@@ -186,7 +186,7 @@
 
 - **主读数**：滚动 24 小时交付件数，严格按本文件交付件口径；正式列只计有交付台账结束证据的完整交付；历史代理列独立展示。
 - **诊断读数**：在制品数（当前正在推进的父 issue 数）；等待占比，拆成 `waiting_user`、`waiting_quota`、`waiting_agent`；另报返工和覆盖率，防止用少交付或少记录刷主读数。
-- **触发条件**：主读数低于阈值。阈值由历史回补基线决定，例如过去 4 周日均值的 70%；具体数值留给用户拍板，实施时只做参数，不写死。
+- **触发条件**：主读数低于阈值。阈值由历史回补基线决定，例如过去 4 周日均值的 70%；用户已于 2026-10-24 批准每天 **4.5 件**（代理基线日均 6.43 的 70%）；默认配置 `backend/multica_board/flow_config.json` 保存阈值、出处和 3 小时缓存有效期，可用 `--config` 指定替代配置。台账、代理各自比较，禁止相加。
 - **运行频率**：白天每 2–3 小时由 Steward 例行检查读取一次，日报记录是否触发、诊断结果、采取动作和结果；不在本文授权自动派活、换 agent 或改 issue。
 
 ### 3.2 处置映射
@@ -257,5 +257,68 @@
 8. `multica_cost` 和 `quota_consumption` 永久分两栏，不相加。价格表放在仓库里，由 Steward 维护。
 9. 基线用历史数据回补：从 Multica 现有历史读取 issue 状态流转、运行记录和评论，尽量取最近 4 周。没有历史来源的台账、额度归因、`wait_reason` 等标为 `unknown`，单独列覆盖率。接入实时采集后，再运行 2 天对账，核对回补和实时采集口径；不一致处单独说明。
 10. 默认覆盖全部 workspace。
-11. 目标值等基线完成后再单独拍板，实施时不预设阈值。
+11. 2026-10-24 用户已批准流速阈值 4.5 件/天；其它目标值仍待单独批准。
 12. `/api/changes` 和事件台账保留 90 天，不是 30 天。
+
+
+## 6. ACM-486 轻量巡检与两天实时对账
+
+### 6.1 白天每 2–3 小时读取（2026-10-25 返工版）
+
+从 `multica-board` 运行默认命令：
+
+```sh
+PYTHONPATH=backend python3 -m multica_board flow-check --json
+# 离线重放，或附加已分类的正式台账：
+PYTHONPATH=backend python3 -m multica_board flow-check --json --snapshot baseline.json --ledger ledger.json
+```
+
+默认使用 Board 同一只读 profile `desktop-api.multica.ai`，在中立 cwd 清理任务身份变量后调用 CLI；遍历所有可见 workspace 的完整分页 issue 清单，再仅读取最近 **48h 有变更**（updated_at/last_activity_at）的 issue timeline。不读取评论或 run，不刷新/修改 Board 缓存，不写 Multica，不使用任务令牌。变更元数据缺失时保守补读；updated_at 只用于筛选和排除旧候选，绝不作为完成时间。父子关系通过完整库存按 workspace+ID 归并；取消、验收、复验、纯推送/合并/部署不进入代理交付。
+
+8 个并发只读请求，总预算默认 110 秒，可用 `--budget-seconds 1..115` 收紧；每次 CLI 最多 12 秒且不重试。到期未读完/截断的 timeline 保留未知候选，不把缺数据变成零；所有子进程在返回前结束。没有缓存也走默认实时读取；`--snapshot` 才是明确的离线重放。
+
+台账、代理各自输出：
+
+- `confirmed_min`：24h 内有有效结束证据的父交付件数；这是有证据的下限，不是估算。
+- `candidates`：下限加可能在窗口内完成、但证据不足的父件数。库存/父子范围不完整时，上限为 null，已确认下限仍保留。
+- `unknown_count`：候选减已确认；上限未知时为 null。
+- `below_threshold`：下限 ≥4.5 为 false；候选上限 <4.5 为 true；区间跨过阈值或上限未知且下限不足时为 null。两栏独立，禁止相加。
+- 兼容字段 `deliveries_24h` 仅在上下界相等时输出精确总数，否则 null；定时巡检应读取 bounds 和 `below_threshold`，不再依赖这个精确值字段。
+
+hints 的 `in_progress_issues` 是推进中父 issue 数；`queued_issues` 明确等于 **todo 父 issue 数**，不是 runtime 队列长度，也不证明已获授权可派。`backlog_issues` 只是库存。
+
+`waiting_approval`、`dispatchable_backlog`、`reworked_24h` 分别给出 value、confirmed_min、candidates、unknown_count、reason。待审批缺结构化批准卡状态，等待用户也可能只是问答或手工动作，因此不从 in_review/blocked 猜审批数；可派 backlog 缺授权、依赖和实时容量证据，不把全量 backlog 冒充可派。返工下限计明确 rework 台账及 done 后重新打开（父子归并去重）；没有语义 coverage 时保留总数未知，并说明原因。旧整数字段为兼容保留。
+
+首次缓存版（2026-10-24，commit `053ffb1`）只读缓存，虽然 8.702 秒完成，但两栏精确交付均 null，Steward 明确验收 **BLOCKED**，不能作为可用巡检结果。本节为对该阻塞的返工说明；两天对账窗口及 wakeup 继续沿用 §6.2，不重启窗口。
+
+返工版一次默认实跑（2026-10-25T09:57:14.806239Z，**46.072 秒**）：11 workspaces、867 issues、191 个近 48h 变更 timeline，191 个全部成功，无采集错误。代理：confirmed_min=18、candidates=19、unknown_count=1、below_threshold=false；台账：0/29/29、below_threshold=unknown（正式台账未接入）。推进中16、todo88、backlog26；返工已确认下限3。待审批和可派数量缺上述证据，保留带理由的范围，未伪造确定数。
+
+### 6.2 已启动的观测窗口
+
+- 窗口：**2026-10-24T15:15:04.892402Z — 2026-10-26T15:15:04.892402Z**（SGT：10 月 24 日 23:15 至 26 日 23:15），左闭右开。
+- 已创建一次性平台 wakeup `01a16e7d-63f5-7ef7-85d0-6aa402d7ad73`，2026-10-26T15:16:00Z（SGT 23:16）唤醒本 issue 复核，避免本轮退出后遗留任务进程。
+- 复用已运行 Board 的 90 天 `issue_status` 变更日志，不启动隐藏后台进程、不改运行服务或 collector 配置。起点已导出 392 条最近 48h 脱敏状态观测，inventory_complete=true，来源状态 partial。起点文件只作审计锚点，不当作窗口内事件。
+- 本 issue workdir 保存 `reconcile-window.json`、`reconcile-start.json`、`reconcile-backfill-start.json`；这些是本地私有工作材料，不是交付链接，不提交原始数据。
+- **这是状态观测的两天对账启动，不是正式台账实时接入或两天验收通过。** 正式交付/返工/审批台账未接入；Board 初次基线不产事件，轮询可能漏掉两次采集间的往返迁移。Board `board-status:<seq>` 与 timeline 原生事件 ID 不同，现有 reconcile 将报告 only/unknown，不凭时间相近自动合并或伪造匹配。
+
+两天后，在同一专属 worktree，从 `multica-board` 运行（文件位置可换为自己的私有目录）：
+
+```sh
+PYTHONPATH=backend python3 -m multica_board metrics-realtime --snapshot ../../reconcile-end.json \
+  --since 2026-10-24T15:15:04.892402Z --until 2026-10-26T15:15:04.892402Z
+PYTHONPATH=backend python3 -m multica_board metrics-backfill --snapshot ../../reconcile-backfill-end.json --workers 8
+PYTHONPATH=backend python3 -m multica_board metrics-reconcile \
+  --backfill ../../reconcile-backfill-end.json --realtime ../../reconcile-end.json --event-type status \
+  --since 2026-10-24T15:15:04.892402Z --until 2026-10-26T15:15:04.892402Z
+```
+
+`metrics-realtime` 只读既有 Board 并导出近 48h 脱敏观测；复核明确传入 `--since/--until`，不受默认 48h 滑动窗口影响（日志仍须在 90 天保留期内）。全量 backfill 只在起点/终点各跑一次，不纳入频繁巡检。以回补 `status` 子集和实时状态事件对账，评论等非共同类型另列“未接入”，不要把它们误判为状态采集丢失。
+
+复核时把以下实际结果追加本节：matched、backfill_only、realtime_only、conflicting_ids、differences 的时间差/字段差、workspace/父子覆盖率、源新鲜度/采集中断、不可比较事件类型数、未接入正式台账。ID 不同、未知时间或未解释差异继续 unknown；在缺少证据的情况下不作“对账通过”判断。未来需要真实事件身份映射与正式 ledger 采集才能完成全口径验收。
+
+
+起点实测结果（2026-10-24）：全量回补完成，`complete=true`、845 issues、2,544 runs、5,617 events、errors=0。完整采集不等于完整结束证据：24h 代理候选 56 件中 45 件有证据，11 件缺结束证据，因此代理总数及触发判断仍 unknown，不能把观察到的 45 当作完整总数；正式台账未接入，同样 unknown。
+
+已用现有 `metrics-reconcile --event-type status` 对起点之前 48h（2026-10-22T15:15:04.892402Z 至 2026-10-24T15:15:04.892402Z）做一次基线对账：matched=0、backfill_only=629、realtime_only=392、conflicting_ids=0、invalid_timestamps=0、differences=[]、status=unknown。两端没有共同 ID，故没有可比较的时间差，不能把 differences=[] 解读成一致；这组数是起点校验，不是两天窗口终点结果。终点仍按上文固定窗口执行。
+
+返工验证：`PYTHONPATH=backend python3 -m unittest discover -s backend/tests -p test_flow_check.py -v` 定向 20 项通过；`PYTHONPATH=backend python3 -m unittest discover -s backend/tests` 全量 459 项通过（29.704 秒）；`git diff --check` 通过。仅 CLI/后端和文档改动，无 Web 操作路径变更。

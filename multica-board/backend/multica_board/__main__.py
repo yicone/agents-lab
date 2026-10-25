@@ -249,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from .metrics_cli import register
     register(sub, _common)
+    from .flow_check import register as register_flow
+    register_flow(sub, _common)
 
     a = p.parse_args(argv)
     logging.basicConfig(
@@ -257,6 +259,9 @@ def main(argv: list[str] | None = None) -> int:
         stream=sys.stderr,
     )
     try:
+        if a.cmd in {"flow-check", "metrics-realtime"}:
+            from .flow_check import command
+            return command(a)
         if a.cmd.startswith("metrics"):
             from .metrics_cli import command
             return command(a, _runner)
