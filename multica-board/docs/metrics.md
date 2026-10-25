@@ -263,23 +263,35 @@
 
 ## 6. ACM-486 轻量巡检与两天实时对账
 
-### 6.1 白天每 2–3 小时读取
+### 6.1 白天每 2–3 小时读取（2026-10-25 返工版）
 
-从 `multica-board` 目录运行：
+从 `multica-board` 运行默认命令：
 
 ```sh
 PYTHONPATH=backend python3 -m multica_board flow-check --json
-# 已有完整历史快照和正式台账时：
+# 离线重放，或附加已分类的正式台账：
 PYTHONPATH=backend python3 -m multica_board flow-check --json --snapshot baseline.json --ledger ledger.json
 ```
 
-默认读取 `~/.multica-board/board.sqlite` 的一致性只读事务（SQLite mode=ro），不创建 Store、不迁移、不刷新、不调用 CLI/网络。SQL 运行时间预算 45 秒；最终实跑 8.702 秒（首次约 9 秒）。只计算 24h，不展开四周/逐 workspace 报表。`--db`、`--profile` 选择既有缓存；缺文件不会创建数据库。JSON `null` 统一表示 unknown，缺数时 `below_threshold` 也为 null。
+默认使用 Board 同一只读 profile `desktop-api.multica.ai`，在中立 cwd 清理任务身份变量后调用 CLI；遍历所有可见 workspace 的完整分页 issue 清单，再仅读取最近 **48h 有变更**（updated_at/last_activity_at）的 issue timeline。不读取评论或 run，不刷新/修改 Board 缓存，不写 Multica，不使用任务令牌。变更元数据缺失时保守补读；updated_at 只用于筛选和排除旧候选，绝不作为完成时间。父子关系通过完整库存按 workspace+ID 归并；取消、验收、复验、纯推送/合并/部署不进入代理交付。
 
-台账/代理复用已有交付、父子归并、取消及代理类型排除规则。Board 缓存只有轮询观测时间，不具备完整 timeline，不能用最后观测 done 或 updated_at 冒充代理完成时间；没有新鲜完整快照时交付数保持 unknown。完整快照输入可给出确定值，超过配置时效仍为 unknown。
+8 个并发只读请求，总预算默认 110 秒，可用 `--budget-seconds 1..115` 收紧；每次 CLI 最多 12 秒且不重试。到期未读完/截断的 timeline 保留未知候选，不把缺数据变成零；所有子进程在返回前结束。没有缓存也走默认实时读取；`--snapshot` 才是明确的离线重放。
 
-提速线索按父 issue 计：`in_progress_issues` 是推进中 issue 数，`queued_issues` 是 todo 数，均不是活动 run 数。`backlog_issues` 只是库存；尚无结构化授权/依赖/容量/可派证明，`dispatchable_backlog_issues` 保持 unknown，不能把全部 backlog 宣称可派。明确 `wait_open(waiting_user)` 只证明等用户（另列 `waiting_user_issues`），不能区分问答、手工处理和待审批；未分类的 blocked/in_review 或有用户等待但无审批分类时，待审批总数 unknown。返工按过去 24h 有完整 rework coverage 的父交付去重；无 coverage 时不把无记录算作零。
+台账、代理各自输出：
 
-本轮缓存实跑（2026-10-24T15:30:54.694130Z）：台账交付 unknown、代理交付 unknown、两栏是否低于 4.5 均 unknown；推进中 13、todo 88、backlog 26；待审批、可派 backlog、24h 返工均 unknown。命令完成只代表读取成功，不表示数据完整。
+- `confirmed_min`：24h 内有有效结束证据的父交付件数；这是有证据的下限，不是估算。
+- `candidates`：下限加可能在窗口内完成、但证据不足的父件数。库存/父子范围不完整时，上限为 null，已确认下限仍保留。
+- `unknown_count`：候选减已确认；上限未知时为 null。
+- `below_threshold`：下限 ≥4.5 为 false；候选上限 <4.5 为 true；区间跨过阈值或上限未知且下限不足时为 null。两栏独立，禁止相加。
+- 兼容字段 `deliveries_24h` 仅在上下界相等时输出精确总数，否则 null；定时巡检应读取 bounds 和 `below_threshold`，不再依赖这个精确值字段。
+
+hints 的 `in_progress_issues` 是推进中父 issue 数；`queued_issues` 明确等于 **todo 父 issue 数**，不是 runtime 队列长度，也不证明已获授权可派。`backlog_issues` 只是库存。
+
+`waiting_approval`、`dispatchable_backlog`、`reworked_24h` 分别给出 value、confirmed_min、candidates、unknown_count、reason。待审批缺结构化批准卡状态，等待用户也可能只是问答或手工动作，因此不从 in_review/blocked 猜审批数；可派 backlog 缺授权、依赖和实时容量证据，不把全量 backlog 冒充可派。返工下限计明确 rework 台账及 done 后重新打开（父子归并去重）；没有语义 coverage 时保留总数未知，并说明原因。旧整数字段为兼容保留。
+
+首次缓存版（2026-10-24，commit `053ffb1`）只读缓存，虽然 8.702 秒完成，但两栏精确交付均 null，Steward 明确验收 **BLOCKED**，不能作为可用巡检结果。本节为对该阻塞的返工说明；两天对账窗口及 wakeup 继续沿用 §6.2，不重启窗口。
+
+返工版一次默认实跑（2026-10-25T09:57:14.806239Z，**46.072 秒**）：11 workspaces、867 issues、191 个近 48h 变更 timeline，191 个全部成功，无采集错误。代理：confirmed_min=18、candidates=19、unknown_count=1、below_threshold=false；台账：0/29/29、below_threshold=unknown（正式台账未接入）。推进中16、todo88、backlog26；返工已确认下限3。待审批和可派数量缺上述证据，保留带理由的范围，未伪造确定数。
 
 ### 6.2 已启动的观测窗口
 
@@ -309,4 +321,4 @@ PYTHONPATH=backend python3 -m multica_board metrics-reconcile \
 
 已用现有 `metrics-reconcile --event-type status` 对起点之前 48h（2026-10-22T15:15:04.892402Z 至 2026-10-24T15:15:04.892402Z）做一次基线对账：matched=0、backfill_only=629、realtime_only=392、conflicting_ids=0、invalid_timestamps=0、differences=[]、status=unknown。两端没有共同 ID，故没有可比较的时间差，不能把 differences=[] 解读成一致；这组数是起点校验，不是两天窗口终点结果。终点仍按上文固定窗口执行。
 
-验证：`PYTHONPATH=backend python3 -m unittest discover -s backend/tests` 全量通过；`git diff --check` 通过。仅 CLI/后端和文档改动，无 Web 操作路径变更。
+返工验证：`PYTHONPATH=backend python3 -m unittest discover -s backend/tests -p test_flow_check.py -v` 定向 20 项通过；`PYTHONPATH=backend python3 -m unittest discover -s backend/tests` 全量 459 项通过（29.704 秒）；`git diff --check` 通过。仅 CLI/后端和文档改动，无 Web 操作路径变更。
