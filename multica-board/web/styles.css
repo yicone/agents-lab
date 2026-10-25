@@ -20,6 +20,7 @@
   --ws-l: 42%;
   --ws-bg-l: 93%;
   --radius: 6px;
+  --page-gutter: 16px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font: 13px/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Noto Sans CJK SC", sans-serif;
 }
@@ -71,13 +72,13 @@ button, select, input { font: inherit; color: inherit; }
   z-index: 5;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
-  padding: 8px 16px 6px;
+  padding: 8px var(--page-gutter) 6px;
 }
 .topbar-row { display: flex; align-items: center; gap: 16px; }
 .brand { font-size: 14px; font-weight: 650; margin: 0; letter-spacing: 0.2px; display: flex; align-items: center; gap: 6px; }
 .brand-mark { width: 16px; height: 16px; flex: none; display: block; }
 .tabs { display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; max-width: 100%; }
-.tab {
+.subnav a, .tab {
   padding: 4px 10px;
   border-radius: var(--radius);
   color: var(--muted);
@@ -86,9 +87,9 @@ button, select, input { font: inherit; color: inherit; }
   align-items: center;
   white-space: nowrap;
 }
-.tab:hover { background: var(--panel-2); color: var(--text); }
-.tab.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
-.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tab:hover, .subnav a:hover { background: var(--panel-2); color: var(--text); }
+.tab.active, .subnav a.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+.subnav a:focus-visible, .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* 390px and other narrow windows: give the tab strip its own row so Skills stays on screen. */
 @media (max-width: 760px) {
@@ -146,7 +147,7 @@ button, select, input { font: inherit; color: inherit; }
 .banner-hint { font-size: 12px; }
 .banner-facts { font-size: 11px; color: var(--muted); }
 
-.health { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.health { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding-inline: var(--page-gutter); }
 .health[hidden] { display: none; }
 .scope-current { font-size: 12px; font-weight: 650; }
 .scope-note { flex: 1 0 100%; margin: 0; font-size: 12px; color: var(--muted); }
@@ -189,7 +190,16 @@ button, select, input { font: inherit; color: inherit; }
 
 /* ---------- shared ---------- */
 
-.main { padding: 12px 16px 32px; }
+.main { padding: 12px var(--page-gutter) 32px; }
+/* Page headings only; cards, sidebars and confirmation dialogs keep their own typography. */
+.main > h2,
+.main > .runtime-config > h2,
+.main > .usage-head > h2,
+.main > .atlas-guide > h2 {
+  margin-top: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 10px; font-size: 12px; }
 .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .field select {
@@ -425,7 +435,8 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .diff-del { background: color-mix(in srgb, var(--bad) 18%, transparent); }
 .skill-list { margin: 0; padding-left: 18px; }
 @media (max-width: 420px) {
-  .main { padding: 8px; }
+  :root { --page-gutter: 8px; }
+  .main { padding: 8px var(--page-gutter); }
   .drawer { width: 100vw; padding: 10px 12px 20px; }
   .bot-stat { flex-basis: 100%; }
   .seg.agents-kind { width: 100%; }
@@ -1017,22 +1028,26 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .tool-mark.off { color: var(--muted); }
 .tool-mark.off sup { font-size: 9px; color: var(--muted); margin-left: 1px; }
 
-.subnav { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+.subnav { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px var(--page-gutter); border-bottom: 1px solid var(--line); }
 .subnav[hidden] { display: none; }
-.subnav a, .config-links a { display: inline-flex; gap: 6px; align-items: center; padding: 7px 10px; color: var(--muted); text-decoration: none; border-radius: 6px; }
-.subnav a.active { color: var(--accent); background: var(--panel-2); }
-.subnav a:focus-visible, .config-links a:focus-visible { outline: 2px solid var(--accent); }
+.config-links a { display: inline-flex; gap: 6px; align-items: center; padding: 7px 10px; color: var(--muted); text-decoration: none; border-radius: 6px; }
+.config-links a:focus-visible { outline: 2px solid var(--accent); }
 .config-links { display: flex; flex-wrap: wrap; gap: 16px; }
-.queue-heading h2 { margin-bottom: 8px; }
+.queue-heading h2 { margin: 0 0 8px; font-size: 16px; font-weight: 650; }
 .tab-badge.tone-warn { background: var(--warn); color: var(--bg); }
 
 /* Scoped runtime write surface; shared chrome is owned by the navigation task. */
-.runtime-config { display: grid; gap: 12px; max-width: 1100px; margin: 0 auto; }
+.runtime-config { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; margin: 0; min-width: 0; }
 .runtime-config h2, .runtime-config h3, .runtime-config p { margin: 0; }
+.runtime-config p { max-width: 80ch; }
 .runtime-config .plan-card { display: grid; gap: 12px; }
+.runtime-config form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; max-width: 480px; }
+.runtime-config form label { display: grid; gap: 6px; flex: 0 1 360px; min-width: 0; }
 .runtime-config td, .runtime-config th { overflow-wrap: anywhere; }
 .runtime-config td input, .runtime-config td select { max-width: 100%; margin: 4px; }
 .runtime-config input, .runtime-config select { color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+.runtime-config input:not([type="checkbox"]) { width: 100%; max-width: 360px; }
+.runtime-config select { max-width: min(100%, 360px); }
 .runtime-config button { cursor: pointer; border: 1px solid var(--line); border-radius: 4px; background: var(--panel-2); color: var(--text); padding: 6px 10px; width: fit-content; }
 .runtime-config button:hover:not(:disabled) { border-color: var(--accent); }
 .runtime-config :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
