@@ -7,7 +7,7 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 ```
 
 - `backend/`：采集、缓存与只读 API（Python ≥ 3.10 标准库，无依赖；需要 `multica` CLI ≥ 0.6.2 在 `PATH` 上）。归 Builder（ACM-162）。
-- `web/`：前端静态页面（无构建、无依赖），由后端在 `/` 托管。归前端设计师（ACM-163）。
+- `web/`：前端静态页面（无构建、无依赖），由后端在 `/` 托管。归UI 设计师（ACM-163）。
 - `web/fixtures/`：契约样例响应（虚构数据），`generate.py` 重新生成。
 - `docs/api-contract.md`：前后端只读 API 契约（v0.5）。改契约先在 ACM-163 说。
 - `docs/frontend-design.md`：信息架构与交互设计。

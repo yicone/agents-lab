@@ -95,7 +95,7 @@
       "status": "in_progress",
       "status_category": "in_progress",
       "priority": "none",
-      "assignee": { "type": "agent", "id": "uuid", "name": "前端设计师" },
+      "assignee": { "type": "agent", "id": "uuid", "name": "UI 设计师" },
       "project": { "id": "uuid", "title": "Multica Board" },
       "parent_identifier": "ACM-161",
       "due_date": null,
