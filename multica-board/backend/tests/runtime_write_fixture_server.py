@@ -43,9 +43,16 @@ class FixtureViews:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8798)
-    parser.add_argument('--scenario', choices=['normal','unknown','empty','disabled'], default='normal')
+    parser.add_argument('--scenario', choices=['normal','unknown','empty','disabled','available','unavailable'], default='normal')
     args = parser.parse_args()
     adapter = FixtureAdapter()
+    if args.scenario in ('available', 'unavailable'):
+        from time import time
+        adapter.model_availability = lambda target, after: dict(
+            workspace_id=target[0], runtime_id=after['runtime_id'],
+            model=after['custom_model'] or after['model'], status=args.scenario,
+            source='account_model_list', account_bound=True, complete=True,
+            context_revision='fixture-account-v1', observed_at=time())
     adapter.mismatch = args.scenario == 'unknown'
     policy = copy.deepcopy(POLICY)
     if args.scenario == 'empty': policy['targets'] = []

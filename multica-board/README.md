@@ -51,11 +51,17 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 | catalog | `{}` | 授权范围、最近 20 个操作摘要、并发限制 |
 | status | `{id}` | 指定已执行操作的本地审计结果，无确认码 |
 | preview | `{workspace_id,agent_id,changes}` | 实时 old/new、版本、300 秒期限和一次性确认码 |
-| execute | `{id,confirmation}` | 消费确认后执行，读回相等才是 applied |
+| execute | `{id,confirmation,availability_confirmation?}` | 消费确认后执行；不可用模型须额外传同一 preview 的 id，读回相等才是 applied |
 | rollback | `{id}` | 创建单独回滚预览，不执行；仍需 execute 确认 |
 | reconcile | `{workspace_id,agent_id}` | 只读对账 unknown，无法确定则继续锁住目标 |
 
 `changes` 白名单：`runtime_id`、`model`、`thinking_level`、`service_tier`、`custom_model`（只代表 custom_args 的 --model）。省略=保持，null=CLI 显式清除（model / thinking_level / service_tier 映射为空字符串），null 和空字符串在快照里保留区别；runtime_id 不能清除。custom_model 的 null 代表移除 --model，空字符串拒绝。其它 custom_args 不展示、不持久化；包含其它参数时禁止改写 custom_model，防止覆盖秘密或无关参数。独立模型和 custom_model 冲突时拒绝；Codex/OpenClaw 不允许 custom_model。模型/推理/Tier 支持性最终仍由 Multica 和 daemon 校验。ACM-458 真实验证发现 Copilot Free 的本机 /model 清单仅允许 Auto：gpt-5-mini、gpt-5.4 可以被写入配置，但运行被 provider 拒绝。这证明写前还需要接入与账号绑定的 runtime 模型可用性校验；现有 runtime list 不含该清单，本实现不能把配置保存成功当作模型可用或运行成功。验证先读取 provider /model，再用 auto；实际模型从 provider session 日志取证，不从配置推断。
+
+**账号模型预校验（ACM-513，本地候选）**：preview 的 `availability` 包含 `status=available|unavailable|unknown`、`source`、`reason`、`observed_at` 和 `requires_extra_confirmation`。只检查合并后的目标模型（custom_model 优先）；恢复默认、Auto 不推断为可用。未知明确展示未经校验；不可用仍可继续，但必须勾选额外确认并传 `availability_confirmation=<本次 preview id>`。后端消费一次性批准并复核额外确认，前端按钮不能代替后端门禁；不可用证据也不直接拒绝写入。execute 再取证据，状态或账号上下文变化、来源丢失均要求重新预览；回滚也独立取证与确认。证据最多 300 秒，预览有效期受证据到期时间约束。
+
+证据仅来自服务端 adapter 的只读 `model_availability(target, after)`；请求不能提供证据。可信来源须完整、及时，并绑定 workspace、runtime、有效模型和非秘密账号上下文版本；普通 catalog、历史日志、目录缺项、默认登录态均不能直接证明账号权限。私有上下文绑定不进 API 或日志；来源/原因只返回固定枚举，异常和原始 provider 输出不展示。可用只表示目录允许，不能保证额度或运行成功。
+
+**当前接入范围**：生产 Multica adapter 尚无可证明账号绑定的目录接口，因此当前各生产 runtime 均保守返回 unknown，未声称已完成 provider 账号权限接入。Cursor `models` 与 Antigravity `agy models` 已只读验证能列目录，但无法证明与任意目标 runtime 同账号；Codex `model/list`、Copilot `/model`、Devin `models list` 是后续接入候选，Claude/Hermes/OMP 的通用目录也不提升为账号证据。本实现不读任何凭证文件、不启动模型任务、不自动切换登录态。三态及证据变化门禁通过 fixture 覆盖；授权码开/关均保留该门禁。
 
 每次执行先复核身份、ownership、workspace、审计落点、agent idle、完整分页任务清单（运行与排队均阻止），复读版本与预览比较；确认单在任何检查前原子消费，过期/冲突/失败都必须重新预览。CLI 写入无重试，回执丢失或读回不符标 unknown，目标锁住直至 reconcile；多进程通过审计文件排它锁拒绝第二写入服务。重启丢弃批准码，保留 executing/unknown 锁和回滚记录。回滚先核对配置指纹（包含完整 custom_args 的哈希），避免运行状态更新 updated_at 时误判配置冲突；生成新预览后，提交仍复核完整版本。配置被改动仍拒绝回滚。
 

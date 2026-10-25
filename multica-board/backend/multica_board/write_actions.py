@@ -25,6 +25,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from .features import resolve_features
+from .model_availability import MAX_AGE, assess
 from .plan_contract import server_identity
 from .write_adapter import FIELDS, WriteError, identifier
 
@@ -159,6 +160,8 @@ class RuntimeActions:
 
     def _event(self, plan, state, **extra):
         event = {k: copy.deepcopy(plan[k]) for k in ('id', 'target', 'before', 'after', 'changes', 'revision', 'rollback_of')}
+        if 'availability' in plan:
+            event['availability'] = copy.deepcopy(plan['availability'])
         event.update(state=state, at=self.clock(), auth_mode=self.auth_mode, actor_id=self.policy['actor_id'],
                      server_identity=self.policy['server_identity'], **extra)
         self.journal.append(event)
@@ -205,18 +208,22 @@ class RuntimeActions:
             if not clean:
                 raise WriteError('no_changes', 400)
             now = self.clock()
+            availability, binding = assess(getattr(self.adapter, 'model_availability', None), target, after, self.clock)
             self.previews = {k: p for k, p in self.previews.items() if p['expires_at'] > now}
             if len(self.previews) >= 100:
                 raise WriteError('too_many_previews', 429)
             plan = {'id': str(uuid4()), 'target': list(target), 'before': before['values'],
                     'after': after, 'changes': clean, 'revision': before['revision'],
-                    'rollback_of': rollback_of, 'expires_at': now + self.ttl,
-                    'confirmation': secrets.token_urlsafe(32)}
+                    'rollback_of': rollback_of, 'expires_at': min(now + self.ttl,
+                        availability['observed_at'] + MAX_AGE if binding else now + self.ttl),
+                    'confirmation': secrets.token_urlsafe(32), 'availability': availability,
+                    '_availability_binding': binding}
             self.previews[plan['id']] = plan
             self._event(plan, 'previewed')
-            return copy.deepcopy(dict(plan, state='awaiting_confirmation', actual_effect='unknown'))
+            return copy.deepcopy(dict({k: v for k, v in plan.items() if not k.startswith('_')},
+                                      state='awaiting_confirmation', actual_effect='unknown'))
 
-    def execute(self, action_id, confirmation):
+    def execute(self, action_id, confirmation, availability_confirmation=None):
         with self.lock:
             plan = self.previews.get(action_id)
             if not plan or not isinstance(confirmation, str) or not hmac.compare_digest(plan['confirmation'], confirmation):
@@ -228,6 +235,10 @@ class RuntimeActions:
                 raise WriteError('approval_expired')
             target = tuple(plan['target'])
             try:
+                if (plan['availability']['requires_extra_confirmation']
+                        and (not isinstance(availability_confirmation, str)
+                             or not hmac.compare_digest(availability_confirmation, plan['id']))):
+                    raise WriteError('availability_confirmation_required')
                 if target in self.unresolved:
                     raise WriteError('reconciliation_required')
                 current = self.adapter.read(target)
@@ -235,6 +246,11 @@ class RuntimeActions:
                     raise WriteError('cas_conflict')
                 self.adapter.validate_target(target, plan['after'])
                 self.adapter.idle(target)
+                availability, binding = assess(getattr(self.adapter, 'model_availability', None),
+                                               target, plan['after'], self.clock)
+                if (binding != plan['_availability_binding']
+                        or availability['status'] != plan['availability']['status']):
+                    raise WriteError('availability_changed')
                 # Re-read after the potentially paginated activity scan.
                 if self.adapter.read(target)['revision'] != plan['revision']:
                     raise WriteError('cas_conflict')
@@ -303,6 +319,9 @@ class RuntimeActions:
         expected = {'catalog': set(), 'status': {'id'}, 'preview': {'workspace_id', 'agent_id', 'changes'},
                     'execute': {'id', 'confirmation'}, 'rollback': {'id'},
                     'reconcile': {'workspace_id', 'agent_id'}}
+        if (operation == 'execute' and isinstance(data, dict)
+                and 'availability_confirmation' in data):
+            expected['execute'] = expected['execute'] | {'availability_confirmation'}
         if operation not in expected or not isinstance(data, dict) or set(data) != expected[operation]:
             raise WriteError('invalid_request', 400)
         if operation == 'catalog':
@@ -326,7 +345,7 @@ class RuntimeActions:
         if operation == 'execute':
             if not isinstance(data['id'], str):
                 raise WriteError('invalid_request', 400)
-            return self.execute(data['id'], data['confirmation'])
+            return self.execute(data['id'], data['confirmation'], data.get('availability_confirmation'))
         if operation == 'rollback':
             if not isinstance(data['id'], str):
                 raise WriteError('invalid_request', 400)

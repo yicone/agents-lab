@@ -21,6 +21,8 @@ export const actionMessages = {
   custom_model_unsupported: "此 runtime 不支持 custom_args 中的 --model，请使用模型字段。",
   custom_args_protected: "现有 custom_args 含其他参数，不能安全改写。请只修改独立模型字段。",
   no_changes: "没有配置变化。",
+  availability_confirmation_required: "模型不可用，需要重新预览并额外确认。",
+  availability_changed: "模型可用性或账号上下文已变化，请重新预览。",
   model_conflict: "模型字段与 custom_args 的 --model 冲突，请统一或清除其中一个。",
   snapshot_incomplete: "实时配置缺少必需字段，无法安全预览。",
   audit_scope_invalid: "审计 issue 不在目标 workspace。",
@@ -34,8 +36,15 @@ export function collectChanges(operations) {
     return !op || op.mode === "omit" ? [] : [[key, op.mode === "clear" ? null : op.value]];
   }));
 }
-export function canConfirm(plan, checked, busy, now = Date.now()) {
-  return Boolean(plan && checked && !busy && plan.expires_at * 1000 > now);
+export function canConfirm(plan, checked, busy, now = Date.now(), availabilityChecked = false) {
+  return Boolean(plan && checked && !busy && plan.expires_at * 1000 > now
+    && (!plan.availability?.requires_extra_confirmation || availabilityChecked));
+}
+
+export function availabilityText(value) {
+  if (value?.status === "available") return "模型可用性：可用（账号目录）。目录允许不保证剩余额度或下一次运行成功。";
+  if (value?.status === "unavailable") return "模型可用性：不可用（账号证据）。继续写入后，下一次任务可能失败。";
+  return "模型可用性：未知。" + MODEL_AVAILABILITY_WARNING;
 }
 
 export function createRuntimeConfig(h, data, request = fetch, disabledReason = "") {
@@ -43,6 +52,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
   let token = "", catalog = null, selected = null, plan = null, result = null;
   let message = "", busy = false, checked = false, generation = 0, expiry = null;
   let operations = {}, lastFocus = null;
+  let availabilityChecked = false;
   const call = async (op, body) => {
     const response = await request("/api/runtime-actions/" + op, {
       method: "POST", headers: { "Content-Type": "application/json", "X-Atlas-Write-Token": token },
@@ -60,7 +70,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
       const response = await job();
       if (gen !== generation) return;
       if (response.state === "awaiting_confirmation") {
-        plan = response; checked = false;
+        plan = response; checked = false; availabilityChecked = false;
         clearTimeout(expiry);
         expiry = setTimeout(() => { if (gen === generation) { message = "预览已过期，请重新预览。"; draw(); } }, Math.max(0, plan.expires_at * 1000 - Date.now()));
       } else if (response.targets) {
@@ -79,7 +89,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
   };
   const cancel = () => {
     if (busy) return;
-    clearTimeout(expiry); plan = null; checked = false; draw();
+    clearTimeout(expiry); plan = null; checked = false; availabilityChecked = false; draw();
     lastFocus?.focus();
   };
   const button = (text, onclick, disabled = busy, attrs = {}) => h("button", { type: "button", onclick, disabled, ...attrs }, text);
@@ -126,8 +136,10 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
       h("td", { class: "mono" }, displayField(key, plan.after[key]))));
     const confirm = button(plan.rollback_of ? "确认回滚" : "确认写入", () => {
       const approved = plan; checked = false;
-      void run(() => call("execute", { id: approved.id, confirmation: approved.confirmation }), { executing: true });
-    }, !canConfirm(plan, checked, busy));
+      void run(() => call("execute", { id: approved.id, confirmation: approved.confirmation,
+        ...(approved.availability?.requires_extra_confirmation && availabilityChecked
+          ? { availability_confirmation: approved.id } : {}) }), { executing: true });
+    }, !canConfirm(plan, checked, busy, Date.now(), availabilityChecked));
     return h("div", { class: "runtime-overlay" }, h("section", { class: "runtime-confirm plan-card", role: "dialog", "aria-modal": "true", "aria-labelledby": "runtime-confirm-title", onkeydown: e => {
       e.stopPropagation();
       if (e.key === "Escape") { e.stopPropagation(); cancel(); }
@@ -143,10 +155,18 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
       h("div", { class: "table-wrap" }, h("table", { class: "matrix" },
         h("thead", null, h("tr", null, ...["字段", "修改前", "修改后"].map(t => h("th", null, t)))), h("tbody", null, ...diff))),
       h("p", { class: "muted" }, "有效至 ", new Date(plan.expires_at * 1000).toLocaleTimeString(), "。提交前检查发现配置变化或活动任务时会阻止。"),
-      h("p", { class: "runtime-warning" }, MODEL_AVAILABILITY_WARNING),
+      h("p", { class: "runtime-warning", role: "status" }, availabilityText(plan.availability)),
+      plan.availability?.observed_at != null ? h("p", { class: "muted" },
+        "证据时间：", new Date(plan.availability.observed_at * 1000).toLocaleString()) : null,
+      plan.availability?.requires_extra_confirmation ? h("label", { class: "check" },
+        h("input", { type: "checkbox", checked: availabilityChecked, disabled: busy,
+          "aria-label": "仍要写入不可用模型", onchange: e => {
+            availabilityChecked = e.target.checked;
+            confirm.disabled = !canConfirm(plan, checked, busy, Date.now(), availabilityChecked);
+          } }), "我已知该账号模型不可用，仍要写入本次配置") : null,
       h("p", { class: "runtime-warning" }, "仅影响下一次运行。会话与工作目录不会迁移。提交前会复读核对。Multica CLI 没有条件更新，复读和提交之间仍可能被并发写入。读回不一致时会锁定目标，须先对账。并非所有并发改动都能检出。"),
       h("label", { class: "check" }, h("input", { type: "checkbox", checked, disabled: busy, onchange: e => {
-        checked = e.target.checked; confirm.disabled = !canConfirm(plan, checked, busy);
+        checked = e.target.checked; confirm.disabled = !canConfirm(plan, checked, busy, Date.now(), availabilityChecked);
       } }), "我已核对本次范围和逐项差异"),
       h("div", { class: "runtime-actions" }, button("取消", cancel), confirm),
       message ? h("p", { role: "alert", class: "runtime-warning" }, message) : null));
