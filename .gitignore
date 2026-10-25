@@ -11,3 +11,6 @@ scripts/cleanup-skills.sh
 .codex/**
 !.codex/skills/
 !.codex/skills/**
+
+# Read-only run-metrics snapshots and reports (local evidence, not source).
+run-metrics/out/
