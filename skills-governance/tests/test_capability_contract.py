@@ -147,7 +147,7 @@ Body.
             blocked = subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPT),
+                    str(SCRIPT), "--skil-lock", "fallback",
                     "--inventory",
                     str(inventory_path),
                     "--repo-root",
@@ -168,7 +168,7 @@ Body.
             isolated = subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPT),
+                    str(SCRIPT), "--skil-lock", "fallback",
                     "--inventory",
                     str(inventory_path),
                     "--repo-root",
@@ -184,7 +184,7 @@ Body.
             promote = subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPT),
+                    str(SCRIPT), "--skil-lock", "fallback",
                     "--inventory",
                     str(inventory_path),
                     "--repo-root",
@@ -313,7 +313,7 @@ skills:
             flagged = subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPT),
+                    str(SCRIPT), "--skil-lock", "fallback",
                     "--inventory",
                     str(inventory_path),
                     "--repo-root",
@@ -338,7 +338,7 @@ skills:
             declared = subprocess.run(
                 [
                     sys.executable,
-                    str(SCRIPT),
+                    str(SCRIPT), "--skil-lock", "fallback",
                     "--inventory",
                     str(inventory_path),
                     "--repo-root",
@@ -360,7 +360,7 @@ skills:
 
     def test_repository_flags_vaultwarden_and_undeclared_signals(self):
         report = subprocess.run(
-            [sys.executable, str(SCRIPT), "--format", "json"],
+            [sys.executable, str(SCRIPT), "--skil-lock", "fallback", "--format", "json"],
             text=True,
             capture_output=True,
             cwd=REPO,

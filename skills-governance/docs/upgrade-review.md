@@ -106,10 +106,10 @@
 报告里的 `capability_gate` 记录实际后端：
 
 - `backend: skil-lock` 且 `blocked: true`：能力面相对快照发生未批准漂移，信号为 `capability_drift`，`--gate` 退出码为 `2`。
-- `backend: fallback`：本机没有可执行的 `skil-lock`，或显式传入 `--skil-lock fallback`。`fallback` 字段固定为 `skill_guard risk signals`，`reason` 写明原因。这时仍用上面的风险信号做决定，缺二进制不等于审查通过。
-- `error: true`：指定的二进制无法执行，或 `init` / `ci` 失败、超时。失败关闭，信号为 `capability_gate_error`，不激活。
+- `backend: fallback`：固定 fork 二进制缺失或版本校验不通过，或显式传入 `--skil-lock fallback`。`fallback` 字段固定为 `skill_guard risk signals`，`reason` 写明原因。这时仍用上面的风险信号做决定，缺二进制不等于审查通过。
+- `error: true`：版本校验通过后，`init` / `ci` 无法执行、失败或超时。失败关闭，信号为 `capability_gate_error`，不激活。
 
-`--skil-lock <path>` 指向一个具体二进制。默认从 `PATH` 查找 `skil-lock`。
+`--skil-lock <path>` 指向一个具体二进制。默认读取固定提交目录，先校验 fork 版本和完整提交号；不查找 PATH。参见 README 的固定构建说明。
 
 同一轮 `init` 读到的候选 `behavior` 还要对照 `SKILL.md` 的 `capabilities` 声明。超出声明时信号是 `capability_overreach`，同样阻断激活。`capability_gate.blocked` 仍只表示漂移或调用失败；声明结果在 `capability_gate.declaration`。没有 lock behavior 时，升级报告的声明对照是 `unmeasured`，不把正则命中记成 `capability_overreach`。库存审计在无法测量且 `SKILL.md` 没有 `capabilities` 时，会用上面的 `network_behavior` / `secret_access` 模式把该 skill 标为高危。字段、隔离和提升规则见 [capability-declaration.md](capability-declaration.md)。
 
@@ -162,6 +162,6 @@
 - [GitHub CLI Skill Update](https://cli.github.com/manual/gh_skill_update)：适合 GitHub 来源的远端 SHA 检查、dry-run 和更新；
 - [SkilLock](https://github.com/skills-lock/skil-lock)：适合记录和比较 shell、URL、路径、脚本等结构化能力，并在 CI 中阻断策略违规；
 - [skillshare](https://github.com/runkids/skillshare)：适合建立跨运行时的统一来源和同步层；
-- 本仓库的 `skill_guard.py`：补足跨来源快照、暂存、来源分类、适配器路径记录、激活前审查以及没有专用能力门禁时的保守回滚保护。`skil-lock` 在 PATH 上时，它是能力漂移 gate 的后端；不在时，报告明确回退到风险信号。
+- 本仓库的 `skill_guard.py`：补足跨来源快照、暂存、来源分类、适配器路径记录、激活前审查以及没有专用能力门禁时的保守回滚保护。固定 fork 二进制校验通过时，它是能力漂移 gate 的后端；缺失或版本不符时，报告明确回退到风险信号。
 
 这些工具不能互相替代。升级应先进入暂存，差异审查通过后再激活；对于第三方来源的实际版本和语义变化，仍以来源仓库、锁文件和人工审查为准。

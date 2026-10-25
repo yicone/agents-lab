@@ -843,6 +843,8 @@ def render_text(report: dict) -> str:
             f"violations={report['summary']['violations']}"
         ),
     ]
+    if report.get("backend", {}).get("reason"):
+        lines.append("Backend: " + report["backend"]["reason"])
     for skill in report["skills"]:
         if skill["promotion"] == "allowed" and not skill["high_risk"] and not skill["violations"]:
             continue
@@ -887,7 +889,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--promote", help="exit 2 with --check when this skill cannot be promoted")
     parser.add_argument(
         "--skil-lock",
-        help="skil-lock binary used to read behavior; omit to leave behavior unmeasured",
+        help="absolute pinned fork binary; default: SKIL_LOCK_BINARY or commit-specific install",
     )
     parser.add_argument("--format", choices=("text", "json"), default="text")
     parser.add_argument("--check", action="store_true", help="exit 2 when isolation or overreach fails")
@@ -904,11 +906,8 @@ def main(argv: list[str] | None = None) -> int:
     roots = [path.expanduser().resolve() for path in args.skill_root]
     behaviors: dict = {}
     measured = False
-    if args.skil_lock and args.skil_lock != "fallback":
-        binary, preset = skill_layout.resolve_skil_lock(args.skil_lock)
-        if preset and preset.get("error"):
-            print(f"capability contract failed: {preset.get('reason')}", file=sys.stderr)
-            return 1
+    binary, preset = skill_layout.resolve_skil_lock(args.skil_lock)
+    if binary:
         scan_roots = roots or [
             directory
             for skill in inventory_skills(document)
@@ -919,6 +918,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"capability contract failed: {observe_error}", file=sys.stderr)
             return 1
     report = build_report(document, repo_root, behaviors, measured, roots or None)
+    report["backend"] = preset or {"backend": "skil-lock", "binary": binary}
     text = json.dumps(report, indent=2, ensure_ascii=False) + "\n" if args.format == "json" else render_text(report)
     sys.stdout.write(text)
     if not args.check:

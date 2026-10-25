@@ -179,7 +179,7 @@ Also run the capability declaration check. It compares `capabilities` in `SKILL.
 python3 skills-governance/scripts/capability_contract.py --format text
 ```
 
-Add `--skil-lock` when the `skil-lock` binary is available so overreach is measured. Without it, behavior stays `unmeasured`. `--check` exits 2 when a declaration is invalid, measured behavior exceeds the declaration, or a high-risk skill has no `review_time` and is neither `quarantined` nor `policy_exclusion`.
+The pinned fork binary is selected by default (see README); `--skil-lock /absolute/path` overrides its path with the same version/commit check. Missing or mismatched binaries leave behavior `unmeasured` with a recorded fallback reason. `--check` exits 2 when a declaration is invalid, measured behavior exceeds the declaration, or a high-risk skill has no `review_time` and is neither `quarantined` nor `policy_exclusion`.
 
 Do not promote a skill that fails `--promote <name> --check`. Quarantine and policy exclusion are the existing isolation states; do not invent another one. See `skills-governance/docs/capability-declaration.md`.
 

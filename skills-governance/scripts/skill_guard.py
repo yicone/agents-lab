@@ -805,7 +805,7 @@ def parser() -> argparse.ArgumentParser:
     diff.add_argument("--gate", action="store_true", help="exit 2 when a review-blocking signal is found")
     diff.add_argument(
         "--skil-lock",
-        help="skil-lock binary, or 'fallback' to keep skill_guard risk signals",
+        help="absolute pinned fork binary (default: SKIL_LOCK_BINARY or pinned install), or 'fallback'",
     )
     diff.set_defaults(func=diff_snapshot)
     staged = sub.add_parser(
@@ -837,7 +837,7 @@ def parser() -> argparse.ArgumentParser:
     )
     apply.add_argument(
         "--skil-lock",
-        help="skil-lock binary, or 'fallback' to keep skill_guard risk signals",
+        help="absolute pinned fork binary (default: SKIL_LOCK_BINARY or pinned install), or 'fallback'",
     )
     apply.add_argument(
         "--changelog-dir",
