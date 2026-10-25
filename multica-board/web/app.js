@@ -731,24 +731,17 @@ function renderChrome() {
       section: "", planPage: "", planMode: false,
     }));
   });
-  document.title = `${({ issues: "待办", running: "运行状态", configure: "配置管理", map: "地图", settings: "设置" })[navGroup(state.route)] || "Agent Atlas"} · Agent Atlas`;
+  document.title = `${({ issues: "收件箱", running: "运行监控", configure: "配置管理", map: "地图", settings: "设置" })[navGroup(state.route)] || "Agent Atlas"} · Agent Atlas`;
   renderSubnav();
-  const summary = attentionSummary(state.fetchError ? null : state.meta, state.issues, now(), state.staleDays * 86400_000);
-  const issuesBadge = document.getElementById("issues-badge");
-  issuesBadge.hidden = summary.tone === "none";
-  issuesBadge.textContent = summary.text;
-  issuesBadge.title = summary.title;
-  issuesBadge.className = `tab-badge tone-${summary.tone}`;
-  issuesBadge.setAttribute("aria-label", summary.title);
-  const badge = document.getElementById("decide-badge");
-  if (badge) {
-    const total = state.meta ? currentDecide().summary.total : 0;
-    const acm = acmWorkspace();
-    const unknown = !state.meta || Boolean(state.fetchError) || !acm || acm.collect_state !== "ok" || !acm.counts;
+  const total = state.meta ? currentDecide().summary.total : 0;
+  const acm = acmWorkspace();
+  const unknown = !state.meta || Boolean(state.fetchError) || !acm || acm.collect_state !== "ok" || !acm.counts;
+  for (const badge of [document.getElementById("issues-badge"), document.getElementById("decide-badge")].filter(Boolean)) {
     badge.hidden = !unknown && total === 0;
     badge.textContent = unknown ? "?" : total ? String(total) : "";
-    badge.className = `tab-badge tone-${unknown ? "unknown" : "warn"}`;
-    badge.title = unknown ? "ACM Lab 数据未读取或不完整，待决定数量未知" : total ? `ACM Lab 待验收和受阻 ${total} 条` : "";
+    badge.className = `tab-badge tone-${unknown ? "unknown" : "bad"}`;
+    badge.title = unknown ? "ACM Lab 数据未读取或不完整，待批准数量未知" : `ACM Lab 待批准 ${total} 条`;
+    badge.setAttribute("aria-label", badge.title);
   }
   const mcpBadge = document.getElementById("mcp-badge");
   if (mcpBadge) {
@@ -809,7 +802,7 @@ function renderChrome() {
     healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("mcp")), ...mcpSources());
   } else if (chrome === "decide") {
     healthEl.hidden = false;
-    healthEl.setAttribute("aria-label", "待决事项范围");
+    healthEl.setAttribute("aria-label", "待批准范围");
     healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("decide")));
   } else if (chrome === "shared") {
     healthEl.hidden = false;
@@ -832,8 +825,8 @@ function renderChrome() {
 
 function renderSubnav() {
   const group = navGroup(state.route);
-  const links = group === "issues" ? [["#/issues", "关注事项"], ["#/decide", "待决事项（ACM Lab）", "decide-badge"]]
-    : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/schedules", "定时任务"], ["#/running/health", "运行状况"]]
+  const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
+    : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
     : group === "configure" ? [["#/configure/agents", "Agent 配置"], ["#/configure/skills", "Skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/runtime", "模型与 Runtime"]] : [];
   const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
   const el = document.getElementById("subnav");
@@ -855,7 +848,7 @@ function renderSubnav() {
 
 function renderContainer() {
   const view = state.route.view;
-  if (view === "settings") return [h("h2", null, "设置"), h("p", null, "看板每 15 秒检查快照；停滞阈值可在「待办」调整。"), h("p", { class: "muted" }, "数据源状态见顶栏。更多本地偏好设置尚未接入。")];
+  if (view === "settings") return [h("h2", null, "设置"), h("p", null, "看板每 15 秒检查快照；停滞阈值可在「收件箱」调整。"), h("p", { class: "muted" }, "数据源状态见顶栏。更多本地偏好设置尚未接入。")];
   if (view === "runs") {
     const ws = wsById();
     const rows = recentRuns(state.issues, state.meta?.workspaces, state.route, matchesQuery);
@@ -863,7 +856,7 @@ function renderContainer() {
       ...rows.map(it => h("div", { class: "toolbar" }, h("span", null, `${ws.get(it.workspace_id)?.name || "未知 workspace"} · ${it.identifier} · ${it.title} · ${it.latest_run.agent_name || "未知 agent"} · ${absTime(it.latest_run.created_at || it.latest_run.started_at) || "未知时间"} UTC+8 · ${RUN_STATUS_LABEL[it.latest_run.status] || it.latest_run.status}`), it.url ? extLink(`${it.url}/runs`, null, "Multica 运行历史 ↗") : null, h("button", { type: "button", onclick: () => openDrawer(it) }, "查看缓存"))),
       !rows.length ? h("p", { class: "muted" }, "当前缓存没有匹配的运行记录；不代表没有运行。") : null];
   }
-  return [h("h2", null, view === "schedules" ? "定时任务" : "运行状况"), h("p", { class: "decide-note", role: "status" }, "未接入：尚无此视图的数据来源。")];
+  return [h("h2", null, view === "schedules" ? "定时任务" : "服务健康"), h("p", { class: "decide-note", role: "status" }, "未接入：尚无此视图的数据来源。")];
 }
 
 // ---------- issues view ----------
@@ -1061,11 +1054,6 @@ function renderIssues() {
         STALE_DAY_OPTIONS.map((d) => h("option", { value: d, selected: d === state.staleDays }, `${d} 天`)),
       ),
     ),
-    h(
-      "span",
-      { class: "muted", title: "不在关注栏里的打开 issue：有近期活动或有运行中的 run，以及 backlog" },
-      othersTotal ? `其余 ${othersTotal} 条打开 issue 不在关注范围（${othersDetail}）` : "所有打开 issue 都在关注范围内",
-    ),
     layerField(ready),
     matchField(ready),
   );
@@ -1088,9 +1076,10 @@ function renderIssues() {
     ),
   );
 
-  return [h("div", { class: "queue-heading" }, h("h2", null, "待办"),
+  return [h("div", { class: "queue-heading" }, h("h2", null, "全部事项"),
     h("p", { class: "muted" }, `当前 ${currentScopeLabel(state.meta?.workspaces, wsSlug)} ${Object.values(lanes).reduce((n, rows) => n + rows.length, 0)} 条${wsSlug ? "" : ` · 范围：全部 ${state.meta?.workspaces?.length || 0} 个 workspace`}`),
-    h("a", { href: "#/decide" }, "待决事项（ACM Lab） →")),
+    h("a", { href: "#/decide" }, "待批准 →"),
+    h("span", { class: "muted" }, othersTotal ? `另有 ${othersTotal} 条打开 issue 不在关注范围（${othersDetail}）` : "所有打开 issue 都在关注范围内")),
     wsSlug && summary.incomplete ? h("p", { class: "decide-note", role: "status" }, `当前 ${currentScopeLabel(state.meta?.workspaces, wsSlug)}：缓存 ${summary.count} 条 · 当前来源异常，数量未知。`) : null,
     globalSummary.incomplete ? h("p", { class: "decide-note", role: "status" }, `全局：缓存 ${globalSummary.count} 条 · ${globalSummary.unknown.length + globalSummary.missing || 1} 个来源异常。`, ...(state.meta?.workspaces || []).filter(ws => ws.collect_state !== "ok" || !ws.counts).map(ws => h("span", null, ` ${ws.name}：${absTime(ws.last_success_at) || "从未成功"} UTC+8；`)), h("span", null, ` 目录来源时间：${absTime(state.meta?.collector?.last_success_at) || "未知"} UTC+8`)) : null,
     toolbar, board];
@@ -1610,7 +1599,7 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     failCell,
     h("td", null, a.latest_run ? `${absTime(a.latest_run.created_at)} UTC+8 · ${RUN_STATUS_LABEL[a.latest_run.status] || a.latest_run.status} · ${a.latest_run.identifier || ""}` : "未知"),
     ]),
-    h("td", null, h("a", { href: formatHash({ ...state.route, view: "agents", section: state.route.section === "configure" ? "" : "configure", q: "", sel: a.id, planMode: false }) }, state.route.section === "configure" ? "查看运行状态 →" : "查看配置 →")),
+    h("td", null, h("a", { href: formatHash({ ...state.route, view: "agents", section: state.route.section === "configure" ? "" : "configure", q: "", sel: a.id, planMode: false }) }, state.route.section === "configure" ? "查看运行监控 →" : "查看配置 →")),
   );
 }
 
@@ -1628,7 +1617,7 @@ function renderAgents() {
   const planMode = r.planMode && !r.planPage && r.kind !== "bots";
   const switcher = h("div", { class: "toolbar" },
     kindSwitch(h, { route: r, planMode, onKind: onAgentKind }),
-    h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行状态与配置视图" }, r.section === "configure" ? "查看运行状态 →" : "查看 Agent 配置 →"));
+    h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行监控与配置视图" }, r.section === "configure" ? "查看运行监控 →" : "查看 Agent 配置 →"));
   if (r.kind === "bots" && !r.planPage) {
     return renderBotPage(h, {
       route: r,
@@ -1890,12 +1879,12 @@ function renderDecide() {
     h(
       "div",
       null,
-      h("h2", { class: "decide-title" }, "待决事项"),
+      h("h2", { class: "decide-title" }, "待批准"),
       h(
         "p",
         { class: "decide-sub" },
         model.acm
-          ? `范围：${model.acm.name}。待验收和受阻，等待最久的排在最前`
+          ? `范围：${model.acm.name}。待验收和受阻，等待最久的排在最前。${model.outside ? `其他 workspace 还有 ${model.outside} 条待验收 / 受阻，不在这一页。` : "其他 workspace 没有待验收或受阻。"}`
           : "范围：ACM Lab。快照里没有这个 workspace，所以这一页是空的。",
       ),
       h(
@@ -1994,15 +1983,7 @@ function renderDecide() {
     "div",
     { class: "decide-foot" },
     h("span", null, "已等待 = 进入当前状态至今；超过 14 天标红，超过 7 天标黄。≥ 表示超出状态迁移保留期，改用最后活动时间。"),
-    h(
-      "span",
-      null,
-      model.outside
-        ? `其他 workspace 还有 ${model.outside} 条待验收 / 受阻，不在这一页。`
-        : "其他 workspace 没有待验收或受阻。",
-      " ",
-      h("a", { href: "#/issues" }, "在 Issues 中查看"),
-    ),
+    h("a", { href: "#/issues" }, "在全部事项中查看"),
   );
 
   return [
@@ -2289,7 +2270,7 @@ function render() {
   const view = state.route.view;
   search.placeholder =
     state.route.view === "mcp" ? "搜索 server / 工具 / workspace / agent" :
-    view === "decide" ? "搜索待决定的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
+    view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();

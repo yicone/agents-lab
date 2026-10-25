@@ -23,7 +23,7 @@ const LAYER_SET = new Set(LAYERS.map((layer) => layer.id));
 
 export const MAP_TOOLS = {
   l5: [
-    { label: "Issues", kind: "page", href: "#/issues", signal: "issues" },
+    { label: "全部事项", kind: "page", href: "#/issues", signal: "issues" },
     { label: "每日清单", kind: "gap", gap: "未建" },
     { label: "状态桥接", kind: "gap", gap: "未建" },
   ],
@@ -310,8 +310,8 @@ export function railLinks(layerId) {
     links.push({ label: tool.label, href: tool.href, signal: tool.signal });
   }
   if (LAYER_SET.has(layerId)) {
-    links.push({ label: "Issues 中本层的关注项", href: `#/issues?layer=${layerId}` });
-    links.push({ label: "本层待决事项", href: `#/decide?layer=${layerId}` });
+    links.push({ label: "全部事项中本层的关注项", href: `#/issues?layer=${layerId}` });
+    links.push({ label: "本层待批准", href: `#/decide?layer=${layerId}` });
   }
   return links;
 }
@@ -340,7 +340,7 @@ export function layerCommands(issue) {
 
 export function groupByStatus(issues) {
   const groups = [
-    { id: "decide", title: "待决事项", items: [] },
+    { id: "decide", title: "待批准", items: [] },
     { id: "progress", title: "进行中", items: [] },
     { id: "todo", title: "Todo", items: [] },
     { id: "backlog", title: "Backlog", items: [] },

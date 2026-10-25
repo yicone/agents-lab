@@ -108,7 +108,7 @@ test("badge tone 4 states + title text", () => {
   assert.equal(badgeTone(unknownFx), "unknown");
   assert.equal(badgeTone(emptyFx), "none");
   assert.equal(badgeOf(mcpFx), mcpFx.attention.badge);
-  assert.match(badgeTitle(mcpFx), /MCP 待处理 6 条：坏了 4 · 待你处理 2/);
+  assert.match(badgeTitle(mcpFx), /MCP 待处理 6 条：坏了 4 · 待批准 2/);
   assert.match(badgeTitle(unknownFx), /个来源没读到，是否有待处理未确定/);
   const partialTitle = badgeTitle({ attention: { tone: "warn", badge: 1, partial: true, counts: { drift: 1 } }, unknown: { local_files: ["x"] } });
   assert.match(partialTitle, /有 1 个来源没读到，可能不全/);
