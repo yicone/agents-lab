@@ -183,9 +183,10 @@ class Handler(BaseHTTPRequestHandler):
                     or path.query):
                 raise WriteError("write_origin_denied", 403)
             tokens = self.headers.get_all("X-Atlas-Write-Token", [])
-            if len(tokens) != 1:
+            if len(tokens) > 1 or (actions.features['write_token_required'] and len(tokens) != 1):
                 raise WriteError("permission_denied", 403)
-            actions.authenticate(tokens[0])
+            token = tokens[0] if tokens else None
+            actions.authenticate(token)
             lengths = self.headers.get_all("Content-Length", [])
             if (self.headers.get("Transfer-Encoding") is not None or len(lengths) != 1
                     or not lengths[0].isdigit() or not 1 <= int(lengths[0]) <= 16384
@@ -203,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
                     result[key] = value
                 return result
             data = json.loads(raw, object_pairs_hook=unique)
-            result = actions.handle(path.path.removeprefix("/api/runtime-actions/"), data, tokens[0])
+            result = actions.handle(path.path.removeprefix("/api/runtime-actions/"), data, token)
         except WriteError as exc:
             self._error(exc.status, exc.code, exc.code)
             return
@@ -274,6 +275,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/runtime-actions":
                 body = {"enabled": self.server.runtime_actions is not None}
+            elif path == "/api/features":
+                from .features import resolve_features
+                actions = self.server.runtime_actions
+                body = dict(actions.features) if actions else resolve_features()
             elif path == "/api/plans" or path.startswith("/api/plans/"):
                 if urlsplit(self.path).query:
                     raise BadRequest("plan endpoints do not accept query parameters")

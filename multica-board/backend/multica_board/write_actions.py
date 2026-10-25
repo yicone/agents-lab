@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from .features import resolve_features
 from .plan_contract import server_identity
 from .write_adapter import FIELDS, WriteError, identifier
 
@@ -43,10 +44,16 @@ def load_policy(path, profile):
     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError('write policy must be an owner-only regular file')
     value = json.loads(path.read_text(encoding='utf-8'))
-    if set(value) != {'profile', 'actor_id', 'server_identity', 'token_sha256', 'targets'} or value['profile'] != profile:
+    required = {'profile', 'actor_id', 'server_identity', 'targets'}
+    if (not isinstance(value, dict) or not required <= set(value)
+            or set(value) - required - {'token_sha256', 'features'} or value['profile'] != profile):
         raise ValueError('invalid write policy or profile mismatch')
+    features = resolve_features(value.get('features', {}))
     uuid_text(value['actor_id'])
-    if server_identity(value['server_identity']) != value['server_identity'] or not re.fullmatch('[0-9a-f]{64}', value['token_sha256']):
+    digest = value.get('token_sha256')
+    if (server_identity(value['server_identity']) != value['server_identity']
+            or (features['write_token_required'] and digest is None)
+            or ('token_sha256' in value and (not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest)))):
         raise ValueError('invalid write policy binding')
     if not isinstance(value['targets'], list) or not 1 <= len(value['targets']) <= 100:
         raise ValueError('write policy requires explicit targets')
@@ -108,6 +115,8 @@ class Journal:
 class RuntimeActions:
     def __init__(self, adapter, policy, journal, *, clock=time.time, ttl=300):
         self.adapter, self.policy, self.journal = adapter, copy.deepcopy(policy), journal
+        self.features = resolve_features(self.policy.get('features', {}))
+        self.auth_mode = 'token_required' if self.features['write_token_required'] else 'token_off'
         self.clock, self.ttl = clock, min(300, max(1, ttl))
         self.lock = threading.RLock()
         self.previews = {}
@@ -126,6 +135,8 @@ class RuntimeActions:
                 self.results[event['id']] = event
 
     def authenticate(self, token):
+        if not self.features['write_token_required']:
+            return
         if not isinstance(token, str) or not hmac.compare_digest(
                 self.policy['token_sha256'], hashlib.sha256(token.encode()).hexdigest()):
             raise WriteError('permission_denied', 403)
@@ -148,13 +159,13 @@ class RuntimeActions:
 
     def _event(self, plan, state, **extra):
         event = {k: copy.deepcopy(plan[k]) for k in ('id', 'target', 'before', 'after', 'changes', 'revision', 'rollback_of')}
-        event.update(state=state, at=self.clock(), actor_id=self.policy['actor_id'],
+        event.update(state=state, at=self.clock(), auth_mode=self.auth_mode, actor_id=self.policy['actor_id'],
                      server_identity=self.policy['server_identity'], **extra)
         self.journal.append(event)
         return event
 
     def _mirror(self, plan, state):
-        record = {'action_id': plan['id'], 'actor_id': self.policy['actor_id'],
+        record = {'action_id': plan['id'], 'actor_id': self.policy['actor_id'], 'auth_mode': self.auth_mode,
                   'server_identity': self.policy['server_identity'], 'target': plan['target'],
                   'fields': sorted(plan['changes']), 'state': state,
                   'rollback_of': plan['rollback_of'], 'at': self.clock()}
