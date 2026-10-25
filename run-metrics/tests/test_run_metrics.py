@@ -8,6 +8,7 @@ from run_metrics.collect import ReadOnlyViolation, assert_readonly, collect_snap
 from run_metrics.project import project_run
 from run_metrics.report import build_report
 from run_metrics.rework import infer_rework
+from run_metrics.rules import candidate_ids, classify_failure
 from run_metrics.timeutil import parse_ts
 
 NOW = "2026-10-25T16:00:00Z"
@@ -125,7 +126,7 @@ class ReportContractTest(unittest.TestCase):
 
     def test_schema_and_windows(self):
         self.assertEqual(self.report["schema_version"], "run-metrics.v0.1")
-        self.assertEqual(self.report["rule_version"], "failure-rules.v0.1")
+        self.assertEqual(self.report["rule_version"], "failure-rules.v0.2")
         self.assertEqual(list(self.report["windows"]), ["24h", "7d", "14d"])
         self.assertEqual(self.window["issue_count"], 10)
         self.assertEqual(self.window["run_count"], 12)
@@ -167,7 +168,7 @@ class ReportContractTest(unittest.TestCase):
         self.assertEqual(hits["FR-006-CAPACITY-TEXT"], 1)
         self.assertEqual(hits["FR-090-UNMATCHED"], 1)
         self.assertEqual(hits["FR-010-PROCESS"], 0)
-        self.assertTrue(all(row["rule_version"] == "failure-rules.v0.1" for row in self.report["failure_rules"]["rules"]))
+        self.assertTrue(all(row["rule_version"] == "failure-rules.v0.2" for row in self.report["failure_rules"]["rules"]))
         quota = next(run for run in self.report["runs"] if run["run_id"] == "b1")
         self.assertEqual(quota["failure_class"], "quota")
         self.assertIs(quota["failure_recoverable"], True)
@@ -338,6 +339,231 @@ class ReworkAndCollectTest(unittest.TestCase):
         report = build_report(snapshot)
         self.assertEqual(report["windows"]["14d"]["rework"]["rework_coverage"]["inferred_count"], 1)
         self.assertEqual(report["provider_unstable_class"]["run_count"], 0)
+        self.assertIsNone(report["provider_unstable_class"]["threshold_proposal"])
+        self.assertIsNone(report["provider_unstable_class"]["deferred_to"])
+
+
+# S4 14 天窗口里的 16 条 unknown，外加 2 条被记成 process_failed 的模型配置误判。
+# 文本只保留签名，不带回放快照里的地址、令牌或 error id。
+_S4_REPLAY = (
+    (
+        "01a16667-03c4-789f-b3ed-d606c9663828",
+        "agent_error.unknown",
+        "FAILED_PRECONDITION (code 400): User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a1665e-9845-794c-b7a9-f7ab899c0422",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15fe8-ca58-77b9-b32c-ed1fcdfce44a",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15fde-25a6-7078-9dbe-9d4dc93d625b",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15fd5-a0ac-79f9-83bd-666d69194944",
+        "agent_error.unknown",
+        "location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15a39-5c66-7c8c-98b2-4077faf27206",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15a39-0f84-713f-bac2-fbeecf7b432a",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15a36-c64c-7123-a815-c4d6bec1c1e0",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a143b7-cc26-71e8-8110-9fa300d0e4dd",
+        "agent_error.unknown",
+        "User location is not supported for the API use.",
+        "unknown", "FR-090-UNMATCHED",
+        "access_denied", "FR-012-GEO-ACCESS",
+        [],
+    ),
+    (
+        "01a15d4a-c2d7-79da-87e5-c7c9c908e10d",
+        "agent_error.provider_server_error",
+        "hermes session/resume failed: Internal error (code=-32603)",
+        "unknown", "FR-090-UNMATCHED",
+        "unknown", "FR-090-UNMATCHED",
+        ["PC-004-PROVIDER-SERVER-REASON"],
+    ),
+    (
+        "01a15cf8-713c-73bc-9e9b-f88c0940b58f",
+        "agent_error.provider_server_error",
+        "hermes session/resume failed: Internal error (code=-32603)",
+        "unknown", "FR-090-UNMATCHED",
+        "unknown", "FR-090-UNMATCHED",
+        ["PC-004-PROVIDER-SERVER-REASON"],
+    ),
+    (
+        "01a15d7e-8ece-7c27-ae38-a251f348197e",
+        "agent_error.provider_server_error",
+        "hermes session/resume failed: Internal error (code=-32603)",
+        "unknown", "FR-090-UNMATCHED",
+        "unknown", "FR-090-UNMATCHED",
+        ["PC-004-PROVIDER-SERVER-REASON"],
+    ),
+    (
+        "01a13975-8352-71ab-a42f-19a049499b26",
+        "runtime_recovery",
+        "daemon restarted while task was in flight",
+        "unknown", "FR-090-UNMATCHED",
+        "runtime_recovery", "FR-015-RUNTIME-RECOVERY",
+        [],
+    ),
+    (
+        "01a13975-5f63-7ac9-a073-739b9f20e065",
+        "runtime_recovery",
+        "daemon restarted while task was in flight",
+        "unknown", "FR-090-UNMATCHED",
+        "runtime_recovery", "FR-015-RUNTIME-RECOVERY",
+        [],
+    ),
+    (
+        "01a16a5d-7753-7cd3-9f05-3b984418bd60",
+        "api_invalid_request",
+        "The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.",
+        "unknown", "FR-090-UNMATCHED",
+        "config_failed", "FR-013-CONFIG-REASON",
+        [],
+    ),
+    (
+        "01a13df9-004d-7258-b87a-2a8abf1c8243",
+        "agent_error.unknown",
+        "request failed: write: broken pipe",
+        "unknown", "FR-090-UNMATCHED",
+        "unknown", "FR-090-UNMATCHED",
+        ["PC-002-CONNECTION"],
+    ),
+    (
+        "01a16e1f-27b0-7bdb-a2f7-8b6d302b3a9f",
+        "agent_error.process_failure",
+        'copilot exited with error: exit status 1; Error: Model "gpt-5.4" from --model flag is not available.',
+        "process_failed", "FR-010-PROCESS",
+        "config_failed", "FR-014-CONFIG-TEXT",
+        [],
+    ),
+    (
+        "01a16e1b-a387-748d-acf0-f96075b54b52",
+        "agent_error.process_failure",
+        'copilot exited with error: exit status 1; Error: Model "gpt-5-mini" from --model flag is not available.',
+        "process_failed", "FR-010-PROCESS",
+        "config_failed", "FR-014-CONFIG-TEXT",
+        [],
+    ),
+)
+
+
+class FailureRulesV02ReplayTest(unittest.TestCase):
+    def test_s4_samples_change_only_the_approved_gaps(self):
+        seen = set()
+        for run_id, reason, error, _old_class, _old_rule, new_class, new_rule, candidates in _S4_REPLAY:
+            self.assertNotIn(run_id, seen)
+            seen.add(run_id)
+            hit = classify_failure("failed", "failed", error, reason)
+            self.assertEqual(hit["failure_class"], new_class, run_id)
+            self.assertEqual(hit["failure_rule_id"], new_rule, run_id)
+            self.assertNotEqual(hit["failure_class"], "provider_unstable", run_id)
+            self.assertEqual(hit["failure_evidence"]["rule_id"], new_rule, run_id)
+            self.assertEqual(hit["failure_evidence"]["rule_version"], "failure-rules.v0.2")
+            self.assertTrue(hit["failure_evidence"]["excerpt"], run_id)
+            self.assertEqual(candidate_ids(error, reason), candidates, run_id)
+        self.assertEqual(len(seen), 18)
+        self.assertEqual(len([row for row in _S4_REPLAY if row[3] == "unknown"]), 16)
+        self.assertEqual(
+            {row[0] for row in _S4_REPLAY if row[5] == "unknown"},
+            {
+                "01a15d4a-c2d7-79da-87e5-c7c9c908e10d",
+                "01a15cf8-713c-73bc-9e9b-f88c0940b58f",
+                "01a15d7e-8ece-7c27-ae38-a251f348197e",
+                "01a13df9-004d-7258-b87a-2a8abf1c8243",
+            },
+        )
+
+    def test_reason_vocab_and_ordering(self):
+        capacity = classify_failure(
+            "failed", "failed",
+            "Selected model is at capacity. Please try a different model.",
+            "agent_error.model_not_found_or_unavailable",
+        )
+        self.assertEqual(capacity["failure_rule_id"], "FR-005-CAPACITY-REASON")
+        self.assertEqual(capacity["failure_class"], "capacity")
+        auth = classify_failure(
+            "failed", "failed",
+            "authentication failed or timed out",
+            "agent_error.provider_auth_or_access",
+        )
+        self.assertEqual(auth["failure_rule_id"], "FR-007-ACCESS-REASON")
+        self.assertEqual(auth["failure_class"], "access_denied")
+        login = classify_failure(
+            "failed", "failed",
+            "cursor-agent exited with error: exit status 1; Authentication required. Please run agent login first.",
+            "agent_error.process_failure",
+        )
+        self.assertEqual(login["failure_rule_id"], "FR-008-ACCESS-TEXT")
+        process = classify_failure(
+            "failed", "failed",
+            "cursor-agent exited with error: exit status 1",
+            "agent_error.process_failure",
+        )
+        self.assertEqual(process["failure_class"], "process_failed")
+        self.assertEqual(process["failure_rule_id"], "FR-010-PROCESS")
+        self.assertEqual(process["failure_evidence"]["source_field"], "error")
+        reason_only = classify_failure("failed", "failed", None, "agent_error.process_failure")
+        self.assertEqual(reason_only["failure_class"], "process_failed")
+        self.assertEqual(reason_only["failure_rule_id"], "FR-010-PROCESS")
+        self.assertEqual(reason_only["failure_evidence"]["source_field"], "failure_reason")
+        recovery_reason = classify_failure("failed", "failed", None, "runtime_recovery")
+        self.assertEqual(recovery_reason["failure_rule_id"], "FR-015-RUNTIME-RECOVERY")
+        self.assertEqual(recovery_reason["failure_evidence"]["source_field"], "failure_reason")
+        wrapped = classify_failure(
+            "failed", "failed",
+            "HTTP 503 usage limit",
+            "agent_error.provider_quota_limit",
+        )
+        self.assertEqual(wrapped["failure_class"], "quota")
+        self.assertIn("PC-001-HTTP-5XX", candidate_ids("HTTP 503 usage limit", "agent_error.provider_quota_limit"))
+        pipe = candidate_ids("write: EPIPE", None)
+        self.assertEqual(pipe, ["PC-002-CONNECTION"])
 
 
 if __name__ == "__main__":

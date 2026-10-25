@@ -1,7 +1,9 @@
-"""Versioned failure-class rules for run-metrics.v0.1.
+"""Versioned failure-class rules.
 
 First match wins. ``provider_unstable`` is intentionally absent: single 5xx,
-connection, or generic provider errors are candidate signals only.
+connection, or generic provider errors are candidate signals only. v0.2 adds
+geo/access, config, and runtime-recovery rules, and extends reason vocabularies.
+Candidate counts stay inclusive of already classified runs.
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ FAILURE_CLASSES = (
     "quota",
     "capacity",
     "access_denied",
+    "config_failed",
+    "runtime_recovery",
     "timeout",
     "process_failed",
     "cancelled",
@@ -33,6 +37,7 @@ _CAPACITY_REASONS = frozenset({
     "provider_capacity",
     "rate_limit",
     "agent_error.provider_capacity_or_rate_limit",
+    "agent_error.model_not_found_or_unavailable",
 })
 _ACCESS_REASONS = frozenset({
     "access_denied",
@@ -40,12 +45,16 @@ _ACCESS_REASONS = frozenset({
     "forbidden",
     "authentication_failed",
     "agent_error.access_denied",
+    "agent_error.provider_auth_or_access",
 })
+_CONFIG_REASONS = frozenset({"api_invalid_request"})
+_RUNTIME_RECOVERY_REASONS = frozenset({"runtime_recovery"})
 _TIMEOUT_REASONS = frozenset({"timeout", "timed_out", "deadline_exceeded"})
 _PROCESS_REASONS = frozenset({
     "process_failed",
     "process_exited",
     "agent_error.process_failed",
+    "agent_error.process_failure",
 })
 _CANCEL_REASONS = frozenset({"cancelled", "canceled"})
 
@@ -63,6 +72,18 @@ _ACCESS_TEXT = re.compile(
     r"(?i)(\b(?:401|403)\b|unauthori[sz]ed|unauthenticated|\bforbidden\b|"
     r"authentication|permission denied|access denied|invalid (?:api )?key|"
     r"not logged in|拒绝访问|未授权|无权限)"
+)
+_GEO_TEXT = re.compile(
+    r"(?i)(user location is not supported|location is not supported for the api)"
+)
+_CONFIG_TEXT = re.compile(
+    r"(?i)(from --model flag is not available|"
+    r"model [^\n]{0,80}? is not available|"
+    r"model [^\n]{0,80}? is not supported|"
+    r"not supported when using)"
+)
+_RUNTIME_RECOVERY_TEXT = re.compile(
+    r"(?i)daemon restarted while task was in flight"
 )
 _TIMEOUT_TEXT = re.compile(r"(?i)(timed?[ _-]?out|deadline exceeded|\btimeout\b|超时)")
 _PROCESS_TEXT = re.compile(
@@ -83,11 +104,11 @@ _CANDIDATE_SPECS = (
     ),
     (
         "PC-002-CONNECTION",
-        "连接中断、DNS、TLS 或不可达。不是 failure_class。",
+        "连接中断、DNS、TLS、不可达、broken pipe 或 EPIPE。不是 failure_class。已分类的 run 仍计入候选，不因阈值方案而剔除。",
         re.compile(
             r"(?i)(connection (?:refused|reset|closed)|econnreset|econnrefused|"
             r"\beconn\b|tls handshake|network is unreachable|\bunreachable\b|"
-            r"\bdns\b|connection error)"
+            r"\bdns\b|connection error|broken pipe|\bepipe\b)"
         ),
     ),
     (
@@ -148,7 +169,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         "FR-005-CAPACITY-REASON",
         "capacity",
-        "failure_reason 精确等于 provider_capacity、rate_limit、agent_error.provider_capacity_or_rate_limit",
+        "failure_reason 精确等于 provider_capacity、rate_limit、agent_error.provider_capacity_or_rate_limit、agent_error.model_not_found_or_unavailable。后者在 S4 窗口里的文本都是 at capacity，命中后不再看配置类文本",
         "unknown",
         "capacity_reason",
     ),
@@ -162,7 +183,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         "FR-007-ACCESS-REASON",
         "access_denied",
-        "failure_reason 精确等于 access_denied、unauthorized、forbidden、authentication_failed、agent_error.access_denied",
+        "failure_reason 精确等于 access_denied、unauthorized、forbidden、authentication_failed、agent_error.access_denied、agent_error.provider_auth_or_access",
         False,
         "access_reason",
     ),
@@ -174,6 +195,13 @@ RULES: tuple[Rule, ...] = (
         "access_text",
     ),
     Rule(
+        "FR-012-GEO-ACCESS",
+        "access_denied",
+        "error 或 failure_reason 匹配 user location is not supported / location is not supported for the API。归入 access_denied，不单开 geo 类",
+        False,
+        "geo_text",
+    ),
+    Rule(
         "FR-009-TIMEOUT",
         "timeout",
         "failure_reason 精确等于 timeout、timed_out、deadline_exceeded，或文本匹配 timeout / timed out / deadline exceeded / 超时",
@@ -181,9 +209,30 @@ RULES: tuple[Rule, ...] = (
         "timeout",
     ),
     Rule(
+        "FR-013-CONFIG-REASON",
+        "config_failed",
+        "failure_reason 精确等于 api_invalid_request。确定性配置失败，类为 config_failed",
+        False,
+        "config_reason",
+    ),
+    Rule(
+        "FR-014-CONFIG-TEXT",
+        "config_failed",
+        "error 或 failure_reason 匹配 from --model flag is not available、model … is not available、model … is not supported、not supported when using。先于进程规则，避免 exit status 把模型不可用记成 process_failed",
+        False,
+        "config_text",
+    ),
+    Rule(
+        "FR-015-RUNTIME-RECOVERY",
+        "runtime_recovery",
+        "failure_reason 精确等于 runtime_recovery，或文本匹配 daemon restarted while task was in flight。单独成类，不并入 process_failed",
+        "unknown",
+        "runtime_recovery",
+    ),
+    Rule(
         "FR-010-PROCESS",
         "process_failed",
-        "failure_reason 精确等于 process_failed、process_exited、agent_error.process_failed，或文本匹配 process exited / exit code / crash / panic / CLI not found / 进程退出 / 崩溃",
+        "failure_reason 精确等于 process_failed、process_exited、agent_error.process_failed、agent_error.process_failure，或文本匹配 process exited / exit code / crash / panic / CLI not found / 进程退出 / 崩溃",
         "unknown",
         "process",
     ),
@@ -303,18 +352,34 @@ def classify_failure(
             for field, text in texts:
                 if _ACCESS_TEXT.search(text):
                     return _hit(rule, field, text, _ACCESS_TEXT)
+        if rule.kind == "geo_text":
+            for field, text in texts:
+                if _GEO_TEXT.search(text):
+                    return _hit(rule, field, text, _GEO_TEXT)
         if rule.kind == "timeout":
             if reason in _TIMEOUT_REASONS:
                 return _hit(rule, "failure_reason", reason)
             for field, text in texts:
                 if _TIMEOUT_TEXT.search(text):
                     return _hit(rule, field, text, _TIMEOUT_TEXT)
-        if rule.kind == "process":
-            if reason in _PROCESS_REASONS:
+        if rule.kind == "config_reason" and reason in _CONFIG_REASONS:
+            return _hit(rule, "failure_reason", reason)
+        if rule.kind == "config_text":
+            for field, text in texts:
+                if _CONFIG_TEXT.search(text):
+                    return _hit(rule, field, text, _CONFIG_TEXT)
+        if rule.kind == "runtime_recovery":
+            for field, text in texts:
+                if _RUNTIME_RECOVERY_TEXT.search(text):
+                    return _hit(rule, field, text, _RUNTIME_RECOVERY_TEXT)
+            if reason in _RUNTIME_RECOVERY_REASONS:
                 return _hit(rule, "failure_reason", reason)
+        if rule.kind == "process":
             for field, text in texts:
                 if _PROCESS_TEXT.search(text):
                     return _hit(rule, field, text, _PROCESS_TEXT)
+            if reason in _PROCESS_REASONS:
+                return _hit(rule, "failure_reason", reason)
         if rule.kind == "cancelled_text":
             for field, text in texts:
                 if _CANCEL_TEXT.search(text):

@@ -157,9 +157,9 @@ def build_report(snapshot: dict) -> dict:
             "emitted": False,
             "run_count": 0,
             "rule_version": RULE_VERSION,
-            "reason": "用户尚未批准阈值。S3 不产出 provider_unstable。候选信号只计数，阈值留给 S4。",
+            "reason": "用户 2026-10-26 未采纳 provider_unstable 阈值。候选信号只计数，不产出该分类。",
             "threshold_proposal": None,
-            "deferred_to": "S4",
+            "deferred_to": None,
             "candidates": candidates,
         },
         "failure_rules": {
