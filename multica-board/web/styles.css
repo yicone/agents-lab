@@ -191,6 +191,15 @@ button, select, input { font: inherit; color: inherit; }
 /* ---------- shared ---------- */
 
 .main { padding: 12px var(--page-gutter) 32px; }
+/* Page headings only; cards, sidebars and confirmation dialogs keep their own typography. */
+.main > h2,
+.main > .runtime-config > h2,
+.main > .usage-head > h2,
+.main > .atlas-guide > h2 {
+  margin-top: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 10px; font-size: 12px; }
 .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .field select {
