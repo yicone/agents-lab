@@ -74,7 +74,7 @@ export function badgeTitle(payload) {
   if (tone === "unknown") {
     return `MCP 有 ${unknownCount(payload)} 个来源没读到，是否有待处理未确定`;
   }
-  let text = `MCP 待处理 ${att.badge || 0} 条：坏了 ${red} · 待你处理 ${drift}`;
+  let text = `MCP 待处理 ${att.badge || 0} 条：坏了 ${red} · 待批准 ${drift}`;
   if (att.partial) text += `（有 ${unknownCount(payload)} 个来源没读到，可能不全）`;
   return text;
 }

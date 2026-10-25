@@ -37,7 +37,7 @@ export function attentionSummary(meta, issues, nowMs, staleMs, expected = meta?.
   return { count, unknown, missing, incomplete,
     tone: incomplete ? "unknown" : bad ? "bad" : count ? "warn" : "none",
     text: incomplete ? "?" : count ? String(count) : "",
-    title: incomplete ? `全局 · 缓存 ${count} 条 · ${unknown.length + missing || 1} 个来源异常（${[...unknown, ...(meta?.collector?.error ? ["workspace 目录读取失败"] : []), ...(missing ? [`另 ${missing} 个 workspace 未采集`] : []), ...(!workspaces.length ? ["目录未读取"] : [])].join("、")}）` : `全局 · 跨 workspace 待处理 ${count} 条` };
+    title: incomplete ? `全局 · 缓存 ${count} 条 · ${unknown.length + missing || 1} 个来源异常（${[...unknown, ...(meta?.collector?.error ? ["workspace 目录读取失败"] : []), ...(missing ? [`另 ${missing} 个 workspace 未采集`] : []), ...(!workspaces.length ? ["目录未读取"] : [])].join("、")}）` : `全局 · 跨 workspace 全部事项 ${count} 条` };
 }
 
 /** Local completeness ignores other workspaces and directory errors once the selected source is known. */

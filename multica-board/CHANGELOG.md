@@ -10,17 +10,19 @@
 
 - 本地候选（未合并、未部署）：新增策略特性开关，独立写入令牌默认关闭，可显式恢复；只读 API 展示开关状态，审计记录认证模式，其余写入防护保留。（ACM-521；仅本地提交，无 PR）
 
+- 本地候选（未合并、未部署）：导航统一为「收件箱 / 运行监控 / 配置管理 / 地图」，收件箱包含「待批准 / 全部事项」，占位页改名「服务健康」；顶栏红色数字仅统计待批准，保留旧路由与未知态。（ACM-505；无 PR）
+
 - 本分支候选（未合并、未部署）：历史指标按父 issue done 回补代理交付，与台账分列；使用 Atlas profile 读取全部 workspace，输出每日与 70% 示例流速读数。（ACM-470；获批开 PR 后补链接）
 
-- 顶栏按「待办、运行状态、配置管理、地图」组织，设置使用齿轮入口；旧书签兼容跳转。处理队列覆盖全部 workspace，缺失数据明确显示未知。（[PR #96](https://github.com/yicone/agents-lab/pull/96)；ACM-459；未合并、未部署）
+- 顶栏按「收件箱、运行监控、配置管理、地图」组织，设置使用齿轮入口；旧书签兼容跳转。处理队列覆盖全部 workspace，缺失数据明确显示未知。（[PR #96](https://github.com/yicone/agents-lab/pull/96)；ACM-459；未合并、未部署）
 
 ### 修复
 
 - 二级导航与一级导航样式统一并压缩高度，页面统一左右边距并移除标题上方多余空白；模型与 Runtime 页取消 1100px 居中上限、从统一左边距铺满容器，段落与表单控件单独限宽保持可读性。（[PR #104](https://github.com/yicone/agents-lab/pull/104)；ACM-510；未合并、未部署）
 
-- 本分支候选（未合并、未部署）：关注事项的未知态仅按当前 workspace 判断；全局异常摘要明确标注范围。两种 Agent 页面显示可移除的单 Agent 筛选，切换 workspace 自动解除，避免误报空列表。（ACM-498 / ACM-500 返修；仅本地提交）
+- 本分支候选（未合并、未部署）：全部事项的未知态仅按当前 workspace 判断；全局异常摘要明确标注范围。两种 Agent 页面显示可移除的单 Agent 筛选，切换 workspace 自动解除，避免误报空列表。（ACM-498 / ACM-500 返修；仅本地提交）
 
-- 本分支候选（未合并、未部署）：统一顶栏为待办 / 运行状态 / 配置管理 / 地图；范围与数量随筛选变化，配置默认进入 Agent 配置；区分状态与配置列，最近运行补齐任务、agent、UTC+8 时间和历史入口。（ACM-498；仅本地提交）
+- 本分支候选（未合并、未部署）：统一顶栏为收件箱 / 运行监控 / 配置管理 / 地图；范围与数量随筛选变化，配置默认进入 Agent 配置；区分状态与配置列，最近运行补齐任务、agent、UTC+8 时间和历史入口。（ACM-498；仅本地提交）
 
 - 本分支候选（未合并、未部署）：模型与 Runtime 编辑区及确认弹窗明确提示账号模型可用性未校验、保存后下一次任务仍可能失败，区分 runtime 在线与模型可用。（ACM-489；仅本地提交，获批开 PR 后补链接）
 
@@ -110,7 +112,7 @@
 - 增加只读 Skills 清单、来源与待处理信息。（[PR #44](https://github.com/yicone/agents-lab/pull/44)；[合并提交 `6ded569`](https://github.com/yicone/agents-lab/commit/6ded5690e6489b4955c05c0a73925d91a255fa0b)；ACM-182）
 - 增加只读用量快照，显示配额、token 用量及采集失败状态。（[PR #32](https://github.com/yicone/agents-lab/pull/32)；[合并提交 `6d7ca36`](https://github.com/yicone/agents-lab/commit/6d7ca36286b9c96df62f3a87641a7e744e1f3d58)；ACM-185 / ACM-187；关联依据：ACM-185 评论 `01a1499a-8316-748e-9e1b-264475347702`）
 - 增加 Agent Atlas 地图、层视图及 Issues 层筛选。（[PR #31](https://github.com/yicone/agents-lab/pull/31)；[合并提交 `efb90bf`](https://github.com/yicone/agents-lab/commit/efb90bfaa65228561ac4bc6a77357314f4dd91bc)；ACM-193；层解析后端见 PR #30 / ACM-192）
-- 增加 ACM Lab「待决事项」队列。（[PR #29](https://github.com/yicone/agents-lab/pull/29)；[合并提交 `e37c7cc`](https://github.com/yicone/agents-lab/commit/e37c7ccd34a789972c7d812704a9233207f98ba9)；ACM-191）
+- 增加 ACM Lab「待批准」队列。（[PR #29](https://github.com/yicone/agents-lab/pull/29)；[合并提交 `e37c7cc`](https://github.com/yicone/agents-lab/commit/e37c7ccd34a789972c7d812704a9233207f98ba9)；ACM-191）
 
 ### 修复
 
