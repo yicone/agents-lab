@@ -110,7 +110,7 @@ test("layer rails only link to pages that exist", () => {
   for (const id of ["l1", "l2", "l3", "l4", "l5"]) {
     const text = railLinks(id).map((link) => `${link.label} ${link.href}`).join("\n");
     assert.doesNotMatch(text, /未建|未接入/);
-    assert.match(text, /Issues 中本层的关注项/);
+    assert.match(text, /全部事项中本层的关注项/);
     assert.match(text, new RegExp(`#/decide\\?layer=${id}`));
   }
   const l3 = railLinks("l3").map((link) => link.href).join("\n");

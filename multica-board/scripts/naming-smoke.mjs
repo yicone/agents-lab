@@ -1,5 +1,5 @@
 // Run against the local mock server: ego-browser nodejs < multica-board/scripts/naming-smoke.mjs
-const task = await taskSpace("Atlas navigation naming smoke");
+const task = await taskSpace("Atlas navigation naming correction smoke");
 const page = task.page("p1");
 const { strict: assert } = await import("node:assert");
 const base = "http://127.0.0.1:8875/";
@@ -29,6 +29,15 @@ console.log(await page.screenshot());
 await page.goto(`${base}?mock=decide#/running/health`);
 await page.waitForFunction(() => document.querySelector("h2")?.textContent === "服务健康");
 assert.match(await page.evaluate(() => document.body.textContent), /未接入/);
+console.log(await page.screenshot());
+await page.goto(`${base}?mock=atlas#/map`);
+await page.waitForFunction(() => [...document.querySelectorAll(".map-tools a span")].some(n => n.textContent === "全部事项"));
+console.log(await page.screenshot());
+await page.goto(`${base}?mock=atlas#/map/l3`);
+await page.waitForFunction(() => [...document.querySelectorAll("a")].some(n => n.textContent === "全部事项中本层的关注项"));
+console.log(await page.screenshot());
+await page.goto(`${base}?mock=atlas-unfilled#/map`);
+await page.waitForFunction(() => [...document.querySelectorAll("a")].some(n => n.textContent === "先去全部事项看关注项"));
 console.log(await page.screenshot());
 await task.finish({ keep: [] });
 console.log("Naming smoke passed: badge, zero, unknown, navigation, old bookmarks.");

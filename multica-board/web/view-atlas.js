@@ -121,7 +121,7 @@ function guide(ctx, availability) {
     h("h2", null, copy.title),
     h("p", null, copy.body),
     h("p", { class: "muted" }, "真实采集在回填前会是「全部未归层」。有一份带回填的示例：地址加上 ?mock=atlas。"),
-    h("p", null, h("a", { href: "#/issues" }, "先去 Issues 看关注项")),
+    h("p", null, h("a", { href: "#/issues" }, "先去全部事项看关注项")),
   );
 }
 
