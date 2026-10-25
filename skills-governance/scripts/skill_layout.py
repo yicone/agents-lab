@@ -7,6 +7,7 @@ parser stays in `capability_contract` and is imported here only inside
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,28 +23,45 @@ def fallback(reason: str) -> dict:
     }
 
 
+EXPECTED_SKIL_LOCK_COMMIT = "2fe41285ab69b347f1a3d53ac003c6cff33b3a62"
+EXPECTED_SKIL_LOCK_VERSION = "fork-2fe4128"
+
+
+def default_skil_lock() -> Path:
+    return Path.home() / ".local/share/skil-lock" / EXPECTED_SKIL_LOCK_COMMIT / "skil-lock"
+
+
 def resolve_skil_lock(explicit: str | None) -> tuple[str | None, dict | None]:
-    """Return (binary, fallback_payload). A payload means do not invoke a binary."""
-    if explicit == "fallback":
+    """Select a pinned fork binary, never an implicit PATH executable.
+
+    CLI overrides SKIL_LOCK_BINARY, which overrides the commit-specific default.
+    Version is a provenance assertion, not a cryptographic authenticity check.
+    """
+    selected = explicit or os.environ.get("SKIL_LOCK_BINARY") or str(default_skil_lock())
+    if selected == "fallback":
         return None, fallback("skil-lock backend disabled")
-    if explicit:
-        candidate = Path(explicit)
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return str(candidate), None
-        found = shutil.which(explicit)
-        if found:
-            return found, None
-        return None, {
-            "backend": "skil-lock",
-            "tool": "skil-lock",
-            "blocked": True,
-            "error": True,
-            "reason": f"skil-lock binary is not executable: {explicit}",
-        }
-    found = shutil.which("skil-lock")
-    if not found:
-        return None, fallback("skil-lock is not on PATH")
-    return found, None
+    candidate = Path(selected).expanduser()
+    if not candidate.is_absolute():
+        return None, fallback(f"skil-lock requires an explicit absolute path: {selected}")
+    if not candidate.is_file() or not os.access(candidate, os.X_OK):
+        return None, fallback(f"pinned skil-lock binary is not executable: {candidate}")
+    try:
+        result = subprocess.run(
+            [str(candidate), "version"], text=True, capture_output=True,
+            timeout=5, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
+        return None, fallback(f"skil-lock provenance check failed: {type(exc).__name__}")
+    pattern = (
+        rf"skil-lock {re.escape(EXPECTED_SKIL_LOCK_VERSION)} "
+        rf"\(commit {EXPECTED_SKIL_LOCK_COMMIT}, built [^\r\n]+\)"
+    )
+    if result.returncode != 0 or re.fullmatch(pattern, result.stdout.strip()) is None:
+        return None, fallback(
+            f"skil-lock version/commit mismatch at {candidate}; expected "
+            f"{EXPECTED_SKIL_LOCK_VERSION} / {EXPECTED_SKIL_LOCK_COMMIT}"
+        )
+    return str(candidate), None
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str] | None:

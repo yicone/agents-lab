@@ -43,7 +43,7 @@ capabilities:
 ```bash
 python3 skills-governance/scripts/capability_contract.py --format text
 python3 skills-governance/scripts/capability_contract.py --check
-python3 skills-governance/scripts/capability_contract.py --skil-lock "$(command -v skil-lock)" --check
+python3 skills-governance/scripts/capability_contract.py --check
 ```
 
 `--check` 在越权、声明无效，或下面的隔离条件成立时退出码为 `2`。命令不修改 Skill、库存或 lock。
@@ -68,3 +68,5 @@ python3 skills-governance/scripts/capability_contract.py --promote <skill> --che
 ```
 
 `--promote` 在该 Skill 被隔离、越权，或高危且未复核时退出码为 `2`。只把隔离状态写进库存、不带 `--promote` 时，`--check` 不会因为“已经隔离”而失败。
+
+默认使用 README 指定的 fork 提交目录，`SKIL_LOCK_BINARY` 或 `--skil-lock /absolute/path` 可覆盖路径，但不能绕过版本/提交校验。`--skil-lock fallback` 显式保留未测量模式。JSON 的 `backend.reason` 和文本 Backend 行记录回退原因。

@@ -17,7 +17,7 @@ python3 skills-governance/scripts/capability_contract.py --format text --check
 python3 skills-governance/scripts/capability_contract.py --promote <skill> --check
 ```
 
-Add `--skil-lock` only when that binary can write a `skills.lock` behavior map. The check does not invent a second scanner when the map is missing.
+Use the pinned fork binary by default; an absolute `--skil-lock` override must pass the same version/commit check. The check does not invent a second scanner when the map is missing.
 
 ## Expected Findings
 
