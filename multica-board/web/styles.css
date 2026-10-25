@@ -267,9 +267,9 @@ button, select, input { font: inherit; color: inherit; }
   align-items: start;
 }
 @media (max-width: 1100px) { .lanes { grid-template-columns: repeat(2, minmax(240px, 1fr)); } }
-@media (max-width: 620px) { .lanes { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .lanes { grid-template-columns: minmax(0, 1fr); } }
 
-.lane { background: var(--panel-2); border-radius: 8px; padding: 8px; border-top: 3px solid var(--faint); }
+.lane { min-width: 0; background: var(--panel-2); border-radius: 8px; padding: 8px; border-top: 3px solid var(--faint); }
 .lane-failed { border-top-color: var(--bad); }
 .lane-blocked { border-top-color: var(--warn); }
 .lane-review { border-top-color: var(--info); }
@@ -301,6 +301,7 @@ button, select, input { font: inherit; color: inherit; }
 .card-head .ident { font: 11px var(--mono); color: var(--muted); }
 .card-head .status { margin-left: auto; color: var(--faint); }
 .card-title {
+  overflow-wrap: anywhere;
   margin: 3px 0 2px;
   font-weight: 550;
   display: -webkit-box;
@@ -334,12 +335,14 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 
 /* ---------- agents ---------- */
 
-.providers { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.providers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 8px; margin-bottom: 12px; }
+@media (max-width: 620px) { .providers { grid-template-columns: minmax(0, 1fr); } }
 .provider {
   display: grid;
   gap: 1px;
   text-align: left;
-  min-width: 170px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -352,7 +355,7 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .p-main { font-weight: 600; }
 .p-sub { font-size: 11px; color: var(--muted); }
 
-.table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.table-wrap { min-width: 0; max-width: 100%; overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 .matrix { width: 100%; border-collapse: collapse; }
 .matrix th, .matrix td { padding: 5px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
 .matrix thead th {
