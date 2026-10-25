@@ -17,7 +17,21 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 
 页面为 `#/configure/runtime`；顶栏由另一任务负责，本改动不加导航。先交公共管线和单 agent，批量请求一律拒绝。旧 G1 计划页和只读 CLI runner 保持只读，不能把 G1 hash 当成批准。
 
-写入口需要启动参数 `--write-policy /private/path/policy.json`。策略是操作者本人安装的 0600 普通文件，不允许符号链接。无策略时所有 POST 仍为 405；启用后仅接受回环监听、回环来源和与 Host 完全相同的 HTTP Origin，不开放网络写入口。浏览器必须提供独立授权码 `X-Atlas-Write-Token`（不写 URL、日志或 localStorage，离开页面清除）。策略只保存授权码 SHA-256，实际授权码应由操作者用安全随机数生成并妥善保存，不应使用下面 fixture 的固定字符串。
+写入口需要启动参数 `--write-policy /private/path/policy.json`。策略是操作者本人安装的 0600 普通文件，不允许符号链接。无策略时所有 POST 仍为 405；启用后仅接受回环监听、回环来源和与 Host 完全相同的 HTTP Origin，不开放网络写入口。启用 `features.write_token_required` 时，浏览器必须提供独立授权码 `X-Atlas-Write-Token`（不写 URL、日志或 localStorage，离开页面清除）。策略只保存授权码 SHA-256，实际授权码应由操作者用安全随机数生成并妥善保存，不应使用下面 fixture 的固定字符串。
+
+特性开关集中注册于后端 `features.py`，目前列表：
+
+| 名称 | 默认值 | 说明 |
+|---|---|---|
+| `write_token_required` | `false` | 要求独立写入令牌 |
+
+仅从 `--write-policy` 指定的策略文件 `features` 段读取；显式值覆盖注册默认值，未知名称和非布尔值启动报错。没有环境变量或额外启动参数覆盖，避免策略绑定与开关来源分离；启动时读取，修改后需重启。无策略时 `/api/features` 显示默认值，但写入仍关闭。
+
+打开方式：在原策略加入 `"features": {"write_token_required": true}`，并设置合法的 `token_sha256`，重启后即恢复原令牌要求。缺省或设为 false 时，不要求 `X-Atlas-Write-Token`。已有哈希也不会自动开启校验；提供的哈希仍须格式合法。
+
+关闭令牌的风险：同机任何带 shell 的 agent 都可伪造回环请求头调用写接口；同源校验不是本机进程身份认证。操作者必须接受这一风险。回环监听、策略文件权限与无符号链接、本人空闲目标、单目标预览和一次确认、读回、回滚及审计均保留，写入仍须显式启用。页面文案本次不变，状态可从只读 API 查看。
+
+本地审计和审计 issue 的脱敏记录均增加当次 `auth_mode`（`token_off` 或 `token_required`）；历史记录缺此字段时不能反推认证模式。现有时间字段保留，未增加 UA 或进程身份采集。
 
 在 Multica 托管任务内做已授权验证时，显式加 `--task-scoped`：保留当前任务注入的 CLI 身份，缺少 task config root 时失败，不回退到 Owner 的本机登录。写入策略的所有目标和 `--workspace` 必须只指向当前任务 workspace，不能配 `--all-workspaces`。普通桌面启动仍沿用默认 profile 隔离。
 
@@ -26,10 +40,11 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `profile`：与 serve 的 `--profile` 完全一致。
 - `server_identity`：规范化服务 origin；执行时和 `auth status` 复核。
 - `actor_id`：用户 UUID；执行时和 `user profile get` 的 `id` 复核。当前版本仅支持本人拥有、未归档且 idle 的 agent，不能借管理员权限改别人的 agent。
-- `token_sha256`：独立随机授权码的 64 位小写 SHA-256。
+- `token_sha256`：独立随机授权码的 64 位小写 SHA-256。默认可省略；启用令牌校验时必填。
+- `features`：可选的布尔开关对象，见下文。
 - `targets`：明确的对象数组，每项只含 `workspace_id`、`agent_id`、`audit_issue_id` UUID。审计 issue 必须在目标 workspace；执行前读回校验。没有通配目标。
 
-仅 `POST /api/runtime-actions/{catalog,status,preview,execute,rollback,reconcile}` 接受写协议，Content-Type 必须为 application/json，最大 16KiB，重复键、额外字段、查询串、分块 body 均拒绝。除 `GET /api/runtime-actions` 返回 enabled 外，不提供无授权目标清单。各 POST body：
+仅 `POST /api/runtime-actions/{catalog,status,preview,execute,rollback,reconcile}` 接受写协议，Content-Type 必须为 application/json，最大 16KiB，重复键、额外字段、查询串、分块 body 均拒绝。`GET /api/runtime-actions` 返回 enabled；`GET /api/features` 仅返回开关名和布尔值，不包含目标或密钥。各 POST body：
 
 | 操作 | Body | 结果 |
 |---|---|---|

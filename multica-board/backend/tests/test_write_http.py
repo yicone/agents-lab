@@ -43,6 +43,10 @@ class WriteHttpTests(unittest.TestCase):
         conn.close()
         return res.status, payload
 
+    def test_feature_status_matches_enabled_token_mode(self):
+        status, payload = self.request(method='GET', path='/api/features')
+        self.assertEqual((status, payload), (200, self.actions.features))
+
     def test_same_origin_confirmed_flow(self):
         status, p = self.request('preview', dict(workspace_id=WS, agent_id=AGENT, changes={'model':'next'}))
         self.assertEqual(status, 200)
@@ -77,3 +81,35 @@ class WriteHttpTests(unittest.TestCase):
     def test_remote_binding_rejected_with_writer(self):
         with self.assertRaises(ValueError):
             BoardServer('0.0.0.0', 0, SimpleNamespace(), runtime_actions=self.actions)
+
+
+class TokenOffHttpTests(WriteHttpTests):
+    def setUp(self):
+        super().setUp()
+        policy = dict(POLICY)
+        policy.pop('features')
+        policy.pop('token_sha256')
+        self.actions = RuntimeActions(self.adapter, policy, self.journal)
+        self.server.runtime_actions = self.actions
+
+    def request(self, *args, headers=None, **kwargs):
+        return super().request(*args, headers={'X-Atlas-Write-Token': None, **(headers or {})}, **kwargs)
+
+    def test_token_origin_fetch_site_and_content_type(self):
+        for headers in ({'Origin':None}, {'Origin':'null'}, {'Origin':'http://elsewhere.invalid'},
+                        {'Origin':self.origin + '/path'}, {'Sec-Fetch-Site':'cross-site'},
+                        {'Content-Type':'text/plain'}):
+            with self.subTest(headers=headers):
+                self.assertIn(self.request(headers=headers)[0], (400,403))
+        self.assertEqual(self.request(headers={'X-Atlas-Write-Token':'ignored'})[0], 200)
+        self.assertFalse(self.adapter.writes)
+
+    def test_read_only_features_and_audit_mode(self):
+        status, payload = self.request(method='GET', path='/api/features')
+        self.assertEqual((status, payload), (200, {'write_token_required': False}))
+        self.test_same_origin_confirmed_flow()
+        self.assertTrue(self.journal.events)
+        self.assertTrue(all(e['auth_mode'] == 'token_off' for e in self.journal.events))
+        self.assertEqual(self.adapter.comments[0]['auth_mode'], 'token_off')
+        self.server.runtime_actions = None
+        self.assertEqual(self.request(method='GET', path='/api/features')[1], {'write_token_required': False})

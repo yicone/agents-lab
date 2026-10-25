@@ -23,6 +23,7 @@ ISSUE = '55555555-5555-4555-8555-555555555555'
 OTHER = '66666666-6666-4666-8666-666666666666'
 TOKEN = 'fixture authorization'
 POLICY = {'profile': 'fixture', 'actor_id': ACTOR, 'server_identity': 'https://fixture.invalid',
+          'features': {'write_token_required': True},
           'token_sha256': hashlib.sha256(TOKEN.encode()).hexdigest(),
           'targets': [{'workspace_id': WS, 'agent_id': AGENT, 'audit_issue_id': ISSUE}]}
 VALUES = dict(runtime_id=RT, model='old-model', thinking_level=None, service_tier=None, custom_model=None)
@@ -437,3 +438,62 @@ class PolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError): load_policy(path, 'wrong-profile')
             path.chmod(0o644)
             with self.assertRaises(ValueError): load_policy(path, 'fixture')
+
+
+class FeatureTests(unittest.TestCase):
+    def test_defaults_overrides_and_unknown(self):
+        from multica_board.features import resolve_features
+        self.assertEqual(resolve_features(), {'write_token_required': False})
+        self.assertEqual(resolve_features({'write_token_required': True}), {'write_token_required': True})
+        for overrides in ({'typo': False}, {'write_token_required': 'false'}, [], False):
+            with self.subTest(overrides=overrides), self.assertRaises(ValueError):
+                resolve_features(overrides)
+
+    def test_policy_optional_token_and_required_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'policy.json'
+            policy = copy.deepcopy(POLICY)
+            policy.pop('features')
+            policy.pop('token_sha256')
+            def load():
+                path.write_text(json.dumps(policy))
+                path.chmod(0o600)
+                return load_policy(path, 'fixture')
+            self.assertEqual(load(), policy)
+            policy['features'] = {'write_token_required': True}
+            with self.assertRaises(ValueError): load()
+            policy['token_sha256'] = POLICY['token_sha256']
+            self.assertEqual(load(), policy)
+            policy['features'] = {'typo': False}
+            with self.assertRaises(ValueError): load()
+            policy['features'] = {'write_token_required': False}
+            policy['token_sha256'] = 123
+            with self.assertRaises(ValueError): load()
+            policy.pop('token_sha256')
+            load()
+            link = Path(tmp) / 'link.json'
+            link.symlink_to(path)
+            with self.assertRaises(ValueError): load_policy(link, 'fixture')
+
+
+class TokenOffActionTests(ActionTests):
+    def setUp(self):
+        super().setUp()
+        policy = copy.deepcopy(POLICY)
+        policy.pop('features')
+        policy.pop('token_sha256')
+        self.actions = RuntimeActions(self.adapter, policy, self.journal, clock=lambda: self.now)
+
+    def preview(self, changes=None):
+        return self.actions.handle('preview', dict(workspace_id=WS, agent_id=AGENT,
+                                  changes=changes or {'model': 'new-model'}), None)
+
+    def execute(self, plan):
+        return self.actions.handle('execute', {'id':plan['id'], 'confirmation':plan['confirmation']}, None)
+
+    def test_permission_and_scope_denied_without_reads_or_writes(self):
+        self.actions.handle('catalog', {}, None)
+        self.assertCode('permission_denied', lambda: self.actions.preview(OTHER, AGENT, {'model':'x'}))
+        self.adapter.denied = True
+        self.assertCode('permission_denied', self.preview)
+        self.assertFalse(self.adapter.writes)
