@@ -62,10 +62,10 @@ export async function mobileSmoke(page, { baseUrl, artifactDir }) {
       window.smokeCalls = calls;
     }, { enabled, required });
     await page.waitForFunction(() => !document.querySelector(".runtime-config [role=status]")?.textContent.includes("正在"));
-    const state = await page.evaluate(() => ({ password: !!document.querySelector(".runtime-config input[type=password]"), text: document.querySelector(".runtime-config").textContent, calls: window.smokeCalls }));
+    const state = await page.evaluate(() => ({ password: !!document.querySelector(".runtime-config input[type=password]"), text: document.querySelector(".runtime-config").textContent, status: document.querySelector(".runtime-config [role=status]")?.textContent, calls: window.smokeCalls }));
     assert.equal(state.password, enabled && required);
     assert.equal(state.calls.includes("/api/runtime-actions/catalog"), enabled && !required);
-    if (!enabled) assert.ok(state.text.includes("写入口未启用"));
+    if (!enabled) assert.equal(state.status, "本实例只读。");
     await page.screenshot({ path: `${artifactDir}/after-runtime-${name}-390.png` });
     results.push({ name, ...state });
   }

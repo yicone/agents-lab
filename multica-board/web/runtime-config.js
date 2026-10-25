@@ -182,7 +182,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
     if (disabledReason) {
       children.push(h("p", { class: "muted" }, disabledReason));
     } else if (connection === "readonly") {
-      children.push(h("p", { class: "muted", role: "status" }, actionMessages.method_not_allowed));
+      children.push(h("p", { class: "muted", role: "status" }, "本实例只读。"));
     } else if (connection === "checking") {
       children.push(h("p", { role: "status" }, "正在连接…"));
     } else if (connection === "error" || (!catalog && tokenRequired === false)) {

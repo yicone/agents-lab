@@ -166,7 +166,7 @@ test("read-only capability suppresses token, features and catalog requests", asy
   await settleConnection();
   assert.equal(hasPassword(view), false);
   assert.deepEqual(calls, ["/api/runtime-actions"]);
-  assert.ok(text(view.element).includes("写入口未启用"));
+  assert.equal(text(nodes(view.element).find(n => n.attrs.role === "status")), "本实例只读。");
   view.dispose();
 });
 for (const failure of ["capability-http", "capability-shape", "features-http", "features-shape", "catalog"]) {
