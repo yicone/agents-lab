@@ -28,9 +28,9 @@ test("Issues and Agents share the workspace filter; Decide and Skills do not", (
   assert.equal(scopeNote("issues"), "");
   assert.equal(scopeNote("agents"), "");
   assert.match(scopeNote("decide"), /ACM Lab/);
-  assert.match(scopeNote("decide"), /不作用于这一页/);
-  assert.match(scopeNote("skills"), /本机技能、Multica Workspace 安装与 Grok Bot 名称声明/);
-  assert.match(scopeNote("skills"), /不作用于这一页/);
+  assert.equal(scopeNote("decide"), "范围：ACM Lab");
+  assert.equal(scopeNote("skills"), "范围：全部来源");
+
   assert.equal(scopeNote("map"), "");
 });
 

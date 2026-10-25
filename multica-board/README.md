@@ -13,7 +13,7 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `docs/frontend-design.md`：信息架构与交互设计。
 - `docs/design-system.md`：信息结构、版式模式、组件与视觉规范，以及新板块设计检查清单（新板块从这里开始）。
 
-## 模型 / runtime 写入（ACM-458，本地候选，未部署）
+## 模型与 Runtime 写入（ACM-458，本地候选，未部署）
 
 页面为 `#/configure/runtime`；顶栏由另一任务负责，本改动不加导航。先交公共管线和单 agent，批量请求一律拒绝。旧 G1 计划页和只读 CLI runner 保持只读，不能把 G1 hash 当成批准。
 

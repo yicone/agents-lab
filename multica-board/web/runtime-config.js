@@ -155,7 +155,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
     const hadDialog = !!root.querySelector('[role="dialog"]');
     const children = [
       h("h2", null, "模型与 Runtime"),
-      h("p", { class: "muted" }, "配置台 / 单 Agent · 手动切换。批量切换尚未接入。"),
+      h("p", { class: "muted" }, "配置管理 / 单 Agent · 手动切换。批量切换尚未接入。"),
       h("p", { class: "runtime-warning" }, "写入前预览并确认，写入后读回；结果未知时先对账。回滚需要新的确认。"),
     ];
     if (disabledReason) {

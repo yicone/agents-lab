@@ -15,10 +15,10 @@
     <div class="topbar-row">
       <h1 class="brand"><img class="brand-mark" src="favicon.svg" width="16" height="16" alt="Agent Atlas">Agent Atlas</h1>
       <nav class="tabs" aria-label="视图">
-        <a class="tab" data-view="issues" href="#/issues">要我处理的 <span id="issues-badge" class="tab-badge" hidden></span> <kbd>1</kbd></a>
-        <a class="tab" data-view="running" href="#/running">在跑什么 <kbd>2</kbd></a>
-        <a class="tab" data-view="configure" href="#/configure">配置台 <kbd>3</kbd></a>
-        <a class="tab" data-view="map" href="#/map">地图 <kbd>4</kbd></a>
+        <a class="tab" title="快捷键 1" data-view="issues" href="#/issues">待办 <span class="badge-label">全局</span> <span id="issues-badge" class="tab-badge" hidden></span></a>
+        <a class="tab" title="快捷键 2" data-view="running" href="#/running">运行状态</a>
+        <a class="tab" title="快捷键 3" data-view="configure" href="#/configure">配置管理</a>
+        <a class="tab" title="快捷键 4" data-view="map" href="#/map">地图</a>
         <a class="tab" data-view="settings" href="#/settings" aria-label="设置" title="设置">⚙</a>
       </nav>
       <span id="snapshot" class="snapshot" aria-live="polite"></span>
@@ -29,9 +29,9 @@
       </label>
     </div>
     <div id="banner" class="banner" role="alert" hidden></div>
-    <div id="health" class="health" aria-label="页面范围"></div>
   </header>
   <nav id="subnav" class="subnav" aria-label="子视图"></nav>
+  <div id="health" class="health" aria-label="页面范围"></div>
   <main id="main" class="main"></main>
   <aside id="drawer" class="drawer" aria-label="issue 详情" hidden></aside>
 </body>

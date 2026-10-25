@@ -1,4 +1,4 @@
-/** Pure helpers for the「待你决定」queue. No DOM, so node:test can import them. */
+/** Pure helpers for the「待决事项」queue. No DOM, so node:test can import them. */
 
 import { issueLayer, matchesLayer } from "./layers.js";
 

@@ -26,16 +26,25 @@ export function classifyIssue(it, nowMs, staleMs) {
 }
 
 /** Collection gaps must never become an empty, healthy queue. Count is unfiltered. */
-export function attentionSummary(meta, issues, nowMs, staleMs, expected = 11) {
+export function attentionSummary(meta, issues, nowMs, staleMs, expected = meta?.workspaces?.length || 0) {
   const workspaces = meta?.workspaces || [];
   const unknown = workspaces.filter(w => w.collect_state !== "ok" || !w.counts).map(w => w.name || w.slug);
   const missing = Math.max(0, expected - workspaces.length);
   const rows = (issues || []).map(it => classifyIssue(it, nowMs, staleMs)).filter(c => c.lane);
   const count = rows.length;
   const bad = rows.some(c => ["failed", "delivery_anomaly"].includes(c.lane));
-  const incomplete = !meta || Boolean(meta.collector?.error) || missing > 0 || unknown.length > 0;
+  const incomplete = !meta || Boolean(meta.collector?.error) || !workspaces.length || missing > 0 || unknown.length > 0;
   return { count, unknown, missing, incomplete,
     tone: incomplete ? "unknown" : bad ? "bad" : count ? "warn" : "none",
     text: incomplete ? "?" : count ? String(count) : "",
-    title: `跨 workspace ${incomplete ? "已知待处理" : "待处理"} ${count} 条${incomplete ? `（数量未知：${[...unknown, ...(meta?.collector?.error ? ["workspace 目录读取失败"] : []), ...(missing ? [`另 ${missing} 个 workspace 未采集`] : [])].join("、")}）` : ""}` };
+    title: incomplete ? `全局 · 缓存 ${count} 条 · ${unknown.length + missing || 1} 个来源异常（${[...unknown, ...(meta?.collector?.error ? ["workspace 目录读取失败"] : []), ...(missing ? [`另 ${missing} 个 workspace 未采集`] : []), ...(!workspaces.length ? ["目录未读取"] : [])].join("、")}）` : `全局 · 跨 workspace 待处理 ${count} 条` };
+}
+
+/** Local completeness ignores other workspaces and directory errors once the selected source is known. */
+export function scopedAttentionSummary(meta, issues, nowMs, staleMs, slug) {
+  if (!slug) return attentionSummary(meta, issues, nowMs, staleMs);
+  const workspaces = (meta?.workspaces || []).filter(ws => ws.slug === slug);
+  const ids = new Set(workspaces.map(ws => ws.id));
+  const localMeta = meta ? { ...meta, workspaces, collector: null } : null;
+  return attentionSummary(localMeta, (issues || []).filter(it => ids.has(it.workspace_id)), nowMs, staleMs, 1);
 }

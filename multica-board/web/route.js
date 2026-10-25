@@ -67,7 +67,7 @@ function withQuery(path, params) {
  */
 export function redirectHash(hash) {
   const { path, params } = splitHash(hash);
-  const aliases = { agents: "running", usage: "running/usage", skills: "configure/skills", mcp: "configure/mcp",
+  const aliases = { configure: "configure/agents", agents: "running", usage: "running/usage", skills: "configure/skills", mcp: "configure/mcp",
     "l2/agents": "running", "l3/skills": "configure/skills", "l3/mcp": "configure/mcp" };
   if (Object.hasOwn(aliases, path)) return withQuery(aliases[path], params);
   if (agentsPlan(path)) return withQuery(path === "agents/plan/new" ? "running/changes/new" : path.replace("agents/plans", "running/changes"), params);
@@ -377,6 +377,8 @@ export function applyPatch(route, patch) {
       next.planFix = "";
     }
   }
+  // Ordinary Agent focus belongs to the current workspace. Plan selections are cross-workspace.
+  if (Object.hasOwn(patch, "ws") && patch.ws !== route.ws && route.view === "agents" && !route.planMode && !route.planPage) next.sel = "";
   if (!VIEWS.includes(next.view)) next.view = "map";
   return next;
 }

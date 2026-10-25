@@ -347,7 +347,7 @@ test("mcp route: parse, serialize, whitelist, legacy drop and l3 redirect", () =
 });
 
 test("IA v2 canonical routes round trip without alias loops", () => {
-  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/schedules", "#/running/health", "#/configure", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/runtime", "#/settings"]) {
+  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/schedules", "#/running/health", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/runtime", "#/settings"]) {
     assert.equal(redirectHash(hash), null, hash);
     assert.equal(formatHash(parseHash(hash)), hash, hash);
   }
@@ -356,7 +356,7 @@ test("IA v2 canonical routes round trip without alias loops", () => {
   assert.equal(navGroup(parseHash("#/decide")), "issues");
 });
 test("legacy bookmarks preserve filters and become canonical in one replacement", () => {
-  for (const [old, current] of [["agents","running"],["skills","configure/skills"],["mcp","configure/mcp"],["usage","running/usage"]]) {
+  for (const [old, current] of [["configure","configure/agents"],["agents","running"],["skills","configure/skills"],["mcp","configure/mcp"],["usage","running/usage"]]) {
     const redirected = redirectHash(`#/${old}?ws=alpha&q=test`);
     assert.equal(redirected, `#/${current}?ws=alpha&q=test`);
     assert.equal(redirectHash(redirected), null);
