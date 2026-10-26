@@ -1,0 +1,66 @@
+[
+  {
+    "at": "2026-10-22T18:00:00Z",
+    "providers": [
+      {
+        "provider": "cursor",
+        "status": "ok",
+        "windows": [
+          {
+            "key": "tertiary",
+            "used_percent": 10,
+            "resets_at": "2026-11-19T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "at": "2026-10-23T00:00:00Z",
+    "providers": [
+      {
+        "provider": "cursor",
+        "status": "ok",
+        "windows": [
+          {
+            "key": "tertiary",
+            "used_percent": 20,
+            "resets_at": "2026-11-19T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "at": "2026-10-23T06:00:00Z",
+    "providers": [
+      {
+        "provider": "cursor",
+        "status": "ok",
+        "windows": [
+          {
+            "key": "tertiary",
+            "used_percent": 30,
+            "resets_at": "2026-11-19T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "at": "2026-10-23T12:00:00Z",
+    "providers": [
+      {
+        "provider": "cursor",
+        "status": "ok",
+        "windows": [
+          {
+            "key": "tertiary",
+            "used_percent": 40,
+            "resets_at": "2026-11-19T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -312,8 +312,10 @@ class CollectTests(unittest.TestCase):
             signals = body["signals"]["dispatchable"]
             self.assertTrue(any(item["provider"] == "cursor" and item["window_key"] == "primary" for item in signals))
             grok_view = next(item for item in body["external_quotas"] if item["provider"] == "grok")
-            self.assertEqual(grok_view["windows"][0]["signal"], "exhausting")
-            self.assertEqual(body["signals"]["exhausting"][0]["provider"], "grok")
+            self.assertEqual(grok_view["windows"][0]["signal"], "normal")
+            self.assertEqual(grok_view["windows"][0]["band"], "unknown")
+            self.assertTrue(grok_view["stale"])
+            self.assertEqual(body["signals"]["exhausting"], [])
             unconnected = [item["provider"] for item in body["external_quotas"] if item["status"] == "unconnected"]
             self.assertEqual(unconnected, ["9router", "orca"])
 
@@ -340,10 +342,10 @@ class CollectTests(unittest.TestCase):
                 attention = view.attention()
             finally:
                 view.store.close()
-            self.assertEqual(attention["quota_alerts"][0]["identifier"], "grok:primary")
-            self.assertEqual(attention["quota_alerts"][0]["status"], "quota_exhausting")
+            alert = next(item for item in attention["quota_alerts"] if item["identifier"] == "grok:primary")
+            self.assertEqual(alert["status"], "quota_unknown")
             self.assertIsNone(attention["quota_alerts"][0]["agent_name"])
-            self.assertIn("95%", attention["quota_alerts"][0]["title"])
+            self.assertIn("额度未知", alert["title"])
             text = render_attention_text(attention)
             self.assertIn("# quota_alerts", text)
             self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
@@ -408,7 +410,7 @@ class CollectTests(unittest.TestCase):
 
 
 class ApiShapeTests(unittest.TestCase):
-    def test_live_views_recompute_signals_from_snapshot_at_read_time(self):
+    def test_live_views_age_samples_without_rewriting_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Store(Path(tmp) / "board.sqlite")
             snapshot = Path(tmp) / "usage-snapshot.json"
@@ -418,7 +420,7 @@ class ApiShapeTests(unittest.TestCase):
                 "external_quotas": [{
                     "provider": provider,
                     "status": status,
-                    "last_success_at": "2026-10-16T00:00:00Z",
+                    "last_success_at": "2026-10-16T16:43:00Z",
                     "windows": [{
                         "key": "primary",
                         "label": "Weekly",
@@ -433,24 +435,24 @@ class ApiShapeTests(unittest.TestCase):
             original = snapshot.read_bytes()
             view = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60)
             try:
-                for day, signal, alerts in (
-                    (16, "normal", ["grok:primary"]),
-                    (18, "dispatchable", ["grok:primary"]),
-                    (19, "normal", []),
-                    (20, "normal", []),
+                for day, alerts in (
+                    (16, ["grok:primary"]),
+                    (18, ["cursor:primary", "grok:primary"]),
+                    (19, ["cursor:primary", "grok:primary"]),
+                    (20, ["cursor:primary", "grok:primary"]),
                 ):
                     now = NOW.replace(day=day)
                     with self.subTest(now=now), patch("multica_board.views._now", return_value=now):
                         body = view.usage()
                         self.assertEqual(body["snapshot_state"], "partial")
-                        self.assertEqual(body["external_quotas"][0]["windows"][0]["signal"], signal)
+                        self.assertEqual(body["external_quotas"][0]["windows"][0]["signal"], "normal")
                         self.assertEqual(
                             [item["provider"] for item in body["signals"]["dispatchable"]],
-                            ["cursor"] if signal == "dispatchable" else [],
+                            [],
                         )
                         self.assertEqual(
                             [item["provider"] for item in body["signals"]["exhausting"]],
-                            ["grok"] if alerts else [],
+                            ["grok"] if day == 16 else [],
                         )
                         self.assertEqual(
                             [item["identifier"] for item in view.attention()["quota_alerts"]], alerts,

@@ -250,9 +250,21 @@ def render_attention_text(body: dict[str, Any]) -> str:
         lines.append("# quota_alerts")
         lines.append(f"quota_alerts {len(alerts)}")
         for it in alerts:
+            summary = _cell(it.get("title"))
+            if "band" in it:
+                summary += " " + " ".join(
+                    f"{label}={_cell(it.get(field))}"
+                    for label, field in (("band", "band"), ("age_s", "sample_age_s"),
+                                         ("stale", "stale"), ("Δ24h_pp", "delta_24h_percent"),
+                                         ("reset", "resets_at"),
+                                         ("ETA85", "eta_warning_at"), ("ETA100", "eta_exhausted_at"))
+                )
+                daily = it.get("daily_delta") or []
+                if daily:
+                    summary += f" Δday_pp={_cell(daily[-1].get('delta_percent'))}@{_cell(daily[-1].get('date'))}"
             lines.append(
                 "\t".join(
-                    _cell(it.get(field))
+                    summary if field == "title" else _cell(it.get(field))
                     for field in ("identifier", "status", "time", "agent_name", "title")
                 )
             )
