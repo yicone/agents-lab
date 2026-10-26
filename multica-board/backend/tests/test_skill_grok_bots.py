@@ -63,7 +63,7 @@ class GrokBotSkillTests(unittest.TestCase):
         local = {'name':'ego-browser','origin':'inventory','source_class':'local_custom','entries':[],'tools':{}}
         document = {'ok':True,'generated_at':'t','items':[local],'tools':[],'attention':{'badge':0},'meta':{}}
         for installs in [None, {'ego-browser':[{'id':'workspace-skill'}]}]:
-            with mock.patch('multica_board.skills_view.skills_document',return_value=document), mock.patch.object(views,'_workspace_installs',return_value=installs), mock.patch.object(views,'runtimes',return_value={'items':[]}):
+            with mock.patch('multica_board.skill_grok_export.grok_export_skills', return_value=([], {'id': 'grok_bot_export', 'state': 'absent', 'detail': 'test'})), mock.patch('multica_board.skills_view.skills_document',return_value=document), mock.patch.object(views,'_workspace_installs',return_value=installs), mock.patch.object(views,'runtimes',return_value={'items':[]}):
                 result=views.skills()
             named = [item for item in result['items'] if item['name']=='ego-browser']
             self.assertEqual(len(named),2)

@@ -48,6 +48,8 @@ export function classifyContentResponse({ status, body, networkError }) {
       return { state: "too_large", message: body.message || "文件过大，未载入" };
     case "error":
       return { state: "error", message: body.message || "读取失败" };
+    case "hash_mismatch":
+      return { state: "hash_mismatch", message: body.message || "哈希或字节数不一致" };
     default:
       return { state: "error", message: `未知的 state：${String(body.state)}` };
   }
@@ -74,6 +76,7 @@ export const CONTENT_LABEL = {
   ok: { label: "ok", cls: "ok" },
   empty: { label: "文件为空", cls: "muted" },
   missing: { label: "文件不存在", cls: "bad" },
+  hash_mismatch: { label: "校验失败", cls: "bad" },
   denied: { label: "无权限读取", cls: "warn" },
   too_large: { label: "文件过大，未载入", cls: "warn" },
   error: { label: "读取失败", cls: "bad" },

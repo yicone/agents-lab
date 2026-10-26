@@ -129,6 +129,7 @@ SUMMARY_SOURCES = (
     ("third_party_unmanaged", "第三方未托管"),
     ("unrecorded", "未登记"),
     ("grok_bot", "Grok Bot"),
+    ("grok_bot_export", "Grok Bot 导出"),
 )
 
 _CACHE: dict[tuple, dict[str, Any]] = {}

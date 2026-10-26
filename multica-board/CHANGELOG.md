@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### 新增
+
+- 本地候选（未合并、未部署）：Skills 增加「Grok Bot 导出」来源，支持查看 user skill 正文与附件、显示导出时间，并按 manifest 逐文件核对 SHA-256 和字节数；缺失或校验失败时明确提示。（ACM-613；仅本地提交，无 PR）
+
 ### 变更
 
 - 本地候选（未合并、未部署）：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（ACM-586；仅本地提交，无 PR）

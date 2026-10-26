@@ -61,6 +61,19 @@ def build_evidence_inventory(
     for row in rows:
         kind = row.get("source_class")
         origin = row.get("origin")
+        if kind == "grok_bot_export" and isinstance(row.get("export"), dict):
+            exported = row["export"]
+            valid = exported.get("state") == "ok"
+            skill_items.append(_item(
+                object_type="skill", object_id=row.get("key") or "grok-export:" + quote(_display_name(row), safe=""), display_name=_display_name(row),
+                source_id="grok_bot", source_kind="grok_bot", scope="bot-private",
+                collection_state="collected" if valid else "unavailable", observed_at=generated_at,
+                evidence_level="observed", hash_state="available" if valid else "unavailable",
+                evidence_kind="export", location=None, object_ref=None,
+                source_label=f"Grok Bot 导出 · {exported.get('exported_at') or '时间未知'} · {row.get('status_label') or ''}；仅核对导出文件，不代表 Bot 当前加载",
+                reason=None if valid else "read_failed",
+            ))
+            continue
         if kind == "grok_bot" or origin == "grok_bot":
             if _grok_readable(grok_meta):
                 skill_items.extend(_grok_bot_items(row, generated_at))

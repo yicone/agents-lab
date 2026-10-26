@@ -1270,6 +1270,7 @@ class Views:
         from .skill_runtimes import runtime_columns
         from .runtime_load import collect_runtime_load
         from .skill_grok_bots import grok_bot_skills
+        from .skill_grok_export import grok_export_skills
         try:
             roots, _ = _load_tool_roots(TOOL_ROOTS_PATH, REPO_ROOT)
         except (OSError, ValueError, TypeError, KeyError):
@@ -1295,13 +1296,20 @@ class Views:
         for item in bot_items:
             item["related_skill_name"] = item["name"] if item["name"] in local_names else None
         items.extend(bot_items)
+        export_items, export_source = grok_export_skills()
+        for item in export_items:
+            item["related_skill_name"] = item["name"] if item["name"] in local_names else None
+        items.extend(export_items)
         summary = _summary(items)
         for block in summary:
             if block["id"] == "grok_bot":
                 block["uncollected"] = bot_source["state"] != "ok"
                 block["detail"] = bot_source["detail"]
+            if block["id"] == "grok_bot_export":
+                block["uncollected"] = not export_items
+                block["detail"] = export_source["detail"]
         meta = {**(document.get("meta") or {})}
-        meta["sources"] = [*(meta.get("sources") or []), bot_source]
+        meta["sources"] = [*(meta.get("sources") or []), bot_source, export_source]
         return runtime_columns(
             {**document, "items": items, "summary": summary, "meta": meta},
             self.runtimes(),
@@ -1310,8 +1318,11 @@ class Views:
         )
 
     def skills_content(self, **arguments) -> dict[str, Any]:
+        from .skill_grok_export import PREFIX, read_export_content
         from .skill_content import read_content
         from .skills_view import REPO_ROOT, skills_document
+        if arguments.get("source", "local") == "local" and arguments.get("path", "").startswith(PREFIX):
+            return read_export_content(**arguments)
         # Cloud selection never consults local files. Only the local inventory
         # (not workspace metadata) can authorize a filesystem read.
         document = {} if arguments.get("source") == "cloud" else skills_document()

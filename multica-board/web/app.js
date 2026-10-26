@@ -1256,6 +1256,14 @@ function renderDrawer() {
     return;
   }
   if (d.kind === "skill") {
+    if (d.skill?.export) {
+      const current = state.skills?.items?.find(item => skillKey(item) === skillKey(d.skill));
+      d.skill = current || { ...d.skill, status_label: "导出清单不可用，请刷新来源", export: {
+        ...d.skill.export, state: "bad", files: d.skill.export.files.map(file => ({
+          ...file, state: "denied", message: "清单不可用，无法校验",
+        })),
+      } };
+    }
     const scrollTop = el.scrollTop;
     const opened = new Set([...el.querySelectorAll("details[data-skill-detail][open]")].map(node => node.dataset.skillDetail));
     el.replaceChildren(...renderSkillDrawer({ ...atlasCtx(), closeDrawer }, d.skill));
