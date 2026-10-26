@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from multica_board.evidence_inventory import EVIDENCE_LEVELS, build_evidence_inventory  # noqa: E402
+from multica_board.evidence_inventory import EVIDENCE_LEVELS, REASONS, build_evidence_inventory  # noqa: E402
 from multica_board.server import BoardServer  # noqa: E402
 
 HOME = "/Users/tr"
@@ -127,7 +127,15 @@ class EvidenceInventoryTest(unittest.TestCase):
         self.assertFalse(any(item["source_id"] == "grok_cli" for item in body["items"]))
         memory = [item for item in body["items"] if item["object_type"] == "memory_collection"]
         self.assertEqual(len(memory), 3)
-        self.assertTrue(all(item["collection_state"] == "uncollected" and item["reason"] == "no_supported_export" for item in memory))
+        self.assertEqual(by_id["memory"]["collection_state"], "uncollected")
+        self.assertEqual(by_id["memory"]["reason"], "source_unverified")
+        self.assertTrue(all(item["collection_state"] == "uncollected" and item["reason"] == "source_unverified" for item in memory))
+        encoded_memory = json.dumps(body)
+        self.assertNotIn("no_supported_export", encoded_memory)
+        self.assertNotIn("export_candidate_unverified", encoded_memory)
+        self.assertIn("source_unverified", REASONS)
+        self.assertNotIn("no_supported_export", REASONS)
+        self.assertNotIn("export_candidate_unverified", REASONS)
         self.assertTrue(all(item["hash"]["value"] is None and item["evidence"]["location"] is None for item in memory))
         self.assertEqual({item["scope"] for item in memory}, {"bot-private", "shared"})
         denied = next(item for item in body["items"] if item["display_name"] == "blocked")

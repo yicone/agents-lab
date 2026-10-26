@@ -33,16 +33,16 @@ const payload = {
     { source_id: "multica_workspace", source_kind: "multica_workspace", label: "Multica Workspace", collection_state: "uncollected", evidence_level: "unknown", reason: "not_implemented" },
     { source_id: "grok_bot", source_kind: "grok_bot", label: "Grok Bot", collection_state: "collected", evidence_level: "declared", reason: null },
     { source_id: "grok_cli", source_kind: "grok_cli", label: "Grok CLI", collection_state: "uncollected", evidence_level: "unknown", reason: "not_implemented" },
-    { source_id: "memory", source_kind: "grok_bot", label: "Memory", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
+    { source_id: "memory", source_kind: "grok_bot", label: "Memory", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
   ],
   items: [
     { object_type: "skill", object_id: "local:demo", display_name: "demo", source_id: "local", source_kind: "local_machine", scope: "shared", collection_state: "collected", evidence_level: "observed", observed_at: "2026-10-26T09:00:00Z", related_name: "demo", evidence: { location: "~/.agents/skills/demo", source_label: "本机目录" } },
     { object_type: "skill", object_id: "repo:demo", display_name: "demo", source_id: "repository", source_kind: "repository", scope: "repository", collection_state: "collected", evidence_level: "declared", observed_at: "2026-10-26T09:00:00Z", related_name: "demo", evidence: { location: "skills/demo", source_label: "声明" } },
     { object_type: "skill", object_id: "bot:demo", display_name: "demo", source_id: "grok_bot", source_kind: "grok_bot", scope: "bot-private", collection_state: "collected", evidence_level: "declared", observed_at: "2026-10-26T09:00:00Z", related_name: "demo", evidence: { location: null, source_label: "名称声明" } },
     { object_type: "skill", object_id: "blocked", display_name: "blocked", source_id: "local", source_kind: "local_machine", scope: "shared", collection_state: "unavailable", evidence_level: "unknown", observed_at: "2026-10-26T09:00:00Z", related_name: null, evidence: { location: null, source_label: "无权限" } },
-    { object_type: "memory_collection", object_id: "memory:bot-private", display_name: "Bot 私有 Memory", source_id: "memory", source_kind: "grok_bot", scope: "bot-private", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
-    { object_type: "memory_collection", object_id: "memory:shared_profile", display_name: "共享 Profile", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
-    { object_type: "memory_collection", object_id: "memory:shared_journal", display_name: "共享 Journal", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
+    { object_type: "memory_collection", object_id: "memory:bot-private", display_name: "Bot 私有 Memory", source_id: "memory", source_kind: "grok_bot", scope: "bot-private", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
+    { object_type: "memory_collection", object_id: "memory:shared_profile", display_name: "共享 Profile", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
+    { object_type: "memory_collection", object_id: "memory:shared_journal", display_name: "共享 Journal", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
   ],
 };
 
@@ -90,7 +90,11 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   assert.equal(page.includes("声明"), true);
   assert.equal(page.includes("未知"), true);
   assert.equal(page.includes("Bot 私有 Memory"), true);
+  assert.equal(page.includes("当前实现只列出未采集槽位"), true);
   assert.equal(page.includes("不能相加成数量"), true);
+  assert.equal(page.includes("来源未证实"), true);
+  assert.equal(page.includes("没有出口"), false);
+  assert.equal(page.includes("没有可用导出"), false);
   assert.equal(page.includes("不写回"), true);
   assert.equal(page.includes("批准"), false);
   assert.equal(visibleItems(payload, { source: "grok_bot", q: "" }).map((item) => item.object_id).join(), "bot:demo");
