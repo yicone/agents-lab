@@ -178,7 +178,9 @@ test("forecast fields render after the existing signal and stay absent when the 
   assert.equal(tertiary.label, "Third Party");
   assert.equal(tertiary.signal, "normal");
   assert.equal(tertiary.band, "warning");
+  assert.equal(tertiary.band_present, true);
   assert.equal(cursor.windows[0].band, null);
+  assert.equal(cursor.windows[0].band_present, false);
   assert.equal(cursor.windows[0].label, "Total");
   const grok = model.quotas[1].windows[0];
   assert.equal(grok.signal, "exhausting");
@@ -311,8 +313,122 @@ test("a window without forecast fields does not invent a band or a sample age", 
   const nodes = render(payload);
   const row = textOf(findWindow(nodes, "codex:primary"));
   assert.match(row, /^5h12%正常2026-10-16T21:00:00Z$/);
-  assert.equal(modelUsage(payload).quotas[0].windows[0].band, null);
+  const windowModel = modelUsage(payload).quotas[0].windows[0];
+  assert.equal(windowModel.band, null);
+  assert.equal(windowModel.band_present, false);
   assert.equal(modelUsage(payload).quotas[0].freshness.present, false);
+  assert.equal(modelUsage(payload).quotas[0].freshness.stale_present, false);
+});
+
+test("a missing band stays off the row and an explicit null band shows a gap", () => {
+  const base = {
+    generated_at: "2026-10-16T00:00:00Z",
+    days: 14,
+    snapshot_state: "ok",
+    signals: { dispatchable: [], exhausting: [] },
+    multica_daily: { by_runtime: [] },
+  };
+  const omitted = {
+    ...base,
+    external_quotas: [
+      {
+        provider: "codex",
+        status: "ok",
+        source: "codexbar",
+        windows: [{ key: "primary", label: "5h", used_percent: 12, resets_at: "2026-10-16T21:00:00Z", signal: "normal" }],
+      },
+    ],
+  };
+  const explicit = {
+    ...base,
+    external_quotas: [
+      {
+        provider: "codex",
+        status: "ok",
+        source: "codexbar",
+        windows: [{ key: "primary", label: "5h", used_percent: 12, resets_at: "2026-10-16T21:00:00Z", signal: "normal", band: null }],
+      },
+    ],
+  };
+  const omittedNodes = render(omitted);
+  const omittedRow = findWindow(omittedNodes, "codex:primary");
+  assert.equal(textOf(omittedRow), "5h12%正常2026-10-16T21:00:00Z");
+  assert.equal(omittedRow.children.some((child) => child.attrs?.title === "band"), false);
+  assert.equal(modelUsage(omitted).quotas[0].windows[0].band_present, false);
+
+  const explicitNodes = render(explicit);
+  const explicitModel = modelUsage(explicit).quotas[0].windows[0];
+  const explicitRow = findWindow(explicitNodes, "codex:primary");
+  const gap = explicitRow.children.find((child) => child.attrs?.title === "band");
+  assert.equal(explicitModel.band_present, true);
+  assert.equal(explicitModel.band, null);
+  assert.equal(textOf(gap), "—");
+  assert.doesNotMatch(textOf(explicitRow), /常规|关注|预警|危急|耗尽|未知/);
+  assert.notEqual(usageRefreshKey(omitted), usageRefreshKey(explicit));
+});
+
+test("stale null shows a gap and a missing stale field stays hidden", () => {
+  const base = {
+    generated_at: "2026-10-16T00:00:00Z",
+    days: 14,
+    snapshot_state: "ok",
+    signals: { dispatchable: [], exhausting: [] },
+    multica_daily: { by_runtime: [] },
+  };
+  const omitted = {
+    ...base,
+    external_quotas: [
+      {
+        provider: "codex",
+        status: "ok",
+        source: "codexbar",
+        windows: [{ key: "primary", label: "5h", used_percent: 40, signal: "normal", band: "watch" }],
+      },
+    ],
+  };
+  const explicit = {
+    ...base,
+    external_quotas: [
+      {
+        provider: "codex",
+        status: "ok",
+        source: "codexbar",
+        stale: null,
+        windows: [{ key: "primary", label: "5h", used_percent: 40, signal: "normal", band: "watch" }],
+      },
+      {
+        provider: "cursor",
+        status: "ok",
+        source: "codexbar",
+        windows: [{ key: "tertiary", label: "slot-label-hidden", used_percent: 40, signal: "normal", band: "watch", stale: null }],
+      },
+    ],
+  };
+  const omittedText = textOf(findWindow(render(omitted), "codex:primary"));
+  assert.match(omittedText, /关注/);
+  assert.doesNotMatch(omittedText, /陈旧|未知/);
+  assert.equal(modelUsage(omitted).quotas[0].freshness.stale_present, false);
+  assert.equal(modelUsage(omitted).quotas[0].windows[0].freshness.stale_present, false);
+  assert.equal(modelUsage(omitted).quotas[0].windows[0].stale, false);
+
+  const explicitNodes = render(explicit);
+  const explicitQuota = column(explicitNodes, "外部额度");
+  const providerModel = modelUsage(explicit).quotas[0];
+  const windowModel = modelUsage(explicit).quotas[1].windows[0];
+  const windowText = textOf(findWindow(explicitNodes, "cursor:tertiary"));
+  assert.match(explicitQuota, /陈旧 —/);
+  assert.match(windowText, /关注/);
+  assert.match(windowText, /陈旧 —/);
+  assert.doesNotMatch(windowText, /未知|采样陈旧/);
+  assert.equal(providerModel.freshness.stale_present, true);
+  assert.equal(providerModel.freshness.stale_value, null);
+  assert.equal(providerModel.freshness.stale, false);
+  assert.equal(providerModel.windows[0].band, "watch");
+  assert.equal(windowModel.freshness.stale_present, true);
+  assert.equal(windowModel.freshness.stale_value, null);
+  assert.equal(windowModel.stale, false);
+  assert.equal(windowModel.band, "watch");
+  assert.notEqual(usageRefreshKey(omitted), usageRefreshKey(explicit));
 });
 
 test("L1 usage tool points at this page", () => {

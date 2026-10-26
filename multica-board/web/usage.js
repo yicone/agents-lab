@@ -146,6 +146,13 @@ function knownBand(value) {
   return typeof value === "string" && Object.hasOwn(BAND_LABEL, value) ? value : null;
 }
 
+function bandField(row) {
+  const field = ownField(row, "band");
+  if (!field.present) return { present: false, value: null };
+  if (field.value === null) return { present: true, value: null };
+  return { present: true, value: knownBand(field.value) };
+}
+
 function freshnessOf(row) {
   const age = numberField(row, "sample_age_s");
   const staleField = ownField(row, "stale");
@@ -153,6 +160,8 @@ function freshnessOf(row) {
     present: age.present || staleField.present,
     age_present: age.present,
     sample_age_s: age.value,
+    stale_present: staleField.present,
+    stale_value: staleField.present ? staleField.value : undefined,
     stale: staleField.value === true,
   };
 }
@@ -168,9 +177,10 @@ function freshnessText(freshness) {
   if (!freshness?.present) return "";
   const age = freshness.age_present ? formatSampleAge(freshness.sample_age_s) : null;
   if (freshness.stale) return age ? `采样陈旧 · ${age}` : "采样陈旧";
-  if (age) return `采样 ${age}`;
-  if (freshness.age_present) return "采样 —";
-  return "";
+  const parts = [];
+  if (freshness.age_present) parts.push(age ? `采样 ${age}` : "采样 —");
+  if (freshness.stale_present && freshness.stale_value === null) parts.push("陈旧 —");
+  return parts.join(" · ");
 }
 
 function windowDays(payload) {
@@ -230,7 +240,9 @@ function windowModel(row, providerRow) {
   const used = row.used_percent;
   const identity = windowIdentity(providerRow?.provider, row.key);
   const ownFreshness = freshnessOf(row);
-  const stale = ownFreshness.stale || freshnessOf(providerRow).stale;
+  const providerFreshness = freshnessOf(providerRow);
+  const stale = ownFreshness.stale || providerFreshness.stale;
+  const band = bandField(row);
   return {
     key: safeLabel(row.key) || "window",
     identity,
@@ -238,7 +250,8 @@ function windowModel(row, providerRow) {
     used_percent: typeof used === "number" && Number.isFinite(used) ? used : null,
     resets_at: safeLabel(row.resets_at) || null,
     signal: signalToken(row.signal),
-    band: stale ? "unknown" : knownBand(row.band),
+    band_present: band.present,
+    band: stale ? "unknown" : band.value,
     stale,
     delta_24h: numberField(row, "delta_24h_percent"),
     daily_delta: numberField(row, "daily_delta"),
@@ -305,8 +318,8 @@ function quotaKey(item) {
       [
         window.identity,
         window.signal,
-        window.band || "",
-        window.stale ? "stale" : "",
+        window.band_present ? window.band ?? "null" : "",
+        window.stale ? "stale" : window.freshness.stale_present && window.freshness.stale_value === null ? "null" : "",
         keyedField(window.delta_24h),
         keyedField(window.daily_delta),
         keyedField(window.eta_exhausted_at),
@@ -318,7 +331,7 @@ function quotaKey(item) {
     item.provider,
     item.status,
     item.updated_at || "",
-    item.freshness.stale ? "stale" : "",
+    item.freshness.stale ? "stale" : item.freshness.stale_present && item.freshness.stale_value === null ? "null" : "",
     item.freshness.age_present ? String(item.freshness.sample_age_s) : "",
     windows,
   ].join(":");
@@ -475,6 +488,13 @@ function etaText(ctx, field) {
   return `预计 ${lead}后耗尽 · ${abs}`;
 }
 
+function bandTag(h, window) {
+  if (window.stale) return h("span", { class: `tag ${BAND_CLASS.unknown}`.trim(), title: "unknown" }, BAND_LABEL.unknown);
+  if (!window.band_present) return null;
+  if (window.band) return h("span", { class: `tag ${BAND_CLASS[window.band] || "muted"}`.trim(), title: window.band }, BAND_LABEL[window.band] || window.band);
+  return h("span", { class: "tag muted", title: "band" }, "—");
+}
+
 function windowRow(ctx, window, providerFreshness) {
   const { h } = ctx;
   const ownText = freshnessText(window.freshness);
@@ -488,9 +508,7 @@ function windowRow(ctx, window, providerFreshness) {
     h("b", null, formatPercent(window.used_percent)),
     h("span", { class: `tag ${SIGNAL_CLASS[window.signal] || ""}`.trim() }, SIGNAL_LABEL[window.signal] || window.signal),
     h("span", { class: "muted" }, when(ctx, window.resets_at, { absolute: true })),
-    window.band
-      ? h("span", { class: `tag ${BAND_CLASS[window.band] || "muted"}`.trim(), title: window.band }, BAND_LABEL[window.band] || window.band)
-      : null,
+    bandTag(h, window),
     deltaText(window) ? h("span", { class: "muted" }, deltaText(window)) : null,
     etaText(ctx, window.eta_exhausted_at) ? h("span", { class: "muted" }, etaText(ctx, window.eta_exhausted_at)) : null,
     ageText ? h("span", { class: "muted" }, ageText) : null,
