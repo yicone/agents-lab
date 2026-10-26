@@ -80,11 +80,24 @@ export function memorySlots(payload) {
   return (payload?.items || []).filter((item) => item?.object_type === "memory_collection");
 }
 
-export function emptyInventoryText(sourceId, payload) {
+function skillRecords(payload, sourceId) {
+  return (payload?.items || []).filter((item) => item?.object_type === "skill" && (!sourceId || item.source_id === sourceId));
+}
+
+/** Empty table copy. A search miss is not the same as a collected source that really has zero records. */
+export function emptyInventoryText(sourceId, payload, route) {
+  const q = String(route?.q || "").trim();
   const source = (payload?.sources || []).find((item) => item.source_id === sourceId);
+  const records = skillRecords(payload, sourceId);
+  if (q && records.length > 0) return "没有符合筛选的证据";
+  if (!q && source?.collection_state === "collected" && records.length === 0) return "已采集，0 条";
+  if (!q && !source) {
+    const collected = (payload?.sources || []).some((item) => item.collection_state === "collected");
+    if (collected && records.length === 0) return "已采集，0 条";
+    return "没有符合筛选的证据";
+  }
   if (!source) return "没有符合筛选的证据";
   const mark = collectionMark(source.collection_state);
-  if (source.collection_state === "collected") return "已采集，0 条";
   if (mark.symbol) return `${mark.symbol} ${mark.caption}`;
   return "没有符合筛选的证据";
 }
@@ -145,7 +158,7 @@ function table(ctx, items, route, payload) {
   const head = h("tr", null, ...["名称", "来源", "scope", "采集", "证据等级", "观察时间", "同名关联", "位置"].map((label) => h("th", null, label)));
   const body = items.map((item) => row(h, item));
   if (!body.length) {
-    body.push(h("tr", null, h("td", { class: "empty", colspan: "8" }, emptyInventoryText(route?.source, payload))));
+    body.push(h("tr", null, h("td", { class: "empty", colspan: "8" }, emptyInventoryText(route?.source, payload, route))));
   }
   return h("div", { class: "table-wrap sticky-head" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
 }
