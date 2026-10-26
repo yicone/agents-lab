@@ -11,6 +11,8 @@
       "source": "codexbar",
       "updated_at": "2026-10-16T16:40:00Z",
       "last_success_at": "2026-10-16T16:40:00Z",
+      "sample_age_s": 180,
+      "stale": false,
       "windows": [
         {
           "key": "primary",
@@ -20,6 +22,18 @@
           "resets_at": "2026-10-19T12:00:00Z",
           "signal": "dispatchable",
           "signal_reason": "63.6% remaining with 66.9h until reset"
+        },
+        {
+          "key": "tertiary",
+          "label": "slot-label-hidden",
+          "used_percent": 86.98,
+          "remaining_percent": 13.02,
+          "resets_at": "2026-11-19T00:00:00Z",
+          "signal": "normal",
+          "band": "warning",
+          "delta_24h_percent": 16.3,
+          "daily_delta": null,
+          "eta_exhausted_at": "2026-10-16T21:00:00Z"
         }
       ]
     },
@@ -29,6 +43,8 @@
       "source": "codexbar",
       "updated_at": "2026-10-16T16:42:00Z",
       "last_success_at": "2026-10-16T00:00:00Z",
+      "sample_age_s": 60000,
+      "stale": true,
       "error": { "kind": "timeout", "message": "timeout after 30s" },
       "windows": [
         {
@@ -37,7 +53,8 @@
           "used_percent": 50,
           "remaining_percent": 50,
           "resets_at": "2026-10-18T00:00:00Z",
-          "signal": "exhausting"
+          "signal": "exhausting",
+          "band": "critical"
         }
       ]
     },

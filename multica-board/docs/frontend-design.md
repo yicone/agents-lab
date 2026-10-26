@@ -197,6 +197,9 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 
 - 数据是 `GET /api/usage`。mock 读 `fixtures/usage.json`。
 - Multica 运行层用 `multica_daily.by_runtime`。每个 runtime 在 `days` 窗内列出运行、完成、满载失败、真失败、取消，以及 token 计数和 `cost_usd_ticks`。页头标出 `days` 和 `usage_collected_at`。`cost_usd_ticks` 保持接口原值，不换算成美元。
-- 外部额度用 `external_quotas` 和 `signals`。按 provider 显示窗口 `used_percent`、`resets_at`、`source`、`status`、`updated_at` / `last_success_at`。`9router` 和 `orca` 保持「未接入」。可派活 / 即将耗尽只显示接口给出的 `dispatchable` / `exhausting`。
+- 外部额度用 `external_quotas` 和 `signals`。按 provider 显示窗口 `used_percent`、`resets_at`、`source`、`status`、`updated_at` / `last_success_at`。`9router` 和 `orca` 保持「未接入」。可派活 / 即将耗尽只显示接口给出的 `dispatchable` / `exhausting`，页面不另算阈值。
+- 窗口行在名称、已用百分比、`signal` 标签和 `resets_at` 之后，追加接口给出的 `band`、`delta_24h_percent`、`daily_delta` 和 `eta_exhausted_at`。`band` 只接受 `normal` 常规、`watch` 关注、`warning` 预警、`critical` 危急、`exhausted` 耗尽、`unknown` 未知。字段缺失、null 或无法识别时不补算、不显示分带。
+- 窗口身份是 `provider:window_key`。`cursor:tertiary` 显示为 Third Party，并标出这个身份；不按 label 文案猜测。
+- `sample_age_s` 和 `stale` 可以在 provider 或窗口上。`stale === true` 时该窗口分带显示未知，不沿用原来的 `band`。采样年龄只展示。
 - 失败栏用同一批 runtime 计数里的满载失败（含额度失败和限流失败）和真失败。耗时和原始 error 文本不在这个接口里，页面写明缺口。
 - Multica 的 token / cost 与 CodexBar 额度分栏，不相加。不显示 workspace id、runtime id、账号或认证信息。

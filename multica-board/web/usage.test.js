@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { MAP_TOOLS } from "./layers.js";
-import { formatCount, modelUsage, renderUsage, usageAlert, usageSignal } from "./usage.js";
+import { formatCount, formatDeltaPp, formatSampleAge, modelUsage, renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/usage.json", import.meta.url), "utf8"));
 
@@ -28,14 +28,26 @@ function column(nodes, label) {
   return textOf(found[0]);
 }
 
-function render(payload, route = { q: "" }) {
+function render(payload, route = { q: "" }, nowMs) {
   return renderUsage({
     h: vnode,
     route,
     usage: payload,
     ago: () => "刚刚",
     absTime: (iso) => iso,
+    nowMs,
   });
+}
+
+function findWindow(nodes, identity) {
+  let found = null;
+  const walk = (node) => {
+    if (!node || typeof node !== "object" || found) return;
+    if (node.attrs?.["data-window"] === identity) found = node;
+    for (const child of node.children || []) walk(child);
+  };
+  for (const node of nodes) walk(node);
+  return found;
 }
 
 test("fixture keeps the three layers apart and follows API signals", () => {
@@ -156,6 +168,151 @@ test("account-shaped strings and quota error text stay off the page", () => {
   assert.match(page, /未命名 runtime/);
   assert.equal(usageAlert(fixture), true);
   assert.match(usageSignal(fixture), /1 个窗口即将耗尽/);
+});
+
+test("forecast fields render after the existing signal and stay absent when the payload omits them", () => {
+  const model = modelUsage(fixture);
+  const cursor = model.quotas[0];
+  const tertiary = cursor.windows[1];
+  assert.equal(tertiary.identity, "cursor:tertiary");
+  assert.equal(tertiary.label, "Third Party");
+  assert.equal(tertiary.signal, "normal");
+  assert.equal(tertiary.band, "warning");
+  assert.equal(cursor.windows[0].band, null);
+  assert.equal(cursor.windows[0].label, "Total");
+  const grok = model.quotas[1].windows[0];
+  assert.equal(grok.signal, "exhausting");
+  assert.equal(grok.band, "unknown");
+  assert.equal(grok.stale, true);
+
+  const nodes = render(fixture, { q: "" }, Date.parse("2026-10-16T16:30:00Z"));
+  const quota = column(nodes, "外部额度");
+  assert.match(quota, /36\.43%可派活/);
+  assert.match(quota, /86\.98%正常/);
+  assert.match(quota, /50%即将耗尽/);
+  assert.match(quota, /Third Party/);
+  assert.match(quota, /cursor:tertiary/);
+  assert.match(quota, /预警/);
+  assert.match(quota, /24h \+16\.3pp · 今日 —/);
+  assert.match(quota, /预计 4\.5 小时后耗尽 · 2026-10-16T21:00:00Z/);
+  assert.match(quota, /采样 3 分钟/);
+  assert.match(quota, /采样陈旧 · 16\.7 小时/);
+  assert.match(quota, /未知/);
+  assert.doesNotMatch(quota, /slot-label-hidden|危急|signal_reason/);
+  const primaryAt = quota.indexOf("36.43%");
+  const tertiaryAt = quota.indexOf("Third Party");
+  assert.doesNotMatch(quota.slice(primaryAt, tertiaryAt), /预警|24h|预计耗尽/);
+
+  const windowNode = findWindow(nodes, "cursor:tertiary");
+  assert.equal(windowNode.children[3].attrs.title, undefined);
+  const band = windowNode.children.find((child) => child.attrs?.title === "warning");
+  assert.equal(textOf(band), "预警");
+  assert.equal(usageRefreshKey(fixture) === usageRefreshKey(structuredClone(fixture)), true);
+  const shifted = structuredClone(fixture);
+  shifted.external_quotas[0].windows[1].band = "watch";
+  assert.notEqual(usageRefreshKey(shifted), usageRefreshKey(fixture));
+});
+
+test("search uses provider:window_key and the Third Party alias", () => {
+  for (const q of ["third party", "cursor:tertiary", "预警"]) {
+    const quota = column(render(fixture, { q }), "外部额度");
+    assert.match(quota, /Third Party/);
+    assert.doesNotMatch(quota, /50%/);
+  }
+  const hidden = column(render(fixture, { q: "slot-label-hidden" }), "外部额度");
+  assert.match(hidden, /没有匹配的额度/);
+  assert.doesNotMatch(hidden, /Third Party/);
+});
+
+test("null forecast fields stay visible as gaps and a stale window does not keep its old band", () => {
+  const payload = {
+    generated_at: "2026-10-16T00:00:00Z",
+    days: 14,
+    snapshot_state: "ok",
+    external_quotas: [
+      {
+        provider: "codex",
+        status: "ok",
+        source: "codexbar",
+        updated_at: "2026-10-16T00:00:00Z",
+        last_success_at: "2026-10-16T00:00:00Z",
+        sample_age_s: null,
+        stale: false,
+        windows: [
+          {
+            key: "primary",
+            label: "5h",
+            used_percent: 12,
+            resets_at: "2026-10-16T21:00:00Z",
+            signal: "dispatchable",
+            band: null,
+            delta_24h_percent: null,
+            daily_delta: null,
+            eta_exhausted_at: null,
+          },
+        ],
+      },
+      {
+        provider: "cursor",
+        status: "ok",
+        source: "codexbar",
+        windows: [
+          {
+            key: "tertiary",
+            label: "slot-label-hidden",
+            used_percent: 96,
+            signal: "normal",
+            band: "critical",
+            stale: true,
+            sample_age_s: 5400,
+            delta_24h_percent: -2,
+          },
+        ],
+      },
+    ],
+    signals: { dispatchable: [], exhausting: [] },
+    multica_daily: { by_runtime: [] },
+  };
+  const quota = column(render(payload), "外部额度");
+  assert.match(quota, /12%可派活/);
+  assert.match(quota, /24h — · 今日 —/);
+  assert.match(quota, /预计耗尽 —/);
+  assert.match(quota, /采样 —/);
+  assert.match(quota, /Third Party/);
+  assert.match(quota, /cursor:tertiary/);
+  assert.match(quota, /96%正常/);
+  assert.match(quota, /未知/);
+  assert.match(quota, /采样陈旧 · 1\.5 小时/);
+  assert.match(quota, /24h -2pp/);
+  assert.doesNotMatch(quota, /危急|slot-label-hidden/);
+  assert.equal(formatDeltaPp(0), "0pp");
+  assert.equal(formatDeltaPp(null), null);
+  assert.equal(formatSampleAge(-1), null);
+});
+
+test("a window without forecast fields does not invent a band or a sample age", () => {
+  const payload = {
+    generated_at: "2026-10-16T00:00:00Z",
+    days: 14,
+    snapshot_state: "ok",
+    external_quotas: [
+      {
+        provider: "codex",
+        status: "ok",
+        source: "codexbar",
+        updated_at: "2026-10-16T00:00:00Z",
+        last_success_at: "2026-10-16T00:00:00Z",
+        windows: [{ key: "primary", label: "5h", used_percent: 12, resets_at: "2026-10-16T21:00:00Z", signal: "normal" }],
+      },
+    ],
+    signals: { dispatchable: [], exhausting: [] },
+    multica_daily: { by_runtime: [] },
+  };
+  const nodes = render(payload);
+  const row = textOf(findWindow(nodes, "codex:primary"));
+  assert.match(row, /^5h12%正常2026-10-16T21:00:00Z$/);
+  assert.equal(modelUsage(payload).quotas[0].windows[0].band, null);
+  assert.equal(modelUsage(payload).quotas[0].freshness.present, false);
 });
 
 test("L1 usage tool points at this page", () => {
