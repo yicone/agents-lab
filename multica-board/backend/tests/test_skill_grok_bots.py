@@ -17,16 +17,17 @@ from multica_board.views import Views
 class GrokBotSkillTests(unittest.TestCase):
     def test_manifest_names_and_evidence_are_read_only(self):
         before = hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest()
+        expected_bot_count = len(json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))['bots'])
         with mock.patch('subprocess.run', side_effect=AssertionError('no CLI/RPC allowed')):
             items, source = grok_bot_skills()
         self.assertEqual(source['state'], 'ok')
         self.assertEqual(len(items), 8)
         self.assertEqual(len({row['key'] for row in items}), 8)
         for item in items:
-            self.assertEqual(len(item['grok_bots']), 23)
+            self.assertEqual(len(item['grok_bots']), expected_bot_count)
             observed = [bot['name'] for bot in item['grok_bots'] if bot['evidence_state'] == 'observed']
             self.assertEqual(set(observed), {'Agent Steward', 'EO-PM'})
-            self.assertEqual(sum(bot['evidence_state'] == 'inferred' for bot in item['grok_bots']), 21)
+            self.assertEqual(sum(bot['evidence_state'] == 'inferred' for bot in item['grok_bots']), expected_bot_count - len(observed))
             self.assertIn('未逐一实测', item['evidence_detail'])
             self.assertEqual(item['content']['state'], 'not_applicable')
             self.assertNotIn('local_source', item)
