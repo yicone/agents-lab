@@ -323,6 +323,48 @@
         "video-to-longform",
         "wechatide-skill"
       ]
+    },
+    {
+      "id": "02dfc706-356d-4348-b46b-975f404256ed",
+      "name": "Multica 运维",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
+    },
+    {
+      "id": "1ec8a0b4-0ff4-43e1-bd06-18f76113283d",
+      "name": "Atlas PM",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
+    },
+    {
+      "id": "87063b4c-1fb0-4f54-a43e-8c53fa544617",
+      "name": "Agent 研究主管",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
     }
   ]
 }
