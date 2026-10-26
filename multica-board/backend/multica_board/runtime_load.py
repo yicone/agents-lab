@@ -86,13 +86,17 @@ def parse_hermes_disabled(text: str) -> dict:
     """Read only the direct ``skills.disabled`` list.
 
     ``skills.<other>.disabled`` is a different key. A nested list must not
-    become the opt-out set. Ambiguous or unreadable values stay invalid so
-    callers leave the runtime unverified.
+    become the opt-out set. A repeated top-level ``skills:`` key is unreliable:
+    the first key must not be parsed. Ambiguous or unreadable values stay
+    invalid so callers leave the runtime unverified.
     """
     lines = text.splitlines()
-    skills_at = next((i for i, line in enumerate(lines) if line == "skills:"), None)
-    if skills_at is None:
+    skills_lines = [i for i, line in enumerate(lines) if line == "skills:"]
+    if not skills_lines:
         return {"status": "absent_key"}
+    if len(skills_lines) != 1:
+        return {"status": "invalid"}
+    skills_at = skills_lines[0]
     block: list[tuple[int, int, str]] = []
     for index in range(skills_at + 1, len(lines)):
         line = lines[index]
