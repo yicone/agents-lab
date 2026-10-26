@@ -24,7 +24,7 @@ REASONS = (
     "permission_denied",
     "read_failed",
     "schema_invalid",
-    "no_supported_export",
+    "source_unverified",
     "private_rpc_not_supported",
 )
 HASH_STATES = ("available", "unavailable", "not_collected", "not_applicable")
@@ -143,7 +143,7 @@ def _fixed_sources(
         _source("multica_workspace", "multica_workspace", "Multica Workspace", "workspace", workspace_state, generated_at if workspace_state == "collected" else None, "observed" if workspace_state == "collected" else "unknown", _state_reason(workspace_state, "not_implemented")),
         _source("grok_bot", "grok_bot", "Grok Bot", "bot-private", grok_state, grok_collected_at or (generated_at if grok_state == "collected" else None), "declared" if grok_state == "collected" else "unknown", _state_reason(grok_state, "source_not_configured")),
         _source("grok_cli", "grok_cli", "Grok CLI", "shared", "collected" if grok_cli_collected else "uncollected", generated_at if grok_cli_collected else None, "declared" if grok_cli_collected else "unknown", None if grok_cli_collected else "not_implemented"),
-        _source("memory", "grok_bot", "Memory", "unknown", "uncollected", None, "unknown", "no_supported_export"),
+        _source("memory", "grok_bot", "Memory", "unknown", "uncollected", None, "unknown", "source_unverified"),
     ]
 
 
@@ -196,7 +196,7 @@ def _memory_slots() -> list[dict[str, Any]]:
             location=None,
             object_ref=None,
             source_label=f"{label}。无正文；不探测私有 RPC",
-            reason="no_supported_export",
+            reason="source_unverified",
         ))
     return slots
 

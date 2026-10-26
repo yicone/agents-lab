@@ -9,7 +9,7 @@ Atlas 增加一份跨来源、只读的 evidence inventory 需求契约。契约
 范围：
 
 - Skills：本机、Multica Workspace、Grok Bot 名称声明分层展示。
-- Memory：本单只定义证据槽位和依赖，不声称今天 Atlas 已有正文或出口。
+- Memory：本单只定义证据槽位和依赖。当前实现是未采集槽位，不声称已经读到正文；槽位不是没有出口的证据。
 - 同名对象保持来源分离；同名只建立 `related_name` 关联，不合并成一个资产。
 - 只返回必要元数据；不返回正文、secret、token、env 值、header 值、credential、Cookies。
 - 不提供写入、同步、删除、升级、批准、合并或执行命令。
@@ -43,7 +43,7 @@ Atlas 增加一份跨来源、只读的 evidence inventory 需求契约。契约
 | `invalid` | 来源返回内容存在但不符合契约 | `reason`、`error_code` | 整体错误态，不渲染成空 |
 | `not_applicable` | 该字段对来源不适用 | `collected_at` 可为 null、`reason` | `∅ 不适用` |
 
-`reason` 使用稳定代码，至少包括：`not_implemented`、`source_not_configured`、`not_logged_in`、`permission_denied`、`read_failed`、`schema_invalid`、`no_supported_export`、`private_rpc_not_supported`。底层异常、路径中的秘密、token 不进入响应。
+`reason` 使用稳定代码，至少包括：`not_implemented`、`source_not_configured`、`not_logged_in`、`permission_denied`、`read_failed`、`schema_invalid`、`source_unverified`、`private_rpc_not_supported`。底层异常、路径中的秘密、token 不进入响应。
 
 ## 4. 统一对象契约
 
@@ -128,14 +128,14 @@ Atlas 增加一份跨来源、只读的 evidence inventory 需求契约。契约
 
 ## 6. Memory 依赖
 
-本单不新增 Memory 出口。当前 Atlas 不应宣称能看见 Grok Bot Memory 正文，也不应把 Skills 清单当 Memory 证据。
+本单不读取 Memory 正文。当前实现是未采集槽位；这些槽位不是没有出口的证据。Atlas 也不应宣称已经看见 Grok Bot Memory 正文，也不应把 Skills 清单当 Memory 证据。
 
 后续「仅元数据快照、无正文」依赖至少提供：
 
 - 每个 Bot 独立 `bot_id`、profile/journal 类型和来源标签。
 - `scope` 明确区分 `bot-private`、`shared_profile`、`shared_journal`；共享不是跨 Bot 正文合并。
 - `collection_state`、`collected_at`、`evidence_level`、对象 ID、条目数/更新时间等最小元数据。
-- 授权的只读导出或稳定元数据 API。未确认出口前保持 `uncollected`/`unavailable`，不猜测私有 RPC。
+- 授权的只读导出或稳定元数据 API。来源位置未证实时保持 `uncollected`，不猜测私有 RPC。
 - 正文、向量、检索结果、敏感字段不进入本契约。未来正文查看须另立授权、脱敏、审计契约。
 
 推荐后续依赖 shape：`object_type:memory_collection`，`object_id` 绑定 Bot/profile，`hash.state:not_applicable` 或 `not_collected`；不把 `shared_profile` 和某个 Bot 的 `bot-private` 记录合并。
@@ -148,7 +148,7 @@ Atlas 增加一份跨来源、只读的 evidence inventory 需求契约。契约
 4. 响应没有正文、secret、token、env/header 值、credential、Cookies；没有写入或执行命令字段。
 5. `runtime_loaded` 不由路径存在、Skill 名称声明或 workspace 安装元数据推断为 true。
 6. Grok CLI 与 Grok Bot 使用不同 `source_kind`；名称声明不生成本机安装、版本、正文证据。
-7. Memory 当前没有出口时，页面/API 明确显示未采集或不可用，不伪造数据；元数据快照依赖单独标出。
+7. Memory 来源位置未证实时，页面/API 显示 `uncollected` 与 `source_unverified`，不伪造数据。未采集槽位只描述当前实现，不作为没有出口的证据；元数据快照依赖单独标出。
 8. 任何读取错误保留 `unknown/unavailable` 语义，不降级成 absent；任何 schema 错误进入整体 invalid 态。
 9. 页面若落地，按 `docs/design-system.md` 采用版式 A（清单治理）或说明偏离理由：固定范围说明、不使用无效 workspace 筛选、来源健康条、`?`/`∅`/`—` 语义分开、只读提示与 Skills 一致。页面验收需附 1440px 和 1100px 对照截图。
 
@@ -169,7 +169,7 @@ Atlas 增加一份跨来源、只读的 evidence inventory 需求契约。契约
 - 本机目录、仓库声明、Workspace 安装、每个 Grok Bot 的名称声明、Grok CLI 元数据各自一条。`related_name` 使用原始 `display_name`，区分大小写。
 - 没有 Grok CLI 只读输出时，该来源保持 `uncollected` / `not_implemented`。`~/.grok/skills` 仍算 `local_machine`，不算 Grok CLI，也不算 Grok Bot。
 - Grok Bot 行是 `declared`。清单里的历史实测标记不升级成当前 `observed`。
-- Memory 使用 `source_id: memory` 的三条槽位（`bot-private`、`shared_profile`、`shared_journal`），`collection_state: uncollected`，`source_kind` 只标记未来依赖落在 Grok Bot，不并入技能行，无正文。
+- Memory 使用 `source_id: memory` 的三条槽位（`bot-private`、`shared_profile`、`shared_journal`），`collection_state: uncollected`，`reason: source_unverified`。`source_kind` 只标记未来依赖落在 Grok Bot。槽位不并入技能行，响应没有正文。未采集槽位是当前实现，不作为没有出口的证据。
 - `hash.value` 恒为 null。`runtime_loaded` 恒为 null。
 - 页面沿用版式 A 的来源卡片、图例、固定范围和只读提示。不设待处理栏和命令区：本页不分配治理桶，也不提供写回。未采集显示 `—`，无法确定显示 `?`，不适用显示 `∅`。
 

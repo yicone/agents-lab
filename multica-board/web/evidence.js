@@ -12,7 +12,7 @@ const REASONS = {
   permission_denied: "无权限",
   read_failed: "读取失败",
   schema_invalid: "内容不符合契约",
-  no_supported_export: "没有可用导出",
+  source_unverified: "来源未证实",
   private_rpc_not_supported: "不读取私有接口",
 };
 
@@ -186,7 +186,7 @@ function memoryBlock(h, slots) {
     "section",
     { class: "atlas-guide" },
     h("h2", null, "Memory 元数据槽位"),
-    h("p", null, "当前没有 Memory 正文出口。下面是未采集槽位，不能相加成数量，也不能当成已有记忆。"),
+    h("p", null, "当前实现只列出未采集槽位，不能相加成数量，也不能当成已有记忆。"),
     h(
       "ul",
       null,

@@ -760,7 +760,7 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - `items[]` 按 `source_id + object_id` 分条。同名只写 `related_name`，不合并。`source_kind` 里 `grok_cli` 与 `grok_bot` 不互换。`runtime_loaded` 恒为 null。`hash.value` 恒为 null。
 - Grok Bot 名称声明是 `evidence_level: declared`。历史实测标记不升级成当前 `observed`，也不生成本机安装、版本或正文。
 - 本机 `~/.grok/skills` 仍是 `local_machine`。没有 CLI 只读元数据时，Grok CLI 来源保持 `uncollected` / `not_implemented`。
-- Memory 只有三条 `object_type: memory_collection` 槽位，`collection_state: uncollected`，没有正文。
+- Memory 当前实现只有三条 `object_type: memory_collection` 槽位，`collection_state: uncollected`，`reason: source_unverified`。响应没有正文。这些槽位只描述当前实现，不作为没有出口的证据。
 - 清单无效时本机和仓库来源为 `invalid`，不把空列表显示成已采集 0 条。权限或读取失败为 `unavailable` + `evidence_level: unknown`，不降级成 absent。
 
 ## 变更记录
@@ -768,6 +768,7 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - v0.12（2026-10-26）：ACM-360 给 Codex、Cursor、Hermes 增加 `load_probe`。`runtime_loaded: false` 只表示配置显式禁用；没有逐条加载名单时保持 null。证据清单接口的 `runtime_loaded` 仍恒为 null。
 
 - v0.11（2026-10-26）：ACM-581 增加 `GET /api/evidence-inventory`。它把现有 Skills 清单投影成 `atlas.evidence_inventory/v1`：来源不按名字合并，`related_name` 只做同名对照；Grok CLI 与 Grok Bot 分开；未采集保持 `uncollected`，不显示成 0。Memory 只有未采集元数据槽位。响应没有正文、哈希原文或命令。不新增 POST。页面入口 `#/configure/skills/evidence`。
+- v0.11（2026-10-27）：Memory 槽位的 `reason` 改为 `source_unverified`，`collection_state` 仍为 `uncollected`。未采集槽位只描述当前实现，不作为没有出口的证据。
 
 - v0.10（2026-10-24）：ACM-403（ACM-378 设计）把 `GET /api/mcp` 重写为 `mcp_schema: 2`：行按原名合并，本机/项目级文件按 `config/mcp-sources.json` 声明即时安全读取，指纹只在本进程内比较，前端列序、桶、角标 tone 与抽屉内容见 `mcp-redesign.md`。
 - v0.9（2026-10-23）：ACM-370 增加 `GET /api/mcp`（workspace MCP 库、agent 分配、自有配置摘要、各 runtime 是否加载、待处理分桶）。CLI 白名单只增加 `workspace mcp list` 与 `agent mcp list`。
