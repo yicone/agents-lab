@@ -42,7 +42,7 @@
 
 ### 新增
 
-- 本分支候选（未合并、未部署）：Skills 对 Codex、Cursor、Hermes 显示加载探针。只有配置里的显式禁用标成未加载；没有逐条加载名单时保持未验证，不把磁盘入口当成已加载。（[PR #118](https://github.com/yicone/agents-lab/pull/118)；ACM-360）
+- 本分支候选（未合并、未部署）：Skills 对 Codex、Cursor、Hermes 显示加载探针。只有配置里的显式禁用标成未加载；没有逐条加载名单时保持未验证，不把磁盘入口当成已加载。（[PR #118](https://github.com/yicone/agents-lab/pull/118)；ACM-360；未合并、未部署）
 
 - 本地候选（未合并、未部署）：用量页窗口展示分带（常规 / 关注 / 预警 / 危急 / 耗尽 / 未知）、24h 与今日增量、预计耗尽时间和采样年龄。采样陈旧时分带显示未知。`cursor:tertiary` 显示为 Third Party。原有可派活 / 即将耗尽标记不变。（ACM-587；仅本地提交，无 PR）
 
