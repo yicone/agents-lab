@@ -1,0 +1,33 @@
+--- a/playbook.md
++++ b/playbook.md
+@@ -62,8 +62,30 @@
+    - 不派：Mika。它是 Multica 内置的应用内向导 agent，不接任何工作，也不参与编排：派活和推进只由副调度负责。看到 Mika 建单、指派或派活时，不跟进，在该 issue 顶层评论提请用户确认（先例：ACM-279 重复委派）。
+ 4. Devin 额度：mini 上 `codexbar usage --provider devin --json`，读日（primary）、周（secondary）的 usedPercent 和 resetsAt。任一超过 90% 不派 Devin 系；离 resetsAt 不到 24h 且用量低时，实现活优先 Builder · Devin fusion。
+ 5. Claude 系（Fable / Opus 5.5 / Sonnet 5.5）按任务匹配、剩余额度和到期时间选；Opus 只用于设计、评审、最终验收。确认不了额度就不猜。
+ 6. 不充 GLM，不产生未批准的费用。不为让空闲 agent 有活干而造需求。
++
++7. Cursor 系派活前（含 Builder · Cursor、前端实现 · Cursor、UI 设计师 · Cursor，以及实时 agent/runtime 信息确认走 Cursor 的其它角色），在 §5 指派和 mention 之前执行一次以下只读检查；同批次可共用本次结果，下批次重新拉取，不沿用旧结果：
++
++```bash
++# 仅 GET，不触发采集、不写 Atlas；连接最多 1 秒、整个请求最多 3 秒，不重试。
++# 先清空变量，失败时不得误用上一批 JSON；curl 的非零退出仅表示检查未知，不是停派门禁。
++ATLAS_ATTENTION=''
++if ATLAS_ATTENTION=$(curl --noproxy '*' --fail --silent --show-error --connect-timeout 1 --max-time 3 \
++  --request GET http://127.0.0.1:8765/api/attention); then
++  printf '%s\n' "$ATLAS_ATTENTION"
++else
++  ATLAS_ATTENTION=''
++  printf '%s\n' 'Atlas 额度未知（请求失败或超时）；不猜额度，仍由副调度按现有授权和任务匹配判断。'
++fi
++```
++
++   - 仅解析返回 JSON 顶层现有 `quota_alerts`，选择 `provider=cursor` 的窗口；不把其它 provider 的提醒归给 Cursor，不根据角色名字猜 Auto / API / Third Party 池。模型到窗口的对应关系不明确时，保留分池提醒并写明「目标池未确认」。
++   - 新鲜提醒按源字段呈现 `identifier`/`label`、`band`、`used_percent`、`remaining_percent`、`time`、`sample_age_s`、`resets_at`；可附源 `eta_warning_at`/`eta_exhausted_at`（估计，非承诺）。不自行重算额度或预测，不把 reset/ETA 已到当成额度已恢复。
++   - 任一窗口 `stale=true`、`status=quota_unknown`、`band=unknown` 或无源采样时间时，该窗口只写「额度未知」及采样时间/年龄（如有）；历史百分比和 ETA 不作为当前额度结论。以窗口源时间/陈旧标记为准，不能用响应 `generated_at` 掩盖旧采样。
++   - 请求失败、超时、HTTP 错误、非 JSON、缺失/非数组 `quota_alerts` 或字段无法核实时，明确写「Atlas 额度未知」及失败类型，不回退历史结果、不伪造百分比。`quota_alerts=[]` 或无 Cursor 提醒只表示「本次无 Cursor 窗口提醒」，不证明已接入、健康或额度充足。
++   - 在原派活判断/派活评论中加一句本次读取时间与必要的分池提醒或未知原因，不另开提醒评论。所有结果（含 exhausted/unknown）都只是建议：不自动停派、不新增门禁、不自动换 agent/runtime、不写 Atlas 数据；仍由副调度结合原有授权、容量、任务匹配作判断。
++
+
+ ## 5. 派活
+
+ 1. 结构：
