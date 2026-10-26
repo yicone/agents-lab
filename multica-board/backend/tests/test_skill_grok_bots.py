@@ -26,7 +26,7 @@ class GrokBotSkillTests(unittest.TestCase):
         for item in items:
             self.assertEqual(len(item['grok_bots']), expected_bot_count)
             observed = [bot['name'] for bot in item['grok_bots'] if bot['evidence_state'] == 'observed']
-            self.assertEqual(set(observed), {'Agent Steward', 'EO-PM'})
+            self.assertEqual(set(observed), {'Agent Steward · Agent 基建总管', 'EO-PM · Elder Oasis PM'})
             self.assertEqual(sum(bot['evidence_state'] == 'inferred' for bot in item['grok_bots']), expected_bot_count - len(observed))
             self.assertIn('未逐一实测', item['evidence_detail'])
             self.assertEqual(item['content']['state'], 'not_applicable')
