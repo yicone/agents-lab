@@ -312,6 +312,68 @@ ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-25
 
 `name` 优先用 runtime 的自定义名。同一台机器在不同 workspace 注册为不同 runtime 记录（不同 `id`），前端按 `provider` 聚合做跨 workspace 汇总，按 `workspace_id + id` 精确 join。
 
+## `GET /api/usage`（ACM-586）
+
+只读快照视图；不执行采集、不扫描历史、不写文件。`generated_at` 为响应时刻，
+`usage_collected_at` 为最近快照采集时刻；这是通用 generated_at 约定的例外。
+顶层包含 `days`、`snapshot_state`（missing/empty/ok/partial/error）、`collection_errors`、
+`external_quotas`、旧版 `signals`（dispatchable/exhausting）和 `multica_daily`。
+CodexBar 的窗口百分比与 Multica 的 token/cost 分栏，不能相加；不返回 credits 或身份信息。
+
+`external_quotas[]` 的 provider 为 cursor/grok/codex；9router/orca 返回 status=unconnected、
+label=未接入、windows=[]。已接入 provider 含 `status`（ok/error）、`source`、`updated_at`、
+`last_success_at`、`error`、`sample_age_s`、`stale`、`windows`。
+`sample_age_s` 单位秒，取源 updated_at 与 last_success_at 中较早的有效时间距当前时间的差，
+负差钳为 0；只有一个有效时间则用该时间。两者都缺失时为 null 且 stale=true。
+超过 2700 秒（3 个 900 秒采集周期）即 stale=true；恰好 2700 秒仍新鲜。
+抓取成功不能掩盖源数据陈旧。采集失败保留旧窗口和成功时间，错误状态与新鲜度分别表达。
+
+窗口字段：
+
+| 字段 | 类型 / 语义 |
+| --- | --- |
+| key / label | 源窗口槽位与显示名；`cursor:tertiary` 固定显示 Third Party，不用 label 匹配池 |
+| window_minutes | number 或 null |
+| used_percent / remaining_percent | number，窗口百分比，非 token 或金额 |
+| resets_at / hours_until_reset | UTC 时间或 null / 小时或 null，读取时重算 |
+| pace | 源 pace 对象或 null，含 expected_used_percent、delta_percent、will_last_to_reset、stage |
+| signal / signal_reason | 保留旧 normal/dispatchable/exhausting 规则和理由；stale 时 signal=normal，理由说明未知，不再建议派发 |
+| band | `<70 normal`、`>=70 watch`、`>=85 warning`、`>=95 critical`、`>=99.9 exhausted`；stale 时 unknown |
+| sample_age_s / stale | 与 provider 相同的秒数/null 与 boolean |
+| delta_24h_percent | number 或 null；当前值减去同周期内 **至少 24h 前最近样本**的值，单位百分点，不插值、不归一化为正好 24h |
+| daily_delta | `[{"date":"YYYY-MM-DD","delta_percent":number或null}]`；同周期按 UTC 日首末样本差，日期升序，只有一条样本则 null；无有效趋势为 [] |
+| eta_exhausted_at / eta_warning_at | 预计到 100% / 85% 的 UTC 时间或 null |
+| eta_source | pace/history_24h/history_cycle 或 null；表示线性估算来源，不保证实际耗尽时刻 |
+
+趋势与 ETA **只在采集写快照时计算**。按 provider+window key 隔离，只取当前连续周期；
+resets_at 变化即切断（即使之后又变回旧值），used_percent 回落也切断。
+历史旧格式缺少 sample_at 时兼容使用 provider.updated_at 或记录 at；新历史额外保存源采样时间与 stale，
+同一采样时间去重，error/stale 样本不作趋势证据。历史为本地保留期内数据，单测夹具为合成观测，非账单。
+
+优先从有效 pace 的 expected_used_percent 与 window_minutes 推导已过窗口时长，
+以 used_percent/已过小时估算速率；Cursor pace 缺失时使用历史：有 24h 锚点则用实际时间差的斜率，
+否则至少 3 个不同时间的同周期样本，使用本周期首个非零观测至当前的斜率。
+无历史、样本不足、速率非正或预测落在重置之后时返回 null；已达到阈值则返回本次源采样时间。
+GET 不把 ETA 向后平移：预测已过期且尚未在样本中达到阈值时返回 null。
+stale 时 band=unknown、两个 ETA 与 delta_24h_percent=null、daily_delta=[]、eta_source=null。
+ETA 不升级 band，也不自动停派或修改 runtime。
+
+### `/api/attention` 的 `quota_alerts`
+
+顶层 `quota_alerts` 为跨 workspace 的窗口提醒数组，空时 []。
+新鲜的 warning/critical/exhausted 窗口进入数组，watch 不进入；陈旧窗口以 unknown 提示需重新核实额度。
+保留 `identifier`、`title`、`status`、`time`、`agent_name`；identifier=`provider:window_key`，
+status=quota_exhausting（新鲜风险）或 quota_unknown（陈旧/无时间），time 为 provider.updated_at，agent_name=null。
+增加 `provider`、`window_key`、`label`、`band`、`used_percent`、`remaining_percent`、`resets_at`、
+`hours_until_reset`、`sample_age_s`、`stale`、`delta_24h_percent`、`daily_delta`、
+`eta_exhausted_at`、`eta_warning_at`、`eta_source`；类型与窗口一致。
+陈旧标题说明“数据为 Xh 前采样”或“无采样时间”，旧百分比仅作历史读数，不作为当前额度结论。
+按 identifier、title 排序。无快照或未接入且无窗口的 provider 不产生窗口提醒。
+
+`?format=text` 保持五列与整行截断，title 列追加 band、age_s、stale、Δ24h_pp、reset、ETA85、ETA100，
+有每日数据时追加最新 UTC 日 Δday_pp。缺失用 `-`。UTF-8 总预算仍为 2048 字节，超限保留原桶计数并以 `…` 行收尾。
+两个端点保持 GET/HEAD 只读（无采集或调度副作用），不增加任何写入路由。
+
 ## `GET /api/attention`
 
 给 Steward 的一次请求摘要。看板页面不调用这个接口。只读缓存，字段是白名单，不带 URL、正文、错误原文、runtime 设备信息。
