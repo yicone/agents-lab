@@ -347,7 +347,7 @@ test("mcp route: parse, serialize, whitelist, legacy drop and l3 redirect", () =
 });
 
 test("IA v2 canonical routes round trip without alias loops", () => {
-  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/schedules", "#/running/health", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/runtime", "#/settings"]) {
+  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/metrics", "#/running/schedules", "#/running/health", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/runtime", "#/settings"]) {
     assert.equal(redirectHash(hash), null, hash);
     assert.equal(formatHash(parseHash(hash)), hash, hash);
   }
@@ -372,4 +372,17 @@ test("switching status/configuration preserves identity and filters", () => {
   assert.equal(formatHash(running), "#/running?ws=alpha&has_instructions=1");
   assert.equal(historyWrite(formatHash(route), formatHash(running), {section:""}), "push");
   assert.equal(formatHash(applyPatch(route, {view:"issues"})), "#/issues?ws=alpha");
+});
+
+test("run metrics route keeps window filters and leaves them behind other views", () => {
+  const hash = "#/running/metrics?q=quota&win=24h&mws=ws-1&magent=agent-quota&mrt=runtime-1&missue=b";
+  assert.equal(redirectHash(hash), null);
+  assert.equal(formatHash(parseHash(hash)), hash);
+  assert.equal(navGroup(parseHash(hash)), "running");
+  assert.equal(parseHash("#/running/metrics?win=2d&mws=../secret").win, "");
+  assert.equal(parseHash("#/running/metrics?win=2d&mws=../secret").mws, "");
+  const left = applyPatch(parseHash(hash), { view: "usage" });
+  assert.equal(left.win, "");
+  assert.equal(left.mws, "");
+  assert.equal(formatHash(left), "#/running/usage?q=quota");
 });

@@ -1,6 +1,6 @@
 /** Hash routes for Agent Atlas. Legacy hashes redirect with location.replace. */
 
-export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "usage", "configure", "runs", "schedules", "health", "settings"];
+export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "usage", "configure", "runs", "metrics", "schedules", "health", "settings"];
 
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
@@ -34,6 +34,10 @@ function fieldToken(raw) {
   if (raw === "clear" || raw === "conflict") return raw;
   if (typeof raw === "string" && raw.startsWith("set:")) return raw;
   return "omit";
+}
+
+function metricId(raw) {
+  return /^[A-Za-z0-9_.:-]{1,128}$/.test(raw || "") ? raw : "";
 }
 
 export function viewForKey(key) {
@@ -72,7 +76,7 @@ export function redirectHash(hash) {
   if (Object.hasOwn(aliases, path)) return withQuery(aliases[path], params);
   if (agentsPlan(path)) return withQuery(path === "agents/plan/new" ? "running/changes/new" : path.replace("agents/plans", "running/changes"), params);
   if (path === "running/changes" || path === "running/changes/new" || /^running\/changes\/[^/]+$/.test(path)) return null;
-  if (["running", "running/agents", "running/usage", "running/runs", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/mcp", "configure/runtime", "settings"].includes(path)) return null;
+  if (["running", "running/agents", "running/usage", "running/runs", "running/metrics", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/mcp", "configure/runtime", "settings"].includes(path)) return null;
   if (path === "issues" || path === "decide") return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
@@ -143,6 +147,11 @@ export function emptyRoute() {
     tier: "omit",
     bucket: "",
     planFix: "",
+    win: "",
+    mws: "",
+    magent: "",
+    mrt: "",
+    missue: "",
   };
 }
 
@@ -155,7 +164,7 @@ export function parseHash(hash) {
   route.q = params.get("q") || "";
 
   if (path.startsWith("configure/")) route.section = "configure";
-  const currentPaths = { running: "agents", "running/agents": "agents", "running/usage": "usage", "running/runs": "runs", "running/schedules": "schedules", "running/health": "health", "configure/agents": "agents", "configure/skills": "skills", "configure/mcp": "mcp", "configure/runtime": "configure" };
+  const currentPaths = { running: "agents", "running/agents": "agents", "running/usage": "usage", "running/runs": "runs", "running/metrics": "metrics", "running/schedules": "schedules", "running/health": "health", "configure/agents": "agents", "configure/skills": "skills", "configure/mcp": "mcp", "configure/runtime": "configure" };
   if (path === "configure/runtime") route.section = "runtime";
   if (path === "running/changes/new") path = "agents/plan/new";
   else if (path === "running/changes" || path.startsWith("running/changes/")) path = path.replace("running/changes", "agents/plans");
@@ -171,7 +180,7 @@ export function parseHash(hash) {
   else if (path === "skills") route.view = "skills";
   else if (path === "mcp") route.view = "mcp";
   else if (path === "usage") route.view = "usage";
-  else if (["configure", "runs", "schedules", "health", "settings"].includes(path)) route.view = path;
+  else if (["configure", "runs", "schedules", "health", "settings", "metrics"].includes(path)) route.view = path;
   else route.view = "map";
 
   if (route.view === "map") {
@@ -240,6 +249,13 @@ export function parseHash(hash) {
       route.offlineOnly = flag(params, "offline");
       route.archived = flag(params, "archived");
     }
+  } else if (route.view === "metrics") {
+    const win = params.get("win");
+    route.win = win === "24h" || win === "7d" || win === "14d" ? win : "";
+    route.mws = metricId(params.get("mws"));
+    route.magent = metricId(params.get("magent"));
+    route.mrt = metricId(params.get("mrt"));
+    route.missue = metricId(params.get("missue"));
   }
   return route;
 }
@@ -304,12 +320,18 @@ export function formatHash(route) {
     if (r.mcpGroup && r.mcpGroup !== "source") p.set("group", r.mcpGroup);
     if (r.mcpAssigned) p.set("assigned", "1");
     if (r.mcpTidy) p.set("tidy", "1");
+  } else if (path === "metrics") {
+    if (r.win === "24h" || r.win === "7d" || r.win === "14d") p.set("win", r.win);
+    if (r.mws) p.set("mws", r.mws);
+    if (r.magent) p.set("magent", r.magent);
+    if (r.mrt) p.set("mrt", r.mrt);
+    if (r.missue) p.set("missue", r.missue);
   }
   if (path === "agents/plan/new") path = "running/changes/new";
   else if (path === "agents/plans" || path.startsWith("agents/plans/")) path = path.replace("agents/plans", "running/changes");
   else if (path === "agents") path = r.section === "configure" ? "configure/agents" : "running";
   else if (path === "skills" || path === "mcp") path = `configure/${path}`;
-  else if (["usage", "runs", "schedules", "health"].includes(path)) path = `running/${path}`;
+  else if (["usage", "runs", "metrics", "schedules", "health"].includes(path)) path = `running/${path}`;
   else if (path === "configure" && r.section === "runtime") path = "configure/runtime";
   return withQuery(path, p);
 }
@@ -376,6 +398,13 @@ export function applyPatch(route, patch) {
       next.bucket = "";
       next.planFix = "";
     }
+    if (patch.view !== "metrics") {
+      next.win = "";
+      next.mws = "";
+      next.magent = "";
+      next.mrt = "";
+      next.missue = "";
+    }
   }
   // Ordinary Agent focus belongs to the current workspace. Plan selections are cross-workspace.
   if (Object.hasOwn(patch, "ws") && patch.ws !== route.ws && route.view === "agents" && !route.planMode && !route.planPage) next.sel = "";
@@ -390,6 +419,6 @@ export function locationHash(hash) {
 export function navGroup(route) {
   if (["issues", "decide"].includes(route.view)) return "issues";
   if (["skills", "mcp", "configure"].includes(route.view) || route.section === "configure") return "configure";
-  if (["agents", "usage", "runs", "schedules", "health"].includes(route.view)) return "running";
+  if (["agents", "usage", "runs", "metrics", "schedules", "health"].includes(route.view)) return "running";
   return route.view;
 }
