@@ -6,6 +6,8 @@
 
 ### 变更
 
+- 本地候选（未合并、未部署）：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（ACM-586；仅本地提交，无 PR）
+
 - 指令目录与当前文档中的两位设计 agent 名称统一为「UI 设计师」，保留历史运行与回滚证据。（[PR #108](https://github.com/yicone/agents-lab/pull/108)；[合并提交 `eb1f9ea`](https://github.com/yicone/agents-lab/commit/eb1f9ea572d706db44a7e7c2daab6fdbb979dacf)；ACM-518；已合并、已部署到 8765，部署事实据 ACM-542 发布前补记指示确认，非本轮部署实测）
 
 - 本地候选（未合并、未部署）：模型配置预览显式展示可用性三态；不可用模型需额外确认，提交时复核预览绑定的账号证据。现有生产 runtime 缺可靠账号绑定来源时明确显示未知。（ACM-513；仅本地提交，无 PR）
