@@ -21,6 +21,7 @@ from typing import Any, Callable
 
 from .skill_discovery import scan_installs
 from .skill_upgrade import check_upgrades
+from .skill_conflicts import check_conflicts
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = REPO_ROOT / "skills-governance" / "scripts"
@@ -413,6 +414,8 @@ def assign_buckets(
             }
         if item.get("upgrade_status") == "update":
             hits.append("upgradable")
+        if (item.get("conflict_status") == "open" or item.get("conflict_findings")) and "overlap" not in hits:
+            hits.append("overlap")
         winner = None
         for code in hits:
             winner = _prefer(winner, code)
@@ -441,7 +444,12 @@ def reason_for(item: dict[str, Any]) -> str:
     if bucket == "modified":
         return "内容或链接和基线不一致"
     if bucket == "overlap":
-        return "职责重叠未关闭"
+        sources = []
+        if item.get("conflict_findings"):
+            sources.append(f"实时检测 {len(item['conflict_findings'])} 条")
+        if item.get("conflict_status") == "open":
+            sources.append("人工标记 open")
+        return "；".join(sources)
     if bucket == "upgradable":
         upgrade = item.get("upgrade") if isinstance(item.get("upgrade"), dict) else {}
         installed = upgrade.get("installed") or current or "—"
@@ -1345,10 +1353,17 @@ def _attention(
     review_days: int,
     staging_connected: bool,
     upgrade: tuple[str, str, bool] | None = None,
+    overlap: tuple[str, str] | None = None,
 ) -> dict[str, Any]:
     buckets: dict[str, dict[str, Any]] = {}
     for code in BUCKETS:
         buckets[code] = {"connected": True, "reason": "", "items": []}
+    if overlap is None:
+        buckets["overlap"]["connected"] = False
+        buckets["overlap"]["reason"] = "清单无效，实时检测未运行"
+    elif overlap[0] == "fallback":
+        buckets["overlap"]["reason"] = overlap[1]
+        buckets["overlap"]["connected"] = any(item.get("conflict_status") == "open" for item in items)
     if upgrade is None:
         buckets["upgradable"]["connected"] = False
         buckets["upgradable"]["reason"] = "清单无效，升级检查未运行"
@@ -1376,6 +1391,8 @@ def _attention(
                 "time": generated_at,
                 "source_class": item.get("source_class") or "-",
                 "tags": item.get("tags") or [],
+                "conflict_status": item.get("conflict_status"),
+                "conflict_findings": item.get("conflict_findings") or [],
             }
         )
     counts = {code: len(buckets[code]["items"]) for code in BUCKETS}
@@ -1557,6 +1574,14 @@ def build_payload(
                     }
                 )
                 known.add(name)
+    # Each discovered directory is a scan root, including nested bundle members.
+    conflict_roots = list(dict.fromkeys([Path(root["lexical"]) for root in roots] + list(scan)
+                                      + [Path(entry["path"]) for entry in discovery["installs"]]))
+    overlap = check_conflicts(SCRIPTS / "conflict_report.py", repo_root, inventory_path, conflict_roots,
+                              (_mtime(inventory_path), _install_stamp(inventory_path, tool_roots_path, repo_root, staging_root, scan_roots)))
+    for item in items:
+        item["conflict_findings"] = [finding for finding in overlap["findings"] if item["name"] in finding["skills"]]
+        item["conflict_detection_state"] = overlap["state"]
     upgrade = check_upgrades(items, lock_skills, repo_root=repo_root, fetch=upgrade_fetch)
     for item in items:
         found = upgrade.updates.get(item.get("name"))
@@ -1589,7 +1614,7 @@ def build_payload(
         },
         {"id": "staging", "label": "暂存区", "state": staging_meta["state"], "detail": staging_meta["detail"]},
         {"id": "upgrade", "label": "升级检查", "state": upgrade.state, "detail": upgrade.detail},
-        {"id": "overlap", "label": "重叠检测", "state": "absent", "detail": "未接入，只读 conflict_status"},
+        {"id": "overlap", "label": "重叠检测", "state": overlap["state"], "detail": overlap["detail"]},
     ]
     attention = _attention(
         items,
@@ -1599,6 +1624,7 @@ def build_payload(
         review_days=review_days,
         staging_connected=staging_meta["state"] != "absent",
         upgrade=(upgrade.state, upgrade.detail, bool(upgrade.updates)),
+        overlap=(overlap["state"], overlap["detail"]),
     )
     return {
         "ok": True,

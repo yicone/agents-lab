@@ -25,6 +25,12 @@ def write_skill(root: Path, relative: str, name: str, description: str, body: st
 
 
 class ConflictReportTests(unittest.TestCase):
+    def test_unregistered_install_participates_in_responsibility_detection(self):
+        for name in ('registered', 'new-install'):
+            write_skill(self.root, f'skills/{name}', name, 'Use when generating architecture diagrams.')
+        report = self.findings([self.row('registered', 'skills/registered')], [self.root / 'skills'])
+        self.assertIn('responsibility_overlap', self.types_for(report, 'registered', 'new-install'))
+
     def setUp(self):
         self.module = load_report()
         self.temporary = tempfile.TemporaryDirectory()

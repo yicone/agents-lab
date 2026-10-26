@@ -681,9 +681,19 @@ def add_dependency_conflicts(report: Report, profiles: list[dict]) -> None:
 def build_report(document: dict, repo_root: Path, scan_roots: list[Path], inventory_path: Path | None = None) -> dict:
     skills = document.get("skills") if isinstance(document.get("skills"), list) else []
     profiles = [profile_skill(skill, repo_root) for skill in skills if isinstance(skill, dict)]
+    copies = discover_copies(scan_roots)
+    known = {profile["name"] for profile in profiles}
+    # New disk installations participate in responsibility/trigger checks too.
+    # Preserve registered profiles and use copies separately for name collisions.
+    for copy in copies:
+        if copy["name"] in known:
+            continue
+        profiles.append(profile_skill({"name": copy["name"], "scope": "machine",
+                                       "visible_paths": [str(copy["path"])]}, repo_root))
+        known.add(copy["name"])
     installs = [row for profile in profiles for row in installations(profile, repo_root)]
     report = Report()
-    add_name_collisions(report, profiles, discover_copies(scan_roots), installs)
+    add_name_collisions(report, profiles, copies, installs)
     add_scope_shadows(report, installs)
     add_claim_conflicts(report, profiles)
     add_dependency_conflicts(report, profiles)
