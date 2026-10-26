@@ -1089,3 +1089,5 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
   .runtime-config td, .runtime-config th { padding: 6px 4px; }
   .runtime-config td input, .runtime-config td select { width: 100%; margin: 4px 0; }
 }
+
+.governance-evidence { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch; font-size: 12px; }

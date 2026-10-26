@@ -78,6 +78,8 @@
 
 ## `GET /api/issues`
 
+ACM-597 本地候选新增：响应顶层 `governance_scan:{state, detected_at?}`，state 为 `ok / not_collected / stale / invalid / incompatible / changed`。逐 issue 增加 `governance_findings:[]`：只包含绑定当前 profile、ACM Lab workspace、24 小时内完整 shadow 报告且 `source_updated_at` 与缓存相等的高优先告警；不改 issue status。每项包括 `issue_id, identifier, rule, code, current, candidate, confidence, evidence, whitelist, detected_at, source_updated_at, fingerprint, priority`。多规则在待决队列按 issue 合并，原状态仍可见，数量可与 review/blocked 重叠。报告不可用不代表零告警；缺报告时该列表为空并明确返回状态。其他 workspace 不消费此报告。地图统计仍保持真实 issue 状态计数，巡检待决仅在待批准队列体现。
+
 所有 workspace 的“关注范围”issue，一次全量，不分页（ACM Lab 约 150 条；有 workspace 超过 500 条时再讨论分页）。前端负责分栏、筛选与停滞判断。
 
 关注范围 = `status_category` 不是 `done` / `cancelled` 的 issue，加上 7 天内 run 失败过的已关闭 issue。
