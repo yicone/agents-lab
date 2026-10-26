@@ -6,6 +6,7 @@ const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
 const FILTER_LAYERS = new Set([...LAYER_IDS, "outside", "unassigned"]);
 const SKILL_SOURCES = new Set(["skills_cli_managed", "local_custom", "runtime_plugin", "runtime_builtin", "third_party_unmanaged", "unrecorded", "multica_cloud", "cloud", "grok_bot"]);
+const EVIDENCE_SOURCES = new Set(["local", "repository", "multica_workspace", "grok_bot", "grok_cli", "memory"]);
 const SKILL_STATUSES = new Set(["aligned", "stale", "version_changed", "modified", "unrecorded", "unverified", "missing"]);
 // Before the first payload, retain a bounded provider token from a deep link.
 // Once loaded, the API's column data is the only tool whitelist.
@@ -72,7 +73,7 @@ export function redirectHash(hash) {
   if (Object.hasOwn(aliases, path)) return withQuery(aliases[path], params);
   if (agentsPlan(path)) return withQuery(path === "agents/plan/new" ? "running/changes/new" : path.replace("agents/plans", "running/changes"), params);
   if (path === "running/changes" || path === "running/changes/new" || /^running\/changes\/[^/]+$/.test(path)) return null;
-  if (["running", "running/agents", "running/usage", "running/runs", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/mcp", "configure/runtime", "settings"].includes(path)) return null;
+  if (["running", "running/agents", "running/usage", "running/runs", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/skills/evidence", "configure/mcp", "configure/runtime", "settings"].includes(path)) return null;
   if (path === "issues" || path === "decide") return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
@@ -125,6 +126,7 @@ export function emptyRoute() {
     custom: false,
     debt: false,
     skillGroup: "source",
+    evidence: false,
     kind: "",
     mcpStatus: "",
     mcpGroup: "source",
@@ -155,6 +157,8 @@ export function parseHash(hash) {
   route.q = params.get("q") || "";
 
   if (path.startsWith("configure/")) route.section = "configure";
+  const evidence = path === "configure/skills/evidence";
+  if (evidence) path = "configure/skills";
   const currentPaths = { running: "agents", "running/agents": "agents", "running/usage": "usage", "running/runs": "runs", "running/schedules": "schedules", "running/health": "health", "configure/agents": "agents", "configure/skills": "skills", "configure/mcp": "mcp", "configure/runtime": "configure" };
   if (path === "configure/runtime") route.section = "runtime";
   if (path === "running/changes/new") path = "agents/plan/new";
@@ -199,15 +203,20 @@ export function parseHash(hash) {
     route.match = params.get("match") === "involved" ? "involved" : "primary";
   } else if (route.view === "skills") {
     const source = params.get("source");
-    route.source = SKILL_SOURCES.has(source) ? source : "";
-    const status = params.get("status");
-    route.skillStatus = SKILL_STATUSES.has(status) ? status : "";
-    const tool = params.get("tool");
-    route.tool = (skillTools ? skillTools.has(tool) : /^[a-z0-9][a-z0-9_.-]{0,127}$/i.test(tool || "")) ? tool : "";
-    route.custom = flag(params, "custom");
-    route.debt = flag(params, "debt");
-    const group = params.get("group");
-    route.skillGroup = group === "tool" || group === "flat" ? group : "source";
+    route.evidence = evidence;
+    if (evidence) {
+      route.source = EVIDENCE_SOURCES.has(source) ? source : "";
+    } else {
+      route.source = SKILL_SOURCES.has(source) ? source : "";
+      const status = params.get("status");
+      route.skillStatus = SKILL_STATUSES.has(status) ? status : "";
+      const tool = params.get("tool");
+      route.tool = (skillTools ? skillTools.has(tool) : /^[a-z0-9][a-z0-9_.-]{0,127}$/i.test(tool || "")) ? tool : "";
+      route.custom = flag(params, "custom");
+      route.debt = flag(params, "debt");
+      const group = params.get("group");
+      route.skillGroup = group === "tool" || group === "flat" ? group : "source";
+    }
   } else if (route.view === "mcp") {
     // Legacy view=list / issue= / archived=1 are dropped on normalize (§9).
     const source = params.get("source");
@@ -291,12 +300,17 @@ export function formatHash(route) {
       if (r.sel) p.set("sel", r.sel);
     }
   } else if (path === "skills") {
-    if (r.source) p.set("source", r.source);
-    if (r.skillStatus) p.set("status", r.skillStatus);
-    if (r.tool) p.set("tool", r.tool);
-    if (r.custom) p.set("custom", "1");
-    if (r.debt) p.set("debt", "1");
-    if (r.skillGroup === "tool" || r.skillGroup === "flat") p.set("group", r.skillGroup);
+    if (r.evidence) {
+      path = "configure/skills/evidence";
+      if (r.source && EVIDENCE_SOURCES.has(r.source)) p.set("source", r.source);
+    } else {
+      if (r.source) p.set("source", r.source);
+      if (r.skillStatus) p.set("status", r.skillStatus);
+      if (r.tool) p.set("tool", r.tool);
+      if (r.custom) p.set("custom", "1");
+      if (r.debt) p.set("debt", "1");
+      if (r.skillGroup === "tool" || r.skillGroup === "flat") p.set("group", r.skillGroup);
+    }
   } else if (path === "mcp") {
     if (r.source && MCP_SOURCES.has(r.source)) p.set("source", r.source);
     if (r.mcpStatus && MCP_STATUSES.has(r.mcpStatus)) p.set("status", r.mcpStatus);
@@ -329,7 +343,7 @@ export function canonicalHash(hash) {
 export function historyWrite(currentHash, nextHash, patch) {
   if (canonicalHash(currentHash) === canonicalHash(nextHash)) return "noop";
   const keys = patch && typeof patch === "object" ? Object.keys(patch) : [];
-  if (keys.some((key) => key === "view" || key === "section" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind")) return "push";
+  if (keys.some((key) => key === "view" || key === "section" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind" || key === "evidence")) return "push";
   return "replace";
 }
 
@@ -380,6 +394,7 @@ export function applyPatch(route, patch) {
   // Ordinary Agent focus belongs to the current workspace. Plan selections are cross-workspace.
   if (Object.hasOwn(patch, "ws") && patch.ws !== route.ws && route.view === "agents" && !route.planMode && !route.planPage) next.sel = "";
   if (!VIEWS.includes(next.view)) next.view = "map";
+  if (next.view !== "skills") next.evidence = false;
   return next;
 }
 

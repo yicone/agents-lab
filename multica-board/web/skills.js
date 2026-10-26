@@ -297,6 +297,7 @@ export function renderSkills(ctx) {
         h("input", { type: "checkbox", checked: route.custom, onchange: (e) => ctx.setRoute({ custom: e.target.checked }) }),
         "只看定制 / 有约束",
       ),
+      h("button", { type: "button", class: "text-btn", onclick: () => ctx.setRoute({ evidence: true, source: "" }) }, "证据清单"),
     ),
     anomalyBanner(h, payload),
     legend(h),

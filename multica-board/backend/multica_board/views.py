@@ -1241,6 +1241,11 @@ class Views:
 
     # --- /api/skills --------------------------------------------------------
 
+    def evidence_inventory(self) -> dict[str, Any]:
+        from .evidence_inventory import build_evidence_inventory
+
+        return build_evidence_inventory(self.skills(), workspace_collected=self._workspace_installs() is not None)
+
     def skills(self, review_days: int = 90) -> dict[str, Any]:
         from .skills_view import parse_review_days, skills_document, _summary
 
