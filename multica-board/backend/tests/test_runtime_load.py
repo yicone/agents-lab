@@ -140,6 +140,37 @@ class ApplyTests(unittest.TestCase):
         self.assertIsNone(row["runtime_loaded"])
         self.assertEqual(load_probe(result, "hermes")["state"], "unverified")
 
+    def test_duplicate_skills_comment_stays_unverified(self):
+        self._assert_duplicate_skills_unverified(
+            "skills:\n  disabled: [example-skill]\nskills: # repeated key\n  disabled: []\n"
+        )
+
+    def test_duplicate_skills_trailing_space_stays_unverified(self):
+        self._assert_duplicate_skills_unverified(
+            "skills:\n  disabled: [example-skill]\nskills: \n  disabled: []\n"
+        )
+
+    def _assert_duplicate_skills_unverified(self, text):
+        parsed = parse_hermes_disabled(text)
+        self.assertEqual(parsed["status"], "invalid")
+        self.assertNotIn("names", parsed)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            codex = root / "config.toml"
+            hermes = root / "config.yaml"
+            codex.write_text("skills.config = []\n", encoding="utf-8")
+            hermes.write_text(text, encoding="utf-8")
+            document = {"generated_at": "t", "tools": [], "items": [
+                item("example-skill", str(root / "example-skill")),
+            ]}
+            probes = collect_runtime_load(codex_path=codex, hermes_path=hermes)
+            result = runtime_columns(document, {"items": []}, [], probes)
+        self.assertEqual(probes["hermes"]["state"], "unverified")
+        self.assertNotIn("disabled_names", probes["hermes"])
+        row = result["items"][0]["runtime_evidence"]["hermes"]
+        self.assertIsNone(row["runtime_loaded"])
+        self.assertEqual(load_probe(result, "hermes")["state"], "unverified")
+
     def test_missing_probe_preserves_null(self):
         result = runtime_columns(
             {"generated_at": "t", "tools": [{"id": "codex", "label": "Codex"}], "items": [item("alpha", "/skills/alpha")]},

@@ -86,12 +86,13 @@ def parse_hermes_disabled(text: str) -> dict:
     """Read only the direct ``skills.disabled`` list.
 
     ``skills.<other>.disabled`` is a different key. A nested list must not
-    become the opt-out set. A repeated top-level ``skills:`` key is unreliable:
-    the first key must not be parsed. Ambiguous or unreadable values stay
-    invalid so callers leave the runtime unverified.
+    become the opt-out set. A repeated top-level ``skills`` key is unreliable,
+    including ``skills:``, ``skills: `` and ``skills: # comment``. The first
+    key must not be parsed. Ambiguous or unreadable values stay invalid so
+    callers leave the runtime unverified.
     """
     lines = text.splitlines()
-    skills_lines = [i for i, line in enumerate(lines) if line == "skills:"]
+    skills_lines = [i for i, line in enumerate(lines) if _top_level_skills_key(line)]
     if not skills_lines:
         return {"status": "absent_key"}
     if len(skills_lines) != 1:
@@ -312,6 +313,17 @@ def _indent_width(line: str) -> int | None:
     if "\t" in prefix:
         return None
     return len(line) - len(line.lstrip(" "))
+
+
+def _top_level_skills_key(line: str) -> bool:
+    if not line or line[0] in " \t":
+        return False
+    head, sep, rest = line.partition(":")
+    if sep != ":" or head != "skills":
+        return False
+    if not rest.strip():
+        return True
+    return rest[0] in " \t" and rest.lstrip(" \t").startswith("#")
 
 
 def _mapping_key(stripped: str) -> str | None:
