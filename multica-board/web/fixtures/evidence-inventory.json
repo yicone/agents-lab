@@ -1,0 +1,20 @@
+{
+  "schema": "atlas.evidence_inventory/v1",
+  "generated_at": "2026-10-26T09:00:00Z",
+  "read_only": true,
+  "ok": true,
+  "error": null,
+  "sources": [
+    {"source_id": "local", "source_kind": "local_machine", "label": "本机", "scope": "shared", "collection_state": "collected", "collected_at": "2026-10-26T09:00:00Z", "evidence_level": "observed", "reason": null, "error_code": null},
+    {"source_id": "repository", "source_kind": "repository", "label": "仓库声明", "scope": "repository", "collection_state": "collected", "collected_at": "2026-10-26T09:00:00Z", "evidence_level": "declared", "reason": null, "error_code": null},
+    {"source_id": "multica_workspace", "source_kind": "multica_workspace", "label": "Multica Workspace", "scope": "workspace", "collection_state": "uncollected", "collected_at": null, "evidence_level": "unknown", "reason": "not_implemented", "error_code": null},
+    {"source_id": "grok_bot", "source_kind": "grok_bot", "label": "Grok Bot", "scope": "bot-private", "collection_state": "collected", "collected_at": "2026-10-26T09:00:00Z", "evidence_level": "declared", "reason": null, "error_code": null},
+    {"source_id": "grok_cli", "source_kind": "grok_cli", "label": "Grok CLI", "scope": "shared", "collection_state": "uncollected", "collected_at": null, "evidence_level": "unknown", "reason": "not_implemented", "error_code": null},
+    {"source_id": "memory", "source_kind": "grok_bot", "label": "Memory", "scope": "unknown", "collection_state": "uncollected", "collected_at": null, "evidence_level": "unknown", "reason": "no_supported_export", "error_code": null}
+  ],
+  "items": [
+    {"object_type": "skill", "object_id": "local_machine:~/.agents/skills/demo", "display_name": "demo", "source_id": "local", "source_kind": "local_machine", "scope": "shared", "collection_state": "collected", "observed_at": "2026-10-26T09:00:00Z", "evidence_level": "observed", "hash": {"state": "not_collected", "algorithm": null, "value": null}, "evidence": {"kind": "entry", "location": "~/.agents/skills/demo", "object_ref": null, "source_label": "本机目录入口；路径存在不表示当前已加载"}, "runtime_loaded": null, "related_name": "demo", "reason": null, "error_code": null},
+    {"object_type": "skill", "object_id": "grok_bot:bot-a:demo", "display_name": "demo", "source_id": "grok_bot", "source_kind": "grok_bot", "scope": "bot-private", "collection_state": "collected", "observed_at": "2026-10-26T09:00:00Z", "evidence_level": "declared", "hash": {"state": "not_applicable", "algorithm": null, "value": null}, "evidence": {"kind": "declaration", "location": null, "object_ref": "bot-a", "source_label": "Grok Bot 名称声明；无正文、版本或本机安装"}, "runtime_loaded": null, "related_name": "demo", "reason": null, "error_code": null},
+    {"object_type": "memory_collection", "object_id": "memory:bot-private", "display_name": "Bot 私有 Memory", "source_id": "memory", "source_kind": "grok_bot", "scope": "bot-private", "collection_state": "uncollected", "observed_at": null, "evidence_level": "unknown", "hash": {"state": "not_applicable", "algorithm": null, "value": null}, "evidence": {"kind": "metadata", "location": null, "object_ref": null, "source_label": "未采集槽位。无正文；不探测私有 RPC"}, "runtime_loaded": null, "related_name": null, "reason": "no_supported_export", "error_code": null}
+  ]
+}

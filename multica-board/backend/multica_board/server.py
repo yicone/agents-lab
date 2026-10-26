@@ -293,6 +293,10 @@ class Handler(BaseHTTPRequestHandler):
                 if urlsplit(self.path).query:
                     raise BadRequest("mcp endpoint does not accept query parameters")
                 body = views.mcp()
+            elif path == "/api/evidence-inventory":
+                if urlsplit(self.path).query:
+                    raise BadRequest("evidence inventory does not accept query parameters")
+                body = views.evidence_inventory()
             elif path == "/api/skills":
                 body = views.skills(self._review_days())
             elif path == "/api/skills/meta":

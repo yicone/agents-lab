@@ -1,4 +1,4 @@
-# Multica Board 只读 API 契约（v0.10）
+# Multica Board 只读 API 契约（v0.11）
 
 状态：v0 已由 ACM-162 后端实现；v0.1 按 ACM-162 审阅把差异统一为后端现状，并新增 `meta.collector`。v0.2 新增 `GET /api/attention`（ACM-165）、`GET /api/changes`（ACM-166）与 `GET /api/stats/failures`（ACM-167）。v0.3（ACM-174）在 `/api/attention` 增加 `missing_hermes_async_delegation`。v0.4（ACM-179）在 `/api/attention` 增加 `agent_updates`。v0.5（ACM-192）在 `/api/issues` 增加 `layer`，新增 `GET /api/layers`，并给 `GET /api/changes` 增加 `?kind=`。v0.6（ACM-182）新增 `GET /api/skills`、`/api/skills/meta`、`/api/skills/attention`。v0.9（ACM-370）新增 `GET /api/mcp`；v0.10（ACM-403，ACM-378 设计）把它重写为 schema 2：本机与项目级声明文件即时读取、指纹比对、行级条目与来源健康条。分工：`web/`、`docs/` 归前端（ACM-163），`backend/` 归 Builder（ACM-162）。改契约先在 ACM-163 说明，再改本文件。
 
@@ -687,7 +687,21 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - 与 §4 例子的差异：`error` 是 `{code,message}` 对象（`sources_invalid` 时为 `{"code":"sources_invalid","message":"mcp-sources.json 无效"}`）；行 `id` 只在本次进程内稳定，重启即变，不能跨请求当键或写进 URL。
 - v1 的 `workspaces[].servers`、`agents[]`、`effective`、平铺桶数组都已删除；`/api/agents` 仍然不输出 `mcp_config`。
 
+## `GET /api/evidence-inventory`（ACM-581）
+
+只读投影，没有查询参数；带任何参数返回 `400`。不读取正文，不新增 POST、批准、apply 或回滚。字段契约见 `docs/read-only-evidence-inventory-contract.md`。
+
+- `schema` 为 `atlas.evidence_inventory/v1`，`read_only` 恒为 true。
+- `sources[]` 固定六项：本机、仓库声明、Multica Workspace、Grok Bot、Grok CLI、Memory。`collection_state` 为 `collected`、`uncollected`、`unavailable`、`invalid`、`not_applicable`。未采集的 `collected_at` 为 null，页面显示 `—`，不显示 0。
+- `items[]` 按 `source_id + object_id` 分条。同名只写 `related_name`，不合并。`source_kind` 里 `grok_cli` 与 `grok_bot` 不互换。`runtime_loaded` 恒为 null。`hash.value` 恒为 null。
+- Grok Bot 名称声明是 `evidence_level: declared`。历史实测标记不升级成当前 `observed`，也不生成本机安装、版本或正文。
+- 本机 `~/.grok/skills` 仍是 `local_machine`。没有 CLI 只读元数据时，Grok CLI 来源保持 `uncollected` / `not_implemented`。
+- Memory 只有三条 `object_type: memory_collection` 槽位，`collection_state: uncollected`，没有正文。
+- 清单无效时本机和仓库来源为 `invalid`，不把空列表显示成已采集 0 条。权限或读取失败为 `unavailable` + `evidence_level: unknown`，不降级成 absent。
+
 ## 变更记录
+
+- v0.11（2026-10-26）：ACM-581 增加 `GET /api/evidence-inventory`。它把现有 Skills 清单投影成 `atlas.evidence_inventory/v1`：来源不按名字合并，`related_name` 只做同名对照；Grok CLI 与 Grok Bot 分开；未采集保持 `uncollected`，不显示成 0。Memory 只有未采集元数据槽位。响应没有正文、哈希原文或命令。不新增 POST。页面入口 `#/configure/skills/evidence`。
 
 - v0.10（2026-10-24）：ACM-403（ACM-378 设计）把 `GET /api/mcp` 重写为 `mcp_schema: 2`：行按原名合并，本机/项目级文件按 `config/mcp-sources.json` 声明即时安全读取，指纹只在本进程内比较，前端列序、桶、角标 tone 与抽屉内容见 `mcp-redesign.md`。
 - v0.9（2026-10-23）：ACM-370 增加 `GET /api/mcp`（workspace MCP 库、agent 分配、自有配置摘要、各 runtime 是否加载、待处理分桶）。CLI 白名单只增加 `workspace mcp list` 与 `agent mcp list`。

@@ -19,6 +19,7 @@ import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
 import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey, skillKey, skillRowId } from "./skills.js";
+import { EVIDENCE_SCOPE, reasonText, renderEvidence, sourceChipState } from "./evidence.js";
 import { badgeOf as mcpBadgeOf, badgeTitle as mcpBadgeTitle, badgeTone as mcpBadgeTone, copyWithFallback, mcpRowId, renderMcp, renderMcpDrawer } from "./mcp.js";
 import { setMcpTools } from "./route.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
@@ -110,6 +111,8 @@ const state = {
   layerReport: null,
   layerError: null,
   skills: null,
+  evidence: null,
+  evidenceLoading: false,
   mcp: null,
   usage: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
@@ -239,6 +242,34 @@ async function loadSkills() {
   }
 }
 
+let evidenceToken = 0;
+
+function invalidateEvidence() {
+  evidenceToken += 1;
+  state.evidence = null;
+  state.evidenceLoading = false;
+}
+
+async function loadEvidence() {
+  try {
+    if (MOCK) return await getJSON("evidence-inventory");
+    return await fetchJSON("/api/evidence-inventory", "evidence");
+  } catch (err) {
+    return { ok: false, schema: "atlas.evidence_inventory/v1", read_only: true, error: { code: "unavailable", message: String(err.message || err) }, sources: [], items: [] };
+  }
+}
+
+async function ensureEvidence() {
+  if (!state.route.evidence || state.evidence || state.evidenceLoading) return;
+  const token = ++evidenceToken;
+  state.evidenceLoading = true;
+  const payload = await loadEvidence();
+  if (token !== evidenceToken) return;
+  state.evidence = payload;
+  state.evidenceLoading = false;
+  if (state.route.evidence) render();
+}
+
 async function loadMcp() {
   try {
     if (MOCK && MOCK_SCENARIO === "mcp-absent") return { ok: false, absent: true };
@@ -349,7 +380,7 @@ async function refresh(force = false) {
     state.skills = await skillsPromise;
     if (state.skills?.tools) {
       setSkillTools(state.skills.tools);
-      if (state.route.view === "skills") state.route.tool = parseHash(location.hash).tool;
+      if (state.route.view === "skills" && !state.route.evidence) state.route.tool = parseHash(location.hash).tool;
     }
     state.bots = await botsPromise;
     state.instructionSources = await sourcesPromise;
@@ -373,6 +404,7 @@ async function refresh(force = false) {
     const mcpChanged = mcpRefreshKey(state.mcp) !== previousMcp;
     state.meta = meta;
     state.fetchError = null;
+    if (state.route.evidence && skillsChanged) invalidateEvidence();
     if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged || mcpChanged) render();
     else renderChrome();
   } catch (err) {
@@ -627,6 +659,20 @@ function mcpSources() {
   );
 }
 
+function evidenceSourceChips() {
+  const sources = state.evidence?.sources || [];
+  if (!sources.length) return [h("span", { class: "muted" }, state.evidence?.ok === false ? "清单无效" : "正在读取证据清单")];
+  return sources.map((source) =>
+    h(
+      "span",
+      { class: `src-chip state-${sourceChipState(source)}`, title: source.reason || "" },
+      h("span", { class: "dot" }),
+      source.label,
+      source.reason ? h("span", { class: "chip-detail" }, reasonText(source.reason)) : null,
+    ),
+  );
+}
+
 function skillSources() {
   const sources = state.skills?.meta?.sources || [];
   if (!sources.length) return [h("span", { class: "muted" }, state.skills?.ok === false ? "清单无效" : "数据源还没有返回")];
@@ -647,7 +693,7 @@ async function setReviewDays(days) {
   state.skills = await loadSkills();
   if (state.skills?.tools) {
     setSkillTools(state.skills.tools);
-    if (state.route.view === "skills") state.route.tool = parseHash(location.hash).tool;
+    if (state.route.view === "skills" && !state.route.evidence) state.route.tool = parseHash(location.hash).tool;
   }
   render();
 }
@@ -794,8 +840,8 @@ function renderChrome() {
   healthEl.dataset.filterChrome = chrome;
   if (chrome === "skills") {
     healthEl.hidden = false;
-    healthEl.setAttribute("aria-label", "Skills 清单范围");
-    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("skills")), ...skillSources());
+    healthEl.setAttribute("aria-label", state.route.evidence ? "证据清单范围" : "Skills 清单范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, state.route.evidence ? EVIDENCE_SCOPE : scopeNote("skills")), ...(state.route.evidence ? evidenceSourceChips() : skillSources()));
   } else if (chrome === "mcp") {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "MCP 范围");
@@ -2192,6 +2238,7 @@ function atlasCtx() {
     usageAlert: usageAlert(state.usage),
     usage: state.usage,
     skills: state.skills,
+    evidence: state.evidence,
     reviewDays: state.reviewDays,
     expandedSkills: state.expandedSkills,
     drawerSkill: state.drawer?.kind === "skill" ? skillKey(state.drawer.skill) : "",
@@ -2237,7 +2284,7 @@ function renderMain() {
       : view === "decide"
         ? renderDecide()
         : view === "skills"
-          ? renderSkills(ctx)
+          ? (state.route.evidence ? renderEvidence(ctx) : renderSkills(ctx))
           : view === "mcp"
             ? renderMcp(mcpCtx())
             : view === "usage"
@@ -2270,10 +2317,11 @@ function render() {
   const view = state.route.view;
   search.placeholder =
     state.route.view === "mcp" ? "搜索 server / 工具 / workspace / agent" :
-    view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
+    view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
+  if (state.route.evidence) void ensureEvidence();
   ensurePlans();
 }
 

@@ -160,7 +160,7 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 
 ## API
 
-契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`（每条带 `layer`）、`/api/layers`（ACM Lab 五层计数）、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未被状态迁移覆盖的 agent 交付，以及未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=&kind=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）、`/api/skills`、`/api/skills/meta`、`/api/skills/attention`（清单和 drift 合并；`?format=text` 不超过 2048 字节，基线债只计数）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
+契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`（每条带 `layer`）、`/api/layers`（ACM Lab 五层计数）、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未被状态迁移覆盖的 agent 交付，以及未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=&kind=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）、`/api/skills`、`/api/skills/meta`、`/api/skills/attention`（清单和 drift 合并；`?format=text` 不超过 2048 字节，基线债只计数）、`/api/evidence-inventory`（只读证据清单，页面 `#/configure/skills/evidence`）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
 
 实现上需要知道的约定：
 
