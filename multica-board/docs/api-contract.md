@@ -600,9 +600,11 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 `GET /api/skills` 和 `/api/skills/meta` 的 `tools` 取已配置工具 ∪ `/api/runtimes` 缓存 provider ∪ 安装证据 harness。provider 去空格并转小写后去重，保留任意新 provider；缺失 provider 归 `unknown` 并保留实例引用。`project` 仍是配置中的仓库入口。
 
-每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。
+每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null,load_probe?:{state,source,credibility,detail,collected_at}}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。列上的 `runtime_loaded` 仍为 null：探针没有完整加载清单时，不用「部分技能被禁用」把整列标成已加载或未加载。
 
-每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅 Multica Workspace 、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。Multica Workspace 列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
+`load_probe` 只出现在 Codex、Cursor、Hermes。`state` 为 `partial`（有显式禁用）、`unverified`（读到了但没有可采纳的加载名单）或 `unavailable`（文件缺失、不可读、是符号链接或无法解析）。`credibility` 为 `explicit_opt_out` 或 `none`。`detail` 是固定中文，不含路径和配置原文。Codex 读 `config.toml` 的 `skills.config`：`enabled=false` 且路径与本机入口一致时，该技能为未加载；`enabled=true` 和未列出的技能不标成已加载。Hermes 读 `config.yaml` 的 `skills.disabled`：名单里的名称标为未加载，`hermes-agent` 除外；空名单和名单外的名称保持未验证。不运行 `hermes skills list`。Cursor 没有逐条探针，`load_probe.state` 为 `unverified`。
+
+每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null|false,load_checked?:true,load_source?:string,load_detail?:string}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅 Multica Workspace 、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。`runtime_loaded: true` 留给直接的加载名单；当前三个探针都不会因为磁盘入口或 `enabled=true` 把它设为 true。`false` 只表示显式禁用。没有探针的 provider 不带 `load_checked`，`runtime_loaded` 保持 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。有探针时，提示区分「已加载（有证据）」「未加载（有证据）」「磁盘可见、未验证」「未见」。Multica Workspace 列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
 
 `tool_filter_ids` 与 tools 同源。前端路由收到列数据后使用 tools.id 生成筛选白名单；首次加载前仅暂存格式受限的 URL provider，避免 Grok/未来 provider 深链在数据到达前丢失。查看器、共享入口加载规则和无根标记的展示由阶段 2 消费。
 
@@ -700,6 +702,8 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - 清单无效时本机和仓库来源为 `invalid`，不把空列表显示成已采集 0 条。权限或读取失败为 `unavailable` + `evidence_level: unknown`，不降级成 absent。
 
 ## 变更记录
+
+- v0.12（2026-10-26）：ACM-360 给 Codex、Cursor、Hermes 增加 `load_probe`。`runtime_loaded: false` 只表示配置显式禁用；没有逐条加载名单时保持 null。证据清单接口的 `runtime_loaded` 仍恒为 null。
 
 - v0.11（2026-10-26）：ACM-581 增加 `GET /api/evidence-inventory`。它把现有 Skills 清单投影成 `atlas.evidence_inventory/v1`：来源不按名字合并，`related_name` 只做同名对照；Grok CLI 与 Grok Bot 分开；未采集保持 `uncollected`，不显示成 0。Memory 只有未采集元数据槽位。响应没有正文、哈希原文或命令。不新增 POST。页面入口 `#/configure/skills/evidence`。
 
