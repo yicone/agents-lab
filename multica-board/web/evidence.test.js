@@ -97,6 +97,39 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   assert.deepEqual(visibleItems(payload, { source: "", q: "demo" }).map((item) => item.object_id), ["local:demo", "repo:demo", "bot:demo"]);
 });
 
+function findClass(node, className, found = []) {
+  if (node == null || node === false) return found;
+  if (Array.isArray(node)) {
+    node.forEach((child) => findClass(child, className, found));
+    return found;
+  }
+  if (typeof node === "object") {
+    if (String(node.attrs?.class || "").split(/\s+/).includes(className)) found.push(node);
+    (node.children || []).forEach((child) => findClass(child, className, found));
+  }
+  return found;
+}
+
+test("empty table distinguishes a search miss from a collected source with no records", () => {
+  const miss = emptyInventoryText("local", payload, { q: "no-such-skill" });
+  assert.equal(miss, "没有符合筛选的证据");
+  assert.equal(emptyInventoryText("", payload, { q: "no-such-skill" }), "没有符合筛选的证据");
+
+  const emptyCollected = {
+    ok: true,
+    sources: [{ source_id: "local", source_kind: "local_machine", label: "本机", collection_state: "collected", evidence_level: "observed", reason: null }],
+    items: [],
+  };
+  assert.equal(emptyInventoryText("local", emptyCollected, { q: "" }), "已采集，0 条");
+  assert.equal(emptyInventoryText("local", emptyCollected, { q: "demo" }), "没有符合筛选的证据");
+
+  const searched = renderEvidence({ h: vnode, route: { source: "local", q: "zzzz-not-a-skill" }, evidence: payload, setRoute() {} });
+  assert.equal(textOf(findClass(searched, "empty")[0]), "没有符合筛选的证据");
+  const emptyPage = renderEvidence({ h: vnode, route: { source: "local", q: "" }, evidence: emptyCollected, setRoute() {} });
+  assert.equal(textOf(findClass(emptyPage, "empty")[0]), "已采集，0 条");
+  assert.equal(sourceCountLabel(emptyCollected.sources[0], emptyCollected.items).caption, "已采集，0 条");
+});
+
 test("evidence route round-trips and does not keep a workspace filter", () => {
   assert.equal(redirectHash("#/configure/skills/evidence"), null);
   const route = parseHash("#/configure/skills/evidence?source=grok_cli&q=demo");
