@@ -1268,6 +1268,7 @@ class Views:
         document = skills_document(days)
         from .skills_view import _load_tool_roots, TOOL_ROOTS_PATH, REPO_ROOT
         from .skill_runtimes import runtime_columns
+        from .runtime_load import collect_runtime_load
         from .skill_grok_bots import grok_bot_skills
         try:
             roots, _ = _load_tool_roots(TOOL_ROOTS_PATH, REPO_ROOT)
@@ -1301,7 +1302,12 @@ class Views:
                 block["detail"] = bot_source["detail"]
         meta = {**(document.get("meta") or {})}
         meta["sources"] = [*(meta.get("sources") or []), bot_source]
-        return runtime_columns({**document, "items": items, "summary": summary, "meta": meta}, self.runtimes(), roots)
+        return runtime_columns(
+            {**document, "items": items, "summary": summary, "meta": meta},
+            self.runtimes(),
+            roots,
+            collect_runtime_load(),
+        )
 
     def skills_content(self, **arguments) -> dict[str, Any]:
         from .skill_content import read_content

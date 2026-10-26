@@ -2,7 +2,7 @@ import { contentKey, loadSkillContent } from "./skill-content.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
+import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, loadStateText, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
 
 const today = JSON.parse(readFileSync(new URL("./fixtures/skills.json", import.meta.url), "utf8"));
 
@@ -259,6 +259,26 @@ test("project cell groups entries by repo and shows location chips", () => {
   assert.ok(chipText.some((t) => t.includes(".cursor") && t.includes("✕")), chipText.join("|"));
   // fallback repo label for the unknown repo id
   assert.ok(findText(cell, "other"));
+});
+
+test("load probe labels stay unverified unless the runtime reports an explicit result", () => {
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: true }, "direct"), "已加载（有证据）");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: false }, "direct"), "未加载（有证据）");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: null }, "direct"), "磁盘可见、未验证");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: null }, "shared"), "磁盘可见、未验证");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: null }, null), "未见");
+  assert.equal(loadStateText({ runtime_loaded: null }, "direct"), "");
+  const item = simpleItem({
+    tools: { codex: "direct", cursor: null },
+    runtime_evidence: {
+      codex: { load_checked: true, runtime_loaded: false, load_detail: "Codex skills.config 将该技能标为 enabled=false。", state: "observed" },
+      cursor: { load_checked: true, runtime_loaded: null, state: "no_match" },
+    },
+  });
+  const text = flatten({ children: renderSkillDrawer({ h: vnode, closeDrawer() {}, absTime: (value) => value }, item) }).filter((node) => typeof node === "string").join("\n");
+  assert.match(text, /codex · 未加载（有证据）/);
+  assert.match(text, /cursor · 未见/);
+  assert.match(text, /未验证 runtime 当前会话实际加载/);
 });
 
 test("via-target evidence adds a sup marker and via-target class", () => {

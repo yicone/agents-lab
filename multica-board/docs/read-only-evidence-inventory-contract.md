@@ -121,7 +121,7 @@ Atlas 增加一份跨来源、只读的 evidence inventory 需求契约。契约
 | `items[]` 按 skill 名合并展示 | `items[]` 按 `source_id + object_id` 保持来源独立 | 保留来源分层，`related_name` 仅关联 |
 | `tools` 的 `direct/shared/missing/null` | `evidence.kind` + `collection_state` + `evidence_level` | 不把路径标记升级成加载事实 |
 | `shared_entry.state`：`ok/absent/denied/unknown/unscanned` | `collection_state` 与稳定 `reason` | `unscanned` 映射 `uncollected`，`denied` 映射 `unavailable`，不映射 absent |
-| `runtime_evidence` | `runtime_loaded:null`，未来接独立协议 | 现有 `disk_installations` 只能证明入口，不证明加载 |
+| `runtime_evidence` | Skills 页可对显式禁用写 `runtime_loaded:false`（ACM-360）；本清单接口仍恒为 null | 现有 `disk_installations` 只能证明入口，不证明加载 |
 | Multica Workspace 列 `—` | `collection_state:uncollected` | 继续显示「未采集」，不能显示「无」 |
 | Grok Bot `∅`、名称声明 | `source_kind:grok_bot` + `collection_state:collected` + `evidence_level:declared` | 只声明名称；不生成正文/版本/安装记录 |
 | `GET /api/skills/content` 正文读取 | 本契约无 `content` 字段 | 不复用正文出口；本单只读元数据 |
