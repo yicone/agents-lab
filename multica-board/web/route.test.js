@@ -373,3 +373,8 @@ test("switching status/configuration preserves identity and filters", () => {
   assert.equal(historyWrite(formatHash(route), formatHash(running), {section:""}), "push");
   assert.equal(formatHash(applyPatch(route, {view:"issues"})), "#/issues?ws=alpha");
 });
+test("Grok Bot export source round trips independently of name declarations", () => {
+  const route = parseHash("#/configure/skills?source=grok_bot_export");
+  assert.equal(route.source, "grok_bot_export");
+  assert.match(formatHash(route), /source=grok_bot_export/);
+});

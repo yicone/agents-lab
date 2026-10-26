@@ -6,6 +6,36 @@ import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filtere
 
 const today = JSON.parse(readFileSync(new URL("./fixtures/skills.json", import.meta.url), "utf8"));
 
+test("Grok Bot export has an independent source, integrity warnings and a read-only body", () => {
+  const item = {name: "demo", key: "grok-export:demo", origin: "grok_bot", source_class: "grok_bot_export",
+    source_label: "Grok Bot 导出", status_label: "校验异常 1/2", tools: {}, entries: [],
+    export: {path: "grok-export:demo", exported_at: "2026-10-27T00:51:49+08:00", state: "bad",
+      files: [{path: "SKILL.md", state: "ok", message: "SHA-256 与字节数匹配"},
+        {path: "references/note.md", state: "missing", message: "文件缺失"}]}};
+  const payload = {...today, items: [item, {name: "demo", origin: "grok_bot", source_class: "grok_bot"}],
+    summary: [{id: "grok_bot_export", label: "Grok Bot 导出", count: 1, statuses: {}}]};
+  assert.equal(filteredItems(payload, {source: "grok_bot_export"}).length, 1);
+  const calls = [];
+  const ctx = {...drawerCtx(payload, new Map()), loadSkillContent: (...args) => calls.push(args)};
+  let drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "Grok Bot 导出"));
+  assert.ok(findText(drawer, item.export.exported_at));
+  assert.ok(findText(drawer, "文件缺失"));
+  findAll(drawer, n => n.tag === "button" && findText(n, "查看正文"))[0].attrs.onclick();
+  assert.deepEqual(calls[0], ["demo", "grok-export:demo"]);
+  ctx.skillContent.set(contentKey(item.name, item.export.path), {state: "hash_mismatch", message: "哈希或字节数不一致"});
+  drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "校验失败"));
+  assert.ok(findText(drawer, "哈希或字节数不一致"));
+  ctx.skillContent.set(contentKey(item.name, item.export.path), {state: "ok", content: "# Exported body", source: "grok_bot_export"});
+  drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "Exported body"));
+  item.export.files[0].state = "hash_mismatch";
+  drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "导出文件或清单已变化"));
+  assert.equal(findText(drawer, "Exported body"), false);
+});
+
 test("today fixture: queue count equals attention badge and debt stays out", () => {
   assert.equal(today.attention.baseline_debt, 76);
   assert.equal(badgeOf(today), 4);

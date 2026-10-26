@@ -127,7 +127,7 @@ export function badgeOf(payload) {
 function installStamp(payload) {
   const bits = [];
   for (const item of payload?.items || []) {
-    if (isGrokBot(item)) bits.push(`${skillKey(item)}:${JSON.stringify(item.grok_bots || [])}`);
+    if (isGrokBot(item)) bits.push(`${skillKey(item)}:${JSON.stringify([item.grok_bots || [], item.export || null])}`);
     if (item.local_source) bits.push(`local:${item.name}:${item.local_source.updated_at || ""}:${item.local_source.content_hash || ""}`);
     for (const install of item.workspace_installs || []) {
       const agents = (install.agents || []).map((agent) => `${agent.id}:${agent.enabled === false ? 0 : 1}`).join(",");
@@ -220,7 +220,7 @@ export function groupedItems(items, group, tools) {
       }))
       .filter((entry) => entry.items.length);
     const bots = items.filter(isGrokBot);
-    if (bots.length) groups.push({id: "grok_bot", label: "Grok Bot", note: "仅名称声明，Runtime 不适用", items: bots.sort(byAttention)});
+    if (bots.length) groups.push({id: "grok_bot", label: "Grok Bot", note: "名称声明 / 只读导出，Runtime 不适用", items: bots.sort(byAttention)});
     return groups;
   }
   const order = [];
@@ -474,7 +474,7 @@ function row(ctx, harness, projectTool, item, payload) {
     ...harness.map((tool) => toolCell(h, item, tool)),
     projectTool ? h("td", { class: "repo-entries" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 没有本机仓库入口") : repoCell(h, item, payload)) : null,
     h("td", { class: "mono version-col", title: isGrokBot(item) ? "∅ 不适用：Grok Bot 清单没有版本" : `记录：${item.current_version || "未记录"}\n实际：${item.observed_version || "未采集"}` }, h("div", { class: "cell-ellipsis" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 清单没有版本") : versionCell(h, item))),
-    h("td", null, h("span", { class: `tag ${STATUS_CLASS[item.reconciliation_status] || ""}`, title: item.reconciliation_status === "stale" ? (item.review_time ? "复核已过期，需要重新检查" : "从未复核：尚未建立人工复核记录") : "" }, item.reconciliation_status === "stale" && !item.review_time ? "从未复核" : item.status_label || item.reconciliation_status || "—")),
+    h("td", null, h("span", { class: `tag ${item.export?.state === "bad" ? "bad" : STATUS_CLASS[item.reconciliation_status] || ""}`, title: item.reconciliation_status === "stale" ? (item.review_time ? "复核已过期，需要重新检查" : "从未复核：尚未建立人工复核记录") : "" }, item.reconciliation_status === "stale" && !item.review_time ? "从未复核" : item.status_label || item.reconciliation_status || "—")),
     h("td", null, isGrokBot(item) ? notApplicable(h, "Grok Bot 清单未提供定制或约束") : customCell(h, item)),
     h("td", { class: "muted", title: item.review_time || "" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 名称声明不参与本机基线复核") : relTime(item.review_time, ctx.ago)),
   );
@@ -854,10 +854,10 @@ export function renderSkillDrawer(ctx, item) {
   const close = h("button", { type: "button", class: "drawer-close", "aria-label": "关闭", onclick: ctx.closeDrawer }, "×");
   if (isGrokBot(item)) return [
     h("header", { class: "drawer-head" }, h("span", { class: "mono" }, item.name), close),
-    h("h2", { class: "drawer-title" }, "Grok Bot"),
-    section(h, "证据范围", [h("p", null, item.evidence_detail), line(h, "只读来源", item.manifest_path), h("p", { class: "muted" }, "仅展示 Git 清单中的名称声明；不调用 Grok 接口，不表示所有 Bot 均已实测。")]),
+    h("h2", { class: "drawer-title" }, item.source_label || "Grok Bot"),
+    section(h, "证据范围", [h("p", null, item.evidence_detail), line(h, "只读来源", item.manifest_path), item.export ? line(h, "导出时间", item.export.exported_at) : null, h("p", { class: "muted" }, item.export ? "只读导出样本；后续由 Steward 重新导出覆盖，不调用 Grok Bot API。" : "仅展示 Git 清单中的名称声明；不调用 Grok 接口，不表示所有 Bot 均已实测。")]),
     section(h, "使用此技能的 Bot", (item.grok_bots || []).map(bot => h("p", { title: bot.evidence_label }, h("strong", null, bot.name), " · ", h("span", { class: bot.evidence_state === "observed" ? "info" : "muted" }, bot.evidence_label)))),
-    section(h, "Skill 正文", [notApplicable(h, "Grok Bot 清单只有名称，没有正文")]),
+    section(h, "Skill 正文", item.export ? exportContentSection(h, ctx, item) : [h("p", { class: "muted" }, "正文不可用：名称清单未提供导出正文；Cursor 官方内置 skill 正文无法导出。")]),
     section(h, "版本", [notApplicable(h, "Grok Bot 清单没有版本")]),
     section(h, "Runtime", [notApplicable(h, "Grok Bot 名称声明不是本机 Runtime 安装证据")]),
     item.related_skill_name ? section(h, "同名关联", [h("p", null, `本机或 Multica Workspace 另有同名技能 ${item.related_skill_name}；保留独立条目。`), h("button", { type: "button", class: "text-btn", onclick: e => ctx.focusSkill(item.related_skill_name, e.currentTarget) }, "查看同名技能")]) : null,
@@ -952,6 +952,21 @@ function entriesSection(h, item, entries, ctx) {
 
 const SCOPE_TITLE = new Map(SCOPE_GROUPS);
 
+function exportContentSection(h, ctx, item) {
+  const target = { label: "Grok Bot 导出", path: item.export.path };
+  const result = ctx.skillContent?.get(contentKey(item.name, target.path));
+  return [
+    h("p", { class: item.export.state === "bad" ? "bad" : "muted" }, item.status_label),
+    h("p", { class: "muted" }, "Cursor 官方内置 skill 正文不可用（无法导出）；此来源仅包含 user-created skill。"),
+    h("ul", { class: "skill-file-tree" }, ...item.export.files.filter(file => file.state !== "ok").map(file => h("li", null,
+      h("span", { class: "mono" }, file.path), " · ",
+      h("span", { class: file.state === "ok" ? "muted" : "bad" }, file.message)))),
+    h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path) }, "查看正文"),
+    result ? contentPanel(h, ctx, item, target, result) : null,
+    fileTree(h, ctx, item, target),
+  ].filter(Boolean);
+}
+
 function contentTargets(item) {
   const targets = [];
   const seen = new Set();
@@ -969,13 +984,19 @@ function contentTargets(item) {
 }
 
 function contentPanel(h, ctx, item, target, result, requestedFile = "SKILL.md") {
+  if (item.export && ["ok", "empty"].includes(result.state)) {
+    const expected = item.export.files.find(file => file.path === requestedFile);
+    if (!expected || expected.state !== "ok" || (result.sha256 && result.sha256 !== expected.sha256)) {
+      result = { state: "hash_mismatch", message: "导出文件或清单已变化，请重新读取并校验正文" };
+    }
+  }
   const meta = CONTENT_LABEL[result.state] || CONTENT_LABEL.error;
   if (result.state === "ok" || result.state === "empty") {
     const raw = result.content || "";
     const { fields, body, error } = splitFrontmatter(raw);
     const fieldNodes = Object.entries(fields).map(([key, value]) => line(h, key, typeof value === "string" ? value : JSON.stringify(value)));
     return h("div", null,
-      h("p", { class: "muted" }, `${result.source || "local"} · ${target.path} · ${requestedFile} · ${result.bytes ?? 0} 字节 · ${result.collected_at || "采集时间未知"} · ${result.evidence_state || "证据状态未知"}${result.sha256 ? ` · ${result.sha256.slice(0, 12)}` : ""}`),
+      h("p", { class: "muted" }, `${item.export ? "Grok Bot 导出" : result.source || "local"} · ${target.path} · ${requestedFile} · ${result.bytes ?? 0} 字节 · ${result.collected_at || "采集时间未知"} · ${item.export && result.evidence_state === "observed" ? "Observed" : result.evidence_state || "证据状态未知"}${result.sha256 ? ` · ${result.sha256.slice(0, 12)}` : ""}`),
       result.state === "empty" ? h("p", { class: "muted" }, "文件为空") : null,
       ...fieldNodes,
       error ? h("p", { class: "warn" }, error) : null,
@@ -1030,13 +1051,13 @@ function fileTree(h, ctx, item, target) {
   const tree = ctx.skillContent?.get(contentKey(item.name, target.path, "@tree"));
   const request = file => ctx.loadSkillContent(item.name, target.path, file);
   return h("details", { class: "skill-files", dataset: { skillDetail: `tree:${target.path}` } }, h("summary", null, "目录文件"),
-    h("p", { class: "muted" }, `来源：local · ${target.path}${tree?.collected_at ? ` · ${tree.collected_at}` : ""}`),
+    h("p", { class: "muted" }, `来源：${item.export ? "Grok Bot 导出" : "local"} · ${target.path}${tree?.collected_at ? ` · ${tree.collected_at}` : ""}`),
     h("button", { type: "button", onclick: () => request("@tree") }, tree ? "刷新文件树" : "读取文件树"),
     tree?.state === "ok" ? h("ul", { class: "skill-file-tree" }, ...(tree.files || []).map(file => {
       const content = ctx.skillContent?.get(contentKey(item.name, target.path, file.path));
       return h("li", null,
         file.type === "file" && file.readable ? h("button", { type: "button", class: "text-btn mono", onclick: () => request(file.path) }, file.path) : h("span", { class: "mono" }, file.path),
-        h("span", { class: "muted" }, ` · ${file.type} · ${file.bytes ?? "未知"} 字节${file.type === "directory" ? "" : file.readable ? " · UTF-8 文本按需读取，二进制不预览" : " · 不预览"}${file.state ? ` · ${file.state}` : ""}`),
+        h("span", { class: file.state && file.state !== "ok" ? "bad" : "muted" }, ` · ${file.type} · ${file.bytes ?? "未知"} 字节${file.type === "directory" ? "" : file.readable ? " · UTF-8 文本按需读取，二进制不预览" : " · 不预览"}${file.message ? ` · ${file.message}` : file.state ? ` · ${file.state}` : ""}`),
         content && file.path !== "SKILL.md" ? contentPanel(h, ctx, item, target, content, file.path) : null);
     })) : tree ? h("p", null, (CONTENT_LABEL[tree.state] || CONTENT_LABEL.error).label, tree.message || "") : null,
     tree?.truncated ? h("p", { class: "warn" }, "文件树已达上限，仅显示部分条目") : null);

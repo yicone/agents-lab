@@ -106,6 +106,20 @@ class EvidenceInventoryTest(unittest.TestCase):
         self.assertEqual(body["read_only"], True)
         self.assertEqual(body["schema"], "atlas.evidence_inventory/v1")
 
+    def test_export_does_not_duplicate_declaration_ids_or_claim_runtime_loading(self):
+        exported = dict(grok_item(), key="grok-export:demo", source_class="grok_bot_export",
+                        export={"state": "ok", "exported_at": GENERATED}, status_label="已校验 2 个文件")
+        for state, expected in [("ok", "collected"), ("bad", "unavailable")]:
+            exported["export"]["state"] = state
+            body = self.build(payload(items=[grok_item(), exported]))
+            skills = [i for i in body["items"] if i["object_type"] == "skill"]
+            self.assertEqual(len(skills), len({i["object_id"] for i in skills}))
+            row = next(i for i in skills if i["object_id"] == "grok-export:demo")
+            self.assertEqual(row["collection_state"], expected)
+            self.assertEqual(row["evidence_level"], "observed")
+            self.assertIsNone(row["runtime_loaded"])
+            self.assertIn("Grok Bot 导出", row["evidence"]["source_label"])
+
     def test_uncollected_sources_are_not_zero_and_levels_cover_observation_failure(self):
         body = self.build(payload(items=[
             disk_item(),
