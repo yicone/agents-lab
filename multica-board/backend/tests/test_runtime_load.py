@@ -33,6 +33,11 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(parse_hermes_disabled('skills:\n  disabled: [alpha, "beta"]\n')["names"], ["alpha", "beta"])
         self.assertEqual(parse_hermes_disabled("skills:\n  disabled: null\n")["status"], "invalid")
         self.assertEqual(parse_hermes_disabled("model: x\n")["status"], "absent_key")
+        nested = "skills:\n  other:\n    disabled: [example-skill]\n"
+        self.assertEqual(parse_hermes_disabled(nested)["status"], "absent_key")
+        self.assertNotIn("example-skill", parse_hermes_disabled(nested).get("names", []))
+        both = "skills:\n  disabled: [example-skill]\n  other:\n    disabled: [other-skill]\n"
+        self.assertEqual(parse_hermes_disabled(both)["names"], ["example-skill"])
 
 
 class ApplyTests(unittest.TestCase):
@@ -75,6 +80,38 @@ class ApplyTests(unittest.TestCase):
         self.assertNotIn(str(alpha), json.dumps(load_probe(result, "codex"), ensure_ascii=False))
         self.assertEqual(linked["codex"]["state"], "unavailable")
         self.assertIsNone(document["items"][0].get("runtime_evidence"))
+
+    def test_nested_hermes_disabled_does_not_block_and_direct_key_still_matches(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            codex = root / "config.toml"
+            nested = root / "nested.yaml"
+            direct = root / "direct.yaml"
+            codex.write_text("skills.config = []\n", encoding="utf-8")
+            nested.write_text("skills:\n  other:\n    disabled: [example-skill]\n", encoding="utf-8")
+            direct.write_text("skills:\n  disabled: [example-skill]\n  other:\n    disabled: [other-skill]\n", encoding="utf-8")
+            document = {"generated_at": "t", "tools": [], "items": [
+                item("example-skill", str(root / "example-skill")),
+                item("other-skill", str(root / "other-skill")),
+            ]}
+            nested_probe = collect_runtime_load(codex_path=codex, hermes_path=nested)
+            hidden = runtime_columns(document, {"items": []}, [], nested_probe)
+            shown = runtime_columns(document, {"items": []}, [], collect_runtime_load(codex_path=codex, hermes_path=direct))
+            unreliable = root / "bad.yaml"
+            unreliable.write_text("skills:\n  disabled: null\n", encoding="utf-8")
+            unknown = runtime_columns(document, {"items": []}, [], collect_runtime_load(codex_path=codex, hermes_path=unreliable))
+            self.assertNotIn("disabled_names", nested_probe["hermes"])
+
+        hidden_rows = {row["name"]: row["runtime_evidence"]["hermes"] for row in hidden["items"]}
+        shown_rows = {row["name"]: row["runtime_evidence"]["hermes"] for row in shown["items"]}
+        unknown_rows = {row["name"]: row["runtime_evidence"]["hermes"] for row in unknown["items"]}
+        self.assertIsNone(hidden_rows["example-skill"]["runtime_loaded"])
+        self.assertIsNone(hidden_rows["other-skill"]["runtime_loaded"])
+        self.assertEqual(load_probe(hidden, "hermes")["state"], "unverified")
+        self.assertIs(shown_rows["example-skill"]["runtime_loaded"], False)
+        self.assertIsNone(shown_rows["other-skill"]["runtime_loaded"])
+        self.assertIsNone(unknown_rows["example-skill"]["runtime_loaded"])
+        self.assertEqual(load_probe(unknown, "hermes")["state"], "unverified")
 
     def test_missing_probe_preserves_null(self):
         result = runtime_columns(

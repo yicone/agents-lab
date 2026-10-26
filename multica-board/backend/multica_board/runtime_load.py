@@ -83,26 +83,37 @@ def parse_codex_skills_config(text: str) -> dict:
 
 
 def parse_hermes_disabled(text: str) -> dict:
+    """Read only the direct ``skills.disabled`` list.
+
+    ``skills.<other>.disabled`` is a different key. A nested list must not
+    become the opt-out set. Ambiguous or unreadable values stay invalid so
+    callers leave the runtime unverified.
+    """
     lines = text.splitlines()
     skills_at = next((i for i, line in enumerate(lines) if line == "skills:"), None)
     if skills_at is None:
         return {"status": "absent_key"}
-    found = None
+    block: list[tuple[int, int, str]] = []
     for index in range(skills_at + 1, len(lines)):
         line = lines[index]
         if not line.strip() or line.lstrip().startswith("#"):
             continue
-        indent = len(line) - len(line.lstrip(" "))
+        indent = _indent_width(line)
+        if indent is None:
+            return {"status": "invalid"}
         if indent == 0:
             break
-        stripped = line.strip()
-        if stripped.startswith("disabled:"):
-            found = (index, indent, stripped[len("disabled:"):].strip())
-            break
-    if found is None:
+        block.append((index, indent, line.strip()))
+    if not block:
         return {"status": "absent_key"}
-    index, indent, rest = found
-    rest = _strip_comment(rest)
+    child_indent = min(indent for _, indent, _ in block)
+    direct = [entry for entry in block if entry[1] == child_indent and _mapping_key(entry[2]) == "disabled"]
+    if not direct:
+        return {"status": "absent_key"}
+    if len(direct) != 1:
+        return {"status": "invalid"}
+    index, indent, stripped = direct[0]
+    rest = _strip_comment(stripped.split(":", 1)[1].strip())
     if rest == "[]":
         return {"status": "ok", "names": []}
     if rest.startswith("[") and rest.endswith("]"):
@@ -115,13 +126,15 @@ def parse_hermes_disabled(text: str) -> dict:
         for line in lines[index + 1:]:
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
-            item_indent = len(line) - len(line.lstrip(" "))
+            item_indent = _indent_width(line)
+            if item_indent is None:
+                return {"status": "invalid"}
             if item_indent <= indent:
                 break
-            stripped = line.strip()
-            if not stripped.startswith("- "):
+            item = line.strip()
+            if not item.startswith("- "):
                 return {"status": "invalid"}
-            name = _yaml_scalar(_strip_comment(stripped[2:].strip()))
+            name = _yaml_scalar(_strip_comment(item[2:].strip()))
             if name is None:
                 return {"status": "invalid"}
             if name:
@@ -168,7 +181,7 @@ def _hermes_probe(path: Path) -> dict:
         return _public("hermes", "hermes_config", "unverified", "none",
                        "配置里没有 skills.disabled。缺少禁用名单不等于已加载，保持未验证。", _iso(mtime))
     if parsed["status"] != "ok":
-        return _public("hermes", "hermes_config", "unavailable", "none", _PARSE_DETAIL["hermes"], _iso(mtime))
+        return _public("hermes", "hermes_config", "unverified", "none", _PARSE_DETAIL["hermes"], _iso(mtime))
     names = list(dict.fromkeys(parsed["names"]))
     actionable = [name for name in names if name not in HERMES_ESSENTIAL]
     essential = len(names) - len(actionable)
@@ -288,6 +301,22 @@ def _read_text(path: Path) -> tuple[str, str | None, float | None]:
         return "invalid", None, None
     except OSError:
         return "io_error", None, None
+
+
+def _indent_width(line: str) -> int | None:
+    prefix = line[:len(line) - len(line.lstrip(" \t"))]
+    if "\t" in prefix:
+        return None
+    return len(line) - len(line.lstrip(" "))
+
+
+def _mapping_key(stripped: str) -> str | None:
+    if stripped.startswith("- ") or ":" not in stripped:
+        return None
+    key = stripped.split(":", 1)[0]
+    if not key or any(char.isspace() for char in key) or key[0] in "\"'[{":
+        return None
+    return key
 
 
 def _yaml_scalar(value: str) -> str | None:
