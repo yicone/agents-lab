@@ -18,7 +18,7 @@
     },
     {
       "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
-      "name": "Agent Steward",
+      "name": "Agent Steward · Agent 基建总管",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -32,7 +32,7 @@
     },
     {
       "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
-      "name": "EO-PM",
+      "name": "EO-PM · Elder Oasis PM",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -74,7 +74,7 @@
     },
     {
       "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
-      "name": "小秘书",
+      "name": "小秘书 · Todo",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -242,7 +242,7 @@
     },
     {
       "id": "47978533-56ba-4b34-a1fb-3779505a2738",
-      "name": "支付方式 Bot",
+      "name": "支付方式 Bot · Payment methods",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
