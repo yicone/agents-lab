@@ -502,6 +502,7 @@ test("quota pool lists five alias rows with unknowns, stale text and no color ta
   assert.match(pool, /Q3 闲置率/);
   assert.match(pool, /Q4 冷热并存/);
   assert.match(pool, /待积累（n=—，预计 11-02 后）/);
+  assert.match(pool, /建议阈值（未批准）：各账号节奏比 max\/min > 3 且最高 > 1\.5 为黄，仅提示，不自动调整/);
   assert.doesNotMatch(pool, /⚠|相加后的|总用量|百分比合计|\$|美元/);
 
   const free = poolRow(nodes, "6e");
@@ -532,8 +533,21 @@ test("quota pool lists five alias rows with unknowns, stale text and no color ta
   assert.match(textOf(pe.children[7]), /采样 2026-10-16T16:30:00Z/);
 
   const classes = classTokens(poolSectionNode(nodes));
-  for (const tone of ["ok", "warn", "bad", "info", "quota", "tag"]) {
+  for (const tone of ["ok", "warn", "bad", "info", "quota", "tag", "yellow"]) {
     assert.equal(classes.includes(tone), false, `class ${tone} must stay out of the pool section`);
+  }
+
+  let q4Note = null;
+  const findNote = (node) => {
+    if (!node || typeof node !== "object" || q4Note) return;
+    if (typeof node.attrs?.class === "string" && node.attrs.class.split(/\s+/).includes("usage-pool-q4-note")) q4Note = node;
+    for (const child of node.children || []) findNote(child);
+  };
+  for (const node of poolSectionNode(nodes).children || []) findNote(node);
+  assert.ok(q4Note, "Q4 threshold note must render");
+  const q4Classes = q4Note.attrs.class.split(/\s+/);
+  for (const tone of ["ok", "warn", "bad", "info", "quota", "yellow"]) {
+    assert.equal(q4Classes.includes(tone), false, `Q4 note must not use class ${tone}`);
   }
 });
 
@@ -544,6 +558,7 @@ test("quota pool renders five alias rows with missing fields when the block is a
   const pool = column(nodes, "额度池利用");
   assert.match(pool, /用量快照里还没有 Codex 账号块/);
   assert.match(pool, /共 0 个别名有快照/);
+  assert.match(pool, /建议阈值（未批准）：各账号节奏比 max\/min > 3 且最高 > 1\.5 为黄，仅提示，不自动调整/);
   for (const alias of ["6e", "aq", "he", "mg", "pe"]) {
     const row = poolRow(nodes, alias);
     assert.ok(row, alias);

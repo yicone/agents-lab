@@ -93,6 +93,7 @@ const POOL_STATUS_LABEL = {
 };
 const POOL_B_BATCH = ["Q1", "Q3 闲置率", "Q4 冷热并存"];
 const POOL_B_PLACEHOLDER = "待积累（n=—，预计 11-02 后）";
+const Q4_THRESHOLD_NOTE = "建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整";
 const MISSING_FIELD = "无该字段";
 
 export function safeLabel(value) {
@@ -764,6 +765,7 @@ function poolSection(ctx, model) {
         h("tbody", null, ...accounts.map((account) => poolAccountRow(ctx, account, usable))),
       ),
     ),
+    h("p", { class: "muted usage-pool-q4-note" }, Q4_THRESHOLD_NOTE),
     h(
       "div",
       { class: "usage-pool-batch" },
