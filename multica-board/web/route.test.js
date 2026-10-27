@@ -373,7 +373,6 @@ test("switching status/configuration preserves identity and filters", () => {
   assert.equal(historyWrite(formatHash(route), formatHash(running), {section:""}), "push");
   assert.equal(formatHash(applyPatch(route, {view:"issues"})), "#/issues?ws=alpha");
 });
-
 test("run metrics route keeps window filters and leaves them behind other views", () => {
   const hash = "#/running/metrics?q=quota&win=24h&mws=ws-1&magent=agent-quota&mrt=runtime-1&missue=b";
   assert.equal(redirectHash(hash), null);
@@ -385,4 +384,10 @@ test("run metrics route keeps window filters and leaves them behind other views"
   assert.equal(left.win, "");
   assert.equal(left.mws, "");
   assert.equal(formatHash(left), "#/running/usage?q=quota");
+});
+
+test("Grok Bot export source round trips independently of name declarations", () => {
+  const route = parseHash("#/configure/skills?source=grok_bot_export");
+  assert.equal(route.source, "grok_bot_export");
+  assert.match(formatHash(route), /source=grok_bot_export/);
 });

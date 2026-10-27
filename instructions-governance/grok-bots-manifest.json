@@ -18,7 +18,7 @@
     },
     {
       "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
-      "name": "Agent Steward",
+      "name": "Agent Steward · Agent 基建总管",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -32,7 +32,7 @@
     },
     {
       "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
-      "name": "EO-PM",
+      "name": "EO-PM · Elder Oasis PM",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -74,7 +74,7 @@
     },
     {
       "id": "5608ae9a-3068-4b5d-baa8-b461908548c8",
-      "name": "小秘书",
+      "name": "小秘书 · Todo",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -242,7 +242,7 @@
     },
     {
       "id": "47978533-56ba-4b34-a1fb-3779505a2738",
-      "name": "支付方式 Bot",
+      "name": "支付方式 Bot · Payment methods",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",
@@ -313,6 +313,48 @@
     {
       "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
       "name": "macOS 执委会",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
+    },
+    {
+      "id": "02dfc706-356d-4348-b46b-975f404256ed",
+      "name": "Multica 运维",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
+    },
+    {
+      "id": "1ec8a0b4-0ff4-43e1-bd06-18f76113283d",
+      "name": "Atlas PM",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
+    },
+    {
+      "id": "87063b4c-1fb0-4f54-a43e-8c53fa544617",
+      "name": "Agent 研究主管",
       "skills": [
         "agent-steward-getting-started",
         "AI 商城产品 PM 上手",

@@ -17,16 +17,17 @@ from multica_board.views import Views
 class GrokBotSkillTests(unittest.TestCase):
     def test_manifest_names_and_evidence_are_read_only(self):
         before = hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest()
+        expected_bot_count = len(json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))['bots'])
         with mock.patch('subprocess.run', side_effect=AssertionError('no CLI/RPC allowed')):
             items, source = grok_bot_skills()
         self.assertEqual(source['state'], 'ok')
         self.assertEqual(len(items), 8)
         self.assertEqual(len({row['key'] for row in items}), 8)
         for item in items:
-            self.assertEqual(len(item['grok_bots']), 23)
+            self.assertEqual(len(item['grok_bots']), expected_bot_count)
             observed = [bot['name'] for bot in item['grok_bots'] if bot['evidence_state'] == 'observed']
-            self.assertEqual(set(observed), {'Agent Steward', 'EO-PM'})
-            self.assertEqual(sum(bot['evidence_state'] == 'inferred' for bot in item['grok_bots']), 21)
+            self.assertEqual(set(observed), {'Agent Steward · Agent 基建总管', 'EO-PM · Elder Oasis PM'})
+            self.assertEqual(sum(bot['evidence_state'] == 'inferred' for bot in item['grok_bots']), expected_bot_count - len(observed))
             self.assertIn('未逐一实测', item['evidence_detail'])
             self.assertEqual(item['content']['state'], 'not_applicable')
             self.assertNotIn('local_source', item)
@@ -63,7 +64,7 @@ class GrokBotSkillTests(unittest.TestCase):
         local = {'name':'ego-browser','origin':'inventory','source_class':'local_custom','entries':[],'tools':{}}
         document = {'ok':True,'generated_at':'t','items':[local],'tools':[],'attention':{'badge':0},'meta':{}}
         for installs in [None, {'ego-browser':[{'id':'workspace-skill'}]}]:
-            with mock.patch('multica_board.skills_view.skills_document',return_value=document), mock.patch.object(views,'_workspace_installs',return_value=installs), mock.patch.object(views,'runtimes',return_value={'items':[]}):
+            with mock.patch('multica_board.skill_grok_export.grok_export_skills', return_value=([], {'id': 'grok_bot_export', 'state': 'absent', 'detail': 'test'})), mock.patch('multica_board.skills_view.skills_document',return_value=document), mock.patch.object(views,'_workspace_installs',return_value=installs), mock.patch.object(views,'runtimes',return_value={'items':[]}):
                 result=views.skills()
             named = [item for item in result['items'] if item['name']=='ego-browser']
             self.assertEqual(len(named),2)

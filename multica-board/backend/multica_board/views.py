@@ -250,9 +250,21 @@ def render_attention_text(body: dict[str, Any]) -> str:
         lines.append("# quota_alerts")
         lines.append(f"quota_alerts {len(alerts)}")
         for it in alerts:
+            summary = _cell(it.get("title"))
+            if "band" in it:
+                summary += " " + " ".join(
+                    f"{label}={_cell(it.get(field))}"
+                    for label, field in (("band", "band"), ("age_s", "sample_age_s"),
+                                         ("stale", "stale"), ("Δ24h_pp", "delta_24h_percent"),
+                                         ("reset", "resets_at"),
+                                         ("ETA85", "eta_warning_at"), ("ETA100", "eta_exhausted_at"))
+                )
+                daily = it.get("daily_delta") or []
+                if daily:
+                    summary += f" Δday_pp={_cell(daily[-1].get('delta_percent'))}@{_cell(daily[-1].get('date'))}"
             lines.append(
                 "\t".join(
-                    _cell(it.get(field))
+                    summary if field == "title" else _cell(it.get(field))
                     for field in ("identifier", "status", "time", "agent_name", "title")
                 )
             )
@@ -1247,6 +1259,11 @@ class Views:
 
     # --- /api/skills --------------------------------------------------------
 
+    def evidence_inventory(self) -> dict[str, Any]:
+        from .evidence_inventory import build_evidence_inventory
+
+        return build_evidence_inventory(self.skills(), workspace_collected=self._workspace_installs() is not None)
+
     def skills(self, review_days: int = 90) -> dict[str, Any]:
         from .skills_view import parse_review_days, skills_document, _summary
 
@@ -1257,7 +1274,9 @@ class Views:
         document = skills_document(days)
         from .skills_view import _load_tool_roots, TOOL_ROOTS_PATH, REPO_ROOT
         from .skill_runtimes import runtime_columns
+        from .runtime_load import collect_runtime_load
         from .skill_grok_bots import grok_bot_skills
+        from .skill_grok_export import grok_export_skills
         try:
             roots, _ = _load_tool_roots(TOOL_ROOTS_PATH, REPO_ROOT)
         except (OSError, ValueError, TypeError, KeyError):
@@ -1283,18 +1302,33 @@ class Views:
         for item in bot_items:
             item["related_skill_name"] = item["name"] if item["name"] in local_names else None
         items.extend(bot_items)
+        export_items, export_source = grok_export_skills()
+        for item in export_items:
+            item["related_skill_name"] = item["name"] if item["name"] in local_names else None
+        items.extend(export_items)
         summary = _summary(items)
         for block in summary:
             if block["id"] == "grok_bot":
                 block["uncollected"] = bot_source["state"] != "ok"
                 block["detail"] = bot_source["detail"]
+            if block["id"] == "grok_bot_export":
+                block["uncollected"] = not export_items
+                block["detail"] = export_source["detail"]
         meta = {**(document.get("meta") or {})}
-        meta["sources"] = [*(meta.get("sources") or []), bot_source]
-        return runtime_columns({**document, "items": items, "summary": summary, "meta": meta}, self.runtimes(), roots)
+        meta["sources"] = [*(meta.get("sources") or []), bot_source, export_source]
+        return runtime_columns(
+            {**document, "items": items, "summary": summary, "meta": meta},
+            self.runtimes(),
+            roots,
+            collect_runtime_load(),
+        )
 
     def skills_content(self, **arguments) -> dict[str, Any]:
+        from .skill_grok_export import PREFIX, read_export_content
         from .skill_content import read_content
         from .skills_view import REPO_ROOT, skills_document
+        if arguments.get("source", "local") == "local" and arguments.get("path", "").startswith(PREFIX):
+            return read_export_content(**arguments)
         # Cloud selection never consults local files. Only the local inventory
         # (not workspace metadata) can authorize a filesystem read.
         document = {} if arguments.get("source") == "cloud" else skills_document()
