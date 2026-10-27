@@ -14,6 +14,8 @@
 
 ### 变更
 
+- 本地候选（未合并、未部署）：全量只读巡检 project 与三属性 P1–P9；高优先结果从绑定 workspace/profile 的新鲜报告进入待批准队列，可展开当前值、候选与证据，不修改 issue。（ACM-597；无 PR）
+
 - 已合并、已部署：usage-collector 的 launchd 模板增加 `HTTPS_PROXY`、`HTTP_PROXY`，均指向 `http://127.0.0.1:7890`，供采集进程使用本机代理。（[PR #130](https://github.com/yicone/agents-lab/pull/130)；[合并提交 `07921e8`](https://github.com/yicone/agents-lab/commit/07921e8b631400800de09867e1524fa9b3dd5cc1)；ACM-642；部署 SHA `07921e8`（ff-only），2026-10-27 采集两轮 exit=0、errors=0、无回滚，据副调度回报，部署目录 HEAD 已核对，Grok 凭据过期自动恢复尚未验证）
 
 - 已合并、部署待核实：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（[PR #115](https://github.com/yicone/agents-lab/pull/115)；[合并提交 `2a81234`](https://github.com/yicone/agents-lab/commit/2a8123453573497259a08ea0c02a0d8e0906769c)；ACM-586）
