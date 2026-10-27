@@ -12,6 +12,8 @@
 
 ### 变更
 
+- 本地候选（未合并、未部署）：usage-collector 的 launchd 模板增加 `HTTPS_PROXY`、`HTTP_PROXY`，均指向 `http://127.0.0.1:7890`，供采集进程使用本机代理。（ACM-642；仅本地提交，无 PR）
+
 - 本地候选（未合并、未部署）：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（ACM-586；仅本地提交，无 PR）
 
 - 指令目录与当前文档中的两位设计 agent 名称统一为「UI 设计师」，保留历史运行与回滚证据。（[PR #108](https://github.com/yicone/agents-lab/pull/108)；[合并提交 `eb1f9ea`](https://github.com/yicone/agents-lab/commit/eb1f9ea572d706db44a7e7c2daab6fdbb979dacf)；ACM-518；已合并、已部署到 8765，部署事实据 ACM-542 发布前补记指示确认，非本轮部署实测）
@@ -27,6 +29,8 @@
 - 顶栏按「收件箱、运行监控、配置管理、地图」组织，设置使用齿轮入口；旧书签兼容跳转。处理队列覆盖全部 workspace，缺失数据明确显示未知。（[PR #96](https://github.com/yicone/agents-lab/pull/96)；ACM-459；未合并、未部署）
 
 ### 修复
+
+- 本地候选（未合并、未部署）：usage-collector 继续通过 codexbar 采集；失败时优先读取 stdout JSON 的 `error`/`message`，将脱敏后的真实错误写入日志与采集退出信息，并过滤 Grok Build 升级提示，避免升级提示掩盖故障；成功输出格式不变。（ACM-642；仅本地提交，无 PR）
 
 - 本分支候选（未合并、未部署）：Skills 与证据清单冷启动时后台预热技能文档，升级探测整轮限时 18 秒；超时项明确显示「升级状态待补」，后续轮次补齐，避免首次请求长时间等待。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；ACM-630）
 
