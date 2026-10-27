@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { MAP_TOOLS } from "./layers.js";
-import { formatCount, formatDeltaPp, formatSampleAge, modelUsage, renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
+import { formatCount, formatDeltaPp, formatSampleAge, modelUsage, poolModels, renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/usage.json", import.meta.url), "utf8"));
 
@@ -439,4 +439,145 @@ test("L1 usage tool points at this page", () => {
   const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
   assert.match(app, /getJSON\("usage"\)/);
   assert.match(app, /renderUsage/);
+});
+
+function poolSectionNode(nodes) {
+  let found = null;
+  const walk = (node) => {
+    if (!node || typeof node !== "object" || found) return;
+    if (node.attrs?.["aria-label"] === "额度池利用") found = node;
+    for (const child of node.children || []) walk(child);
+  };
+  for (const node of nodes) walk(node);
+  return found;
+}
+
+function poolRow(nodes, alias) {
+  let found = null;
+  const walk = (node) => {
+    if (!node || typeof node !== "object" || found) return;
+    if (node.tag === "tr" && node.children?.length && textOf(node.children[0]) === alias) found = node;
+    for (const child of node.children || []) walk(child);
+  };
+  for (const node of nodes) walk(node);
+  return found;
+}
+
+function classTokens(node, out = []) {
+  if (!node || typeof node !== "object") return out;
+  if (typeof node.attrs?.class === "string") out.push(...node.attrs.class.split(/\s+/).filter(Boolean));
+  for (const child of node.children || []) classTokens(child, out);
+  return out;
+}
+
+test("quota pool lists five alias rows with unknowns, stale text and no color tags", () => {
+  const model = poolModels(fixture);
+  assert.equal(model.status, "ok");
+  assert.equal(model.accounts.map((account) => account.alias).join(","), "6e,aq,he,mg,pe");
+  assert.equal(model.accounts[0].pace_applicable, false);
+  assert.equal(model.accounts[1].pace.ratio, 0.14);
+  assert.equal(model.accounts[4].credits.present, false);
+
+  const nodes = render(fixture);
+  const pool = column(nodes, "额度池利用");
+  assert.match(pool, /额度池利用/);
+  assert.match(pool, /只读展示，不下结论/);
+  assert.match(pool, /不跨账号相加/);
+  assert.match(pool, /共 5 个别名有快照：6e \/ aq \/ he \/ mg \/ pe/);
+  assert.match(pool, /无该字段/);
+  assert.match(pool, /系统账号，不参与/);
+  assert.match(pool, /节奏比 0\.14（当前快照）/);
+  assert.match(pool, /节奏比 3\.01（当前快照）/);
+  assert.match(pool, /节奏比 3\.26（当前快照）/);
+  assert.match(pool, /窗口刚开始，无法计算/);
+  assert.match(pool, /≤72 小时 · 建议阈值（未批准）/);
+  assert.match(pool, /≤24 小时 · 建议阈值（未批准）/);
+  assert.match(pool, /≤6 小时 · 建议阈值（未批准）/);
+  assert.match(pool, /只提示，不建议使用/);
+  assert.match(pool, /Tibo 是否预告：未核查/);
+  assert.match(pool, /消耗速率：待积累/);
+  assert.match(pool, /陈旧/);
+  assert.match(pool, /最后更新 2026-10-16T00:40:00Z/);
+  assert.match(pool, /Q1/);
+  assert.match(pool, /Q3 闲置率/);
+  assert.match(pool, /Q4 冷热并存/);
+  assert.match(pool, /待积累（n=—，预计 11-02 后）/);
+  assert.doesNotMatch(pool, /⚠|相加后的|总用量|百分比合计|\$|美元/);
+
+  const free = poolRow(nodes, "6e");
+  assert.equal(textOf(free.children[2]), "无该字段");
+  assert.equal(textOf(free.children[3]), "无该字段");
+  assert.match(textOf(free.children[5]), /62,500 Credits/);
+  assert.equal(textOf(free.children[6]), "系统账号，不参与");
+
+  const aq = poolRow(nodes, "aq");
+  assert.match(textOf(aq.children[2]), /已用 21%/);
+  assert.match(textOf(aq.children[3]), /已用 6% · 重置 2026-10-20T16:41:00Z/);
+  assert.equal(textOf(aq.children[5]), "无该字段");
+
+  const he = poolRow(nodes, "he");
+  const creditsCell = textOf(he.children[5]);
+  assert.match(creditsCell, /0 Credits/);
+  assert.match(creditsCell, /采样 2026-10-16T16:42:30Z/);
+  assert.doesNotMatch(creditsCell, /\$|美元|到期/);
+
+  const mg = poolRow(nodes, "mg");
+  assert.match(textOf(mg.children[7]), /陈旧/);
+  assert.match(textOf(mg.children[7]), /最后更新 2026-10-16T00:40:00Z/);
+  assert.match(textOf(mg.children[4]), /0 张/);
+
+  const pe = poolRow(nodes, "pe");
+  assert.equal(textOf(pe.children[5]), "无该字段");
+  assert.match(textOf(pe.children[6]), /窗口刚开始，无法计算/);
+  assert.match(textOf(pe.children[7]), /采样 2026-10-16T16:30:00Z/);
+
+  const classes = classTokens(poolSectionNode(nodes));
+  for (const tone of ["ok", "warn", "bad", "info", "quota", "tag"]) {
+    assert.equal(classes.includes(tone), false, `class ${tone} must stay out of the pool section`);
+  }
+});
+
+test("quota pool renders five alias rows with missing fields when the block is absent or failed", () => {
+  const base = structuredClone(fixture);
+  delete base.quota_pool;
+  const nodes = render(base);
+  const pool = column(nodes, "额度池利用");
+  assert.match(pool, /用量快照里还没有 Codex 账号块/);
+  assert.match(pool, /共 0 个别名有快照/);
+  for (const alias of ["6e", "aq", "he", "mg", "pe"]) {
+    const row = poolRow(nodes, alias);
+    assert.ok(row, alias);
+    assert.equal(textOf(row), `${alias}${"无该字段".repeat(7)}`);
+  }
+
+  const errored = structuredClone(fixture);
+  errored.quota_pool.status = "error";
+  const epool = column(render(errored), "额度池利用");
+  assert.match(epool, /Codex 账号快照采集失败/);
+  assert.doesNotMatch(epool, /已用 \d|节奏比 \d|系统账号，不参与|Credits\b.*\d 张/s);
+});
+
+test("quota pool drops email-shaped strings and unknown aliases", () => {
+  const leaked = structuredClone(fixture);
+  leaked.quota_pool.accounts[0].alias = "6e@example.com";
+  leaked.quota_pool.accounts[0].plan = "owner@example.com";
+  leaked.quota_pool.accounts.push({ alias: "zz", present: true });
+  const model = poolModels(leaked);
+  assert.equal(model.accounts.map((account) => account.alias).join(","), "aq,he,mg,pe");
+  const pool = column(render(leaked), "额度池利用");
+  assert.doesNotMatch(pool, /example\.com|@|zz/);
+});
+
+test("usageRefreshKey tracks quota pool fields", () => {
+  for (const mutate of [
+    (copy) => { copy.quota_pool.accounts[0].source_updated_at = "2026-10-16T16:45:00Z"; },
+    (copy) => { copy.quota_pool.accounts[3].stale = false; },
+    (copy) => { copy.quota_pool.accounts[4].credits = { present: true, remaining: 5 }; },
+    (copy) => { copy.quota_pool.accounts[1].windows["5h"].used_percent = 30; },
+    (copy) => { copy.quota_pool.status = "error"; },
+  ]) {
+    const shifted = structuredClone(fixture);
+    mutate(shifted);
+    assert.notEqual(usageRefreshKey(shifted), usageRefreshKey(fixture));
+  }
 });

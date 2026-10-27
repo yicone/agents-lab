@@ -678,6 +678,144 @@ def assemble_multica(
     return {"note": USAGE_NOTE, "by_provider": by_provider, "by_runtime": by_runtime}
 
 
+POOL_ALIASES = ("6e", "aq", "he", "mg", "pe")
+# Accounts excluded by fixed alias rule, not by is_system_account (ACM-650).
+POOL_EXCLUDED = frozenset({"6e"})
+POOL_STALE_AFTER_S = 1800
+POOL_EXPIRY_FLAGS = (6, 24, 72)
+_POOL_WINDOW_MINUTES = {"5h": 300, "weekly": 10080}
+
+
+def _pool_window(window: dict[str, Any] | None, now: datetime) -> dict[str, Any] | None:
+    if not isinstance(window, dict):
+        return None
+    used = _num(window.get("used_percent"))
+    if used is None:
+        return None
+    resets_at = _text(window.get("resets_at"))
+    hours = hours_until(resets_at, now)
+    return {
+        "used_percent": round(used, 2),
+        "resets_at": resets_at,
+        "hours_until_reset": None if hours is None else round(hours, 1),
+        "window_minutes": _num(window.get("window_minutes")),
+    }
+
+
+def _pool_windows(raw: Any, now: datetime) -> dict[str, Any]:
+    by_minutes: dict[float, dict[str, Any]] = {}
+    for window in raw if isinstance(raw, list) else []:
+        if not isinstance(window, dict):
+            continue
+        minutes = _num(window.get("window_minutes"))
+        if minutes is not None and minutes in _POOL_WINDOW_MINUTES.values() and minutes not in by_minutes:
+            by_minutes[minutes] = window
+    return {name: _pool_window(by_minutes.get(minutes), now) for name, minutes in _POOL_WINDOW_MINUTES.items()}
+
+
+def _pool_reset_cards(raw: Any, now: datetime) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    count = _int(raw.get("available_count"))
+    soonest = _text(raw.get("soonest_expires_at"))
+    hours = hours_until(soonest, now)
+    rounded = None if hours is None else round(hours, 1)
+    flag = None
+    if count > 0 and rounded is not None:
+        flag = next((threshold for threshold in POOL_EXPIRY_FLAGS if rounded <= threshold), None)
+    return {
+        "available_count": count,
+        "soonest_expires_at": soonest,
+        "hours_until_soonest": rounded,
+        "expiry_flag": flag,
+    }
+
+
+def _pool_pace(alias: str, windows: dict[str, Any], reference_at: str | None) -> dict[str, Any]:
+    pace: dict[str, Any] = {"ratio": None, "reference_at": None}
+    if alias in POOL_EXCLUDED:
+        return pace
+    weekly = windows.get("weekly")
+    if not isinstance(weekly, dict):
+        return pace
+    reference = _parse_time(reference_at)
+    if reference is None:
+        return pace
+    pace["reference_at"] = reference_at
+    resets = _parse_time(weekly.get("resets_at"))
+    minutes = _num(weekly.get("window_minutes"))
+    used = _num(weekly.get("used_percent"))
+    if resets is None or minutes is None or minutes <= 0 or used is None:
+        return pace
+    # Elapsed fraction of the weekly window at the snapshot moment, not at GET time.
+    elapsed = max(0.0, min(1.0, 1 - (resets - reference).total_seconds() / (minutes * 60)))
+    if elapsed <= 0:
+        return pace
+    pace["ratio"] = round(used / (elapsed * 100), 2)
+    return pace
+
+
+def _pool_account(alias: str, raw: dict[str, Any] | None, now: datetime) -> dict[str, Any]:
+    account: dict[str, Any] = {
+        "alias": alias,
+        "present": False,
+        "plan": None,
+        "pace_applicable": alias not in POOL_EXCLUDED,
+        "windows": {"5h": None, "weekly": None},
+        "reset_cards": None,
+        "credits": {"present": False, "remaining": None, "unit": "Credits"},
+        "source_updated_at": None,
+        "sample_age_s": None,
+        "stale": False,
+        "pace": {"ratio": None, "reference_at": None},
+    }
+    if not isinstance(raw, dict):
+        return account
+    account["present"] = True
+    account["plan"] = _text(raw.get("plan"))
+    windows = _pool_windows(raw.get("windows"), now)
+    account["windows"] = windows
+    account["reset_cards"] = _pool_reset_cards(raw.get("reset_cards"), now)
+    remaining = _num(raw.get("credits_remaining"))
+    account["credits"] = {"present": remaining is not None, "remaining": remaining, "unit": "Credits"}
+    updated = _text(raw.get("source_updated_at"))
+    account["source_updated_at"] = updated
+    parsed = _parse_time(updated)
+    age = None if parsed is None else max(0.0, (now.astimezone(timezone.utc) - parsed).total_seconds())
+    account["sample_age_s"] = None if age is None else round(age, 1)
+    account["stale"] = age is None or age > POOL_STALE_AFTER_S
+    account["pace"] = _pool_pace(alias, windows, updated)
+    return account
+
+
+def build_quota_pool(snapshot: dict[str, Any] | None, now: datetime) -> dict[str, Any]:
+    """Whitelist the codex_accounts block into the read-only quota pool view."""
+    block = snapshot.get("codex_accounts") if isinstance(snapshot, dict) else None
+    records: dict[str, dict[str, Any]] = {}
+    if not isinstance(block, dict):
+        status = "missing"
+        sampled_at = None
+    else:
+        raw_status = block.get("status")
+        status = raw_status if raw_status in ("ok", "empty", "error") else "error"
+        sampled_at = _text(block.get("sampled_at"))
+        for item in block.get("accounts") if isinstance(block.get("accounts"), list) else []:
+            if not isinstance(item, dict):
+                continue
+            alias = _text(item.get("alias"))
+            if alias in POOL_ALIASES and alias not in records:
+                records[alias] = item
+    return {
+        "status": status,
+        "source": "codexbar-disk",
+        "sampled_at": sampled_at,
+        "stale_after_s": POOL_STALE_AFTER_S,
+        "account_count": len(records),
+        "present_aliases": [alias for alias in POOL_ALIASES if alias in records],
+        "accounts": [_pool_account(alias, records.get(alias), now) for alias in POOL_ALIASES],
+    }
+
+
 def _snapshot_state(snapshot: dict[str, Any] | None, quotas: list[dict[str, Any]]) -> str:
     if snapshot is None:
         return "missing"
@@ -724,6 +862,7 @@ def build_usage_response(
         "external_quotas": quotas,
         "signals": collect_signals(quotas),
         "multica_daily": assemble_multica(tasks, runtimes, workspaces, token_rows, days=days, now=now),
+        "quota_pool": build_quota_pool(snapshot, now),
     }
 
 

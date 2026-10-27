@@ -1004,7 +1004,32 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
   color: var(--muted);
 }
 .usage-day { margin: 2px 0; }
-@media (max-width: 1100px) { .usage-columns { grid-template-columns: 1fr; } }
+.usage-pool {
+  margin-top: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--muted);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.usage-pool h3 { margin: 0 0 6px; font-size: 13px; }
+.usage-pool .table-wrap { margin-top: 8px; }
+.usage-pool-table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 12px; }
+.usage-pool-table th {
+  text-align: left;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.usage-pool-table td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.usage-pool-table .mono, .usage-pool-table b.mono { font-family: var(--mono); }
+.usage-pool-batch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+.usage-pool-slot { border: 1px dashed var(--line); border-radius: var(--radius); padding: 8px 10px; }
+.usage-pool-slot p { margin: 0; }
+.usage-pool-slot-title { font-weight: 600; }
+@media (max-width: 1100px) { .usage-columns, .usage-pool-batch { grid-template-columns: 1fr; } }
 
 /* Neutral identity badge inherits theme foreground/background; status dots stay separate. */
 .runtime-mark { display: inline-flex; box-sizing: border-box; width: 16px; height: 16px; flex: none; align-items: center; justify-content: center; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--muted); border-radius: 4px; background: var(--panel-2); color: var(--text); font: 650 10px/1 var(--mono); }
