@@ -467,7 +467,7 @@ function row(ctx, harness, projectTool, item, payload) {
         if (e.key === "Enter") ctx.openSkill(item, e.currentTarget);
       },
     },
-    h("td", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
+    h("td", null, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
     h("td", { class: "channel-col", title: [item.channel_label, item.channel_detail, item.evidence_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, item.channel_label), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
     h("td", { class: "cloud-cell" }, cloudCell(h, item)),
     h("td", { class: "shared-entry", title: sharedTitle }, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
