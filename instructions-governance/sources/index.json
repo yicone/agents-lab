@@ -317,6 +317,11 @@
       "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
       "name": "macOS 执委会",
       "path": null
+    },
+    {
+      "id": "d167e79b-b889-4192-a83b-dc56f854a55e",
+      "name": "3D 打印 Bot",
+      "path": "bots/d167e79b-b889-4192-a83b-dc56f854a55e.md"
     }
   ]
 }
