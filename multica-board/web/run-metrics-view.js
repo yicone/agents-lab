@@ -25,6 +25,51 @@ function count(value) {
   return Number.isInteger(value) ? String(value) : "缺失";
 }
 
+function schedulingBox(scheduling) {
+  if (!scheduling || typeof scheduling !== "object" || Array.isArray(scheduling)) return null;
+  return scheduling;
+}
+
+function boolFact(box, key) {
+  if (!box || !Object.hasOwn(box, key) || box[key] == null) return { state: "missing", label: "missing" };
+  if (box[key] === true) return { state: "true", label: "是" };
+  if (box[key] === false) return { state: "false", label: "否" };
+  return { state: "unknown", label: "unknown" };
+}
+
+function listFact(box, key) {
+  if (!box || !Object.hasOwn(box, key) || box[key] == null) return { state: "missing", label: "missing", ids: null };
+  if (!Array.isArray(box[key])) return { state: "unknown", label: "unknown", ids: null };
+  if (box[key].length === 0) return { state: "empty", label: "0", ids: [] };
+  return { state: "present", label: String(box[key].length), ids: box[key] };
+}
+
+function textFact(box, key) {
+  if (!box || !Object.hasOwn(box, key) || box[key] == null) return { state: "missing", label: "missing" };
+  if (typeof box[key] !== "string") return { state: "unknown", label: "unknown" };
+  if (box[key] === "") return { state: "empty", label: "空" };
+  return { state: "present", label: box[key] };
+}
+
+/** Keep true, false, an empty list, and a missing field as different facts. */
+export function schedulingFacts(scheduling) {
+  const box = schedulingBox(scheduling);
+  return {
+    unknownHardDisable: boolFact(box, "unknown_hard_disable"),
+    historicalQuotaExcludes: boolFact(box, "historical_quota_excludes_agent"),
+    excludedAgentIds: listFact(box, "excluded_agent_ids"),
+    historicalQuotaAgentIds: listFact(box, "historical_quota_agent_ids"),
+    historicalQuotaNote: textFact(box, "historical_quota_note"),
+    signals: listFact(box, "signals"),
+  };
+}
+
+function listLabel(fact, { empty = "0", present } = {}) {
+  if (fact.state === "missing" || fact.state === "unknown") return fact.label;
+  if (fact.state === "empty") return empty;
+  return present ? present(fact) : fact.label;
+}
+
 function ratioText(block) {
   if (!block || !Number.isInteger(block.numerator) || !Number.isInteger(block.denominator)) return "缺失";
   const rate = block.rate == null ? "无比率" : block.rate;
@@ -159,9 +204,14 @@ export function presentRunMetrics(payload, route = {}) {
   const unstable = report.provider_unstable_class || {};
   if (unstable.emitted !== false || unstable.run_count !== 0) gaps.push("报告产出了未批准的 provider_unstable。页面只展示，不把它当成可用分类。");
   if (window?.failure_class_counts && Object.hasOwn(window.failure_class_counts, "provider_unstable")) gaps.push("窗口计数里出现 provider_unstable。");
-  const scheduling = report.scheduling || {};
-  if (scheduling.unknown_hard_disable !== false) gaps.push("报告把 unknown 标成硬禁用，和已冻结口径冲突。页面没有开关可以改它。");
-  if (scheduling.historical_quota_excludes_agent !== false || (scheduling.excluded_agent_ids || []).length) gaps.push("报告含历史 quota 排除名单。页面没有入口执行排除。");
+  const schedulingFactsForReport = schedulingFacts(report.scheduling);
+  if (schedulingFactsForReport.unknownHardDisable.state === "true") gaps.push("报告把 unknown 标成硬禁用，和已冻结口径冲突。页面没有开关可以改它。");
+  if (schedulingFactsForReport.unknownHardDisable.state === "missing") gaps.push("scheduling.unknown_hard_disable 缺失。页面不把它当成否。");
+  if (schedulingFactsForReport.historicalQuotaExcludes.state === "true" || schedulingFactsForReport.excludedAgentIds.state === "present") gaps.push("报告含历史 quota 排除名单。页面没有入口执行排除。");
+  if (schedulingFactsForReport.historicalQuotaExcludes.state === "missing") gaps.push("scheduling.historical_quota_excludes_agent 缺失。页面不把它当成是。");
+  if (schedulingFactsForReport.excludedAgentIds.state === "missing") gaps.push("scheduling.excluded_agent_ids 缺失。页面不把它当成 0。");
+  if (schedulingFactsForReport.historicalQuotaAgentIds.state === "missing") gaps.push("scheduling.historical_quota_agent_ids 缺失。页面不把它当成无。");
+  if (schedulingFactsForReport.signals.state === "missing") gaps.push("scheduling.signals 缺失。页面不把它当成 0。");
   const rework = window?.rework || {};
   const unknownRework = rework.rework_coverage?.unknown_count;
   if (Number.isInteger(unknownRework) && unknownRework > 0 && rework.rework_rate != null) gaps.push("覆盖不足时报告仍给了返工率点估计。页面只展示下限。");
@@ -196,7 +246,8 @@ export function presentRunMetrics(payload, route = {}) {
     rules: Array.isArray(window?.failure_rules) ? window.failure_rules : [],
     reconciliation: recon,
     timeline: report.timeline_from_to || {},
-    scheduling,
+    scheduling: report.scheduling,
+    schedulingView: schedulingFactsForReport,
     unstable,
     gaps,
     filterOptions: Object.fromEntries(FILTERS.map(([key, , groupName]) => [key, optionIds(window, groupName, route[key])])),
@@ -309,12 +360,12 @@ export function renderRunMetrics(ctx) {
       h("p", { class: "muted" }, `gemini 显示复核：${model.reconciliation.atlas_gemini_display?.rechecked_in_atlas_ui === true ? "已复核" : "未复核"}`),
       h("p", { class: "muted" }, model.timeline.compared_with_s1 || "没有 from/to 对照说明。"),
       h("h4", null, "调度信号（只展示）"),
-      metric(h, "unknown 硬禁用", model.scheduling.unknown_hard_disable === false ? "否" : model.scheduling.unknown_hard_disable === true ? "是" : "缺失"),
-      metric(h, "历史 quota 排除", model.scheduling.historical_quota_excludes_agent === false ? "否" : "是"),
-      metric(h, "排除名单", count((model.scheduling.excluded_agent_ids || []).length)),
-      h("p", { class: "muted" }, model.scheduling.historical_quota_note || "没有历史 quota 说明。"),
-      h("p", { class: "muted" }, `历史 quota agent：${(model.scheduling.historical_quota_agent_ids || []).join("、") || "无"}`),
-      h("p", { class: "muted" }, `信号 ${count((model.scheduling.signals || []).length)} 条。健康度来自报告，本页不能修改。`),
+      metric(h, "unknown 硬禁用", model.schedulingView.unknownHardDisable.label),
+      metric(h, "历史 quota 排除", model.schedulingView.historicalQuotaExcludes.label),
+      metric(h, "排除名单", listLabel(model.schedulingView.excludedAgentIds)),
+      h("p", { class: "muted" }, model.schedulingView.historicalQuotaNote.label),
+      h("p", { class: "muted" }, `历史 quota agent：${listLabel(model.schedulingView.historicalQuotaAgentIds, { empty: "空", present: (fact) => fact.ids.join("、") })}`),
+      h("p", { class: "muted" }, `信号 ${listLabel(model.schedulingView.signals, { empty: "0 条", present: (fact) => `${fact.label} 条` })}。健康度来自报告，本页不能修改。`),
     ),
     h(
       "section",

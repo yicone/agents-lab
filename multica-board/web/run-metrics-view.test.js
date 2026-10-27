@@ -52,8 +52,10 @@ test("the page shows the report rates, coverage, rework bound, and reconciliatio
   assert.match(recon, /10/);
   assert.match(recon, /12/);
   assert.match(recon, /未复核/);
-  assert.match(recon, /unknown 硬禁用/);
-  assert.match(recon, /否/);
+  assert.match(recon, /unknown 硬禁用否/);
+  assert.match(recon, /历史 quota 排除否/);
+  assert.match(recon, /排除名单0/);
+  assert.match(recon, /agent-quota/);
   assert.match(section(nodes, "evidence"), /FR-004-QUOTA-TEXT/);
   assert.match(section(nodes, "数据缺口"), /gemini/);
   assert.equal(writeControlTags(nodes).length, 0);
@@ -76,6 +78,49 @@ test("search narrows evidence and leaves the window rate in place", () => {
   const nodes = render({ q: "this-matches-nothing" });
   assert.match(section(nodes, "双成功率"), /7 \/ 11/);
   assert.match(section(nodes, "evidence"), /逐条 evidence 0 条/);
+});
+
+test("missing scheduling fields stay missing instead of yes, zero, or none", () => {
+  const report = structuredClone(payload.report);
+  delete report.scheduling;
+  const nodes = renderRunMetrics({ h: vnode, route: {}, runMetrics: { ...payload, report } });
+  const recon = section(nodes, "runtime reconciliation");
+  const gaps = section(nodes, "数据缺口");
+  assert.match(recon, /unknown 硬禁用missing/);
+  assert.match(recon, /历史 quota 排除missing/);
+  assert.match(recon, /排除名单missing/);
+  assert.match(recon, /历史 quota agent：missing/);
+  assert.match(recon, /信号 missing/);
+  assert.doesNotMatch(recon, /历史 quota 排除是/);
+  assert.doesNotMatch(recon, /排除名单0/);
+  assert.doesNotMatch(recon, /历史 quota agent：无/);
+  assert.doesNotMatch(recon, /信号 0/);
+  assert.match(gaps, /historical_quota_excludes_agent 缺失/);
+  assert.doesNotMatch(gaps, /报告含历史 quota 排除名单/);
+});
+
+test("explicit false and empty scheduling lists stay distinct from missing", () => {
+  const report = structuredClone(payload.report);
+  report.scheduling = {
+    unknown_hard_disable: false,
+    historical_quota_excludes_agent: false,
+    excluded_agent_ids: [],
+    historical_quota_agent_ids: [],
+    historical_quota_note: "",
+    signals: [],
+  };
+  const recon = section(renderRunMetrics({
+    h: vnode,
+    route: {},
+    runMetrics: { ...payload, report },
+  }), "runtime reconciliation");
+  assert.match(recon, /unknown 硬禁用否/);
+  assert.match(recon, /历史 quota 排除否/);
+  assert.match(recon, /排除名单0/);
+  assert.match(recon, /历史 quota agent：空/);
+  assert.match(recon, /信号 0 条/);
+  const scheduling = recon.slice(recon.indexOf("调度信号")).replace("unknown 硬禁用", "");
+  assert.doesNotMatch(scheduling, /missing|unknown|无/);
 });
 
 test("a missing snapshot has no write controls", () => {

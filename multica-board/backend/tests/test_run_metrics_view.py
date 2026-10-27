@@ -12,7 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from multica_board.run_metrics_view import SCHEMA_VERSION, load_run_metrics_file, report_path_for  # noqa: E402
+from multica_board.run_metrics_view import (  # noqa: E402
+    SCHEMA_VERSION,
+    load_run_metrics_file,
+    report_path_for,
+    scheduling_field_states,
+)
 from multica_board.server import BoardServer  # noqa: E402
 from multica_board.store import Store  # noqa: E402
 from multica_board.views import Views  # noqa: E402
@@ -61,6 +66,58 @@ class LoadTests(unittest.TestCase):
             rejected = load_run_metrics_file(path)
             self.assertEqual(rejected["reason"], "schema")
             self.assertIsNone(rejected["report"])
+
+    def test_missing_scheduling_is_marked_and_not_invented(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "run-metrics.v0.1.json"
+            path.write_text(json.dumps(_report()), encoding="utf-8")
+            before = path.read_bytes()
+            loaded = load_run_metrics_file(path)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertTrue(loaded["ok"])
+            self.assertNotIn("scheduling", loaded["report"])
+            self.assertEqual(
+                loaded["scheduling_fields"],
+                {
+                    "unknown_hard_disable": "missing",
+                    "historical_quota_excludes_agent": "missing",
+                    "excluded_agent_ids": "missing",
+                    "historical_quota_agent_ids": "missing",
+                    "signals": "missing",
+                },
+            )
+
+    def test_explicit_false_and_empty_lists_stay_distinct(self):
+        report = _report()
+        report["scheduling"] = {
+            "unknown_hard_disable": False,
+            "historical_quota_excludes_agent": False,
+            "excluded_agent_ids": [],
+            "historical_quota_agent_ids": [],
+            "signals": [],
+        }
+        self.assertEqual(
+            scheduling_field_states(report),
+            {
+                "unknown_hard_disable": "false",
+                "historical_quota_excludes_agent": "false",
+                "excluded_agent_ids": "empty",
+                "historical_quota_agent_ids": "empty",
+                "signals": "empty",
+            },
+        )
+        report["scheduling"] = {
+            "historical_quota_excludes_agent": "false",
+            "excluded_agent_ids": {},
+            "historical_quota_agent_ids": "none",
+            "signals": 0,
+        }
+        states = scheduling_field_states(report)
+        self.assertEqual(states["historical_quota_excludes_agent"], "unknown")
+        self.assertEqual(states["excluded_agent_ids"], "unknown")
+        self.assertEqual(states["historical_quota_agent_ids"], "unknown")
+        self.assertEqual(states["signals"], "unknown")
+        self.assertEqual(states["unknown_hard_disable"], "missing")
 
 
 class HttpTests(unittest.TestCase):

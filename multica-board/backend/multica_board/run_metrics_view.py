@@ -13,6 +13,8 @@ from typing import Any
 SCHEMA_VERSION = "run-metrics.v0.1"
 REPORT_NAME = "run-metrics.v0.1.json"
 WINDOWS = ("24h", "7d", "14d")
+_BOOL_FIELDS = ("unknown_hard_disable", "historical_quota_excludes_agent")
+_LIST_FIELDS = ("excluded_agent_ids", "historical_quota_agent_ids", "signals")
 
 MISSING_MESSAGE = (
     "还没有 run-metrics.v0.1 快照。把 S3 报告保存为看板数据目录里的 "
@@ -39,10 +41,39 @@ def load_run_metrics_file(path: Path | None) -> dict[str, Any]:
         return _envelope(False, "schema", SCHEMA_MESSAGE, None)
     if _window_contract_broken(data):
         return _envelope(False, "invalid", SCHEMA_MESSAGE, None)
-    return _envelope(True, None, None, data)
+    return _envelope(True, None, None, data, scheduling_field_states(data))
 
 
-def _envelope(ok: bool, reason: str | None, message: str | None, report: dict | None) -> dict[str, Any]:
+def scheduling_field_states(report: dict | None) -> dict[str, str]:
+    """Mark absent scheduling fields without inventing false or an empty list."""
+    scheduling = report.get("scheduling") if isinstance(report, dict) else None
+    if not isinstance(scheduling, dict):
+        return {name: "missing" for name in (*_BOOL_FIELDS, *_LIST_FIELDS)}
+    states: dict[str, str] = {}
+    for name in _BOOL_FIELDS:
+        if name not in scheduling or scheduling[name] is None:
+            states[name] = "missing"
+        elif isinstance(scheduling[name], bool):
+            states[name] = "true" if scheduling[name] else "false"
+        else:
+            states[name] = "unknown"
+    for name in _LIST_FIELDS:
+        if name not in scheduling or scheduling[name] is None:
+            states[name] = "missing"
+        elif isinstance(scheduling[name], list):
+            states[name] = "empty" if len(scheduling[name]) == 0 else "present"
+        else:
+            states[name] = "unknown"
+    return states
+
+
+def _envelope(
+    ok: bool,
+    reason: str | None,
+    message: str | None,
+    report: dict | None,
+    scheduling_fields: dict[str, str] | None = None,
+) -> dict[str, Any]:
     return {
         "ok": ok,
         "readonly": True,
@@ -51,6 +82,7 @@ def _envelope(ok: bool, reason: str | None, message: str | None, report: dict | 
         "reason": reason,
         "message": message,
         "report": report,
+        "scheduling_fields": scheduling_fields or {name: "missing" for name in (*_BOOL_FIELDS, *_LIST_FIELDS)},
     }
 
 
