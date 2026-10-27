@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import http.client
 import os
 import sys
 import tempfile
+import subprocess
+import time
+import threading
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -337,6 +341,150 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(bucket["items"], [])
         self.assertIn("不能判断有没有更新", bucket["reason"])
         self.assertNotEqual(body["items"][0]["bucket"], "upgradable")
+
+    def test_total_deadline_defers_remaining_and_next_round_finishes(self):
+        clock = Clock()
+        items = [dict(self.codex_item("1.0.0"), name=name, baseline_ref=f"npm:{name}")
+                 for name in ("one", "two", "three")]
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            clock.now += 9
+            return 200, {"version": "2.0.0"}, ""
+
+        first = self.check(items, fetch=fetch, mono=clock, total_timeout=18)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(first.checked, 2)
+        self.assertEqual(first.deferred_names, ("three",))
+        self.assertIn("升级状态待补", first.detail)
+        second = self.check(items, fetch=fetch, mono=clock, total_timeout=18)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(second.deferred, 0)
+        self.assertEqual(second.checked, 3)
+        self.assertEqual(set(second.updates), {"one", "two", "three"})
+
+    def test_deadline_stops_release_fallback_and_spacing(self):
+        clock = Clock()
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            clock.now += 18
+            return 404, None, ""
+
+        report = self.check([self.github_release_item("1.0.0")], fetch=fetch, mono=clock)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(report.deferred_names, ("demo",))
+        clear_cache()
+        clock.now = 1000
+        calls.clear()
+        self.check([dict(self.codex_item("1.0.0"), baseline_ref=f"npm:{name}") for name in ("one", "two")],
+                   fetch=lambda url: calls.append(url) or (200, {"version": "1.0.0"}, ""),
+                   mono=clock, min_interval=20)
+        self.assertEqual(len(calls), 1)
+
+    def test_production_transport_receives_only_remaining_budget_and_does_not_cache_timeout(self):
+        clock = Clock()
+        with mock.patch.object(skill_upgrade, "_bounded_fetch", return_value=(0, None, "deferred")) as fetch:
+            report = check_upgrades([self.codex_item("1.0.0")], {}, repo_root=self.repo,
+                                    mono=clock, total_timeout=0.25)
+        self.assertEqual(fetch.call_args.args[1], 0.25)
+        self.assertEqual(report.deferred_names, ("codex",))
+        self.assertEqual(skill_upgrade._CACHE, {})
+
+    def test_stalled_transport_is_killed_and_reaped_within_deadline(self):
+        real_run = subprocess.run
+        def stalled(_args, **kwargs):
+            return real_run([sys.executable, "-c", "import time; time.sleep(5)"], **kwargs)
+        started = time.monotonic()
+        with mock.patch.object(skill_upgrade.subprocess, "run", side_effect=stalled):
+            report = check_upgrades([self.codex_item("1.0.0")], {}, repo_root=self.repo, total_timeout=0.15)
+        elapsed = time.monotonic() - started
+        self.assertLess(elapsed, 1)
+        self.assertEqual(report.deferred, 1)
+        print(f"stalled transport: {elapsed:.3f}s for 0.15s budget; deferred={report.deferred}")
+
+    def test_timeout_is_pending_and_backoff_allows_later_probe_next_round(self):
+        clock = Clock()
+        items = [dict(self.codex_item("1.0.0"), name=name, baseline_ref=f"npm:{name}")
+                 for name in ("one", "two")]
+        calls = []
+        def fetch(url):
+            calls.append(url)
+            clock.now += 18
+            return 0, None, "timeout"
+        first = self.check(items, fetch=fetch, mono=clock)
+        self.assertEqual(first.deferred_names, ("one", "two"))
+        second = self.check(items, fetch=lambda url: calls.append(url) or (200, {"version": "2.0.0"}, ""), mono=clock)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(second.deferred_names, ("one",))
+        self.assertIn("two", second.updates)
+        with mock.patch.object(skill_upgrade._OPENER, "open", side_effect=TimeoutError):
+            self.assertEqual(default_fetch("https://api.github.com/repos/a/b/releases/latest")[2], "timeout")
+
+    def test_cold_http_skills_and_evidence_inventory_have_bounded_upstream_wait(self):
+        from multica_board.server import BoardServer
+        from multica_board.views import Views
+        skill_dir = self.repo / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: demo\n---\n", encoding="utf-8")
+        (self.root / "skill-lock.json").write_text(json.dumps({"skills": {"demo": self.lock_entry()}}))
+        owner = self
+        class FixtureViews:
+            def skills(self, *_):
+                return owner.payload(fetch=None)
+            def _workspace_installs(self):
+                return None
+            evidence_inventory = Views.evidence_inventory
+        server = BoardServer("127.0.0.1", 0, FixtureViews())
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        def limited(*args, **kwargs):
+            return check_upgrades(*args, **kwargs, total_timeout=0.15)
+        real_run = subprocess.run
+        original = skill_upgrade._bounded_fetch
+        # Keep the real transport's timeout/reap path, with no network.
+        def stalled_fetch(url, timeout):
+            def stalled(_args, **kwargs):
+                return real_run([sys.executable, "-c", "import time; time.sleep(5)"], **kwargs)
+            with mock.patch.object(skill_upgrade.subprocess, "run", side_effect=stalled):
+                return original(url, timeout)
+        try:
+            with mock.patch("multica_board.skills_view.check_upgrades", side_effect=limited), \
+                 mock.patch.object(skill_upgrade, "_bounded_fetch", side_effect=stalled_fetch):
+                for path in ("/api/skills", "/api/evidence-inventory"):
+                    clear_cache()
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+                    started = time.monotonic()
+                    try:
+                        connection.request("GET", path)
+                        response = connection.getresponse()
+                        body = json.loads(response.read())
+                    finally:
+                        connection.close()
+                    elapsed = time.monotonic() - started
+                    self.assertEqual(response.status, 200)
+                    self.assertLess(elapsed, 1)
+                    if path == "/api/skills":
+                        self.assertEqual(body["items"][0]["upgrade_status"], "deferred")
+                    print(f"cold {path}: HTTP {response.status}, {elapsed:.3f}s (0.15s upstream budget)")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(2)
+
+    def test_payload_marks_deferred_item_and_source(self):
+        skill_dir = self.repo / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: demo\n---\n", encoding="utf-8")
+        (self.root / "skill-lock.json").write_text(json.dumps({"skills": {"demo": self.lock_entry()}}))
+        body = self.payload(fetch=lambda url: (0, None, "deferred"))
+        self.assertEqual(body["items"][0]["upgrade_status"], "deferred")
+        self.assertEqual(body["items"][0]["upgrade_detail"], "升级状态待补")
+        source = next(source for source in body["meta"]["sources"] if source["id"] == "upgrade")
+        self.assertIn("升级状态待补", source["detail"])
+        self.assertFalse(body["attention"]["buckets"]["upgradable"]["connected"])
 
     def cli_item(self, name="demo", source="example/demo", path="skills/demo/SKILL.md", version=OLD):
         return {

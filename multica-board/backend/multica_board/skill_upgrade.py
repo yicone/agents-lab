@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -28,6 +29,7 @@ MAX_BODY = 8_000_000
 SUCCESS_TTL = 3600.0
 MISS_TTL = 3600.0
 FAIL_TTL = 120.0
+DEFAULT_TOTAL_TIMEOUT = 18.0
 DEFAULT_MIN_INTERVAL = 0.05
 DEFAULT_MAX_REQUESTS = 30
 DEFAULT_HOURLY_LIMIT = 50
@@ -55,6 +57,7 @@ _SEMVER = re.compile(
     r"(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$"
 )
 
+_PROBE_LOCK = threading.Lock()
 _LOCK = threading.Lock()
 _CACHE: dict[str, tuple[int, Any, str, float]] = {}
 _CALLS: list[float] = []
@@ -70,6 +73,7 @@ class UpgradeReport:
     failed: int = 0
     deferred: int = 0
     candidates: int = 0
+    deferred_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,7 +117,7 @@ class _GuardRedirects(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_GuardRedirects)
 
 
-def default_fetch(url: str) -> tuple[int, Any, str]:
+def default_fetch(url: str, *, timeout: float = 8) -> tuple[int, Any, str]:
     """GET one allowlisted URL. Never sends an Authorization header."""
     if not _allowed(url):
         return 0, None, "blocked"
@@ -123,7 +127,7 @@ def default_fetch(url: str) -> tuple[int, Any, str]:
         method="GET",
     )
     try:
-        with _OPENER.open(request, timeout=8) as response:
+        with _OPENER.open(request, timeout=timeout) as response:
             if not _allowed(response.geturl()):
                 return 0, None, "blocked"
             raw = response.read(MAX_BODY + 1)
@@ -132,7 +136,34 @@ def default_fetch(url: str) -> tuple[int, Any, str]:
             return response.status, json.loads(raw.decode("utf-8")), ""
     except urllib.error.HTTPError as exc:
         return exc.code, None, ""
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, UnicodeError, OSError, ValueError):
+    except TimeoutError:
+        return 0, None, "timeout"
+    except urllib.error.URLError as exc:
+        return 0, None, "timeout" if isinstance(exc.reason, TimeoutError) else "network"
+    except (json.JSONDecodeError, UnicodeError, OSError, ValueError):
+        return 0, None, "network"
+
+
+def _bounded_fetch(url: str, timeout: float) -> tuple[int, Any, str]:
+    """Bound DNS, redirects and body reads, killing and reaping timed-out GETs.
+
+    One child performs one GET, serially; no upstream probes run concurrently.
+    """
+    script = (
+        "import json,sys; sys.path.insert(0, sys.argv[1]); "
+        "from multica_board.skill_upgrade import default_fetch; "
+        "print(json.dumps(default_fetch(sys.argv[2], timeout=float(sys.argv[3]))))"
+    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-I", "-c", script, str(Path(__file__).resolve().parents[1]), url, str(min(8, timeout))],
+            capture_output=True, timeout=timeout, check=True,
+        )
+        status, body, error = json.loads(result.stdout)
+        return status, body, error
+    except subprocess.TimeoutExpired:
+        return 0, None, "timeout"
+    except (OSError, subprocess.CalledProcessError, ValueError):
         return 0, None, "network"
 
 
@@ -147,11 +178,13 @@ def check_upgrades(
     min_interval: float = DEFAULT_MIN_INTERVAL,
     max_requests: int = DEFAULT_MAX_REQUESTS,
     hourly_limit: int = DEFAULT_HOURLY_LIMIT,
+    total_timeout: float = DEFAULT_TOTAL_TIMEOUT,
 ) -> UpgradeReport:
     """Compare installed coordinates with npm or GitHub. Does not write."""
-    transport = fetch or default_fetch
+    transport = fetch
     clock = mono or time.monotonic
     pause = sleep or time.sleep
+    deadline = clock() + total_timeout
     lock = lock_skills if isinstance(lock_skills, dict) else {}
     probes: list[TreeProbe | ReleaseProbe | NpmProbe] = []
     candidates = 0
@@ -166,11 +199,12 @@ def check_upgrades(
         else:
             probes.append(probe)
 
-    budget = _Budget(clock, pause, min_interval, max_requests, hourly_limit)
+    budget = _Budget(clock, pause, min_interval, max_requests, hourly_limit, deadline)
     updates: dict[str, dict[str, str]] = {}
     checked = 0
     failed = 0
     deferred = 0
+    deferred_names: list[str] = []
     trees: dict[tuple[str, str, str], tuple[dict[str, str] | None, str]] = {}
 
     def tree_for(probe: TreeProbe) -> tuple[dict[str, str] | None, str]:
@@ -184,6 +218,7 @@ def check_upgrades(
             folders, error = tree_for(probe)
             if error == "deferred":
                 deferred += 1
+                deferred_names.append(probe.name)
                 continue
             if error or folders is None:
                 failed += 1
@@ -203,6 +238,7 @@ def check_upgrades(
             latest, error = _load_npm(probe.package, transport, budget)
         if error == "deferred":
             deferred += 1
+            deferred_names.append(probe.name)
             continue
         if error == "unparsed":
             skipped += 1
@@ -216,15 +252,16 @@ def check_upgrades(
             updates[probe.name] = {"installed": probe.installed, "latest": latest, "via": via}
 
     state, detail = _describe(candidates, checked, skipped, failed, deferred, len(updates))
-    return UpgradeReport(state, detail, updates, checked, skipped, failed, deferred, candidates)
+    return UpgradeReport(state, detail, updates, checked, skipped, failed, deferred, candidates, tuple(deferred_names))
 
 
 def _describe(candidates: int, checked: int, skipped: int, failed: int, deferred: int, updates: int) -> tuple[str, str]:
-    if failed or deferred:
+    if deferred:
+        confirmed = f"；已确认 {updates} 个可升级" if updates else ""
+        return "fallback", f"升级状态待补：本轮时限或请求上限已到，{deferred} 项待下轮补齐，不能判断有没有更新{confirmed}"
+    if failed:
         if updates:
             return "fallback", f"上游没有全部查完；已确认 {updates} 个可升级"
-        if deferred and not failed:
-            return "fallback", "已达到本轮请求上限，其余上游未查，不能判断有没有更新"
         return "fallback", "上游请求失败，不能判断有没有更新"
     if checked == 0 and candidates:
         return "fallback", "没有可比较的上游版本，不能当成没有更新"
@@ -457,7 +494,9 @@ class _Budget:
         min_interval: float,
         max_requests: int,
         hourly_limit: int,
+        deadline: float,
     ) -> None:
+        self.deadline = deadline
         self.mono = mono
         self.sleep = sleep
         self.min_interval = min_interval
@@ -466,25 +505,41 @@ class _Budget:
         self.used = 0
         self.last: float | None = None
 
-    def get(self, url: str, fetch: Fetch) -> tuple[int, Any, str]:
-        now = self.mono()
-        with _LOCK:
-            cached = _cache_get(url, now)
-            if cached is not None:
-                return cached
-            delay = self._reserve(now)
-            if delay is None:
+    def get(self, url: str, fetch: Fetch | None) -> tuple[int, Any, str]:
+        # Also serialize callers using different review windows.
+        remaining = self.deadline - self.mono()
+        if not _PROBE_LOCK.acquire(timeout=max(0, remaining)):
+            return 0, None, "deferred"
+        try:
+            now = self.mono()
+            with _LOCK:
+                cached = _cache_get(url, now)
+                if cached is not None:
+                    return (0, None, "deferred") if cached[2] == "timeout" else cached
+                if now >= self.deadline:
+                    return 0, None, "deferred"
+                delay = self._reserve(now)
+                if delay is None or now + delay >= self.deadline:
+                    return 0, None, "deferred"
+            if delay > 0:
+                self.sleep(delay)
+            remaining = self.deadline - self.mono()
+            if remaining <= 0:
                 return 0, None, "deferred"
-        if delay > 0:
-            self.sleep(delay)
-        status, body, error = fetch(url)
-        if status == 200:
-            body = _slim(url, body)
-        else:
-            body = None
-        with _LOCK:
-            _CACHE[url] = (status, body, error, self.mono())
-        return status, body, error
+            status, body, error = fetch(url) if fetch else _bounded_fetch(url, remaining)
+            if error == "deferred":
+                return 0, None, error  # never cache unfinished work
+            if status == 200:
+                body = _slim(url, body)
+            else:
+                body = None
+            with _LOCK:
+                _CACHE[url] = (status, body, error, self.mono())
+            # Back off timed-out URLs so they cannot starve all later probes
+            # next round. They remain explicitly pending throughout the backoff.
+            return (0, None, "deferred") if error == "timeout" else (status, body, error)
+        finally:
+            _PROBE_LOCK.release()
 
     def _reserve(self, now: float) -> float | None:
         cutoff = now - HOURLY_WINDOW
@@ -543,7 +598,7 @@ def _load_tree(
     owner: str,
     repo: str,
     ref: str,
-    fetch: Fetch,
+    fetch: Fetch | None,
     budget: _Budget,
 ) -> tuple[dict[str, str] | None, str]:
     branches: list[str] = []
@@ -576,7 +631,7 @@ def _load_tree(
     return None, "http" if saw_client_error else "network"
 
 
-def _load_release(owner: str, repo: str, fetch: Fetch, budget: _Budget) -> tuple[str, str]:
+def _load_release(owner: str, repo: str, fetch: Fetch | None, budget: _Budget) -> tuple[str, str]:
     status, body, error = budget.get(f"https://api.github.com/repos/{quote(owner)}/{quote(repo)}/releases/latest", fetch)
     if error == "deferred":
         return "", "deferred"
@@ -611,7 +666,7 @@ def _load_release(owner: str, repo: str, fetch: Fetch, budget: _Budget) -> tuple
     return best_text, ""
 
 
-def _load_npm(package: str, fetch: Fetch, budget: _Budget) -> tuple[str, str]:
+def _load_npm(package: str, fetch: Fetch | None, budget: _Budget) -> tuple[str, str]:
     if not _npm_ok(package):
         return "", "unparsed"
     url = f"https://registry.npmjs.org/{quote(package, safe='@')}/latest"

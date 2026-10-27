@@ -192,6 +192,8 @@ def cmd_serve(a: argparse.Namespace) -> int:
 
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
+    from .skills_view import prewarm_skills
+    prewarm_skills()
     threads = [threading.Thread(target=httpd.serve_forever, name="http", daemon=True)
                for httpd in servers]
     try:

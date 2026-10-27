@@ -1061,3 +1061,12 @@ test("Workspace-only rows use unrecorded consistently in status chips, filter an
   assert.equal(rows.length,7);
   assert.ok(rows.every(row=>findText(row,"未登记")));
 });
+
+
+test("deferred upgrade state stays visible in the skill row", () => {
+  const item = {...today.items[0], upgrade_status: "deferred", upgrade_detail: "升级状态待补"};
+  const tree = {children: renderSkills(renderCtx(basePayload([item])))};
+  const rows = findAll(tree, n => n.tag === "tr" && String(n.attrs.class || "").includes("skill-row"));
+  assert.equal(rows.length, 1);
+  assert.ok(findText(rows[0], "升级状态待补"));
+});

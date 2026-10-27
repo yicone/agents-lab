@@ -9,6 +9,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -82,6 +83,47 @@ class SkillsPayloadTests(unittest.TestCase):
     def tearDown(self):
         skills_view._CACHE.clear()
         self.tmp.cleanup()
+
+    def test_warmup_and_first_request_share_one_completed_cache_fill(self):
+        entered, release = threading.Event(), threading.Event()
+        clock = [NOW]
+        result = {"items": [], "attention": {}}
+        def build(**kwargs):
+            entered.set()
+            self.assertTrue(release.wait(2))
+            clock[0] += timedelta(seconds=18)
+            return result
+        responses = []
+        with mock.patch.object(skills_view, "build_payload", side_effect=build) as builder, \
+             mock.patch.object(skills_view, "_install_stamp", return_value=()), \
+             mock.patch.object(skills_view, "_now", side_effect=lambda: clock[0]):
+            warm = skills_view.prewarm_skills()
+            try:
+                self.assertTrue(entered.wait(2))
+                request = threading.Thread(target=lambda: responses.append(skills_document()))
+                request.start()
+            finally:
+                release.set()
+                warm.join(3)
+            request.join(3)
+            self.assertFalse(warm.is_alive())
+            self.assertFalse(request.is_alive())
+            self.assertEqual(builder.call_count, 1)
+            self.assertIs(responses[0], result)
+            # TTL starts when the slow fill completes, not at its start.
+            self.assertIs(skills_document(), result)
+
+    def test_busy_document_returns_deferred_without_a_second_probe_round(self):
+        result = {"items": []}
+        with mock.patch.object(skills_view, "DEFAULT_TOTAL_TIMEOUT", 0.01), \
+             mock.patch.object(skills_view, "build_payload", return_value=result) as builder:
+            skills_view._DOCUMENT_LOCK.acquire()
+            try:
+                self.assertIs(skills_document(), result)
+            finally:
+                skills_view._DOCUMENT_LOCK.release()
+            self.assertEqual(builder.call_args.kwargs["upgrade_fetch"]("https://api.github.com"),
+                             (0, None, "deferred"))
 
     def cached(self, clock):
         return skills_document(

@@ -7,6 +7,7 @@ The page and ``GET /api/skills/attention`` both use :func:`assign_buckets`.
 from __future__ import annotations
 
 import errno
+import logging
 import hashlib
 import json
 import os
@@ -15,12 +16,14 @@ import shutil
 import stat
 import subprocess
 import sys
+import threading
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from pathlib import Path
 from typing import Any, Callable
 
 from .skill_discovery import scan_installs
-from .skill_upgrade import check_upgrades
+from .skill_upgrade import DEFAULT_TOTAL_TIMEOUT, check_upgrades
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = REPO_ROOT / "skills-governance" / "scripts"
@@ -1560,6 +1563,9 @@ def build_payload(
                 known.add(name)
     upgrade = check_upgrades(items, lock_skills, repo_root=repo_root, fetch=upgrade_fetch)
     for item in items:
+        if item.get("name") in upgrade.deferred_names:
+            item["upgrade_status"] = "deferred"
+            item["upgrade_detail"] = "升级状态待补"
         found = upgrade.updates.get(item.get("name"))
         if not found:
             continue
@@ -1626,6 +1632,41 @@ def build_payload(
     }
 
 
+_DOCUMENT_LOCK = threading.Lock()
+_CACHE_AT: datetime | None = None
+
+
+def _single_document(build):
+    @wraps(build)
+    def document(*args, **kwargs):
+        # A cold request may join warmup, but never waits for two probe rounds.
+        if not _DOCUMENT_LOCK.acquire(blocking=False):
+            kwargs = dict(kwargs, upgrade_fetch=lambda _url: (0, None, "deferred"))
+            if not _DOCUMENT_LOCK.acquire(timeout=DEFAULT_TOTAL_TIMEOUT):
+                return build(*args, **dict(kwargs, now=_now(), clock=None))
+            # If the install stamp changed during the wait, return pending
+            # local evidence rather than beginning a second network round.
+        try:
+            return build(*args, **kwargs)
+        finally:
+            _DOCUMENT_LOCK.release()
+    return document
+
+
+def prewarm_skills() -> threading.Thread:
+    """Start one read-only cache fill; callers share its document lock."""
+    def warm():
+        try:
+            skills_document()
+        except Exception:
+            # No exception text: file paths or upstream details may be sensitive.
+            logging.getLogger(__name__).warning("skills cache warmup failed")
+    thread = threading.Thread(target=warm, name="skills-warmup", daemon=True)
+    thread.start()
+    return thread
+
+
+@_single_document
 def skills_document(
     review_days: int = DEFAULT_REVIEW_DAYS,
     *,
@@ -1660,10 +1701,10 @@ def skills_document(
             scan_roots=scan_roots,
             upgrade_fetch=upgrade_fetch,
         )
+    global _CACHE_AT
     moment = clock() if clock is not None else _now()
     key = (
         review_days,
-        int(moment.timestamp()) // CACHE_TTL_SECONDS,
         str(inventory_path),
         _mtime(inventory_path),
         str(tool_roots_path),
@@ -1673,7 +1714,7 @@ def skills_document(
         _install_stamp(inventory_path, tool_roots_path, repo_root, staging_root, scan_roots),
     )
     cached = _CACHE.get(key)
-    if cached is not None:
+    if cached is not None and _CACHE_AT is not None and 0 <= (moment - _CACHE_AT).total_seconds() < CACHE_TTL_SECONDS:
         return cached
     document = build_payload(
         repo_root=repo_root,
@@ -1689,4 +1730,5 @@ def skills_document(
     )
     _CACHE.clear()
     _CACHE[key] = document
+    _CACHE_AT = clock() if clock is not None else _now()
     return document
