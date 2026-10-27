@@ -216,7 +216,7 @@
     {
       "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
       "name": "EO-PM",
-      "path": null
+      "path": "bots/218f6ebc-7d91-49f9-851d-d533d6a38d87.md"
     },
     {
       "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
@@ -327,6 +327,11 @@
       "id": "02dfc706-356d-4348-b46b-975f404256ed",
       "name": "Multica 运维",
       "path": "bots/02dfc706-356d-4348-b46b-975f404256ed.md"
+    },
+    {
+      "id": "1ec8a0b4-0ff4-43e1-bd06-18f76113283d",
+      "name": "Atlas PM",
+      "path": "bots/1ec8a0b4-0ff4-43e1-bd06-18f76113283d.md"
     }
   ]
 }
