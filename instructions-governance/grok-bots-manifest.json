@@ -365,6 +365,20 @@
         "video-to-longform",
         "wechatide-skill"
       ]
+    },
+    {
+      "id": "d167e79b-b889-4192-a83b-dc56f854a55e",
+      "name": "3D 打印 Bot",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ]
     }
   ]
 }
