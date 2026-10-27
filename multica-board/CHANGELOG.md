@@ -8,9 +8,13 @@
 
 - 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）
 
+- 本地候选（未合并、未部署）：流速巡检 JSON 附加只读 `run-metrics.v0.1` 聚合摘要。原有流速告警、阈值和 `null` 未知态保持原样；统一结果缺失时不补 0，也不把失败分类改写成告警。（ACM-572；仅本地提交，无 PR）
+
 - 本地候选（未合并、未部署）：Skills 增加「Grok Bot 导出」来源，支持查看 user skill 正文与附件、显示导出时间，并按 manifest 逐文件核对 SHA-256 和字节数；缺失或校验失败时明确提示。（ACM-613；仅本地提交，无 PR）
 
 ### 变更
+
+- 本地候选（未合并、未部署）：usage-collector 的 launchd 模板增加 `HTTPS_PROXY`、`HTTP_PROXY`，均指向 `http://127.0.0.1:7890`，供采集进程使用本机代理。（ACM-642；仅本地提交，无 PR）
 
 - 本地候选（未合并、未部署）：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（ACM-586；仅本地提交，无 PR）
 
@@ -27,6 +31,12 @@
 - 顶栏按「收件箱、运行监控、配置管理、地图」组织，设置使用齿轮入口；旧书签兼容跳转。处理队列覆盖全部 workspace，缺失数据明确显示未知。（[PR #96](https://github.com/yicone/agents-lab/pull/96)；ACM-459；未合并、未部署）
 
 ### 修复
+
+- 本地候选（未合并、未部署）：usage-collector 继续通过 codexbar 采集；失败时优先读取 stdout JSON 的 `error`/`message`，将脱敏后的真实错误写入日志与采集退出信息，并过滤 Grok Build 升级提示，避免升级提示掩盖故障；成功输出格式不变。（ACM-642；仅本地提交，无 PR）
+
+- 本分支候选（未合并、未部署）：Skills 与证据清单冷启动时后台预热技能文档，升级探测整轮限时 18 秒；超时项明确显示「升级状态待补」，后续轮次补齐，避免首次请求长时间等待。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；ACM-630）
+
+- 本分支候选（未合并、未部署）：修复后台预热期间服务收到退出信号时可能卡住的问题。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；ACM-630）
 
 - 本地候选（未合并、未部署）：用量页区分分带和陈旧字段的缺失与显式 null。缺失不显示；null 显示占位。采样为陈旧时分带仍显示未知。（ACM-587；仅本地提交，无 PR）
 

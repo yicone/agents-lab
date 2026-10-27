@@ -26,6 +26,7 @@ from multica_board.usage import (  # noqa: E402
     build_usage_response,
     evaluate_signal,
     extract_provider,
+    run_codexbar,
     write_snapshot,
 )
 from multica_board.views import ATTENTION_TEXT_BYTES, Views, render_attention_text  # noqa: E402
@@ -39,6 +40,37 @@ EMAIL = "person@example.com"
 
 def _mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
+
+
+class RunCodexbarTests(unittest.TestCase):
+    NOTICE = "A new version of Grok Build is available: 1.2.3"
+
+    def test_stdout_json_error_takes_priority(self):
+        message = "Grok web billing requires a signed-in grok.com browser session or `grok login`"
+        for payload in ({"error": message}, [{"error": {"message": message}}], {"message": message}):
+            with self.subTest(payload=payload):
+                def execute(argv, **kwargs):
+                    self.assertEqual(argv, ["codexbar", "usage", "--provider", "grok", "--format", "json", "--no-color"])
+                    return subprocess.CompletedProcess(argv, 1, json.dumps(payload), self.NOTICE)
+                with self.assertRaises(RuntimeError) as caught:
+                    run_codexbar("codexbar", "grok", exec_=execute)
+                self.assertEqual(str(caught.exception), message)
+
+    def test_upgrade_only_stderr_falls_back_to_exit_code(self):
+        for stdout in ("", "not JSON", "[]"):
+            with self.subTest(stdout=stdout):
+                with self.assertRaisesRegex(RuntimeError, "^exit code 7$"):
+                    run_codexbar("codexbar", "grok", exec_=lambda argv, **kw: subprocess.CompletedProcess(argv, 7, stdout, self.NOTICE))
+
+    def test_stderr_preserves_real_error_and_redacts(self):
+        with self.assertRaises(RuntimeError) as caught:
+            run_codexbar("codexbar", "grok", exec_=lambda argv, **kw: subprocess.CompletedProcess(argv, 1, "", self.NOTICE + "\nlogin failed for " + EMAIL))
+        self.assertEqual(str(caught.exception), "login failed for [redacted]")
+
+    def test_success_returns_unchanged_payload(self):
+        payload = [{"provider": "grok", "usage": {"primary": {"usedPercent": 42}}}]
+        result = run_codexbar("codexbar", "grok", exec_=lambda argv, **kw: subprocess.CompletedProcess(argv, 0, json.dumps(payload), self.NOTICE))
+        self.assertEqual(result, payload)
 
 
 class ClassifyTests(unittest.TestCase):
@@ -192,6 +224,35 @@ class _FakeCodexbar:
 
 
 class CollectTests(unittest.TestCase):
+    def test_stdout_error_reaches_logs_and_collection_result(self):
+        message = "Grok web billing requires a signed-in grok.com browser session or `grok login`"
+
+        def execute(argv, **kwargs):
+            if argv[argv.index("--provider") + 1] == "grok":
+                return subprocess.CompletedProcess(argv, 1, json.dumps([{"error": {"message": message}}]), RunCodexbarTests.NOTICE)
+            return _FakeCodexbar()(argv, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = Store(root / "board.sqlite")
+            self._seed(store)
+            try:
+                collector = UsageCollector(
+                    CliRunner(profile=SERVER, _exec=_FakeCli(), retries=0), store, SERVER,
+                    CollectOptions(all_workspaces=True),
+                    snapshot_path=root / "snapshot.json", history_path=root / "history.jsonl",
+                    codexbar_exec=execute, now=NOW,
+                )
+                with self.assertLogs("multica_board.usage", level="WARNING") as logs:
+                    result = collector.collect()
+                self.assertFalse(result["ok"])
+                self.assertIn("grok: RuntimeError: " + message, result["usage_errors"])
+                self.assertIn(message, "\n".join(logs.output))
+                self.assertNotIn(RunCodexbarTests.NOTICE, "\n".join(logs.output))
+                self.assertNotIn(RunCodexbarTests.NOTICE, json.dumps(result))
+            finally:
+                store.close()
+
     # Collection, response building and live views must share the fixture clock.
     @patch("multica_board.views._now", return_value=NOW)
     def test_failure_isolation_counts_and_snapshot(self, _clock):

@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sqlite3
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -206,6 +208,8 @@ def register(sub, common):
     p.add_argument('--ledger', type=Path)
     p.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
     p.add_argument('--json', action='store_true', help='JSON is the default; null means unknown')
+    p.add_argument('--run-metrics', type=Path,
+                   help='read-only run-metrics.v0.1 JSON; default ~/.multica-board/run-metrics.v0.1.json')
     p.add_argument('--now')
     p.add_argument('--budget-seconds', type=float, default=110)
     r = sub.add_parser('metrics-realtime', help='export existing Board observations for reconciliation; never changes the Board')
@@ -246,6 +250,56 @@ def command(args):
                               inventory_complete=snapshot['inventory_complete'],
                               status='partial' if snapshot.get('collected_at') else 'unknown')))
     else:
-        print(json.dumps(flow_report(snapshot, load_ledger(args.ledger), now=now, config=config),
-                         ensure_ascii=False, indent=2, allow_nan=False))
+        report = flow_report(snapshot, load_ledger(args.ledger), now=now, config=config)
+        report['run_metrics'] = _attach_run_metrics(report, getattr(args, 'run_metrics', None))
+        print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
     return 0
+
+
+def _attach_run_metrics(report, explicit):
+    try:
+        bind_own_alerts, load_consumption, resolve_path = _run_metrics_api()
+    except ImportError:
+        return {
+            'readonly': True,
+            'writes': [],
+            'dispatch_changed': False,
+            'alerts_changed': False,
+            'classification_copied': False,
+            'schema_version': 'run-metrics.v0.1',
+            'status': 'invalid',
+            'reason': 'loader_unavailable',
+            'message': '读不到统一结果模块。流速结果仍按原规则输出，不补算。',
+            'windows': 'missing',
+            'alert_delta': {
+                'own_alerts_preserved': True,
+                'unified_counts_promoted_to_alerts': False,
+                'dispatch_changed': False,
+            },
+        }
+    return bind_own_alerts(
+        load_consumption(resolve_path(explicit, os.environ)),
+        {
+            'ledger_below_threshold': report['ledger']['below_threshold'],
+            'proxy_below_threshold': report['proxy']['below_threshold'],
+            'ledger_deliveries_24h': report['ledger']['deliveries_24h'],
+            'proxy_deliveries_24h': report['proxy']['deliveries_24h'],
+            'reworked_deliveries_24h': report['hints']['reworked_deliveries_24h'],
+        },
+    )
+
+
+def _run_metrics_api():
+    root = None
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / 'run-metrics'
+        if (candidate / 'run_metrics' / 'consume.py').is_file():
+            root = candidate
+            break
+    if root is None:
+        raise ImportError('run-metrics package not found')
+    entry = str(root)
+    if entry not in sys.path:
+        sys.path.insert(0, entry)
+    from run_metrics.consume import bind_own_alerts, load_consumption, resolve_path
+    return bind_own_alerts, load_consumption, resolve_path
