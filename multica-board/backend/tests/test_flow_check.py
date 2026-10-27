@@ -291,3 +291,70 @@ class FlowLiveTests(unittest.TestCase):
             self.assertEqual(options['retries'],0)
             self.assertLessEqual(options['timeout_s'],12)
             self.assertFalse(options.get('task_scoped',False))
+
+
+class FlowRunMetricsTests(unittest.TestCase):
+    def _report(self):
+        ratio = lambda n, d: {"numerator": n, "denominator": d}
+        window = {
+            "issue_count": 10,
+            "run_count": 4,
+            "success_rate": {"including_cancelled": ratio(7, 11), "excluding_cancelled": ratio(7, 10)},
+            "rework": {
+                "rework_rate_claim": "lower_bound_only",
+                "rework_rate": None,
+                "rework_rate_lower_bound": ratio(2, 10),
+            },
+            "failure_class_counts": {"quota": 1},
+        }
+        return {
+            "schema_version": "run-metrics.v0.1",
+            "generated_at": "2026-10-26T00:00:00Z",
+            "default_window": "14d",
+            "windows": {"24h": window, "7d": window, "14d": window},
+            "scheduling": {},
+            "failure_rules": [{"condition": "do not copy this rule"}],
+        }
+
+    def test_cli_keeps_flow_alerts_and_attaches_report(self):
+        from contextlib import redirect_stdout
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = Path(tmp) / "run-metrics.v0.1.json"
+            report_path.write_text(json.dumps(self._report()), encoding="utf-8")
+            before = report_path.read_bytes()
+            snapshot = Path(tmp) / "snapshot.json"
+            snapshot.write_text(json.dumps(fixture()), encoding="utf-8")
+            out = io.StringIO()
+            argv = ["flow-check", "--json", "--snapshot", str(snapshot), "--run-metrics", str(report_path), "--now", iso(NOW)]
+            with redirect_stdout(out):
+                self.assertEqual(main(argv), 0)
+            body = json.loads(out.getvalue())
+            self.assertEqual(report_path.read_bytes(), before)
+            self.assertTrue(body["ledger"]["below_threshold"])
+            self.assertEqual(body["ledger"]["deliveries_24h"], 1)
+            self.assertEqual(body["run_metrics"]["status"], "ok")
+            self.assertEqual(body["run_metrics"]["writes"], [])
+            self.assertFalse(body["run_metrics"]["dispatch_changed"])
+            self.assertFalse(body["run_metrics"]["alert_delta"]["unified_counts_promoted_to_alerts"])
+            self.assertEqual(body["run_metrics"]["alert_delta"]["own_alerts"]["ledger_below_threshold"], True)
+            self.assertEqual(body["run_metrics"]["windows"]["14d"]["success_including_cancelled"]["numerator"], 7)
+            self.assertNotIn("do not copy", out.getvalue())
+            self.assertEqual(body["run_metrics"]["scheduling_fields"]["historical_quota_excludes_agent"], "missing")
+
+    def test_missing_report_does_not_change_threshold_result(self):
+        from contextlib import redirect_stdout
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot = Path(tmp) / "snapshot.json"
+            snapshot.write_text(json.dumps(fixture()), encoding="utf-8")
+            missing = Path(tmp) / "absent.json"
+            out = io.StringIO()
+            argv = ["flow-check", "--json", "--snapshot", str(snapshot), "--run-metrics", str(missing), "--now", iso(NOW)]
+            with redirect_stdout(out):
+                self.assertEqual(main(argv), 0)
+            body = json.loads(out.getvalue())
+            self.assertEqual(body["threshold"], 4.5)
+            self.assertTrue(body["ledger"]["below_threshold"])
+            self.assertEqual(body["run_metrics"]["status"], "missing")
+            self.assertEqual(body["run_metrics"]["windows"], "missing")

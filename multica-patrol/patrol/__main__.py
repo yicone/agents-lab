@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import config, daily, ledger, retry, rules, scan, selfreport, unwoken
+from . import config, daily, ledger, retry, rules, run_metrics_source, scan, selfreport, unwoken
 from .cli import CliError, PatrolCLI
 from .facts import SGT, iso, parse_ts
 from .identity import check_dispatcher_identity
@@ -86,6 +86,12 @@ def run_hourly(args, ctx) -> int:
         result["writes_attempted"] = cli.writes_attempted
         if ledger_status:
             result["ledger"] = {"status": ledger_status, "comment_id": comment_id}
+        result["run_metrics"] = run_metrics_source.attach(ctx["run_metrics_path"], {
+            "findings_count": result["findings_count"],
+            "suppressed": result["suppressed"],
+            "escalations": result["escalations"],
+            "writes_attempted": result["writes_attempted"],
+        })
         _result_line(out, result)
         return code
 
@@ -454,6 +460,11 @@ def cmd_daily_pack(args, ctx) -> int:
     except Exception:
         pass
     pack = daily.build_pack(state, names, state.get("last_coverage"), now)
+    pack["run_metrics"] = run_metrics_source.attach(ctx["run_metrics_path"], {
+        "findings_count": pack["findings_count"],
+        "escalated_count": len(pack["escalated_48h"]),
+        "self_failures_24h": len(pack["self_failures_24h"]),
+    })
     if args.format == "md":
         print(daily.render_md(pack), file=out)
     else:
@@ -569,8 +580,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--manual")
     run.add_argument("--dry-run", action="store_true")
     run.add_argument("--full", action="store_true")
+    run.add_argument("--run-metrics", type=Path,
+                     help="read-only run-metrics.v0.1 JSON; default ~/.multica-board/run-metrics.v0.1.json")
     pack = sub.add_parser("daily-pack")
     pack.add_argument("--format", choices=["json", "md"], default="json")
+    pack.add_argument("--run-metrics", type=Path,
+                      help="read-only run-metrics.v0.1 JSON; default ~/.multica-board/run-metrics.v0.1.json")
     post = sub.add_parser("daily-post")
     post.add_argument("--file", required=True)
     post.add_argument("--slot")
@@ -594,6 +609,8 @@ def main(argv=None, *, env=None, exec_fn=None, sleep_fn=None, now_fn=None,
         "cli": cli, "store": Store(state_dir), "env": env,
         "now": now_fn or _now_utc, "monotonic": monotonic_fn or time.monotonic,
         "sleep": sleep_fn or time.sleep, "out": out, "err": err,
+        "run_metrics_path": run_metrics_source.resolve_path(
+            getattr(args, "run_metrics", None), env) if args.command in {"run", "daily-pack"} else None,
     }
     if args.command == "run":
         return run_hourly(args, ctx)
