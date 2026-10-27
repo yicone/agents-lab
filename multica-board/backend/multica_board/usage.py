@@ -1011,8 +1011,29 @@ class UsageCollector:
             err = item.get("error")
             if item.get("status") == "error" and isinstance(err, dict) and err.get("message"):
                 errors.append(f"{item.get('provider')}: {err['message']}")
+        # Per-account Codex windows: read CodexBar on-disk snapshots only (no CLI refresh).
+        from .codex_accounts import collect_codex_accounts
+        try:
+            codex_accounts = collect_codex_accounts(
+                data_dir=self.snapshot_path.parent,
+                now=self.now,
+                retention_days=self.history_days,
+            )
+        except Exception as exc:
+            message = redact_usage(f"{type(exc).__name__}: {exc}") or "codex accounts failed"
+            log.warning("codex per-account snapshots failed: %s", message)
+            codex_accounts = {
+                "status": "error",
+                "source": "codexbar-disk",
+                "sampled_at": iso(self.now),
+                "account_count": 0,
+                "error": message,
+                "accounts": [],
+            }
+        if codex_accounts.get("status") != "ok":
+            errors.append(f"codex_accounts: {codex_accounts.get('error') or codex_accounts.get('status')}")
         collected_at = iso(self.now)
-        snapshot_state = "ok" if not errors else ("partial" if tokens or any(q.get("status") == "ok" for q in quotas) else "error")
+        snapshot_state = "ok" if not errors else ("partial" if tokens or any(q.get("status") == "ok" for q in quotas) or codex_accounts.get("status") == "ok" else "error")
         snapshot = scrub({
             "usage_collected_at": collected_at,
             "days": self.usage_days,
@@ -1020,15 +1041,17 @@ class UsageCollector:
             "collection_errors": errors,
             "external_quotas": quotas,
             "token_by_runtime": tokens,
+            "codex_accounts": codex_accounts,
         })
         write_snapshot(self.snapshot_path, snapshot)
         response = self._response(snapshot)
         write_history(self.history_path, history_from(response), retention_days=self.history_days, now=self.now)
         log.info(
-            "usage snapshot providers=%s runtimes=%d errors=%d",
+            "usage snapshot providers=%s runtimes=%d errors=%d codex_accounts=%s",
             {item["provider"]: item["status"] for item in quotas},
             queried,
             len(errors),
+            f"{codex_accounts.get('status')}:{codex_accounts.get('account_count')}",
         )
         return {
             "ok": not bool(errors),
@@ -1036,6 +1059,10 @@ class UsageCollector:
             "providers": {item["provider"]: item["status"] for item in quotas},
             "runtimes_queried": queried,
             "usage_errors": errors,
+            "codex_accounts": {
+                "status": codex_accounts.get("status"),
+                "account_count": codex_accounts.get("account_count"),
+            },
         }
 
     def _response(self, snapshot: dict[str, Any]) -> dict[str, Any]:
