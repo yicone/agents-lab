@@ -124,6 +124,16 @@ def render_md(pack: dict) -> str:
         lines.append("## 待用户口径")
         for item in pack["unresolved"]:
             lines.append(f"- {item['identifier']} `{item['status']}` {item['note']}")
+    block = pack.get("run_metrics")
+    if isinstance(block, dict):
+        lines.append("")
+        lines.append("## Unified run metrics (read-only)")
+        lines.append(f"status: {block.get('status')}")
+        delta = block.get("alert_delta") or {}
+        if delta.get("difference"):
+            lines.append(delta["difference"])
+        unified = delta.get("unified_default_window", "missing")
+        lines.append("unified: " + json.dumps(unified, ensure_ascii=False))
     return "\n".join(lines) + "\n"
 
 
