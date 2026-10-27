@@ -942,9 +942,20 @@ def run_codexbar(
         raise RuntimeError(f"timeout after {timeout:.0f}s") from exc
     except FileNotFoundError as exc:
         raise RuntimeError("codexbar not found") from exc
-    stderr = proc.stderr or ""
     if proc.returncode != 0:
-        raise RuntimeError(redact_usage(stderr.strip() or f"exit code {proc.returncode}") or "codexbar failed")
+        message = None
+        try:
+            root = _root_object(json.loads(proc.stdout or ""))
+            error = _error_obj(root.get("error")) or _error_obj(root.get("message"))
+            if error:
+                message = error["message"]
+        except (json.JSONDecodeError, ValueError):
+            pass
+        stderr = "\n".join(
+            line for line in (proc.stderr or "").splitlines()
+            if not line.strip().startswith("A new version of Grok Build is available")
+        ).strip()
+        raise RuntimeError(redact_usage(message or stderr or f"exit code {proc.returncode}") or "codexbar failed")
     try:
         return json.loads(proc.stdout) if (proc.stdout or "").strip() else None
     except json.JSONDecodeError as exc:
@@ -1052,7 +1063,7 @@ class UsageCollector:
                 return extracted
             except Exception as exc:
                 message = redact_usage(f"{type(exc).__name__}: {exc}") or "codexbar failed"
-                log.warning("codexbar %s failed", provider)
+                log.warning("codexbar %s failed: %s", provider, message)
                 return provider_error(provider, previous.get(provider), message)
 
         with ThreadPoolExecutor(max_workers=len(CODEXBAR_PROVIDERS)) as pool:
