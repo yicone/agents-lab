@@ -185,10 +185,14 @@ def cmd_serve(a: argparse.Namespace) -> int:
     if a.refresh > 0:
         threading.Thread(target=refresher, name="collector", daemon=True).start()
 
+    shutdown_requested = False
+
     def _shutdown(*_: object) -> None:
-        stop.set()
-        for httpd in servers:
-            threading.Thread(target=httpd.shutdown, daemon=True).start()
+        # Signal handlers can interrupt Thread.start or any lock acquisition.
+        # Do not start threads or take Event locks here; the main loop owns
+        # shutdown after it has finished starting the listeners.
+        nonlocal shutdown_requested
+        shutdown_requested = True
 
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
@@ -203,10 +207,16 @@ def cmd_serve(a: argparse.Namespace) -> int:
             shown = f"[{host}]" if ":" in host else host
             log.info("serving board on http://%s:%s (runtime writes: %s; static: %s)", shown, port, actions is not None, static or "none")
             print(f"multica-board listening on http://{shown}:{port}", flush=True)
-        for thread in threads:
-            thread.join()
+        while not shutdown_requested and any(thread.is_alive() for thread in threads):
+            stop.wait(0.1)
     finally:
         stop.set()
+        for httpd, thread in zip(servers, threads):
+            if thread.is_alive():
+                httpd.shutdown()
+        for thread in threads:
+            if thread.ident is not None:
+                thread.join()
         for httpd in servers:
             httpd.server_close()
         store.close()

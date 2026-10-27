@@ -86,6 +86,57 @@ class PidLifecycleTests(unittest.TestCase):
                     else:
                         self.assertFalse(path.exists())
 
+    def test_sigterm_does_not_take_thread_start_lock(self):
+        # Force SIGTERM while a background thread owns Python's thread-start
+        # lock. The handler must return without trying to start another thread.
+        # A bounded wait releases the lock even on the old implementation, so
+        # this test reports the deadlock rather than leaving a child behind.
+        script = r"""
+import os, signal, sys, threading
+from pathlib import Path
+from unittest import mock
+from multica_board import __main__ as entry, skills_view
+returned = threading.Event()
+worker_done = threading.Event()
+handler_returned = []
+original_signal = signal.signal
+
+def register(sig, handler):
+    def observed(*args):
+        handler(*args)
+        returned.set()
+    return original_signal(sig, observed)
+
+def warmup():
+    def interrupt():
+        with threading._active_limbo_lock:
+            os.kill(os.getpid(), signal.SIGTERM)
+            handler_returned.append(returned.wait(1))
+        worker_done.set()
+    thread = threading.Thread(target=interrupt, daemon=True)
+    thread.start()
+    return thread
+
+with mock.patch.object(signal, 'signal', side_effect=register), \
+     mock.patch.object(skills_view, 'prewarm_skills', side_effect=warmup):
+    result = entry.main(['serve', '--all-workspaces', '--refresh', '0',
+                         '--port', '0', '--multica-bin', str(Path.home()/'nonexistent-cli'),
+                         '--plan-dir', str(Path.home()/'plans')])
+assert worker_done.wait(2)
+assert handler_returned == [True], 'SIGTERM handler blocked on the thread-start lock'
+assert result == 0
+print('signal handler returned while thread-start lock was held')
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, "-c", script], cwd=tmp,
+                env={"HOME": tmp, "PATH": os.defpath, "PYTHONPATH": str(BACKEND),
+                     "PYTHONDONTWRITEBYTECODE": "1"},
+                capture_output=True, text=True, timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("signal handler returned", result.stdout)
+
     def test_clean_home_graceful_restart(self):
         self._exercise(stale=False, crash=False)
 
