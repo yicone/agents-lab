@@ -82,6 +82,20 @@ const SPLIT_NOTE = "Multica 的 token / cost 与 CodexBar 额度是两套口径�
 const FAILURE_GAP = "耗时和原始 error 文本不在 /api/usage。这一栏只显示满载失败和真失败的计数，不补这两项。";
 const FAILURE_PARTS = "额度失败和限流失败已经计在满载失败里，这里分开列出，不再加一次。";
 
+// Quota pool (ACM-650): read-only per-alias Codex accounts. Never summed across accounts.
+const POOL_ALIASES = ["6e", "aq", "he", "mg", "pe"];
+const ALIAS_TOKEN = /^[a-z0-9]{2}$/;
+const POOL_NOTE = "只读展示，不下结论；Codex 别名账号 6e / aq / he / mg / pe；不跨账号相加。";
+const POOL_STATUS_LABEL = {
+  missing: "用量快照里还没有 Codex 账号块",
+  error: "Codex 账号快照采集失败",
+  empty: "没有可用账号记录",
+};
+const POOL_B_BATCH = ["Q1", "Q3 闲置率", "Q4 冷热并存"];
+const POOL_B_PLACEHOLDER = "待积累（n=—，预计 11-02 后）";
+const Q4_THRESHOLD_NOTE = "建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整";
+const MISSING_FIELD = "无该字段";
+
 export function safeLabel(value) {
   if (typeof value !== "string") return "";
   const text = value.trim();
@@ -291,6 +305,67 @@ function signalModels(rows) {
   });
 }
 
+function poolNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function poolWindowModel(row) {
+  if (!row || typeof row !== "object") return null;
+  const used = poolNumber(row.used_percent);
+  if (used === null) return null;
+  return {
+    used_percent: used,
+    resets_at: safeLabel(row.resets_at) || null,
+    hours_until_reset: poolNumber(row.hours_until_reset),
+  };
+}
+
+function poolAccountModel(row) {
+  const alias = safeLabel(row?.alias);
+  if (!ALIAS_TOKEN.test(alias) || !POOL_ALIASES.includes(alias)) return null;
+  const windows = row?.windows && typeof row.windows === "object" ? row.windows : {};
+  const cards = row?.reset_cards && typeof row.reset_cards === "object" ? row.reset_cards : null;
+  const credits = row?.credits && typeof row.credits === "object" ? row.credits : {};
+  const pace = row?.pace && typeof row.pace === "object" ? row.pace : {};
+  return {
+    alias,
+    present: row?.present === true,
+    plan: safeLabel(row?.plan) || null,
+    pace_applicable: row?.pace_applicable === true,
+    windows: { "5h": poolWindowModel(windows["5h"]), weekly: poolWindowModel(windows.weekly) },
+    reset_cards: cards
+      ? {
+          available_count: poolNumber(cards.available_count),
+          soonest_expires_at: safeLabel(cards.soonest_expires_at) || null,
+          hours_until_soonest: poolNumber(cards.hours_until_soonest),
+          expiry_flag: poolNumber(cards.expiry_flag),
+        }
+      : null,
+    credits: { present: credits.present === true, remaining: poolNumber(credits.remaining) },
+    source_updated_at: safeLabel(row?.source_updated_at) || null,
+    sample_age_s: poolNumber(row?.sample_age_s),
+    stale: row?.stale === true,
+    pace: { ratio: poolNumber(pace.ratio), reference_at: safeLabel(pace.reference_at) || null },
+  };
+}
+
+export function poolModels(payload) {
+  const pool = payload?.quota_pool && typeof payload.quota_pool === "object" ? payload.quota_pool : null;
+  const status = pool && (pool.status === "ok" || pool.status === "empty" || pool.status === "error" || pool.status === "missing") ? pool.status : "missing";
+  const rows = Array.isArray(pool?.accounts) ? pool.accounts : [];
+  const accounts = rows.map(poolAccountModel).filter(Boolean);
+  const declared = Array.isArray(pool?.present_aliases)
+    ? pool.present_aliases.map(safeLabel).filter((alias) => ALIAS_TOKEN.test(alias))
+    : accounts.filter((account) => account.present).map((account) => account.alias);
+  return {
+    status,
+    sampled_at: safeLabel(pool?.sampled_at) || null,
+    account_count: poolNumber(pool?.account_count) ?? accounts.filter((account) => account.present).length,
+    present_aliases: declared,
+    accounts,
+  };
+}
+
 export function modelUsage(payload) {
   const signals = payload?.signals && typeof payload.signals === "object" ? payload.signals : {};
   return {
@@ -337,9 +412,27 @@ function quotaKey(item) {
   ].join(":");
 }
 
+function poolAccountKey(item) {
+  const windows = [item.windows["5h"], item.windows.weekly]
+    .map((window) => (window ? String(window.used_percent) : ""))
+    .join("~");
+  const cards = item.reset_cards ? `${item.reset_cards.available_count ?? ""}~${item.reset_cards.soonest_expires_at || ""}` : "";
+  return [
+    item.alias,
+    item.present ? "1" : "0",
+    item.source_updated_at || "",
+    item.stale ? "stale" : "",
+    windows,
+    cards,
+    item.credits.present ? String(item.credits.remaining) : "",
+    item.pace.ratio ?? "",
+  ].join(":");
+}
+
 export function usageRefreshKey(payload) {
   if (!payload) return "";
   const model = payload.error ? null : modelUsage(payload);
+  const pool = payload.error ? null : poolModels(payload);
   return [
     payload.error || "",
     payload.usage_collected_at || "",
@@ -350,6 +443,7 @@ export function usageRefreshKey(payload) {
     model ? model.signals.dispatchable.length : 0,
     model ? model.runtimes.length : 0,
     model ? model.quotas.map(quotaKey).join(",") : "",
+    pool ? `${pool.status}|${pool.accounts.map(poolAccountKey).join(",")}` : "",
   ].join("\n");
 }
 
@@ -552,6 +646,141 @@ function failureCard(ctx, row) {
   );
 }
 
+function poolCell(ctx, children, attrs) {
+  return ctx.h("td", attrs || null, ...children);
+}
+
+function poolMissingCell(ctx, attrs) {
+  return poolCell(ctx, [MISSING_FIELD], { class: "muted", ...(attrs || {}) });
+}
+
+function poolWindowCell(ctx, window) {
+  if (!window) return poolMissingCell(ctx);
+  return poolCell(ctx, [
+    `已用 ${formatPercent(window.used_percent)}`,
+    ctx.h("span", { class: "muted" }, ` · 重置 ${when(ctx, window.resets_at, { absolute: true })}`),
+  ]);
+}
+
+function poolCardsCell(ctx, cards) {
+  const { h } = ctx;
+  if (!cards || cards.available_count === null) return poolMissingCell(ctx);
+  const parts = [`${cards.available_count} 张`];
+  if (cards.soonest_expires_at) {
+    parts.push(`最近到期 ${when(ctx, cards.soonest_expires_at, { absolute: true })}`);
+    if (cards.hours_until_soonest !== null) {
+      parts.push(cards.hours_until_soonest < 0 ? "已过到期时间（源未更新）" : `距到期 ${trimNumber(cards.hours_until_soonest)} 小时`);
+    }
+  } else if (cards.available_count > 0) {
+    parts.push(`最近到期 ${MISSING_FIELD}`);
+  }
+  return poolCell(ctx, [
+    h("div", null, parts.join(" · ")),
+    cards.expiry_flag !== null ? h("div", { class: "muted" }, `≤${cards.expiry_flag} 小时 · 建议阈值（未批准）`) : null,
+    h("div", { class: "muted" }, "只提示，不建议使用"),
+    h("div", { class: "muted" }, "Tibo 是否预告：未核查"),
+  ]);
+}
+
+function poolCreditsCell(ctx, account) {
+  const { h } = ctx;
+  if (!account.credits.present) return poolMissingCell(ctx);
+  return poolCell(ctx, [
+    h("b", { class: "mono" }, `${formatCount(account.credits.remaining)} Credits`),
+    h("div", { class: "muted" }, `采样 ${when(ctx, account.source_updated_at, { absolute: true })}`),
+    h("div", { class: "muted" }, "消耗速率：待积累"),
+  ]);
+}
+
+function poolPaceCell(ctx, account) {
+  if (!account.pace_applicable) return poolCell(ctx, ["系统账号，不参与"], { class: "muted" });
+  if (account.pace.ratio !== null) return poolCell(ctx, [`节奏比 ${account.pace.ratio}（当前快照）`]);
+  if (!account.windows.weekly) return poolMissingCell(ctx);
+  return poolCell(ctx, ["窗口刚开始，无法计算"], { class: "muted" });
+}
+
+function poolFreshnessCell(ctx, account) {
+  const { h } = ctx;
+  if (account.stale) {
+    return poolCell(ctx, [
+      "陈旧",
+      h("div", { class: "muted" }, account.source_updated_at ? `最后更新 ${when(ctx, account.source_updated_at, { absolute: true })}` : "无采样时间"),
+    ]);
+  }
+  return poolCell(ctx, [`采样 ${when(ctx, account.source_updated_at, { absolute: true })}`]);
+}
+
+function poolAccountRow(ctx, account, usable) {
+  const { h } = ctx;
+  const head = h("td", { class: "mono" }, account.alias);
+  if (!usable) {
+    return h("tr", null, head, ...Array.from({ length: 7 }, () => poolMissingCell(ctx)));
+  }
+  if (!account.present) {
+    return h("tr", null, head, poolCell(ctx, ["快照里没有该别名"], { class: "muted", colspan: 7 }));
+  }
+  return h(
+    "tr",
+    null,
+    head,
+    account.plan === null ? poolMissingCell(ctx) : poolCell(ctx, [account.plan]),
+    poolWindowCell(ctx, account.windows["5h"]),
+    poolWindowCell(ctx, account.windows.weekly),
+    poolCardsCell(ctx, account.reset_cards),
+    poolCreditsCell(ctx, account),
+    poolPaceCell(ctx, account),
+    poolFreshnessCell(ctx, account),
+  );
+}
+
+function poolSection(ctx, model) {
+  const { h } = ctx;
+  const usable = model.status === "ok";
+  const accounts = model.accounts.length
+    ? model.accounts
+    : POOL_ALIASES.map((alias) => ({ alias, present: false }));
+  const listed = model.present_aliases.join(" / ");
+  return h(
+    "section",
+    { class: "usage-pool", "aria-label": "额度池利用" },
+    h("h3", null, "额度池利用"),
+    h("p", { class: "muted" }, POOL_NOTE),
+    usable ? null : h("p", { class: "usage-gap" }, POOL_STATUS_LABEL[model.status] || "Codex 账号快照状态未知"),
+    h("p", { class: "muted" }, `共 ${model.account_count} 个别名有快照${listed ? `：${listed}` : ""}`),
+    h(
+      "div",
+      { class: "table-wrap usage-pool-wrap" },
+      h(
+        "table",
+        { class: "usage-pool-table" },
+        h(
+          "thead",
+          null,
+          h(
+            "tr",
+            null,
+            ...["别名", "套餐", "5 小时窗口", "周窗口", "重置卡", "Credits", "Q4 节奏比", "新鲜度"].map((label) => h("th", null, label)),
+          ),
+        ),
+        h("tbody", null, ...accounts.map((account) => poolAccountRow(ctx, account, usable))),
+      ),
+    ),
+    h("p", { class: "muted usage-pool-q4-note" }, Q4_THRESHOLD_NOTE),
+    h(
+      "div",
+      { class: "usage-pool-batch" },
+      ...POOL_B_BATCH.map((label) =>
+        h(
+          "div",
+          { class: "usage-pool-slot" },
+          h("p", { class: "usage-pool-slot-title" }, label),
+          h("p", { class: "muted" }, POOL_B_PLACEHOLDER),
+        ),
+      ),
+    ),
+  );
+}
+
 export function renderUsage(ctx) {
   const { h } = ctx;
   const payload = ctx.usage;
@@ -617,5 +846,6 @@ export function renderUsage(ctx) {
         runtimes.length ? runtimes.map((row) => failureCard(ctx, row)) : h("p", { class: "empty" }, query ? "没有匹配的 runtime" : "这个时间窗里没有失败计数。"),
       ),
     ),
+    poolSection(ctx, poolModels(payload)),
   ];
 }
