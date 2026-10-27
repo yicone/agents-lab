@@ -6,6 +6,8 @@
 
 ### 新增
 
+- 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）
+
 - 本地候选（未合并、未部署）：Skills 增加「Grok Bot 导出」来源，支持查看 user skill 正文与附件、显示导出时间，并按 manifest 逐文件核对 SHA-256 和字节数；缺失或校验失败时明确提示。（ACM-613；仅本地提交，无 PR）
 
 ### 变更
