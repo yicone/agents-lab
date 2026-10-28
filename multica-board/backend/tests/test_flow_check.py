@@ -95,7 +95,7 @@ class FlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp)/'missing.sqlite'
             out = io.StringIO()
-            with patch('multica_board.flow_live.collect_recent', return_value=dict(issues=[], events=[], complete=False)), redirect_stdout(out):
+            with patch('multica_board.flow_live.collect_recent', return_value=dict(issues=[], events=[], complete=False)), patch('pathlib.Path.home', return_value=Path(tmp)), redirect_stdout(out):
                 self.assertEqual(main(['flow-check', '--json', '--db', str(p)]), 0)
             self.assertIsNone(json.loads(out.getvalue())['proxy']['deliveries_24h'])
             self.assertFalse(p.exists())
@@ -279,7 +279,7 @@ class FlowLiveTests(unittest.TestCase):
             self.assertEqual(r['proxy']['confirmed_min'],0)
             self.assertEqual(r['proxy']['unknown_count'],1)
 
-    def test_profile_runner_has_no_retries_and_never_uses_task_mode(self):
+    def test_profile_runner_uses_outer_retries_and_never_uses_task_mode(self):
         from multica_board.flow_live import collect_recent
         from multica_board.cli_runner import CliResult
         with patch('multica_board.flow_live.CliRunner') as runner:
@@ -289,8 +289,152 @@ class FlowLiveTests(unittest.TestCase):
             self.assertEqual(options['profile'],'read-profile')
             self.assertEqual(options['binary'],'custom-multica')
             self.assertEqual(options['retries'],0)
-            self.assertLessEqual(options['timeout_s'],12)
+            self.assertLessEqual(options['timeout_s'],20)
             self.assertFalse(options.get('task_scoped',False))
+
+
+class FlowRetryTests(unittest.TestCase):
+    def collect(self, fail, *, budget=110, clock=None):
+        from multica_board.flow_live import collect_recent
+        from multica_board.cli_runner import CliResult
+        self.calls = []
+        def run(args, workspace_id=None):
+            self.calls.append(args)
+            if args[:2] == ['workspace', 'list']:
+                return CliResult([dict(id='w')])
+            if args[:2] == ['issue', 'list']:
+                offset = int(args[args.index('--offset') + 1])
+                fail(offset)
+                return CliResult(dict(issues=[dict(id=str(offset), status='done', updated_at=iso(NOW))],
+                                      has_more=offset == 0, total=2))
+            return CliResult([])
+        with patch('multica_board.flow_live.time.sleep') as sleep:
+            self.sleep = sleep
+            return collect_recent('test', 'multica', NOW, run=run, workers=1, budget_seconds=budget)
+
+    def test_second_page_timeout_recovers_before_any_timeline(self):
+        from multica_board.cli_runner import CliError
+        attempts = []
+        def fail(offset):
+            attempts.append(offset)
+            if attempts == [0, 1]:
+                raise CliError('TLS handshake timeout', transient=True)
+        s = self.collect(fail)
+        self.assertEqual(attempts, [0, 1, 1])
+        self.sleep.assert_called_once_with(1.5)
+        self.assertTrue(s['inventory_complete'])
+        self.assertTrue(s['complete'])
+        self.assertTrue(s['errors'][0]['recovered'])
+        self.assertEqual([c[:2] for c in self.calls][-2:], [['issue', 'timeline']] * 2)
+
+    def test_retry_exhaustion_keeps_full_redacted_error_and_page(self):
+        from multica_board.cli_runner import CliError
+        message = 'TLS timeout ' + 'context ' * 40 + 'token=private-value'
+        def fail(offset):
+            if offset == 1:
+                raise CliError(message, transient=True)
+        s = self.collect(fail)
+        self.assertFalse(s['inventory_complete'])
+        self.assertEqual(len(s['issues']), 1)
+        self.assertEqual(self.sleep.call_count, 2)
+        self.assertEqual([c.args[0] for c in self.sleep.call_args_list], [1.5, 3])
+        error = next(e for e in s['errors'] if e.get('attempt') == 3)
+        self.assertEqual(error['offset'], 1)
+        self.assertGreater(len(error['error']), 200)
+        self.assertNotIn('private-value', json.dumps(s))
+        self.assertIn('[redacted]', error['error'])
+        self.assertIn('--offset', error['command'])
+        self.assertGreaterEqual(error['elapsed_seconds'], 0)
+
+    def test_nontransient_failure_does_not_retry(self):
+        from multica_board.cli_runner import CliError
+        def fail(offset):
+            raise CliError('permission denied')
+        self.assertFalse(self.collect(fail)['inventory_complete'])
+        self.sleep.assert_not_called()
+
+    def test_retry_backoff_cannot_exceed_remaining_budget(self):
+        from multica_board.cli_runner import CliError
+        def fail(offset):
+            raise CliError('timeout', transient=True)
+        s = self.collect(fail, budget=1)
+        self.sleep.assert_not_called()
+        self.assertFalse(s['inventory_complete'])
+
+    def test_timeline_retry_preserves_unknown_without_degrading_inventory(self):
+        from multica_board.flow_live import collect_recent
+        from multica_board.cli_runner import CliResult, CliError
+        for recover in (False, True):
+            calls = []
+            def run(args, workspace_id=None):
+                if args[:2] == ['workspace', 'list']:
+                    return CliResult([dict(id='w')])
+                if args[:2] == ['issue', 'list']:
+                    return CliResult(dict(issues=[dict(id='x', status='done')], has_more=False))
+                calls.append(args)
+                if len(calls) == 1 or not recover:
+                    raise CliError('TLS failure', transient=True)
+                return CliResult([])
+            s = collect_recent('test', 'multica', NOW, run=run, workers=1)
+            self.assertEqual(len(calls), 2)
+            self.assertTrue(s['inventory_complete'])
+            self.assertFalse(s['collection']['degraded'])
+            self.assertEqual(s['history_complete']['w/x'], recover)
+            self.assertEqual(s['complete'], recover)
+
+    def test_runner_classifies_retryable_transport_errors_and_preserves_detail(self):
+        import subprocess
+        from multica_board.cli_runner import CliRunner, CliError
+        for message in ('TLS handshake failed', 'HTTP 500', 'HTTP 599', 'HTTP 429', 'timeout'):
+            runner = CliRunner('test', retries=0, _exec=lambda *a, **k:
+                               subprocess.CompletedProcess(a, 1, '', message + ' detail' * 50))
+            with self.assertRaises(CliError) as caught:
+                runner.run(['issue', 'list'])
+            self.assertTrue(caught.exception.transient)
+            self.assertGreater(len(caught.exception.detail), 200)
+            self.assertLessEqual(len(str(caught.exception)), 200)
+
+    def test_attempt_timeout_shrinks_to_shared_deadline(self):
+        from multica_board.flow_live import collect_recent
+        from multica_board.cli_runner import CliResult, CliError
+        clock = [0.0]
+        timeouts = []
+        def execute(args, workspace_id=None):
+            if args[:2] == ['workspace', 'list']:
+                return CliResult([dict(id='w')])
+            if args[:2] == ['issue', 'list']:
+                clock[0] += min(20, 45 - clock[0])
+                raise CliError('timeout', transient=True)
+            return CliResult([])
+        def runner(**options):
+            from unittest.mock import Mock
+            timeouts.append(options['timeout_s'])
+            return Mock(run=execute)
+        def sleep(delay):
+            clock[0] += delay
+        with patch('multica_board.flow_live.time.monotonic', side_effect=lambda: clock[0]), patch(
+                'multica_board.flow_live.time.sleep', side_effect=sleep), patch(
+                'multica_board.flow_live.CliRunner', side_effect=runner):
+            s = collect_recent('test', 'multica', NOW, budget_seconds=45, workers=1)
+        self.assertEqual(timeouts, [20, 20, 20, 0.5])
+        self.assertEqual(clock[0], 45)
+        self.assertFalse(s['inventory_complete'])
+
+    def test_live_cli_saves_a_private_distinct_report_each_round(self):
+        from contextlib import redirect_stdout
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('pathlib.Path.home', return_value=Path(tmp)), patch(
+                    'multica_board.flow_live.collect_recent', return_value=fixture()), redirect_stdout(io.StringIO()):
+                for _ in range(2):
+                    self.assertEqual(main(['flow-check', '--now', iso(NOW)]), 0)
+            files = list((Path(tmp) / '.multica-board' / 'flow-reports').glob('*.json'))
+            self.assertEqual(len(files), 2)
+            for path in files:
+                saved = json.loads(path.read_text())
+                self.assertIn('snapshot', saved)
+                self.assertIn('report', saved)
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
 
 class FlowRunMetricsTests(unittest.TestCase):

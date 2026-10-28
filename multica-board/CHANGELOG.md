@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### 修复
+
+- 本地候选（未合并、未部署）：流速采集在 110 秒预算内重试列表页，记录脱敏错误、命令、offset 和耗时，并逐轮保存采集快照与报告；timeline 缺失单独标记，不使完整清单降级。（ACM-675；无 PR）
+
 ### 新增
 
 - 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）
