@@ -9,6 +9,7 @@ export const skillKey = item => item.key || item.name;
 export const skillRowId = item => `skill-${item.key ? encodeURIComponent(item.key) : item.name}`;
 const isGrokBot = item => item.origin === "grok_bot";
 const notApplicable = (h, detail) => h("span", { class: "not-applicable", title: `∅ 不适用：${detail}` }, "∅");
+const CONFLICT_LABELS = { name_collision: "同名内容碰撞", responsibility_overlap: "职责重叠", behavior_divergence: "行为分歧", scope_shadowing: "作用域遮蔽", dependency_conflict: "依赖冲突", trigger_ambiguity: "触发歧义" };
 
 export function isCloudItem(item) {
   return Array.isArray(item?.workspace_installs) && item.workspace_installs.length > 0;
@@ -820,7 +821,7 @@ function bucketBlock(ctx, bucket) {
   const { h } = ctx;
   let body;
   if (!bucket.connected) body = h("p", { class: "muted" }, `— ${bucket.reason}`);
-  else if (!bucket.items.length) body = h("p", { class: "muted" }, "无");
+  else if (!bucket.items.length) body = h("p", { class: "muted" }, bucket.reason || "无");
   else {
     body = h(
       "ul",
@@ -840,7 +841,7 @@ function bucketBlock(ctx, bucket) {
       ),
     );
   }
-  return h("section", { class: "skill-bucket" }, h("header", null, h("span", null, bucket.title), h("span", { class: "count" }, bucket.connected ? String(bucket.items.length) : "—")), body);
+  return h("section", { class: "skill-bucket" }, h("header", null, h("span", null, bucket.title), h("span", { class: "count" }, bucket.connected ? String(bucket.items.length) : "—")), bucket.items.length && bucket.reason ? h("p", { class: "muted" }, bucket.reason) : null, body);
 }
 
 function runtimeLoadSection(h, item) {
@@ -888,6 +889,15 @@ export function renderSkillDrawer(ctx, item) {
       section(h, title, entriesSection(h, item, dedupeEntries((item.entries || []).map((entry, index) => ({ ...entry, _index: index }))).filter((entry) => scopeOf(entry) === scope), ctx)),
     ),
     section(h, "对账发现", item.findings?.length ? item.findings.map((finding) => h("p", null, findingText(finding))) : [h("p", { class: "muted" }, "没有额外发现")]),
+    section(h, "重叠检测与人工标记", [
+      line(h, "人工标记（登记表）", item.conflict_status || "未标记"),
+      h("p", { class: "muted" }, item.conflict_detection_state === "ok" ? "实时检测（本地只读，检测缓存 60 秒）；检测发现不代表人工确认冲突。" : "实时检测未完成，仅保留人工标记。"),
+      ...(item.conflict_findings || []).map(finding => h("div", null,
+        h("p", null, `实时检测 · ${CONFLICT_LABELS[finding.type] || finding.type} · ${finding.skills.join(" / ")}`),
+        ...(finding.evidence || []).map(evidence => h("p", { class: "muted" }, evidence)),
+        finding.routing_note ? h("p", null, finding.routing_note) : null)),
+      item.conflict_detection_state === "ok" && !item.conflict_findings?.length ? h("p", { class: "muted" }, "本次检测没有发现") : null,
+    ]),
     section(h, "定制与兼容约束", customSection(h, item)),
     section(h, "Skill 正文", contentSection(h, ctx, item)),
     section(h, "Multica Workspace（跨 Workspace）", cloudSection(h, item)),

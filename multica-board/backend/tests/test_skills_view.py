@@ -56,6 +56,36 @@ def skill(name, **overrides):
 
 
 class SkillsPayloadTests(unittest.TestCase):
+    def test_live_conflicts_keep_manual_source_and_new_install_tag(self):
+        shared = self.root / 'shared'
+        for name in ('registered', 'new-install'):
+            directory = shared / name
+            directory.mkdir(parents=True)
+            (directory / 'SKILL.md').write_text(f'---\nname: {name}\ndescription: Use when generating architecture diagrams.\n---\n')
+        record = skill('registered', source_class='local_custom', scope='repo',
+                       visible_paths=[str(shared / 'registered')], conflict_status='open')
+        result = self.payload([record])
+        registered = next(item for item in result['items'] if item['name'] == 'registered')
+        new = next(item for item in result['items'] if item['name'] == 'new-install')
+        self.assertEqual(registered['conflict_status'], 'open')
+        self.assertTrue(registered['conflict_findings'])
+        self.assertEqual(new['bucket'], 'unrecorded')
+        self.assertIn('overlap', new['tags'])
+        self.assertTrue(new['conflict_findings'])
+        self.assertEqual(next(s for s in result['meta']['sources'] if s['id'] == 'overlap')['state'], 'ok')
+
+    def test_conflict_failure_preserves_manual_bucket_and_discloses_gap(self):
+        failed = {'state': 'fallback', 'detail': '实时检测不可用，仅保留人工标记', 'findings': []}
+        with mock.patch.object(skills_view, 'check_conflicts', return_value=failed):
+            result = self.payload([skill('manual', conflict_status='open')])
+            item = result['items'][0]
+            # Missing baseline remains the primary bucket; overlap stays visible as a tag.
+            self.assertIn('overlap', [item['bucket']] + item['tags'])
+            self.assertEqual(item['conflict_detection_state'], 'fallback')
+            self.assertEqual(result['attention']['buckets']['overlap']['reason'], failed['detail'])
+            empty = self.payload([])
+            self.assertFalse(empty['attention']['buckets']['overlap']['connected'])
+
     def setUp(self):
         skills_view._CACHE.clear()
         self.tmp = tempfile.TemporaryDirectory()
@@ -84,6 +114,37 @@ class SkillsPayloadTests(unittest.TestCase):
         skills_view._CACHE.clear()
         self.tmp.cleanup()
 
+    def test_explicit_clock_rollback_refills_once_and_keeps_install_invalidation(self):
+        at = [NOW]
+        stamp = [0]
+        with mock.patch.object(skills_view, "_install_stamp", side_effect=lambda *_: (stamp[0],)), \
+             mock.patch.object(skills_view, "build_payload", side_effect=lambda **_: {}) as build:
+            first = self.cached(lambda: at[0])
+            at[0] -= timedelta(days=1)
+            second = self.cached(lambda: at[0])
+            self.assertIsNot(second, first)
+            self.assertIs(self.cached(lambda: at[0]), second)
+            stamp[0] += 1
+            self.assertIsNot(self.cached(lambda: at[0]), second)
+            self.assertEqual(build.call_count, 3)
+
+    def test_wall_clock_rollback_keeps_cache_until_monotonic_ttl_expires(self):
+        wall = [NOW]
+        elapsed = [100.0]
+        with mock.patch.object(skills_view, "_now", side_effect=lambda: wall[0]), \
+             mock.patch("time.monotonic", side_effect=lambda: elapsed[0]), \
+             mock.patch.object(skills_view, "_install_stamp", return_value=()), \
+             mock.patch.object(skills_view, "build_payload", side_effect=lambda **_: {}) as build:
+            first = self.cached(None)
+            wall[0] -= timedelta(days=1)
+            self.assertIs(self.cached(None), first)
+            elapsed[0] += CACHE_TTL_SECONDS
+            self.assertIsNot(self.cached(None), first)
+            self.assertEqual(build.call_count, 2)
+            skills_view._CACHE.clear()
+            self.assertIsNot(self.cached(None), first)
+            self.assertEqual(build.call_count, 3)
+
     def test_warmup_and_first_request_share_one_completed_cache_fill(self):
         entered, release = threading.Event(), threading.Event()
         clock = [NOW]
@@ -96,6 +157,7 @@ class SkillsPayloadTests(unittest.TestCase):
         responses = []
         with mock.patch.object(skills_view, "build_payload", side_effect=build) as builder, \
              mock.patch.object(skills_view, "_install_stamp", return_value=()), \
+             mock.patch("time.monotonic", side_effect=lambda: clock[0].timestamp()), \
              mock.patch.object(skills_view, "_now", side_effect=lambda: clock[0]):
             warm = skills_view.prewarm_skills()
             try:
