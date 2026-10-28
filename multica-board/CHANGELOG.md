@@ -12,6 +12,8 @@
 
 ### 新增
 
+- 本地候选（未合并、未部署）：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（ACM-662；无 PR）
+
 - 本地候选（未合并、未部署）：能力条目用文字显示声明了、可达、观察到。缺数据写「未知」，不当成异常，也不新增告警。Hooks 的观察到全部为未知；可达只看命令里的绝对路径是否存在，Grok 另看加载错误和兼容状态，`enabled` 与 `trusted_hash` 不参与。命令文本不展示。（ACM-664；无 PR）
 
 - 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）

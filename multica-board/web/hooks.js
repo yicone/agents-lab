@@ -1,86 +1,99 @@
-/** Read-only hooks list. Observed is always 未知. Missing data is not an alert. */
+/** Capability-page hooks. Sources are a filter. Rows are never merged across sources. */
 
-import { TRI_LEGEND, hookTriState, renderTriState } from "./capability-state.js";
+import { capabilitySwitch } from "./capability.js";
+import { TRI_LEGEND, renderTriState } from "./capability-state.js";
 
-export const HOOK_SOURCES = ["cursor", "codex", "grok_cli", "hermes"];
+export const HOOK_SOURCES = [
+  ["cursor", "Cursor"],
+  ["codex_user", "Codex 用户 hooks"],
+  ["grok_cli", "Grok CLI"],
+  ["hermes_plugin", "Hermes 插件事件"],
+];
 
-const SOURCE_LABEL = {
-  cursor: "Cursor",
-  codex: "Codex",
-  grok_cli: "Grok CLI",
-  hermes: "Hermes",
-};
+const ALLOWED = new Set(HOOK_SOURCES.map(([id]) => id));
 
-export function filteredHooks(payload, route) {
-  const source = route?.source || "";
-  const items = payload?.items || [];
-  if (!source) return items;
-  return items.filter((item) => item.source === source);
+const TRI = { present: "yes", missing: "no", yes: "yes", no: "no", unknown: "unknown" };
+
+function rowTriState(item) {
+  return {
+    declared: TRI[item?.declared] || "unknown",
+    reachable: TRI[item?.reachable] || "unknown",
+    observed: "unknown",
+    detail: item?.detail || "hooks 没有稳定运行日志，观察到为未知。命令不展示。",
+  };
+}
+
+export function sourceOptions() {
+  return HOOK_SOURCES.map(([id, label]) => ({ id, label }));
+}
+
+export function filteredItems(payload, route) {
+  const source = ALLOWED.has(route?.source) ? route.source : "";
+  const query = String(route?.q || "").trim().toLowerCase();
+  return (payload?.items || []).filter((item) => {
+    if (!ALLOWED.has(item?.source_id)) return false;
+    if (source && item.source_id !== source) return false;
+    if (!query) return true;
+    return [item.name, item.event, item.plugin, item.source_label].join("\n").toLowerCase().includes(query);
+  });
+}
+
+export function visibleSourceErrors(payload, route) {
+  const source = ALLOWED.has(route?.source) ? route.source : "";
+  return (payload?.sources || []).filter((item) => {
+    if (!ALLOWED.has(item?.id) || !item.error) return false;
+    return !source || item.id === source;
+  });
 }
 
 export function renderHooks(ctx) {
   const { h, route } = ctx;
   const payload = ctx.hooks;
-  if (!payload) return [h("div", { class: "empty big" }, "正在读取 Hooks 清单…")];
-  if (payload.ok === false) {
-    return [h("section", { class: "atlas-guide" },
-      h("h2", null, "Hooks 清单无效"),
-      h("p", null, payload.error?.message || "清单读不出来。缺数据会显示未知，这里是清单本身无效。"))];
+  const kinds = capabilitySwitch(h, "hooks", (view) => ctx.setRoute({ view, source: "", section: "configure" }));
+  if (!payload) return [kinds, h("div", { class: "empty big" }, "正在读取 hooks…")];
+  if (payload.ok === false && !(payload.sources || []).length) {
+    return [kinds, h("section", { class: "atlas-guide" }, h("h2", null, "hooks 没读到"), h("p", null, payload.error?.message || "清单读不出来。"))];
   }
-  const items = filteredHooks(payload, route);
-  const sources = payload.sources || [];
+  const items = filteredItems(payload, route);
+  const errors = visibleSourceErrors(payload, route);
+  const shell = !route?.source ? payload.hermes_shell : null;
+  const shellNote = shell && shell.collection_state !== "collected"
+    ? "Hermes shell 没读到。空列表才是正常结果；这不影响当前选中的其他来源。"
+    : null;
   return [
-    h("div", { class: "source-grid" }, sourceCards(ctx, sources)),
+    kinds,
     h("div", { class: "toolbar" },
-      select(h, "来源", route.source || "", [["", "全部来源"], ...HOOK_SOURCES.map((id) => [id, SOURCE_LABEL[id]])], (value) => ctx.setRoute({ source: value }))),
-    h("div", { class: "skills-legend" }, h("span", { class: "legend-group" }, h("strong", null, "能力三态 "), TRI_LEGEND)),
-    h("p", { class: "muted tri-note" }, (payload.notes || []).join(" ")),
-    table(h, items, sources),
-  ];
+      h("span", { class: "muted" }, "来源"),
+      h("div", { class: "seg agents-kind", role: "radiogroup", "aria-label": "hooks 来源" },
+        [["", "全部"], ...HOOK_SOURCES].map(([id, label]) => h("button", {
+          type: "button",
+          role: "radio",
+          class: (route.source || "") === id ? "active" : "",
+          "aria-checked": (route.source || "") === id ? "true" : "false",
+          onclick: () => ctx.setRoute({ source: id }),
+        }, label)))),
+    errors.length ? h("div", { class: "skills-anomaly", role: "status" }, errors.map((item) => h("div", null, `${item.label}：${item.error.message}`))) : null,
+    shellNote ? h("p", { class: "muted" }, shellNote) : null,
+    h("div", { class: "skills-legend" },
+      h("span", { class: "legend-group" }, h("strong", null, "能力三态 "), TRI_LEGEND),
+      h("span", { class: "legend-group" }, "同名条目按来源分开，不合并。Hermes shell 空列表不是异常，也不进来源筛选。")),
+    table(h, items, route, payload),
+  ].filter(Boolean);
 }
 
-function sourceCards(ctx, sources) {
-  const { h, route } = ctx;
-  const known = sources.every((source) => source.count != null);
-  const cards = [{ id: "", label: "全部", state: known ? "ok" : "unknown", count: known ? sources.reduce((sum, source) => sum + source.count, 0) : null, detail: "四个来源并列，不跨来源合并。有来源没读到时，总数为未知。" }];
-  for (const id of HOOK_SOURCES) {
-    cards.push(sources.find((source) => source.id === id) || { id, label: SOURCE_LABEL[id], state: "unknown", count: null, detail: "没读到，显示未知。" });
-  }
-  return cards.map((card) => {
-    const active = (route.source || "") === (card.id || "");
-    const unknown = card.state === "unknown" || card.count == null;
-    return h("button", {
-      type: "button",
-      class: `source-card${active ? " active" : ""}`,
-      title: card.detail || card.label,
-      "aria-pressed": active ? "true" : "false",
-      onclick: () => ctx.setRoute({ source: active ? "" : card.id }),
-    },
-      h("span", { class: "source-label" }, card.label || SOURCE_LABEL[card.id] || card.id),
-      h("strong", null, unknown ? "未知" : String(card.count ?? 0)),
-      h("span", { class: "source-recon" }, h("span", { class: "muted" }, card.state === "empty" ? "空列表，不是异常" : (card.detail || ""))));
-  });
-}
-
-function select(h, label, value, options, onchange) {
-  return h("label", { class: "filter" }, label,
-    h("select", { value, onchange: (event) => onchange(event.target.value) },
-      options.map(([id, text]) => h("option", { value: id, selected: id === value }, text))));
-}
-
-function table(h, items, sources) {
+function table(h, items, route, payload) {
   const head = h("tr", null,
-    h("th", null, "事件"),
-    h("th", null, "来源"),
+    ...["事件", "来源", "插件"].map((label) => h("th", null, label)),
     h("th", { class: "tri-col", title: TRI_LEGEND }, "三态"));
-  const body = items.map((item) => h("tr", { class: "skill-row", id: `hook-${item.id || item.event}` },
-    h("td", null, h("span", { class: "mono" }, item.event || "未知")),
-    h("td", null, item.source_label || SOURCE_LABEL[item.source] || "未知"),
-    h("td", { class: "tri-col" }, renderTriState(h, hookTriState(item)))));
+  const body = items.map((item) => h("tr", { class: "skill-row", "data-source": item.source_id },
+    h("td", null, h("span", { class: "mono" }, item.event || item.name || "—")),
+    h("td", null, item.source_label || "—"),
+    h("td", null, item.plugin || "—"),
+    h("td", { class: "tri-col" }, renderTriState(h, rowTriState(item)))));
   if (!body.length) {
-    const unread = sources.filter((source) => source.state === "unknown").map((source) => source.label);
-    const text = unread.length ? `${unread.join("、")} 没读到，显示未知，不是异常。` : "这个来源没有 hooks。空列表不是异常。";
-    body.push(h("tr", null, h("td", { class: "empty", colspan: "3" }, text)));
+    const selected = (payload?.sources || []).find((item) => item.id === route?.source);
+    const text = selected?.collection_state === "collected" && !selected.error ? "已读取，0 条" : "没有符合筛选的 hook";
+    body.push(h("tr", null, h("td", { class: "empty", colspan: "4" }, text)));
   }
   return h("div", { class: "table-wrap sticky-head" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
 }
