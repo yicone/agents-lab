@@ -1,5 +1,6 @@
 import { contentKey, loadSkillContent } from "./skill-content.js";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, loadStateText, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
@@ -36,22 +37,49 @@ test("Grok Bot export has an independent source, integrity warnings and a read-o
   assert.equal(findText(drawer, "Exported body"), false);
 });
 
-test("a real cloud-only skill keeps the product name out of the list tip and the drawer note", () => {
-  const cloud = JSON.parse(readFileSync(new URL("./fixtures/skills-cloud/skills.json", import.meta.url), "utf8"));
-  const item = cloud.items.find((row) => row.origin === "cloud" && row.shared_entry?.detail?.includes("Multica"));
-  assert.ok(item, "cloud-only fixture");
+function sharedSurfaces(item) {
   const payload = basePayload([item]);
   const list = { children: renderSkills(renderCtx(payload)) };
   const title = findAll(list, (node) => String(node.attrs?.class || "").includes("shared-entry"))[0]?.attrs?.title || "";
-  assert.match(title, /Workspace 技能不在本机清单，共享入口未检查/);
-  assert.doesNotMatch(title, /Multica/);
   const drawer = { children: renderSkillDrawer(renderCtx(payload), item) };
   const note = findAll(drawer, (node) => node.tag === "section" && findText(node, "共享入口"))
     .map((node) => flatten(node).filter((child) => typeof child === "string").join("\n"))
     .join("\n");
-  assert.match(note, /Workspace 技能不在本机清单，共享入口未检查/);
-  assert.doesNotMatch(note, /Multica/);
-  assert.match(item.shared_entry.detail, /Multica/);
+  return { title, note };
+}
+
+function generatedCloudItem() {
+  const backend = new URL("../backend/", import.meta.url);
+  const run = spawnSync("python3", ["-c", [
+    "import json",
+    "from multica_board.views import _cloud_only_item",
+    "item = _cloud_only_item('de-ai-chinese-x-copy', [{'id': 'f359fc29-5277-4b52-b025-bf773801366a', 'workspace_id': '8ebc87ea-27f2-42c4-90f6-24a04e64d3f5', 'workspace_name': 'ACM Lab'}])",
+    "print(json.dumps(item))",
+  ].join("\n")], { cwd: backend, encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  return JSON.parse(run.stdout);
+}
+
+test("real cloud-only skills keep the product name out of the list tip and the drawer note", () => {
+  const cloud = JSON.parse(readFileSync(new URL("./fixtures/skills-cloud/skills.json", import.meta.url), "utf8"));
+  const captured = cloud.items.filter((row) => row.origin === "cloud");
+  assert.ok(captured.length >= 2, "captured cloud-only skills");
+  assert.ok(captured.some((row) => row.shared_entry?.detail?.includes("Multica")), "captured payload still has the old interface sentence");
+  for (const item of captured) {
+    const { title, note } = sharedSurfaces(item);
+    assert.match(title, /Workspace 技能不在本机清单，共享入口未检查/, item.name);
+    assert.match(note, /Workspace 技能不在本机清单，共享入口未检查/, item.name);
+    assert.doesNotMatch(title, /Multica/, item.name);
+    assert.doesNotMatch(note, /Multica/, item.name);
+  }
+  const generated = generatedCloudItem();
+  assert.equal(generated.origin, "cloud");
+  assert.doesNotMatch(generated.shared_entry.detail, /Multica/);
+  const fresh = sharedSurfaces(generated);
+  assert.match(fresh.title, /Workspace 技能不在本机清单，共享入口未检查/);
+  assert.match(fresh.note, /Workspace 技能不在本机清单，共享入口未检查/);
+  assert.doesNotMatch(fresh.title, /Multica/);
+  assert.doesNotMatch(fresh.note, /Multica/);
 });
 
 test("today fixture: queue count equals attention badge and debt stays out", () => {

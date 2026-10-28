@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { applyPatch, formatHash, historyWrite, parseHash, redirectHash } from "./route.js";
 import { collectionMark, emptyInventoryText, evidenceLevel, renderEvidence, sourceCountLabel, visibleItems } from "./evidence.js";
@@ -57,6 +58,25 @@ test("uncollected and unavailable marks are not zero", () => {
   assert.equal(collectionMark("invalid").symbol, "?");
   assert.equal(emptyInventoryText("grok_cli", payload), "— 未采集");
   assert.equal(emptyInventoryText("multica_workspace", payload), "— 未采集");
+});
+
+test("a real shared memory slot renders as 共享登录配置", () => {
+  const backend = new URL("../backend/", import.meta.url);
+  const run = spawnSync("python3", ["-c", [
+    "import json",
+    "from multica_board.evidence_inventory import build_evidence_inventory",
+    "print(json.dumps(build_evidence_inventory({'ok': True, 'generated_at': '2026-10-26T09:00:00Z', 'items': []})))",
+  ].join("\n")], { cwd: backend, encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  const inventory = JSON.parse(run.stdout);
+  const slot = inventory.items.find((item) => item.object_id === "memory:shared_profile");
+  assert.equal(slot.display_name, "共享登录配置");
+  assert.equal(slot.object_type, "memory_collection");
+  const tree = renderEvidence({ h: vnode, route: { source: "", q: "" }, evidence: inventory, setRoute() {} });
+  const page = textOf({ children: tree });
+  assert.equal(page.includes("共享登录配置"), true);
+  assert.equal(/\bProfile\b/.test(page), false);
+  assert.equal(slot.object_id, "memory:shared_profile");
 });
 
 test("evidence levels keep distinct labels", () => {
