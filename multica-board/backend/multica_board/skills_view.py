@@ -239,8 +239,10 @@ def _stamp_install_path(path: Path) -> tuple:
     container = _plugin_container(path)
     if container is not None:
         tokens.append(_stamp_tree(container))
-    elif resolved.parent != resolved:
-        tokens.append(_stat_token(resolved.parent))
+    # Installation discovery fingerprints skill roots and new siblings. A
+    # generic parent can be a runtime home whose unrelated writes would bust
+    # both document and conflict caches on every request. Only plugin version
+    # discovery above needs a parent container dependency here.
     return tuple(tokens)
 
 
