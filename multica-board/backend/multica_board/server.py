@@ -294,6 +294,10 @@ class Handler(BaseHTTPRequestHandler):
                 if urlsplit(self.path).query:
                     raise BadRequest("mcp endpoint does not accept query parameters")
                 body = views.mcp()
+            elif path == "/api/hooks":
+                if urlsplit(self.path).query:
+                    raise BadRequest("hooks endpoint does not accept query parameters")
+                body = views.hooks()
             elif path == "/api/evidence-inventory":
                 if urlsplit(self.path).query:
                     raise BadRequest("evidence inventory does not accept query parameters")

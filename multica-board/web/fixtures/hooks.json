@@ -1,0 +1,57 @@
+{
+  "ok": true,
+  "hooks_schema": 1,
+  "read_only": true,
+  "generated_at": "2026-10-28T00:00:00Z",
+  "items": [
+    {
+      "id": "cursor:stop:0",
+      "source": "cursor",
+      "source_label": "Cursor",
+      "event": "stop",
+      "declared": "yes",
+      "reachable": "yes",
+      "observed": "yes",
+      "detail": "命令里的绝对路径文件存在。观察到没有稳定运行日志。"
+    },
+    {
+      "id": "codex:Stop:0",
+      "source": "codex",
+      "source_label": "Codex",
+      "event": "Stop",
+      "declared": "yes",
+      "reachable": "unknown",
+      "observed": "unknown",
+      "detail": "命令里没有可核对的绝对路径，可达为未知。"
+    },
+    {
+      "id": "grok_cli:load-error:pre_tool_use:0",
+      "source": "grok_cli",
+      "source_label": "Grok CLI",
+      "event": "pre_tool_use",
+      "declared": "yes",
+      "reachable": "no",
+      "observed": "unknown",
+      "detail": "Grok 报告这条不会运行，不标成可达。"
+    },
+    {
+      "id": "hermes:nowledge-mem:prefetch:0",
+      "source": "hermes",
+      "source_label": "Hermes",
+      "event": "nowledge-mem.prefetch",
+      "reachable": "unknown",
+      "detail": "插件事件已声明。回调能否导入未验证。"
+    }
+  ],
+  "sources": [
+    {"id": "cursor", "label": "Cursor", "state": "ok", "detail": "只读用户级 hooks 文件。", "count": 1},
+    {"id": "codex", "label": "Codex", "state": "ok", "detail": "enabled 和 trusted_hash 不参与。", "count": 1},
+    {"id": "grok_cli", "label": "Grok CLI", "state": "ok", "detail": "加载错误不标成可达。", "count": 1},
+    {"id": "hermes", "label": "Hermes", "state": "ok", "detail": "shell 空列表不是异常。插件事件可达为未知。", "count": 1}
+  ],
+  "notes": [
+    "项目级 hooks 未逐仓库扫描，不因此告警。",
+    "缺数据显示未知，不是异常。",
+    "hooks 的观察到全部为未知。"
+  ]
+}

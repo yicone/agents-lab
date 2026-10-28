@@ -1,6 +1,6 @@
 /** Hash routes for Agent Atlas. Legacy hashes redirect with location.replace. */
 
-export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "usage", "configure", "runs", "metrics", "schedules", "health", "settings"];
+export const VIEWS = ["map", "decide", "issues", "agents", "skills", "mcp", "hooks", "usage", "configure", "runs", "metrics", "schedules", "health", "settings"];
 
 const LAYER_IDS = ["l1", "l2", "l3", "l4", "l5"];
 const MAP_LAYERS = new Set([...LAYER_IDS, "all", "outside", "unassigned"]);
@@ -18,6 +18,7 @@ const PLAN_BUCKETS = new Set(["approvable", "blocked", "skip", "unchanged"]);
 const MCP_SOURCES = new Set(["both", "local_only", "multica_only", "project"]);
 const MCP_STATUSES = new Set(["broken", "differs", "same", "single", "incomparable"]);
 const MCP_GROUPS = new Set(["source", "tool", "flat"]);
+const HOOK_SOURCES = new Set(["cursor", "codex", "grok_cli", "hermes"]);
 let mcpTools = null;
 export function setMcpTools(tools) {
   mcpTools = new Set([...(tools || []).map((tool) => tool.id), "repo"]);
@@ -77,7 +78,7 @@ export function redirectHash(hash) {
   if (Object.hasOwn(aliases, path)) return withQuery(aliases[path], params);
   if (agentsPlan(path)) return withQuery(path === "agents/plan/new" ? "running/changes/new" : path.replace("agents/plans", "running/changes"), params);
   if (path === "running/changes" || path === "running/changes/new" || /^running\/changes\/[^/]+$/.test(path)) return null;
-  if (["running", "running/agents", "running/usage", "running/runs", "running/metrics", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/skills/evidence", "configure/mcp", "configure/runtime", "settings"].includes(path)) return null;
+  if (["running", "running/agents", "running/usage", "running/runs", "running/metrics", "running/schedules", "running/health", "configure", "configure/agents", "configure/skills", "configure/skills/evidence", "configure/mcp", "configure/hooks", "configure/runtime", "settings"].includes(path)) return null;
   if (path === "issues" || path === "decide") return null;
   if (path === "map") return null;
   if (path.startsWith("map/")) {
@@ -168,7 +169,7 @@ export function parseHash(hash) {
   if (path.startsWith("configure/")) route.section = "configure";
   const evidence = path === "configure/skills/evidence";
   if (evidence) path = "configure/skills";
-  const currentPaths = { running: "agents", "running/agents": "agents", "running/usage": "usage", "running/runs": "runs", "running/metrics": "metrics", "running/schedules": "schedules", "running/health": "health", "configure/agents": "agents", "configure/skills": "skills", "configure/mcp": "mcp", "configure/runtime": "configure" };
+  const currentPaths = { running: "agents", "running/agents": "agents", "running/usage": "usage", "running/runs": "runs", "running/metrics": "metrics", "running/schedules": "schedules", "running/health": "health", "configure/agents": "agents", "configure/skills": "skills", "configure/mcp": "mcp", "configure/hooks": "hooks", "configure/runtime": "configure" };
   if (path === "configure/runtime") route.section = "runtime";
   if (path === "running/changes/new") path = "agents/plan/new";
   else if (path === "running/changes" || path.startsWith("running/changes/")) path = path.replace("running/changes", "agents/plans");
@@ -183,6 +184,7 @@ export function parseHash(hash) {
   else if (path === "agents") route.view = "agents";
   else if (path === "skills") route.view = "skills";
   else if (path === "mcp") route.view = "mcp";
+  else if (path === "hooks") route.view = "hooks";
   else if (path === "usage") route.view = "usage";
   else if (["configure", "runs", "schedules", "health", "settings", "metrics"].includes(path)) route.view = path;
   else route.view = "map";
@@ -238,6 +240,9 @@ export function parseHash(hash) {
     route.mcpGroup = MCP_GROUPS.has(group) ? group : "source";
     route.mcpAssigned = flag(params, "assigned");
     route.mcpTidy = flag(params, "tidy");
+  } else if (route.view === "hooks") {
+    const source = params.get("source");
+    route.source = HOOK_SOURCES.has(source) ? source : "";
   } else if (route.view === "agents") {
     route.sel = params.get("sel") || "";
     route.fromPlan = params.get("from") || "";
@@ -334,6 +339,8 @@ export function formatHash(route) {
     if (r.mcpGroup && r.mcpGroup !== "source") p.set("group", r.mcpGroup);
     if (r.mcpAssigned) p.set("assigned", "1");
     if (r.mcpTidy) p.set("tidy", "1");
+  } else if (path === "hooks") {
+    if (r.source && HOOK_SOURCES.has(r.source)) p.set("source", r.source);
   } else if (path === "metrics") {
     if (r.win === "24h" || r.win === "7d" || r.win === "14d") p.set("win", r.win);
     if (r.mws) p.set("mws", r.mws);
@@ -344,7 +351,7 @@ export function formatHash(route) {
   if (path === "agents/plan/new") path = "running/changes/new";
   else if (path === "agents/plans" || path.startsWith("agents/plans/")) path = path.replace("agents/plans", "running/changes");
   else if (path === "agents") path = r.section === "configure" ? "configure/agents" : "running";
-  else if (path === "skills" || path === "mcp") path = `configure/${path}`;
+  else if (path === "skills" || path === "mcp" || path === "hooks") path = `configure/${path}`;
   else if (["usage", "runs", "metrics", "schedules", "health"].includes(path)) path = `running/${path}`;
   else if (path === "configure" && r.section === "runtime") path = "configure/runtime";
   return withQuery(path, p);
@@ -433,7 +440,7 @@ export function locationHash(hash) {
 
 export function navGroup(route) {
   if (["issues", "decide"].includes(route.view)) return "issues";
-  if (["skills", "mcp", "configure"].includes(route.view) || route.section === "configure") return "configure";
+  if (["skills", "mcp", "hooks", "configure"].includes(route.view) || route.section === "configure") return "configure";
   if (["agents", "usage", "runs", "metrics", "schedules", "health"].includes(route.view)) return "running";
   return route.view;
 }

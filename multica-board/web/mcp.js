@@ -1,3 +1,5 @@
+import { TRI_LEGEND, mcpTriState, renderTriState } from "./capability-state.js";
+
 /** MCP page (ACM-378 schema 2): one row per raw server name across local tools,
  * the repo's project-level files, and every Multica workspace. Read-only. */
 
@@ -406,6 +408,7 @@ function anomalyBanner(h, payload) {
 
 function legend(h) {
   return h("div", { class: "skills-legend" },
+    h("span", { class: "legend-group" }, h("strong", null, "能力三态 "), TRI_LEGEND),
     h("span", { class: "legend-group" },
       h("strong", null, "本机工具 "),
       "● 该工具全局配置里有同名条目 · ●停 条目显式停用 · ✕ 条目损坏（有这个条目但不能用：缺 command 和 url、类型无法识别、字段类型不对；对应 Skills 的「入口不在」） · ? 无法确定（文件没读到：无权限、符号链接、非普通文件、解析失败等），这一列不参与判断 · ∅ 不适用（确定只在 Multica） · 空白：已读该文件，没有同名条目，仍可能来自该工具的其他配置层。列头数字是 ● 的个数，? 表示文件没读到。路径证据不代表 runtime 实际加载。"),
@@ -615,6 +618,7 @@ function row(ctx, tools, item, payload) {
         ? h("span", { class: "tag muted", title: "名字含被清洗的字符，本次启动后尚未重新采集，暂不合并" }, "原名待确认")
         : null,
       bucketTag(h, item)),
+    h("td", { class: "tri-col" }, renderTriState(h, mcpTriState(item))),
     h("td", { class: "channel-col", title: `${item.source_label} · ${presenceLine(item)}` },
       h("div", { class: "cell-ellipsis" }, item.source_label),
       h("div", { class: "muted mono cell-ellipsis" }, presenceLine(item)),
@@ -633,13 +637,14 @@ function columnTitle(tool) {
 
 function table(ctx, tools, groups, payload) {
   const { h, route } = ctx;
-  const colspan = String(4 + tools.length + 1);
+  const colspan = String(5 + tools.length + 1);
   const visible = new Map(tools.map((tool) => [
     tool.id,
     (payload.items || []).filter((i) => i.tools?.[tool.id] === "direct" || i.tools?.[tool.id] === "off").length,
   ]));
   const head = h("tr", null,
     h("th", null, "Server"),
+    h("th", { class: "tri-col", title: TRI_LEGEND }, "三态"),
     h("th", { class: "channel-col" }, "来源 / 出现位置"),
     h("th", { title: "Multica Workspace（跨 Workspace）" }, "Multica Workspace"),
     ...tools.map((tool) =>
@@ -1025,6 +1030,7 @@ export function renderMcpDrawer(ctx, item) {
         (item.transports || []).map((t) => h("span", { class: "tag" }, t))),
       close),
     h("h2", { class: "drawer-title" }, item.source_label),
+    section(h, "能力三态", [renderTriState(h, mcpTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     drawerSourceScope(h, item),
     drawerConsistency(h, item),
     drawerFiles(h, item, ctx.mcp, "global", "本机工具配置"),
