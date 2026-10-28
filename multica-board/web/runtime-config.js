@@ -1,4 +1,6 @@
 /** Runtime configuration is the only Atlas write surface. No arbitrary CLI input. */
+
+import { COPY, pageHead } from "./ia-view.js";
 export const WRITE_FIELDS = [
   ["runtime_id", "Runtime"], ["model", "模型"], ["thinking_level", "推理级别"],
   ["service_tier", "Tier"], ["custom_model", "custom_args · --model"],
@@ -48,7 +50,7 @@ export function availabilityText(value) {
 }
 
 export function createRuntimeConfig(h, data, request = fetch, disabledReason = "") {
-  const root = h("section", { class: "runtime-config", "aria-label": "模型与 Runtime 配置" });
+  const root = h("section", { class: "runtime-config", "aria-label": COPY.runtime });
   let token = "", catalog = null, selected = null, plan = null, result = null;
   let message = "", busy = false, checked = false, generation = 0, expiry = null;
   let operations = {}, lastFocus = null;
@@ -165,7 +167,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
             availabilityChecked = e.target.checked;
             confirm.disabled = !canConfirm(plan, checked, busy, Date.now(), availabilityChecked);
           } }), "我已知该账号模型不可用，仍要写入本次配置") : null,
-      h("p", { class: "runtime-warning" }, "仅影响下一次运行。会话与工作目录不会迁移。提交前会复读核对。Multica CLI 没有条件更新，复读和提交之间仍可能被并发写入。读回不一致时会锁定目标，须先对账。并非所有并发改动都能检出。"),
+      h("p", { class: "runtime-warning" }, "仅影响下一次运行。会话与工作目录不会迁移。提交前会复读核对。CLI 没有条件更新，复读和提交之间仍可能被并发写入。读回不一致时会锁定目标，须先对账。并非所有并发改动都能检出。"),
       h("label", { class: "check" }, h("input", { type: "checkbox", checked, disabled: busy, onchange: e => {
         checked = e.target.checked; confirm.disabled = !canConfirm(plan, checked, busy, Date.now(), availabilityChecked);
       } }), "我已核对本次范围和逐项差异"),
@@ -175,8 +177,8 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
   function draw() {
     const hadDialog = !!root.querySelector('[role="dialog"]');
     const children = [
-      h("h2", null, "模型与 Runtime"),
-      h("p", { class: "muted" }, "配置管理 / 单 Agent · 手动切换。批量切换尚未接入。"),
+      ...pageHead(h, [{ href: "#/configure/agents", label: COPY.agent }, { label: COPY.runtime }], COPY.runtime),
+      h("p", { class: "muted" }, "单 Agent · 手动切换。批量切换尚未接入。"),
       h("p", { class: "runtime-warning" }, "写入前预览并确认，写入后读回；结果未知时先对账。回滚需要新的确认。"),
     ];
     if (disabledReason) {
@@ -201,7 +203,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
           h("th", { scope: "row" }, cachedAgent(target)?.name || "未采集 Agent"),
           h("td", null, wsName(target)),
           h("td", { class: "mono" }, cachedAgent(target) ? actionValue(cachedAgent(target).model) : "未采集"),
-          h("td", null, button("调整配置", () => { selected = { workspace_id: target.workspace_id, agent_id: target.agent_id }; operations = {}; result = null; message = ""; draw(); }))))))));
+          h("td", null, button(`调整${COPY.runtime}`, () => { selected = { workspace_id: target.workspace_id, agent_id: target.agent_id }; operations = {}; result = null; message = ""; draw(); }))))))));
       if (catalog.recent_actions?.length) children.push(h("details", null,
         h("summary", null, "最近操作与审计 ID"),
         ...catalog.recent_actions.map(item => h("p", { class: "runtime-actions" },
@@ -222,7 +224,7 @@ export function createRuntimeConfig(h, data, request = fetch, disabledReason = "
           h("td", { class: "mono" }, displayField(key, result.after[key]))))))) : null,
       h("p", null, "实际生效：未知。尚无下一次运行使用模型的证据。"),
       h("p", { class: "muted" }, "审计 ID：", result.id || "回执缺失，按目标对账"),
-      result.audit === "unknown" ? h("p", { class: "runtime-warning" }, "本地审计已保留，Multica 审计评论回执未知，请人工核对，勿盲目重发。") : null,
+      result.audit === "unknown" ? h("p", { class: "runtime-warning" }, "本地审计已保留，审计评论回执未知，请人工核对，勿盲目重发。") : null,
       ["applied", "reconciled_applied"].includes(result.state) ? button("预览回滚", e => { lastFocus = e.currentTarget; void run(() => call("rollback", { id: result.id })); }) : null));
     if (plan) children.push(confirmation());
     root.replaceChildren(...children);

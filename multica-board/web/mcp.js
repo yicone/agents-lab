@@ -1,5 +1,7 @@
 /** MCP page (ACM-378 schema 2): one row per raw server name across local tools,
- * the repo's project-level files, and every Multica workspace. Read-only. */
+ * the repo's project-level files, and workspace libraries. Read-only. */
+
+import { COPY, pageHead, visibleLabel } from "./ia-view.js";
 
 export const PROJECT_SOURCE = "project"; // 伪来源：按 in_project 筛选，重叠于其他三类
 export const REPO_TOOL = "repo";
@@ -10,7 +12,7 @@ const READONLY_WS = "写命令需要 workspace admin/owner；agent 会话里运�
 const READONLY_LOCAL = "改本机文件后，下一次扫描生效。";
 export const FILE_HINT_WS = "文件里有密钥：建议 chmod 600，用完删除，不要放进 git 仓库。";
 export const FILE_HINT_LOCAL = "文件里有密钥：保持 chmod 600，不要放进 git 仓库，共享屏幕时不要打开。";
-const WRITE_ONLY = "配置只写不读：Multica 不向任何人返回库条目的配置，无法判断 env / headers";
+const WRITE_ONLY = "配置只写不读：Workspace 不向任何人返回库条目的配置，无法判断 env / headers";
 const GROUP_NOTE = "同一 server 可能重复出现";
 const GROUP_LIMIT = 8;
 
@@ -92,7 +94,7 @@ export function unknownCount(payload) {
 /** 来源卡：后端 summary 四块 + 前端合成的仓库项目级块（做法同 Skills 的 CLOUD_SOURCE）。 */
 export function sourceBlocks(payload) {
   const items = payload?.items || [];
-  const blocks = (payload?.summary || []).map((b) => ({ ...b }));
+  const blocks = (payload?.summary || []).map((b) => ({ ...b, label: visibleLabel(b.label), detail: visibleLabel(b.detail) }));
   const repoLabel = payload?.repos?.[0]?.label || "";
   const inProject = items.filter((i) => i.in_project);
   const statuses = {};
@@ -203,15 +205,15 @@ export function groupedItems(items, group, tools, payload) {
     const rest = items.filter(
       (i) => !(tools || []).some((t) => isPresent(i.tools?.[t.id])) && !Object.values(i.repo_cells || {}).some(isPresent),
     );
-    if (rest.length) groups.push({ id: "multica_only", label: "仅 Multica", note: "", items: rest.sort(byAttention) });
+    if (rest.length) groups.push({ id: "multica_only", label: "仅 Workspace", note: "", items: rest.sort(byAttention) });
     return groups;
   }
-  const labels = Object.fromEntries((payload?.summary || []).map((b) => [b.id, b.label]));
+  const labels = Object.fromEntries((payload?.summary || []).map((b) => [b.id, visibleLabel(b.label)]));
   const order = [...SOURCE_ORDER];
   const map = new Map();
   for (const item of items) {
     const id = item.source_class || "multica_only";
-    if (!map.has(id)) map.set(id, { id, label: labels[id] || item.source_label || id, note: "", items: [] });
+    if (!map.has(id)) map.set(id, { id, label: labels[id] || visibleLabel(item.source_label) || id, note: "", items: [] });
     map.get(id).items.push(item);
   }
   for (const id of map.keys()) if (!order.includes(id)) order.push(id);
@@ -233,7 +235,7 @@ export function queueModel(payload) {
       connected,
       partial,
       unknownSources: raw.unknown_sources || [],
-      reason: raw.reason || "",
+      reason: visibleLabel(raw.reason) || "",
       items: raw.items || [],
       count,
       countText: !connected ? "—" : `${count}${partial ? " ?" : ""}`,
@@ -399,7 +401,7 @@ function anomalyBanner(h, payload) {
   }
   if (u.own_pending) lines.push(`${u.own_pending} 个 agent 的自有配置指纹尚未就绪`);
   if (u.key && u.key !== "ok") lines.push("指纹密钥不可用，未比对配置是否一致");
-  if (u.multica === "never") lines.push("Multica 从未采集 MCP");
+  if (u.multica === "never") lines.push("Workspace 从未采集 MCP");
   if (!lines.length) return null;
   return h("div", { class: "skills-anomaly", role: "status" }, lines.map((text) => h("div", null, text)));
 }
@@ -408,16 +410,16 @@ function legend(h) {
   return h("div", { class: "skills-legend" },
     h("span", { class: "legend-group" },
       h("strong", null, "本机工具 "),
-      "● 该工具全局配置里有同名条目 · ●停 条目显式停用 · ✕ 条目损坏（有这个条目但不能用：缺 command 和 url、类型无法识别、字段类型不对；对应 Skills 的「入口不在」） · ? 无法确定（文件没读到：无权限、符号链接、非普通文件、解析失败等），这一列不参与判断 · ∅ 不适用（确定只在 Multica） · 空白：已读该文件，没有同名条目，仍可能来自该工具的其他配置层。列头数字是 ● 的个数，? 表示文件没读到。路径证据不代表 runtime 实际加载。"),
+      "● 该工具全局配置里有同名条目 · ●停 条目显式停用 · ✕ 条目损坏（有这个条目但不能用：缺 command 和 url、类型无法识别、字段类型不对；对应 Skills 的「入口不在」） · ? 无法确定（文件没读到：无权限、符号链接、非普通文件、解析失败等），这一列不参与判断 · ∅ 不适用（确定只在 Workspace） · 空白：已读该文件，没有同名条目，仍可能来自该工具的其他配置层。列头数字是 ● 的个数，? 表示文件没读到。路径证据不代表 runtime 实际加载。"),
     h("span", { class: "legend-group" },
       h("strong", null, "仓库入口 "),
       "项目级文件（.mcp.json / .cursor / .codex / .gemini / opencode.json）"),
     h("span", { class: "legend-group" },
-      h("strong", null, "Multica Workspace "),
-      "各 Workspace 的库条目和已启用的 Agent；「自有」是 agent 自有配置里的同名 server。— 表示 Multica MCP 未采集。"),
+      h("strong", null, "Workspace "),
+      "各 Workspace 的库条目和已启用的 Agent；「自有」是 agent 自有配置里的同名 server。— 表示 Workspace MCP 未采集。"),
     h("span", { class: "legend-group" },
       h("strong", null, "一致性 "),
-      "只比较配置指纹（本机密钥加盐哈希），不显示取值、env、header 或 token。Multica 库条目只写不读，标「不可比」。标签后的 ? 表示有来源没读到，结论只覆盖已读的。"));
+      "只比较配置指纹（本机密钥加盐哈希），不显示取值、env、header 或 token。Workspace 库条目只写不读，标「不可比」。标签后的 ? 表示有来源没读到，结论只覆盖已读的。"));
 }
 
 function sourceCard(ctx, block) {
@@ -474,7 +476,7 @@ function cellNode(h, item, tool) {
   if (value === "off") return h("td", { class: "tool-mark off", title }, "●", h("sup", null, "停"));
   if (value === "missing") return h("td", { class: "tool-mark missing", title }, "✕");
   if (value === "unknown") return h("td", { class: "tool-mark unknown", title }, "?");
-  if (value === "not_applicable") return h("td", { class: "tool-mark not-applicable", title: "∅ 不适用：确定只在 Multica" }, "∅");
+  if (value === "not_applicable") return h("td", { class: "tool-mark not-applicable", title: "∅ 不适用：确定只在 Workspace" }, "∅");
   return h("td", { class: "tool-mark none", title });
 }
 
@@ -486,7 +488,7 @@ function repoCellNode(h, item, payload) {
     const value = cells[f.location];
     if (!value) continue;
     if (value === "not_applicable") {
-      parts.push(h("span", { class: "not-applicable", title: "∅ 不适用：确定只在 Multica" }, "∅"));
+      parts.push(h("span", { class: "not-applicable", title: "∅ 不适用：确定只在 Workspace" }, "∅"));
       continue;
     }
     const cls = value === "missing" ? "missing" : value === "unknown" ? "unknown" : "present";
@@ -514,14 +516,14 @@ function cloudCellNode(h, item, payload) {
   const wsEntries = item.workspace_entries || [];
   if (!wsEntries.length) {
     const u = payload?.unknown || {};
-    if (u.multica === "never") return h("span", { class: "muted", title: "Multica MCP 未采集" }, "—");
+    if (u.multica === "never") return h("span", { class: "muted", title: "Workspace MCP 未采集" }, "—");
     const unknownWs = [...(u.library || []), ...(u.bindings || [])];
     if (unknownWs.length) {
       const names = new Map((payload?.workspaces || []).map((w) => [w.id, w.name || w.slug || w.id]));
       return h("div", null, unknownWs.slice(0, 3).map((ws) =>
         h("div", { class: "cloud-ws" }, h("span", { class: "unknown" }, `? ${names.get(ws) || ws} 没读到`))));
     }
-    return h("span", { class: "muted" }, "Multica 未配置");
+    return h("span", { class: "muted" }, "Workspace 未配置");
   }
   const nodes = wsEntries.slice(0, 3).map((w) => {
     if (w.kind === "own") {
@@ -569,7 +571,7 @@ function consistencyTag(h, item) {
     parts.length ? parts.join("、") : null,
     c.pending ? `自有配置待采集 ${c.pending} 个，未参与比对` : null,
     c.partial ? "部分来源未读到或待采集，结论只覆盖已读的" : null,
-    state === "incomparable" ? "Multica 库条目只写不读，不参与比对" : null,
+    state === "incomparable" ? "Workspace 库条目只写不读，不参与比对" : null,
   ].filter(Boolean).join("\n");
   return h("span", { class: `tag ${STATUS_CLASS[state] || "muted"}`, title }, `${text}${c.partial ? " ?" : ""}`);
 }
@@ -615,8 +617,8 @@ function row(ctx, tools, item, payload) {
         ? h("span", { class: "tag muted", title: "名字含被清洗的字符，本次启动后尚未重新采集，暂不合并" }, "原名待确认")
         : null,
       bucketTag(h, item)),
-    h("td", { class: "channel-col", title: `${item.source_label} · ${presenceLine(item)}` },
-      h("div", { class: "cell-ellipsis" }, item.source_label),
+    h("td", { class: "channel-col", title: `${visibleLabel(item.source_label)} · ${presenceLine(item)}` },
+      h("div", { class: "cell-ellipsis" }, visibleLabel(item.source_label)),
       h("div", { class: "muted mono cell-ellipsis" }, presenceLine(item)),
       item.source_uncertain ? h("span", { class: "warn-n", title: "有来源没读到，可能不止这里" }, "待确认") : null),
     h("td", { class: "cloud-cell" }, cloudCellNode(h, item, payload)),
@@ -641,7 +643,7 @@ function table(ctx, tools, groups, payload) {
   const head = h("tr", null,
     h("th", null, "Server"),
     h("th", { class: "channel-col" }, "来源 / 出现位置"),
-    h("th", { title: "Multica Workspace（跨 Workspace）" }, "Multica Workspace"),
+    h("th", { title: "Workspace（跨 Workspace）" }, "Workspace"),
     ...tools.map((tool) =>
       h("th", { class: "tool-col", title: columnTitle(tool) },
         tool.short_label || tool.label,
@@ -748,7 +750,7 @@ function emptyGuide(h, ctx, payload) {
   if (allUnknown) {
     return h("div", { class: "atlas-guide" },
       h("h2", null, "所有来源都没读到"),
-      h("p", null, "本机配置、项目级文件和 Multica 都没读到，无法判断有没有 MCP server。"),
+      h("p", null, "本机配置、项目级文件和 Workspace 都没读到，无法判断有没有 MCP server。"),
       h("p", { class: "muted" }, "修好上面的异常提示后刷新。"));
   }
   if (anyKnown) {
@@ -756,7 +758,7 @@ function emptyGuide(h, ctx, payload) {
       .flatMap((w) => commandsFor("add-server", { workspace_id: w.id }));
     return h("div", { class: "atlas-guide" },
       h("h2", null, "还没有 MCP server"),
-      h("p", null, "本机各工具的全局配置和 agents-lab 项目级文件里都没有 MCP 条目，Multica 库也为空。库条目建好后不会自动给任何 agent，需要逐个分配。"),
+      h("p", null, "本机各工具的全局配置和 agents-lab 项目级文件里都没有 MCP 条目，Workspace 库也为空。库条目建好后不会自动给任何 agent，需要逐个分配。"),
       h("details", null,
         h("summary", null, "新增库条目命令"),
         h("p", { class: "muted" }, `${READONLY_LINE}${READONLY_WS}`),
@@ -769,7 +771,7 @@ function emptyGuide(h, ctx, payload) {
   for (const loc of u.project_files || []) bits.push(`仓库 ${loc}：没读到`);
   for (const ws of u.library || []) bits.push(`${ws}：库没读到`);
   for (const ws of u.bindings || []) bits.push(`${ws}：分配没读到`);
-  if (u.multica !== "collected") bits.push("Multica：从未采集");
+  if (u.multica !== "collected") bits.push("Workspace：从未采集");
   if (u.key && u.key !== "ok") bits.push("指纹密钥：不可用");
   return h("div", { class: "atlas-guide" },
     h("h2", null, "没有读到 MCP server"),
@@ -778,14 +780,18 @@ function emptyGuide(h, ctx, payload) {
     h("p", { class: "muted" }, "修好对应来源后刷新。"));
 }
 
+function capabilityHead(h) {
+  return pageHead(h, [{ label: COPY.capability }, { label: "MCP" }], COPY.capability);
+}
+
 export function renderMcp(ctx) {
   const { h, route } = ctx;
   const payload = ctx.mcp;
   if (!payload || payload.absent) {
-    return [h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
+    return [...capabilityHead(h), h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
   }
   if (payload.ok === false) {
-    return [h("div", { class: "atlas-guide" },
+    return [...capabilityHead(h), h("div", { class: "atlas-guide" },
       h("h2", null, "MCP 数据无效"),
       h("p", null, payload.error?.message || payload.error?.code || payload.error || "读取失败"),
       h("p", { class: "muted" }, "检查 mcp-sources.json 声明是否有效，修好后刷新。"))];
@@ -796,6 +802,7 @@ export function renderMcp(ctx) {
   const blocks = sourceBlocks(payload);
   const noItems = !(payload.items || []).length;
   return [
+    ...capabilityHead(h),
     h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
     h("div", { class: "toolbar" },
       select(h, "来源", route.source, [["", "全部来源"], ...blocks.filter((b) => b.id !== "all").map((b) => [b.id, b.label])], (v) => ctx.setRoute({ source: v })),
@@ -837,12 +844,12 @@ function drawerSourceScope(h, item) {
     (item.tags || []).includes("name_unverified")
       ? h("p", { class: "muted" }, "名字含被清洗的字符，本次启动后尚未重新采集，暂不合并")
       : null,
-    line(h, "来源", item.source_label),
+    line(h, "来源", visibleLabel(item.source_label)),
     item.source_uncertain ? h("p", { class: "muted" }, "有来源没读到，可能不止这里") : null,
     line(h, "传输", (item.transports || []).join(" / ") || "unknown"),
     line(h, "本机工具", String((item.entries || []).filter((e) => e.scope === "global").length)),
     line(h, "仓库项目级", String((item.entries || []).filter((e) => e.scope === "project").length)),
-    line(h, "Multica", `库条目 ${item.presence?.library || 0} · 自有 ${item.presence?.own || 0}`),
+    line(h, "Workspace", `库条目 ${item.presence?.library || 0} · 自有 ${item.presence?.own || 0}`),
   ];
   return section(h, "来源与范围", nodes);
 }
@@ -864,7 +871,7 @@ function drawerConsistency(h, item) {
   if (c.partial) {
     nodes.push(h("p", { class: "muted" }, "有来源没读到或待采集，结论只覆盖已读的"));
   }
-  nodes.push(h("p", { class: "muted" }, "Multica 库条目只写不读，不参与比对。停用、超时、工具白名单等字段不参与比对。"));
+  nodes.push(h("p", { class: "muted" }, "Workspace 库条目只写不读，不参与比对。停用、超时、工具白名单等字段不参与比对。"));
   return section(h, "一致性", nodes);
 }
 
@@ -923,7 +930,7 @@ function drawerFiles(h, item, payload, scope, title) {
   return section(h, title, nodes);
 }
 
-function drawerMultica(h, ctx, item) {
+function drawerWorkspace(h, ctx, item) {
   const nodes = [h("p", { class: "muted" }, `${READONLY_LINE}${READONLY_WS}`)];
   const byWs = new Map();
   for (const w of item.workspace_entries || []) {
@@ -931,7 +938,7 @@ function drawerMultica(h, ctx, item) {
     byWs.get(w.workspace_id).push(w);
   }
   if (!byWs.size) {
-    nodes.push(h("p", { class: "muted" }, "Multica 没有同名条目。"));
+    nodes.push(h("p", { class: "muted" }, "Workspace 没有同名条目。"));
   }
   for (const [wsId, entries] of byWs) {
     const wsName = entries[0]?.workspace_name || wsId;
@@ -991,7 +998,7 @@ function drawerMultica(h, ctx, item) {
     }
     nodes.push(h("div", { class: "cloud-install" }, block));
   }
-  return section(h, "Multica Workspace（跨 Workspace）", nodes);
+  return section(h, "Workspace（跨 Workspace）", nodes);
 }
 
 function drawerTerminal(h, ctx, item, payload) {
@@ -1024,12 +1031,12 @@ export function renderMcpDrawer(ctx, item) {
         h("span", { class: "mono" }, item.display_name),
         (item.transports || []).map((t) => h("span", { class: "tag" }, t))),
       close),
-    h("h2", { class: "drawer-title" }, item.source_label),
+    h("h2", { class: "drawer-title" }, visibleLabel(item.source_label)),
     drawerSourceScope(h, item),
     drawerConsistency(h, item),
     drawerFiles(h, item, ctx.mcp, "global", "本机工具配置"),
     drawerFiles(h, item, ctx.mcp, "project", "仓库项目级"),
-    drawerMultica(h, ctx, item),
+    drawerWorkspace(h, ctx, item),
     drawerTerminal(h, ctx, item, ctx.mcp),
   ].filter(Boolean);
 }

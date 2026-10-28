@@ -125,7 +125,7 @@ test("drawer: six sections in order, readonly line only in command areas", () =>
   const item = mcpFx.items.find((i) => i.display_name === "github");
   const nodes = renderMcpDrawer(ctx(), item);
   const subs = findAll(nodes, (n) => n.tag === "h3").map((n) => flatText(n));
-  assert.deepEqual(subs, ["来源与范围", "一致性", "本机工具配置", "仓库项目级", "Multica Workspace（跨 Workspace）", "在终端处理"]);
+  assert.deepEqual(subs, ["来源与范围", "一致性", "本机工具配置", "仓库项目级", "Workspace（跨 Workspace）", "在终端处理"]);
   const text = flatText(nodes);
   const needle = "页面只读，不代为执行。复制命令后在自己的终端运行。";
   assert.equal(text.split(needle).length - 1, 2, "once per command area (Multica + terminal)");
@@ -202,7 +202,7 @@ test("source cards keep partial counts and backend uncertain rows, including a k
   assert.equal(cardCount(local), "1");
   assert.match(flatText(local), /含 1 行待确认/);
   assert.equal(findAll(local, (n) => flatText(n) === "含 1 行待确认").at(-1).attrs.class, "muted");
-  assert.equal(cardCount(cardOf(partialFx, "仅 Multica")), "0");
+  assert.equal(cardCount(cardOf(partialFx, "仅 Workspace")), "0");
   // Opposite-side failures alone must not replace a confirmed zero.
   const zero = structuredClone(partialFx);
   zero.summary.find((b) => b.id === "local_only").count = 0;
@@ -210,8 +210,8 @@ test("source cards keep partial counts and backend uncertain rows, including a k
   assert.equal(cardCount(cardOf(zero, "仅本机")), "0");
   const remote = structuredClone(partialFx);
   Object.assign(remote.summary.find((b) => b.id === "multica_only"), { count: 3, uncertain: 2 });
-  assert.equal(cardCount(cardOf(remote, "仅 Multica")), "3");
-  assert.match(flatText(cardOf(remote, "仅 Multica")), /含 2 行待确认/);
+  assert.equal(cardCount(cardOf(remote, "仅 Workspace")), "3");
+  assert.match(flatText(cardOf(remote, "仅 Workspace")), /含 2 行待确认/);
 });
 
 test("project partial reads preserve discovered counts and show uncertainty", () => {

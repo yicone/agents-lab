@@ -77,7 +77,7 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   const tree = renderEvidence({ h: vnode, route: { source: "", q: "" }, evidence: payload, setRoute() {} });
   const rendered = walk(tree);
   const byLabel = Object.fromEntries(rendered.map((card) => [textOf(card.children[0]), textOf(card.children[1])]));
-  assert.equal(byLabel["Multica Workspace"], "—");
+  assert.equal(byLabel["Workspace"], "—");
   assert.equal(byLabel["Grok CLI"], "—");
   assert.equal(byLabel["Memory"], "—");
   assert.equal(byLabel["本机"], "2");

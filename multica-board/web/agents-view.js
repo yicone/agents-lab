@@ -133,7 +133,7 @@ export function skillsCell(h, agent, provider) {
 export function kindSwitch(h, { route, planMode, onKind }) {
   const current = planMode ? "plan" : route?.kind === "bots" ? "bots" : "agents";
   const items = [
-    ["agents", "Multica Agents"],
+    ["agents", "Agents"],
     ["bots", "Grok Bots"],
     ["plan", "规划切换…"],
   ];
@@ -383,7 +383,7 @@ export function renderAgentDrawer(h, ctx, drawer) {
       close,
     ),
     h("h2", { class: "drawer-title" }, agent.name),
-    agent.url ? ctx.extLink(agent.url, { class: "drawer-link" }, "在 Multica 打开 ↗") : null,
+    agent.url ? ctx.extLink(agent.url, { class: "drawer-link" }, "打开来源 ↗") : null,
     h("p", { class: "muted" }, runtimeIcon(h, ctx.provider), ctx.provider ? `runtime ${ctx.provider}` : "未绑定 runtime"),
     tabs,
     body,

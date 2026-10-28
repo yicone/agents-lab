@@ -1,4 +1,4 @@
-import { agentColumns, recentRuns, timeUTC8, agentFocusControl } from "./ia-view.js";
+import { agentColumns, recentRuns, timeUTC8, agentFocusControl, COPY, pageHead, visibleLabel } from "./ia-view.js";
 import { createRuntimeConfig } from "./runtime-config.js";
 import { runtimeIcon } from "./runtime-mark.js";
 import { QUEUED_RUN, classifyIssue, attentionSummary, scopedAttentionSummary } from "./attention.js";
@@ -55,7 +55,7 @@ const ERROR_KIND_LABEL = {
 };
 
 const COLLECTOR_HINT = {
-  auth: "CLI 认证失败。在你自己的终端确认 multica 已登录，且 --profile 指向正确的 profile。",
+  auth: "CLI 认证失败。在你自己的终端确认已登录，且 --profile 指向要用的那一份登录配置。",
   process: "CLI 无法运行。确认 multica 已安装，或用 --multica-bin 指定路径。",
   network: "网络不通。检查网络或代理后，后端会在下一轮自动重试。",
   timeout: "CLI 调用超时。检查网络；也可以调大 --timeout。",
@@ -63,6 +63,11 @@ const COLLECTOR_HINT = {
   quota: "额度不足，后端会在下一轮自动重试。",
 };
 const COLLECTOR_HINT_DEFAULT = "查看运行后端的终端输出（加 -v 更详细）。";
+
+function publicError(message) {
+  if (typeof message !== "string") return message;
+  return message.replace(/--profile\b/g, "\0").replace(/\bprofile\b/gi, "登录配置").replaceAll("\0", "--profile");
+}
 
 const STATUS_LABEL = {
   backlog: "Backlog",
@@ -642,7 +647,7 @@ function mcpSnapshot() {
   const scan = payload.generated_at;
   const coll = payload.multica_collected_at;
   const text = `MCP 快照 ${ago(coll) || "—"} · 本机扫描 ${ago(scan) || "—"}`;
-  const title = `Multica ${absTime(coll) || "从未"} · 本机扫描 ${absTime(scan) || "从未"}`;
+  const title = `Workspace ${absTime(coll) || "从未"} · 本机扫描 ${absTime(scan) || "从未"}`;
   if (payload.ok === false) return { level: "warn", text: `MCP 读取失败 · ${text}`, title: payload.error?.message || payload.error || "" };
   return { level: "ok", text, title };
 }
@@ -668,7 +673,7 @@ function mcpSources() {
       "span",
       { class: `src-chip state-${source.state}`, title: source.detail || (source.state === "invalid" ? "数据无效：来源内容未通过校验，请检查来源配置或重新采集。" : source.state) },
       h("span", { class: "dot" }),
-      source.label,
+      visibleLabel(source.label),
       source.detail ? h("span", { class: "chip-detail" }, source.detail) : null,
     ),
   );
@@ -682,7 +687,7 @@ function evidenceSourceChips() {
       "span",
       { class: `src-chip state-${sourceChipState(source)}`, title: source.reason || "" },
       h("span", { class: "dot" }),
-      source.label,
+      visibleLabel(source.label),
       source.reason ? h("span", { class: "chip-detail" }, reasonText(source.reason)) : null,
     ),
   );
@@ -696,7 +701,7 @@ function skillSources() {
       "span",
       { class: `src-chip state-${source.state}`, title: source.detail || "" },
       h("span", { class: "dot" }),
-      source.label,
+      visibleLabel(source.label),
       source.detail ? h("span", { class: "chip-detail" }, source.detail) : null,
     ),
   );
@@ -843,7 +848,7 @@ function renderChrome() {
     banner.replaceChildren(
       ...[
         h("div", { class: "banner-title" }, `全局 · ${b.title}`),
-        b.message ? h("code", { class: "banner-msg" }, b.message) : null,
+        b.message ? h("code", { class: "banner-msg" }, publicError(b.message)) : null,
         h("div", { class: "banner-hint" }, b.hint),
         h("div", { class: "banner-facts" }, b.facts.filter(Boolean).join(" · ")),
       ].filter(Boolean),
@@ -892,7 +897,7 @@ function renderSubnav() {
   const group = navGroup(state.route);
   const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
     : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/metrics", "运行指标"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
-    : group === "configure" ? [["#/configure/agents", "Agent 配置"], ["#/configure/skills", "Skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/runtime", "模型与 Runtime"]] : [];
+    : group === "configure" ? [["#/configure/agents", COPY.agent], ["#/configure/skills", `${COPY.capability} · skills`, "skills-badge"], ["#/configure/mcp", `${COPY.capability} · MCP`, "mcp-badge"], ["#/configure/runtime", COPY.runtime]] : [];
   const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
   const el = document.getElementById("subnav");
   el.hidden = !links.length;
@@ -1656,10 +1661,10 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     dimCell(a.model),
     dimCell(a.thinking_level),
     dimCell(a.service_tier),
-    h("td", null, gitAgent(a) ? `Multica · 仓库对照：${gitAgent(a).name || "已登记"}` : a.instructions ? "Multica agent instructions" : "无 instructions", a.instructions ? ` · ${[...a.instructions].length} 字` : ""),
+    h("td", null, gitAgent(a) ? `仓库对照：${gitAgent(a).name || "已登记"}` : a.instructions ? "已有指令" : "无指令", a.instructions ? ` · ${[...a.instructions].length} 字` : ""),
     h("td", { class: "skill-bindings" }, skillRecords(a).length ? skillRecords(a).map(skill => h("div", { class: skill.enabled === false ? "muted" : "" }, skill.name || skill.id, skill.enabled === false ? "（停用）" : "")) : "无已知绑定"),
     h("td", null, a.mcp_bindings == null ? "绑定未知" : a.mcp_bindings.map(b => `${b.name || b.server_id}${b.enabled === false ? "（停用）" : ""}`).join("、") || "无库绑定", ({ managed: " · 有自有配置", hidden: " · 自有配置已隐藏", invalid: " · 自有配置无效", unknown: " · 自有配置未知" })[a.mcp_own_state || "unknown"] || ""),
-    h("td", null, h("a", { href: "#/configure/runtime" }, "调整配置 →")),
+    h("td", null, h("a", { href: "#/configure/runtime" }, `${COPY.runtime} →`)),
     ] : [statusCell,
     h("td", null, a.current_tasks == null ? "未知" : a.current_tasks.length ? a.current_tasks.map(t => h("div", null, `${t.identifier || "未知任务"} · ${t.title || ""}`)) : "无运行或排队任务"),
     h(
@@ -1673,7 +1678,7 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     failCell,
     h("td", null, a.latest_run ? `${absTime(a.latest_run.created_at)} UTC+8 · ${RUN_STATUS_LABEL[a.latest_run.status] || a.latest_run.status} · ${a.latest_run.identifier || ""}` : "未知"),
     ]),
-    h("td", null, h("a", { href: formatHash({ ...state.route, view: "agents", section: state.route.section === "configure" ? "" : "configure", q: "", sel: a.id, planMode: false }) }, state.route.section === "configure" ? "查看运行监控 →" : "查看配置 →")),
+    h("td", null, h("a", { href: formatHash({ ...state.route, view: "agents", section: state.route.section === "configure" ? "" : "configure", q: "", sel: a.id, planMode: false }) }, state.route.section === "configure" ? "查看运行监控 →" : `查看 ${COPY.agent} →`)),
   );
 }
 
@@ -1691,7 +1696,7 @@ function renderAgents() {
   const planMode = r.planMode && !r.planPage && r.kind !== "bots";
   const switcher = h("div", { class: "toolbar" },
     kindSwitch(h, { route: r, planMode, onKind: onAgentKind }),
-    h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行监控与配置视图" }, r.section === "configure" ? "查看运行监控 →" : "查看 Agent 配置 →"));
+    h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行监控与配置视图" }, r.section === "configure" ? "查看运行监控 →" : `查看 ${COPY.agent} →`));
   if (r.kind === "bots" && !r.planPage) {
     return renderBotPage(h, {
       route: r,
@@ -1843,7 +1848,7 @@ function renderAgents() {
   const inventoryNote = inventory.length ? h("p", { class: "muted" },
     "用户补采 · user-cli:desktop-api.multica.ai · ",
     inventory.map(([, entry]) => `${entry.slug}: ${entry.status === "ok" ? "成功" : "失败（使用常规缓存）"} · ${entry.collected_at || "未知时间"}`).join("； ")) : null;
-  if (!planMode) return [h("h2", null, r.section === "configure" ? "Agent 配置" : "Agent 状态"), strip, inventoryNote, toolbar, table];
+  if (!planMode) return [...(r.section === "configure" ? pageHead(h, [{ label: COPY.agent }], COPY.agent) : [h("h2", null, "Agent 状态")]), strip, inventoryNote, toolbar, table];
   const selected = selectedAgentRecords();
   const outside = outsideCount(parseSel(r.sel), rows.map((row) => row.a.id));
   const bar = h(
