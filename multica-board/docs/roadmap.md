@@ -127,21 +127,32 @@
 
 ## Agent 配置与能力页
 
-信息架构；口径均为用户 10-27 前后已拍板。依据：ACM-607（术语与 IA）、ACM-613（skill 正文只读来源）、ACM-496（IA 评审）。
+信息架构；口径均为用户 10-27 前后已拍板，能力页与 Memory 的口径按用户 10-28 改判。依据：ACM-607（术语与 IA）、ACM-613（skill 正文只读来源）、ACM-496（IA 评审）、ACM-576 / ACM-577（Memory 来源调研）。
+
+里程碑：**Agent 配置与能力页 v1（只读 IA 落地）**——按本节「现在」的口径落地只读信息架构，不含写入。前提：hooks 数据来源待核实（另有调研单）。
+- 执行单：术语 [ACM-660]；运行配置字段组 [ACM-661]；能力页三类并列与来源筛选 [ACM-662]；Memory 标签页 [ACM-663]（数据来源核实后才做）；能力三态 [ACM-664]。
+- 验收标准：
+  1. 全站不再出现「跑法」；跨工具术语只出现在 Agent 配置页和能力页；顶栏不变。
+  2. 运行配置字段组与职责块分区显示。
+  3. 能力页 skills、MCP、hooks 三类并列，不含 Memory。
+  4. Declared / Reachable / Observed 三态均有真实条目，或明确显示 missing。
+  5. 全程只读，不显示 env、header、token。
+  6. 每个 PR 带 CHANGELOG 条目；「已上线」以部署 SHA 为证。
+  7. 与 Skills 同宽截图对照（1440px、1100px），另附深色与 390px 截图，并补键盘操作。
 
 ### 现在
 - **主对象是「Agent 配置」**：职责块（指令、技能、MCP 等）与「运行配置」字段组分开显示；「跑法」不是独立对象，只是 Agent 配置上与职责块分开的运行配置（模型、推理、Runtime 等）。
-- **能力页**：skills、MCP、hooks、memory 四类并列为同级条目；来源（本机、仓库、workspace、agent）是过滤项，不是分类。
+- **能力页**：skills、MCP、hooks 三类并列为同级条目；来源（本机、仓库、workspace、agent）是过滤项，不是分类。Memory 不再是能力页同级条目（用户 10-28 改判，取代 10-27 的四类并列）。
 - **能力三态**：Declared（声明了）、Reachable（路径或连接可达）、Observed（运行中被观察到）；缺失显示 missing / unknown，不推断。
-- **Memory 先只显示元数据**（名称、来源、更新时间），不显示正文，以后再决定是否放开。
+- **Memory 归入 Agent 配置抽屉的 Memory 标签页**：先只显示元数据（名称、来源、更新时间），不显示正文，以后再决定是否放开。数据来源待确认：据 ACM-576 / ACM-577，截至 2026-10-28，Atlas 目前看不到任何 bot 的 Memory，Grok Bot 也没有本机可读的 memory 文件。
 - **只读且不显示秘密值**：env、header、token 一律不显示。
 
 ### 下一步
-- **607 拆单**：按上述口径拆成执行单，每张先有一步很短的设计验收清单，再交实现，实现方跑清单并贴截图。[ACM-607]
-- **能力证据清单**：skills、MCP、hooks、memory 的只读证据按同一口径展示，与配置管理子视图对接。[ACM-613]
+- **607 拆单**：ACM-607 已完成，已拆成 [ACM-660] 到 [ACM-664]，见上方里程碑「Agent 配置与能力页 v1（只读 IA 落地）」；每张执行单先有一步很短的设计验收清单，再交实现，实现方跑清单并贴截图。[ACM-607]
+- **能力证据清单**：skills、MCP、hooks 三类的只读证据按同一口径展示，与配置管理子视图对接；Memory 不在其中，只在 Agent 配置抽屉的 Memory 标签页显示元数据，不是能力页同级条目。[ACM-613]
 
 ### 以后
-- hooks 与 memory 的写入、跨 harness 统一管理，归「跨板块」的统一写入安全设计，本板块只管只读。
+- hooks 与抽屉里的 Memory 标签页的写入、跨 harness 统一管理，归「跨板块」的统一写入安全设计，本板块只管只读。
 
 ### 不做
 - 不把 Multica 的产品命名带进 Atlas 界面术语；跨工具通用词汇只落在 Agent 配置页和能力页，不扩散到别的页；不改顶栏。
@@ -156,7 +167,7 @@
 
 ### 以后
 - **跨 harness 统一管理**（远期方向；来源 [ACM-415](mention://issue/01a16ab2-bc7d-7628-9ae5-b404a91f2974)、[ACM-420](mention://issue/01a16ae1-92e6-7f41-81d4-3760e5a18ba4)，后续执行单未开）：覆盖定时任务（Multica Autopilot、Codex Automation、launchd 等）、Hooks、Plugin、MCP 和 memory，按以下里程碑推进；现有盘点是研究来源，不是写入授权。
-  - **只读 inventory**（其中 hooks 与 memory 已并入「Agent 配置与能力页」作为与 skills、MCP 同级的条目，memory 先只显示元数据；本条只保留定时任务、Plugin 与其余配置）：先汇总各 harness 的配置与只读 CLI 证据，按对象身份、配置路径和 manifest 去重，分别记录存在、启用、加载与运行；保留触发、last_run、数据源、observed_at 和 confidence，未核实的注入点与瞬时值不提升为确定事实。memory 先索引私有库，不自动合并或写入；配置只记录必要元数据，不读取或展示凭证值。
+  - **只读 inventory**（其中 hooks 已并入「Agent 配置与能力页」作为与 skills、MCP 同级的条目；memory 改为 Agent 配置抽屉里的 Memory 标签页，先只显示元数据，数据来源待确认；本条只保留定时任务、Plugin 与其余配置）：先汇总各 harness 的配置与只读 CLI 证据，按对象身份、配置路径和 manifest 去重，分别记录存在、启用、加载与运行；保留触发、last_run、数据源、observed_at 和 confidence，未核实的注入点与瞬时值不提升为确定事实。memory 先索引私有库，不自动合并或写入；配置只记录必要元数据，不读取或展示凭证值。
   - **告警与冲突检测**：再做快照差异、目标缺失、日志陈旧、重复 Stop hook、跨调度器职责重叠与多份 MCP 配置检测；先读停用登记，排除已登记的有意停用，paused 或未加载本身不等于故障。`one.yic.multica-dispatch-sidecar` 按 ACM-354 有意停用，不能作为异常或首个告警样例；Hermes heartbeat 的 POC plist 残留另行登记，不直接恢复。
   - **受控写操作评估**：最后才评估人工确认的 pause / resume，launchd 启停、hook / MCP 配置改写继续后置；依赖统一写入安全设计、独立授权、逐条确认、回读、回滚与审计，不因盘点或告警自动修复。具体数据源、字段和权限边界须经执行单设计确认。
 - **统一写入安全设计**（未开单；用户在聊天中确认，已记录 ACM-383）：MCP v2、instructions / skills 同步、runtime 批量切换执行、Skills 升级审批、创建 / 复制 / 修改 agent 共用一份安全设计。所有动作单独授权、逐条确认、留审计；环境变量只能写入、只显示名字，从不显示值。

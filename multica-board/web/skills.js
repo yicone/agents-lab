@@ -1,4 +1,5 @@
 import { COPY, pageHead, visibleLabel } from "./ia-view.js";
+import { TRI_LEGEND, renderTriState, skillTriState } from "./capability-state.js";
 import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
@@ -345,6 +346,7 @@ function legend(h) {
   return h(
     "div",
     { class: "skills-legend" },
+    h("span", { class: "legend-group" }, h("strong", null, "能力三态 "), TRI_LEGEND),
     h(
       "span",
       { class: "legend-group" },
@@ -414,6 +416,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     "tr",
     null,
     h("th", null, "Skill"),
+    h("th", { class: "tri-col", title: TRI_LEGEND }, "三态"),
     h("th", { class: "channel-col" }, "来源 / 更新通道"),
     h("th", { title: "Workspace（跨 Workspace）" }, "Workspace"),
     h("th", null, "共享入口"),
@@ -433,7 +436,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
       h(
         "tr",
         { class: "skill-group" },
-        h("th", { colspan: String(8 + tools.length) }, group.label, h("span", { class: "muted" }, ` · ${group.items.length}`), group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null),
+        h("th", { colspan: String(9 + tools.length) }, group.label, h("span", { class: "muted" }, ` · ${group.items.length}`), group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null),
       ),
     );
     for (const item of shown) body.push(row(ctx, harness, projectTool, item, payload));
@@ -444,7 +447,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
           { class: "skill-more" },
           h(
             "td",
-            { colspan: String(8 + tools.length) },
+            { colspan: String(9 + tools.length) },
             h("button", { type: "button", class: "text-btn", onclick: () => ctx.toggleSkillGroup(group.id) }, `显示其余 ${rest} 条`),
           ),
         ),
@@ -459,7 +462,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
         : ctx.route.source === CLOUD_SOURCE
           ? "没有已安装到 Workspace 的 skill"
           : "没有符合筛选的 skill";
-    body.push(h("tr", null, h("td", { class: "empty", colspan: String(8 + tools.length) }, emptyText)));
+    body.push(h("tr", null, h("td", { class: "empty", colspan: String(9 + tools.length) }, emptyText)));
   }
   return h("div", { class: "table-wrap sticky-head" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
 }
@@ -481,6 +484,7 @@ function row(ctx, harness, projectTool, item, payload) {
       },
     },
     h("td", null, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
+    h("td", { class: "tri-col" }, renderTriState(h, skillTriState(item))),
     h("td", { class: "channel-col", title: [visibleLabel(item.channel_label), item.channel_detail, item.evidence_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, visibleLabel(item.channel_label)), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
     h("td", { class: "cloud-cell" }, cloudCell(h, item)),
     h("td", { class: "shared-entry", title: sharedTitle }, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
@@ -868,6 +872,7 @@ export function renderSkillDrawer(ctx, item) {
   if (isGrokBot(item)) return [
     h("header", { class: "drawer-head" }, h("span", { class: "mono" }, item.name), close),
     h("h2", { class: "drawer-title" }, visibleLabel(item.source_label) || "Grok Bot"),
+    section(h, "能力三态", [renderTriState(h, skillTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     section(h, "证据范围", [h("p", null, item.evidence_detail), line(h, "只读来源", item.manifest_path), item.export ? line(h, "导出时间", item.export.exported_at) : null, h("p", { class: "muted" }, item.export ? "只读导出样本；后续由 Steward 重新导出覆盖，不调用 Grok Bot API。" : "仅展示 Git 清单中的名称声明；不调用 Grok 接口，不表示所有 Bot 均已实测。")]),
     section(h, "使用此技能的 Bot", (item.grok_bots || []).map(bot => h("p", { title: bot.evidence_label }, h("strong", null, bot.name), " · ", h("span", { class: bot.evidence_state === "observed" ? "info" : "muted" }, bot.evidence_label)))),
     section(h, "Skill 正文", item.export ? exportContentSection(h, ctx, item) : [h("p", { class: "muted" }, "正文不可用：名称清单未提供导出正文；Cursor 官方内置 skill 正文无法导出。")]),
@@ -878,6 +883,7 @@ export function renderSkillDrawer(ctx, item) {
   return [
     h("header", { class: "drawer-head" }, h("div", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null), close),
     h("h2", { class: "drawer-title" }, visibleLabel(item.channel_label) || "Skill"),
+    section(h, "能力三态", [renderTriState(h, skillTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     section(h, "来源与权责", [
       line(h, "来源", visibleLabel(item.source_label)),
       line(h, "归属", item.ownership),

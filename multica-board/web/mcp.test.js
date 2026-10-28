@@ -121,11 +121,13 @@ test("empty/absent/invalid pages", () => {
   assert.ok(inv.includes("MCP 数据无效"));
 });
 
-test("drawer: six sections in order, readonly line only in command areas", () => {
+test("drawer: tri-state then the existing sections, readonly line only in command areas", () => {
   const item = mcpFx.items.find((i) => i.display_name === "github");
   const nodes = renderMcpDrawer(ctx(), item);
   const subs = findAll(nodes, (n) => n.tag === "h3").map((n) => flatText(n));
-  assert.deepEqual(subs, ["来源与范围", "一致性", "本机工具配置", "仓库项目级", "Workspace（跨 Workspace）", "在终端处理"]);
+  assert.deepEqual(subs, ["能力三态", "来源与范围", "一致性", "本机工具配置", "仓库项目级", "Workspace（跨 Workspace）", "在终端处理"]);
+  assert.match(flatText(nodes), /声明了/);
+  assert.match(flatText(nodes), /未知/);
   const text = flatText(nodes);
   const needle = "页面只读，不代为执行。复制命令后在自己的终端运行。";
   assert.equal(text.split(needle).length - 1, 2, "once per command area (Multica + terminal)");
