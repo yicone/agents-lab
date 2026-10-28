@@ -131,7 +131,7 @@
 
 ### 现在
 - **主对象是「Agent 配置」**：职责块（指令、技能、MCP 等）与「运行配置」字段组分开显示；「跑法」不是独立对象，只是 Agent 配置上与职责块分开的运行配置（模型、推理、Runtime 等）。
-- **能力页**：skills、MCP、hooks、memory 四类并列为同级条目；来源（本机、仓库、workspace、agent）是过滤项，不是分类。
+- **能力页**：skills、MCP、hooks 三类并列为同级条目；来源是筛选项，不是顶层分区。Memory 不在能力页（2026-10-28 改判，见 ACM-663）。hooks 来源只有 Cursor、Codex 用户 hooks、Grok CLI、Hermes 插件事件。
 - **能力三态**：Declared（声明了）、Reachable（路径或连接可达）、Observed（运行中被观察到）；缺失显示 missing / unknown，不推断。
 - **Memory 先只显示元数据**（名称、来源、更新时间），不显示正文，以后再决定是否放开。
 - **只读且不显示秘密值**：env、header、token 一律不显示。

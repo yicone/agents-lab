@@ -1,6 +1,7 @@
 import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
+import { capabilitySwitch } from "./capability.js";
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
 
 /** 伪来源 id：选中时按「已安装到 Multica Workspace」筛选，不是 source_class。 */
@@ -261,12 +262,18 @@ function relTime(iso, ago) {
   return ago ? ago(iso) : iso;
 }
 
+function capabilityKinds(ctx) {
+  return capabilitySwitch(ctx.h, "skills", (view) => ctx.setRoute({ view, source: "", section: "configure" }));
+}
+
 export function renderSkills(ctx) {
   const { h, route } = ctx;
   const payload = ctx.skills;
-  if (!payload) return [h("div", { class: "empty big" }, "正在读取 Skills 清单…")];
+  const kinds = capabilityKinds(ctx);
+  if (!payload) return [kinds, h("div", { class: "empty big" }, "正在读取 Skills 清单…")];
   if (payload.ok === false) {
     return [
+      kinds,
       h(
         "section",
         { class: "atlas-guide" },
@@ -284,6 +291,7 @@ export function renderSkills(ctx) {
   const blocks = sourceBlocks(payload);
   const visible = new Map(tools.map((tool) => [tool.id, (payload.items || []).filter((item) => item.tools?.[tool.id] === "direct" || item.tools?.[tool.id] === "shared").length]));
   return [
+    kinds,
     h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
     h(
       "div",
@@ -300,7 +308,7 @@ export function renderSkills(ctx) {
       ),
       h("button", { type: "button", class: "text-btn", onclick: () => ctx.setRoute({ evidence: true, source: "" }) }, "证据清单"),
     ),
-    anomalyBanner(h, payload),
+    anomalyBanner(h, payload, route),
     legend(h),
     h(
       "div",
@@ -311,12 +319,13 @@ export function renderSkills(ctx) {
   ].filter(Boolean);
 }
 
-function anomalyBanner(h, payload) {
-  const items = payload?.items || [];
-  const summary = sharedSummary(payload);
+function anomalyBanner(h, payload, route) {
+  const scoped = route?.source ? { ...payload, items: filteredItems(payload, route) } : payload;
+  const items = scoped?.items || [];
+  const summary = sharedSummary(scoped);
   const parts = ANOMALY_STATES.filter(([state]) => summary[state]).map(([state, label]) => `${label} ${summary[state]}`);
   if (summary.unscanned) parts.push(`未扫描 ${summary.unscanned}（≠ 无入口）`);
-  const rootLine = ROOT_BANNER_LINE[payload?.shared_root?.state] || null;
+  const rootLine = route?.source ? null : ROOT_BANNER_LINE[payload?.shared_root?.state] || null;
   const lines = [];
   if (rootLine) lines.push(rootLine);
   if (summary.legacy) lines.push("后端数据版本较旧，共享入口与仓库入口未检查");

@@ -21,6 +21,7 @@ import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey, skillKey, skillRowId } from "./skills.js";
 import { EVIDENCE_SCOPE, reasonText, renderEvidence, sourceChipState } from "./evidence.js";
 import { badgeOf as mcpBadgeOf, badgeTitle as mcpBadgeTitle, badgeTone as mcpBadgeTone, copyWithFallback, mcpRowId, renderMcp, renderMcpDrawer } from "./mcp.js";
+import { renderHooks } from "./hooks.js";
 import { setMcpTools } from "./route.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
@@ -115,6 +116,7 @@ const state = {
   evidence: null,
   evidenceLoading: false,
   mcp: null,
+  hooks: null,
   usage: null,
   runMetrics: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
@@ -280,6 +282,14 @@ async function ensureEvidence() {
   if (state.route.evidence) render();
 }
 
+async function loadHooks() {
+  try {
+    return await getJSON("hooks");
+  } catch (err) {
+    return { ok: false, error: { message: String(err.message || err) }, sources: [], items: [] };
+  }
+}
+
 async function loadMcp() {
   try {
     if (MOCK && MOCK_SCENARIO === "mcp-absent") return { ok: false, absent: true };
@@ -352,11 +362,13 @@ async function refresh(force = false) {
     const previousUsage = usageRefreshKey(state.usage);
     const previousMetrics = runMetricsRefreshKey(state.runMetrics);
     const previousMcp = mcpRefreshKey(state.mcp);
+    const previousHooks = JSON.stringify(state.hooks || null);
     const previousAgents = JSON.stringify([state.agents, state.ownerInventory]);
     const agentsPromise = getJSON("agents");
     // Skills, the Grok roster, and the usage snapshot live beside the Multica issue snapshot, so they reload even when that snapshot is unchanged.
     const skillsPromise = loadSkills();
     const mcpPromise = loadMcp();
+    const hooksPromise = loadHooks();
     const botsPromise = loadBots();
     const sourcesPromise = loadInstructionSources();
     const usagePromise = loadUsage();
@@ -406,6 +418,7 @@ async function refresh(force = false) {
       setMcpTools(state.mcp.tools);
       if (state.route.view === "mcp") state.route.tool = parseHash(location.hash).tool;
     }
+    state.hooks = await hooksPromise;
     const agentSnapshot = await agentsPromise;
     state.agents = agentSnapshot.items ?? [];
     state.ownerInventory = agentSnapshot.owner_inventory ?? {};
@@ -417,10 +430,11 @@ async function refresh(force = false) {
     const usageChanged = usageRefreshKey(state.usage) !== previousUsage;
     const metricsChanged = runMetricsRefreshKey(state.runMetrics) !== previousMetrics;
     const mcpChanged = mcpRefreshKey(state.mcp) !== previousMcp;
+    const hooksChanged = JSON.stringify(state.hooks || null) !== previousHooks;
     state.meta = meta;
     state.fetchError = null;
     if (state.route.evidence && skillsChanged) invalidateEvidence();
-    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged || metricsChanged || mcpChanged) render();
+    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged || metricsChanged || mcpChanged || hooksChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -824,6 +838,15 @@ function renderChrome() {
     skillsBadge.textContent = unknown ? "?" : total ? String(total) : "";
     skillsBadge.title = unknown ? "Skills 数据未知，尚未读取或读取失败" : total ? `Skills 待处理 ${total} 条，基线债不计入` : "";
   }
+  const hooksBadge = document.getElementById("hooks-badge");
+  if (hooksBadge) {
+    const failed = (state.hooks?.sources || []).filter((source) => source.error || source.collection_state === "invalid" || source.collection_state === "unavailable");
+    const unknown = !state.hooks || state.hooks.ok === false;
+    hooksBadge.className = `tab-badge tone-${unknown ? "unknown" : "warn"}`;
+    hooksBadge.hidden = !unknown && failed.length === 0;
+    hooksBadge.textContent = unknown ? "?" : failed.length ? String(failed.length) : "";
+    hooksBadge.title = unknown ? "hooks 还没读到" : failed.length ? `hooks 有 ${failed.length} 个来源读不完整` : "";
+  }
 
   const hs = health();
   const snap = document.getElementById("snapshot");
@@ -857,6 +880,10 @@ function renderChrome() {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", state.route.evidence ? "证据清单范围" : "Skills 清单范围");
     healthEl.replaceChildren(h("p", { class: "scope-note" }, state.route.evidence ? EVIDENCE_SCOPE : scopeNote("skills")), ...(state.route.evidence ? evidenceSourceChips() : skillSources()));
+  } else if (chrome === "hooks") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "hooks 范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("hooks")));
   } else if (chrome === "mcp") {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "MCP 范围");
@@ -892,7 +919,7 @@ function renderSubnav() {
   const group = navGroup(state.route);
   const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
     : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/metrics", "运行指标"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
-    : group === "configure" ? [["#/configure/agents", "Agent 配置"], ["#/configure/skills", "Skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/runtime", "模型与 Runtime"]] : [];
+    : group === "configure" ? [["#/configure/agents", "Agent 配置"], ["#/configure/skills", "Skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/hooks", "Hooks", "hooks-badge"], ["#/configure/runtime", "模型与 Runtime"]] : [];
   const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
   const el = document.getElementById("subnav");
   el.hidden = !links.length;
@@ -2324,6 +2351,8 @@ function renderMain() {
           ? (state.route.evidence ? renderEvidence(ctx) : renderSkills(ctx))
           : view === "mcp"
             ? renderMcp(mcpCtx())
+            : view === "hooks"
+            ? renderHooks({ h, route: state.route, hooks: state.hooks, setRoute })
             : view === "usage"
             ? renderUsage(ctx)
             : view === "metrics"
@@ -2355,6 +2384,7 @@ function render() {
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
   const view = state.route.view;
   search.placeholder =
+    state.route.view === "hooks" ? "搜索 hook 事件 / 来源" :
     state.route.view === "mcp" ? "搜索 server / 工具 / workspace / agent" :
     view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : view === "metrics" ? "搜索 run / issue / 规则 / evidence" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();

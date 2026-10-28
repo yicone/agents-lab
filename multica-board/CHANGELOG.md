@@ -12,6 +12,8 @@
 
 ### 新增
 
+- 本地候选（未合并、未部署）：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（ACM-662；无 PR）
+
 - 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）
 
 - 用量页三列下方新增只读「额度池利用」节，按 6e / aq / he / mg / pe 别名逐账号展示 5h/周窗口用量、重置卡临期提示、Credits 余额与 Q4 节奏比，字段缺失标「无该字段」，超 30 分钟未更新标「陈旧」，无颜色告警、不跨账号相加；Q4 旁注只显示文字「建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整」，不执行判定。（[PR #134](https://github.com/yicone/agents-lab/pull/134)；[合并提交 `c6f41bc`](https://github.com/yicone/agents-lab/commit/c6f41bcc2708359fa434bf1fe4834991904a02ce)；ACM-650；已合并、已部署到 8765，部署事实据 ACM-650 2026-10-27 部署核对：生产目录快进到该 SHA 并重启 `one.yic.multica-board`，`/api/usage` 含 `quota_pool` 且无邮箱/`account_key`/`source_path`）

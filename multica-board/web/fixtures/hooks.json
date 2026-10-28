@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "hooks_schema": 1,
+  "generated_at": "2026-10-28T16:00:00Z",
+  "hermes_shell": { "collection_state": "collected", "count": 0, "error": null },
+  "sources": [
+    { "id": "cursor", "label": "Cursor", "collection_state": "collected", "count": 2, "error": null },
+    { "id": "codex_user", "label": "Codex 用户 hooks", "collection_state": "collected", "count": 1, "error": null },
+    {
+      "id": "grok_cli",
+      "label": "Grok CLI",
+      "collection_state": "collected",
+      "count": 1,
+      "error": {
+        "code": "cursor_format_not_run",
+        "message": "Grok 再扫到 Cursor 格式的 hooks，报告不会运行。这只属于 Grok CLI，不并入 Cursor。",
+        "count": 8
+      }
+    },
+    { "id": "hermes_plugin", "label": "Hermes 插件事件", "collection_state": "collected", "count": 2, "error": null }
+  ],
+  "items": [
+    {
+      "id": "cursor:stop:0",
+      "name": "stop",
+      "event": "stop",
+      "plugin": "",
+      "source_id": "cursor",
+      "source_label": "Cursor",
+      "declared": "present",
+      "reachable": "present",
+      "observed": "unknown"
+    },
+    {
+      "id": "cursor:sessionStart:0",
+      "name": "sessionStart",
+      "event": "sessionStart",
+      "plugin": "",
+      "source_id": "cursor",
+      "source_label": "Cursor",
+      "declared": "present",
+      "reachable": "missing",
+      "observed": "unknown"
+    },
+    {
+      "id": "codex_user:Stop:0",
+      "name": "Stop",
+      "event": "Stop",
+      "plugin": "",
+      "source_id": "codex_user",
+      "source_label": "Codex 用户 hooks",
+      "declared": "present",
+      "reachable": "unknown",
+      "observed": "unknown"
+    },
+    {
+      "id": "grok_cli:stop:0",
+      "name": "stop",
+      "event": "stop",
+      "plugin": "",
+      "source_id": "grok_cli",
+      "source_label": "Grok CLI",
+      "declared": "present",
+      "reachable": "unknown",
+      "observed": "unknown"
+    },
+    {
+      "id": "hermes_plugin:nowledge-mem:post_llm_call:0",
+      "name": "post_llm_call",
+      "event": "post_llm_call",
+      "plugin": "nowledge-mem",
+      "source_id": "hermes_plugin",
+      "source_label": "Hermes 插件事件",
+      "declared": "present",
+      "reachable": "unknown",
+      "observed": "unknown"
+    },
+    {
+      "id": "hermes_plugin:orca-status:post_llm_call:0",
+      "name": "post_llm_call",
+      "event": "post_llm_call",
+      "plugin": "orca-status",
+      "source_id": "hermes_plugin",
+      "source_label": "Hermes 插件事件",
+      "declared": "present",
+      "reachable": "unknown",
+      "observed": "unknown"
+    }
+  ]
+}

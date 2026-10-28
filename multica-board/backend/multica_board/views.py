@@ -739,6 +739,13 @@ class Views:
 
         return build_mcp(self.store, self.server, self.generated_at(), self._mcp_context())
 
+    def hooks(self) -> dict[str, Any]:
+        from pathlib import Path
+
+        from .hooks_view import collect_hooks
+
+        return collect_hooks(Path.home())
+
     # --- /api/runtimes ------------------------------------------------------
 
     def runtimes(self) -> dict[str, Any]:
