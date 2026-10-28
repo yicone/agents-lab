@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { filteredHooks, renderHooks } from "./hooks.js";
+import { CAPABILITY_KINDS } from "./capability.js";
+import { filteredItems, renderHooks, sourceOptions, visibleSourceErrors } from "./hooks.js";
+import { formatHash, navGroup, parseHash, redirectHash } from "./route.js";
 
 const payload = JSON.parse(readFileSync(new URL("./fixtures/hooks.json", import.meta.url), "utf8"));
 
@@ -9,53 +11,62 @@ function h(tag, attrs, ...children) {
   return { tag, attrs: attrs || {}, children: children.flat(Infinity).filter((child) => child != null && child !== false) };
 }
 
-function flatten(node, found = []) {
-  if (node == null || node === false) return found;
-  if (typeof node === "string") {
-    found.push(node);
-    return found;
-  }
-  found.push(node);
-  for (const child of node.children || []) flatten(child, found);
-  return found;
+function textOf(node) {
+  if (node == null || node === false) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  return (node.children || []).map(textOf).join("\n");
 }
 
-function render(route = {}) {
-  return { children: renderHooks({ h, route: { source: "", ...route }, hooks: payload, setRoute() {} }) };
-}
-
-test("hooks page explains tri-state in text and never promotes observed", () => {
-  const tree = render();
-  const visible = flatten(tree).filter((node) => typeof node === "string").join("\n");
-  assert.match(visible, /声明了/);
-  assert.match(visible, /可达/);
-  assert.match(visible, /观察到/);
-  assert.match(visible, /未知/);
-  assert.match(visible, /缺数据显示未知/);
-  assert.match(visible, /不因此告警/);
-  const observedLines = flatten(tree).filter((node) => node.attrs?.class === "tri-line" && flatten(node).some((item) => item === "观察到"));
-  assert.ok(observedLines.length >= 4);
-  for (const line of observedLines) {
-    const lineText = flatten(line).filter((item) => typeof item === "string").join("");
-    assert.match(lineText, /未知/);
-    assert.equal(lineText.includes("已观察到"), false);
-  }
-  assert.equal(flatten(tree).some((node) => node.attrs?.class === "skills-anomaly"), false);
-  assert.equal(visible.includes("Grok Bot"), false);
-  assert.equal(visible.includes("Multica"), false);
-  const hermes = payload.items.find((item) => item.source === "hermes");
-  assert.equal(hermes.declared, undefined);
-  assert.match(visible, /nowledge-mem\.prefetch/);
+test("capability kinds are skills, MCP and hooks, with no Memory", () => {
+  assert.deepEqual(CAPABILITY_KINDS.map((kind) => kind.id), ["skills", "mcp", "hooks"]);
+  assert.equal(JSON.stringify(CAPABILITY_KINDS).toLowerCase().includes("memory"), false);
 });
 
-test("a selected source does not show another source's rows", () => {
-  const grok = filteredHooks(payload, { source: "grok_cli" });
-  assert.equal(grok.length, 1);
-  assert.equal(grok[0].reachable, "no");
-  const tree = render({ source: "grok_cli" });
-  const visible = flatten(tree).filter((node) => typeof node === "string").join("\n");
-  assert.match(visible, /不可达/);
-  assert.match(visible, /未知/);
-  assert.equal(visible.includes("nowledge-mem.prefetch"), false);
-  assert.equal(visible.includes("stop"), false);
+test("hooks route keeps the four sources and drops Grok Bot or Multica", () => {
+  assert.equal(redirectHash("#/hooks"), "#/configure/hooks");
+  assert.equal(redirectHash("#/configure/hooks"), null);
+  const route = parseHash("#/configure/hooks?source=cursor");
+  assert.equal(route.view, "hooks");
+  assert.equal(route.source, "cursor");
+  assert.equal(navGroup(route), "configure");
+  assert.equal(formatHash(route), "#/configure/hooks?source=cursor");
+  assert.equal(formatHash(parseHash("#/configure/hooks?source=grok_bot")), "#/configure/hooks");
+  assert.equal(formatHash(parseHash("#/configure/hooks?source=multica")), "#/configure/hooks");
+  assert.deepEqual(sourceOptions().map((item) => item.label), ["Cursor", "Codex 用户 hooks", "Grok CLI", "Hermes 插件事件"]);
+});
+
+test("same event stays one row per source, and another source's error stays out", () => {
+  assert.equal(filteredItems(payload, {}).filter((item) => item.event === "stop").length, 2);
+  assert.equal(filteredItems(payload, {}).filter((item) => item.event === "post_llm_call").length, 2);
+  const cursor = filteredItems(payload, { source: "cursor" });
+  assert.deepEqual(cursor.map((item) => item.source_id), ["cursor", "cursor"]);
+  assert.equal(visibleSourceErrors(payload, { source: "cursor" }).length, 0);
+  assert.equal(visibleSourceErrors(payload, { source: "grok_cli" })[0].error.code, "cursor_format_not_run");
+  const tree = { children: renderHooks({ h, hooks: payload, route: { source: "cursor", q: "" }, setRoute() {} }) };
+  const visible = textOf(tree);
+  assert.match(visible, /sessionStart/);
+  assert.equal(visible.includes("Grok 再扫到"), false);
+  assert.equal(visible.includes("Memory"), false);
+  assert.equal(visible.includes("Grok Bot"), false);
+  assert.equal(visible.includes("Multica"), false);
+  assert.match(visible, /skills/);
+  assert.match(visible, /MCP/);
+  assert.match(visible, /hooks/);
+  const all = textOf({ children: renderHooks({ h, hooks: payload, route: { source: "", q: "" }, setRoute() {} }) });
+  assert.match(all, /Grok 再扫到/);
+  assert.equal(all.includes("Hermes shell 没读到"), false);
+  assert.match(all, /声明了/);
+  assert.match(all, /可达/);
+  assert.match(all, /未知/);
+  assert.match(all, /不可达/);
+  const allTree = { children: renderHooks({ h, hooks: payload, route: { source: "", q: "" }, setRoute() {} }) };
+  const lines = [];
+  (function walk(node) {
+    if (!node || typeof node === "string") return;
+    if (node.attrs?.class === "tri-line") lines.push(textOf(node).replace(/\s+/g, ""));
+    for (const child of node.children || []) walk(child);
+  })(allTree);
+  const observed = lines.filter((line) => line.startsWith("观察到"));
+  assert.ok(observed.length >= 4);
+  assert.ok(observed.every((line) => line.endsWith("未知")));
 });

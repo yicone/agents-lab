@@ -54,7 +54,10 @@ async def main() -> None:
         await open_page(page, f"{BASE}/?mock=1#/configure/hooks", ".tri-line")
         hooks = await checks(page)
         await page.locator("#main").screenshot(path=str(out / "hooks-all-1440.png"))
-        await page.locator("button.source-card", has_text="Grok CLI").click()
+        await page.get_by_role("radio", name="Cursor").click()
+        await page.wait_for_url("**source=cursor**")
+        cursor_text = await page.inner_text("#main")
+        await page.get_by_role("radio", name="Grok CLI").click()
         await page.wait_for_url("**source=grok_cli**")
         await page.wait_for_selector(".skill-row")
         grok_text = await page.inner_text("#main")
@@ -70,9 +73,9 @@ async def main() -> None:
         await browser.close()
     rows = [
         ("三种状态用文字说明", hooks["hasDeclared"] and hooks["hasReachable"] and hooks["hasObserved"] and hooks["legend"]),
-        ("缺数据显示未知，不当成异常", hooks["hasUnknown"] and hooks["noAnomaly"] and "不是异常" in grok_text),
+        ("缺数据显示未知，不当成异常", hooks["hasUnknown"] and "Grok 再扫到" not in cursor_text and "不是异常" in grok_text),
         ("hooks 的 Observed 全部为未知", hooks["observedAllUnknown"]),
-        ("不新增告警", hooks["noAnomaly"] and hooks["noHooksBadge"]),
+        ("选定来源后不把其他来源的读取问题算进来", "Grok 再扫到" not in cursor_text and "sessionStart" not in grok_text),
         ("Grok 加载错误显示不可达", "不可达" in grok_text and "pre_tool_use" in grok_text),
         ("Skills 行有三态文字", skills["hasDeclared"] and skills["hasReachable"] and skills["hasUnknown"]),
         ("MCP 缺探测时可达和观察到为未知", mcp["hasUnknown"] and mcp["hasDeclared"]),

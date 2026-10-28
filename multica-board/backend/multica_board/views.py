@@ -744,9 +744,9 @@ class Views:
     def hooks(self) -> dict[str, Any]:
         from pathlib import Path
 
-        from .hooks_view import build_hooks
+        from .hooks_view import collect_hooks
 
-        return build_hooks(Path.home(), generated_at=self.generated_at())
+        return collect_hooks(Path.home())
 
     # --- /api/runtimes ------------------------------------------------------
 

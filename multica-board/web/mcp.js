@@ -5,6 +5,8 @@ import { TRI_LEGEND, mcpTriState, renderTriState } from "./capability-state.js";
 
 import { COPY, pageHead, visibleLabel } from "./ia-view.js";
 
+import { capabilitySwitch } from "./capability.js";
+
 export const PROJECT_SOURCE = "project"; // 伪来源：按 in_project 筛选，重叠于其他三类
 export const REPO_TOOL = "repo";
 export const mcpRowId = (item) => `mcp-row-${item.id}`;
@@ -377,7 +379,15 @@ function fileDetail(file) {
   return file.detail || "";
 }
 
-function anomalyBanner(h, payload) {
+function linesForSource(lines, source) {
+  if (source === "project") return lines.filter((line) => line.startsWith("仓库"));
+  if (source === "local_only") return lines.filter((line) => line.startsWith("本机"));
+  if (source === "multica_only") return lines.filter((line) => !line.startsWith("本机") && !line.startsWith("仓库"));
+  if (source === "both") return lines.filter((line) => !line.startsWith("仓库"));
+  return lines;
+}
+
+function anomalyBanner(h, payload, route) {
   const u = payload?.unknown || {};
   const tools = new Map((payload?.tools || []).map((t) => [t.id, t]));
   const wsName = new Map((payload?.workspaces || []).map((w) => [w.id, w.name || w.slug || w.id]));
@@ -404,8 +414,9 @@ function anomalyBanner(h, payload) {
   if (u.own_pending) lines.push(`${u.own_pending} 个 agent 的自有配置指纹尚未就绪`);
   if (u.key && u.key !== "ok") lines.push("指纹密钥不可用，未比对配置是否一致");
   if (u.multica === "never") lines.push("Workspace 从未采集 MCP");
-  if (!lines.length) return null;
-  return h("div", { class: "skills-anomaly", role: "status" }, lines.map((text) => h("div", null, text)));
+  const visible = linesForSource(lines, route?.source || "");
+  if (!visible.length) return null;
+  return h("div", { class: "skills-anomaly", role: "status" }, visible.map((text) => h("div", null, text)));
 }
 
 function legend(h) {
@@ -789,14 +800,19 @@ function capabilityHead(h) {
   return pageHead(h, [{ label: COPY.capability }, { label: "MCP" }], COPY.capability);
 }
 
+function capabilityKinds(ctx) {
+  return capabilitySwitch(ctx.h, "mcp", (view) => ctx.setRoute({ view, source: "", section: "configure" }));
+}
+
 export function renderMcp(ctx) {
   const { h, route } = ctx;
   const payload = ctx.mcp;
+  const kinds = capabilityKinds(ctx);
   if (!payload || payload.absent) {
-    return [...capabilityHead(h), h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
+    return [...capabilityHead(h), kinds, h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
   }
   if (payload.ok === false) {
-    return [...capabilityHead(h), h("div", { class: "atlas-guide" },
+    return [...capabilityHead(h), kinds, h("div", { class: "atlas-guide" },
       h("h2", null, "MCP 数据无效"),
       h("p", null, payload.error?.message || payload.error?.code || payload.error || "读取失败"),
       h("p", { class: "muted" }, "检查 mcp-sources.json 声明是否有效，修好后刷新。"))];
@@ -808,6 +824,7 @@ export function renderMcp(ctx) {
   const noItems = !(payload.items || []).length;
   return [
     ...capabilityHead(h),
+    kinds,
     h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
     h("div", { class: "toolbar" },
       select(h, "来源", route.source, [["", "全部来源"], ...blocks.filter((b) => b.id !== "all").map((b) => [b.id, b.label])], (v) => ctx.setRoute({ source: v })),
@@ -817,7 +834,7 @@ export function renderMcp(ctx) {
       h("label", { class: "check" },
         h("input", { type: "checkbox", checked: route.mcpAssigned, onchange: (e) => ctx.setRoute({ mcpAssigned: e.target.checked }) }),
         "只看已分配给 agent")),
-    anomalyBanner(h, payload),
+    anomalyBanner(h, payload, route),
     legend(h),
     h("div", { class: "skills-layout" },
       h("div", { class: "skills-main" },

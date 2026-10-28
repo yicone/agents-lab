@@ -291,7 +291,7 @@ async function loadHooks() {
   try {
     return await getJSON("hooks");
   } catch (err) {
-    return { ok: false, error: { message: String(err.message || err) }, items: [], sources: [] };
+    return { ok: false, error: { message: String(err.message || err) }, sources: [], items: [] };
   }
 }
 
@@ -843,6 +843,15 @@ function renderChrome() {
     skillsBadge.textContent = unknown ? "?" : total ? String(total) : "";
     skillsBadge.title = unknown ? "Skills 数据未知，尚未读取或读取失败" : total ? `Skills 待处理 ${total} 条，基线债不计入` : "";
   }
+  const hooksBadge = document.getElementById("hooks-badge");
+  if (hooksBadge) {
+    const failed = (state.hooks?.sources || []).filter((source) => source.error || source.collection_state === "invalid" || source.collection_state === "unavailable");
+    const unknown = !state.hooks || state.hooks.ok === false;
+    hooksBadge.className = `tab-badge tone-${unknown ? "unknown" : "warn"}`;
+    hooksBadge.hidden = !unknown && failed.length === 0;
+    hooksBadge.textContent = unknown ? "?" : failed.length ? String(failed.length) : "";
+    hooksBadge.title = unknown ? "hooks 还没读到" : failed.length ? `hooks 有 ${failed.length} 个来源读不完整` : "";
+  }
 
   const hs = health();
   const snap = document.getElementById("snapshot");
@@ -876,14 +885,14 @@ function renderChrome() {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", state.route.evidence ? "证据清单范围" : "Skills 清单范围");
     healthEl.replaceChildren(h("p", { class: "scope-note" }, state.route.evidence ? EVIDENCE_SCOPE : scopeNote("skills")), ...(state.route.evidence ? evidenceSourceChips() : skillSources()));
+  } else if (chrome === "hooks") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "hooks 范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("hooks")));
   } else if (chrome === "mcp") {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "MCP 范围");
     healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("mcp")), ...mcpSources());
-  } else if (chrome === "hooks") {
-    healthEl.hidden = false;
-    healthEl.setAttribute("aria-label", "Hooks 范围");
-    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("hooks")));
   } else if (chrome === "decide") {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "待批准范围");
@@ -915,7 +924,7 @@ function renderSubnav() {
   const group = navGroup(state.route);
   const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
     : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/metrics", "运行指标"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
-    : group === "configure" ? [["#/configure/agents", COPY.agent], ["#/configure/skills", `${COPY.capability} · skills`, "skills-badge"], ["#/configure/mcp", `${COPY.capability} · MCP`, "mcp-badge"], ["#/configure/hooks", `${COPY.capability} · hooks`], ["#/configure/runtime", COPY.runtime]] : [];
+    : group === "configure" ? [["#/configure/agents", COPY.agent], ["#/configure/skills", `${COPY.capability} · skills`, "skills-badge"], ["#/configure/mcp", `${COPY.capability} · MCP`, "mcp-badge"], ["#/configure/hooks", `${COPY.capability} · hooks`, "hooks-badge"], ["#/configure/runtime", COPY.runtime]] : [];
   const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
   const el = document.getElementById("subnav");
   el.hidden = !links.length;
@@ -2380,6 +2389,7 @@ function render() {
   if (document.activeElement !== search && search.value !== state.route.q) search.value = state.route.q;
   const view = state.route.view;
   search.placeholder =
+    state.route.view === "hooks" ? "搜索 hook 事件 / 来源" :
     state.route.view === "mcp" ? "搜索 server / 工具 / workspace / agent" :
     view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : view === "metrics" ? "搜索 run / issue / 规则 / evidence" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();

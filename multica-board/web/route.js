@@ -18,7 +18,7 @@ const PLAN_BUCKETS = new Set(["approvable", "blocked", "skip", "unchanged"]);
 const MCP_SOURCES = new Set(["both", "local_only", "multica_only", "project"]);
 const MCP_STATUSES = new Set(["broken", "differs", "same", "single", "incomparable"]);
 const MCP_GROUPS = new Set(["source", "tool", "flat"]);
-const HOOK_SOURCES = new Set(["cursor", "codex", "grok_cli", "hermes"]);
+const HOOK_SOURCES = new Set(["cursor", "codex_user", "grok_cli", "hermes_plugin"]);
 let mcpTools = null;
 export function setMcpTools(tools) {
   mcpTools = new Set([...(tools || []).map((tool) => tool.id), "repo"]);
@@ -73,7 +73,7 @@ function withQuery(path, params) {
  */
 export function redirectHash(hash) {
   const { path, params } = splitHash(hash);
-  const aliases = { configure: "configure/agents", agents: "running", usage: "running/usage", skills: "configure/skills", mcp: "configure/mcp",
+  const aliases = { configure: "configure/agents", agents: "running", usage: "running/usage", skills: "configure/skills", mcp: "configure/mcp", hooks: "configure/hooks",
     "l2/agents": "running", "l3/skills": "configure/skills", "l3/mcp": "configure/mcp" };
   if (Object.hasOwn(aliases, path)) return withQuery(aliases[path], params);
   if (agentsPlan(path)) return withQuery(path === "agents/plan/new" ? "running/changes/new" : path.replace("agents/plans", "running/changes"), params);
