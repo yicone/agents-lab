@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from .governance_scan import load_for_atlas
 from .agent_delivery import decide_delivery
 from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_kind, parse_since
 from .collector import COLLECTOR, WORKSPACE
@@ -508,12 +509,19 @@ class Views:
             if t["status"] == "failed" and (t["completed_at"] or t["created_at"] or "") >= failed_cutoff:
                 last_failed.setdefault(k, t)
 
+        acm = next((ws for ws, slug in slugs.items() if slug == ATLAS_SLUG), None)
+        governance = load_for_atlas(self.store.path, self.server, acm) if acm else {"state": "not_collected", "findings": []}
+        findings_by = {}
+        for finding in governance.pop("findings"):
+            findings_by.setdefault(finding["issue_id"], []).append(finding)
         items = []
         for r in self.store.query("SELECT * FROM issues WHERE server=? ORDER BY last_activity_at DESC", (self.server,)):
             ws = r["workspace_id"]
             k = (ws, r["id"])
             if _closed(r) and k not in last_failed and k not in last_anomaly:
                 continue
+            if ws == acm and any(f.get("source_updated_at") != r.get("updated_at") for f in findings_by.get(r["id"], [])):
+                governance["state"] = "changed"
             assignee = None
             if r["assignee_type"] and r["assignee_id"]:
                 name = None
@@ -546,9 +554,11 @@ class Views:
                         {"task_id": lf["id"], "completed_at": lf["completed_at"], "error_kind": lf["error_kind"]} if lf else None
                     ),
                     "layer": layers.get(k) or empty_layer(),
+                    "governance_findings": [f for f in findings_by.get(r["id"], [])
+                        if ws == acm and f.get("source_updated_at") == r.get("updated_at")],
                 }
             )
-        return {"generated_at": self.generated_at(), "items": items}
+        return {"generated_at": self.generated_at(), "items": items, "governance_scan": governance}
 
     def _layer_index(self) -> dict[tuple[str, str], dict[str, Any]]:
         rows = self.store.query("SELECT * FROM issues WHERE server=?", (self.server,))

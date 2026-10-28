@@ -78,6 +78,8 @@
 
 ## `GET /api/issues`
 
+ACM-597 本地候选新增：响应顶层 `governance_scan:{state, detected_at?}`，state 为 `ok / not_collected / stale / invalid / incompatible / changed`。逐 issue 增加 `governance_findings:[]`：只包含绑定当前 profile、ACM Lab workspace、24 小时内完整 shadow 报告且 `source_updated_at` 与缓存相等的高优先告警；不改 issue status。每项包括 `issue_id, identifier, rule, code, current, candidate, confidence, evidence, whitelist, detected_at, source_updated_at, fingerprint, priority`。多规则在待决队列按 issue 合并，原状态仍可见，数量可与 review/blocked 重叠。报告不可用不代表零告警；缺报告时该列表为空并明确返回状态。其他 workspace 不消费此报告。地图统计仍保持真实 issue 状态计数，巡检待决仅在待批准队列体现。
+
 所有 workspace 的“关注范围”issue，一次全量，不分页（ACM Lab 约 150 条；有 workspace 超过 500 条时再讨论分页）。前端负责分栏、筛选与停滞判断。
 
 关注范围 = `status_category` 不是 `done` / `cancelled` 的 issue，加上 7 天内 run 失败过的已关闭 issue。
@@ -317,8 +319,35 @@ ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-25
 只读快照视图；不执行采集、不扫描历史、不写文件。`generated_at` 为响应时刻，
 `usage_collected_at` 为最近快照采集时刻；这是通用 generated_at 约定的例外。
 顶层包含 `days`、`snapshot_state`（missing/empty/ok/partial/error）、`collection_errors`、
-`external_quotas`、旧版 `signals`（dispatchable/exhausting）和 `multica_daily`。
-CodexBar 的窗口百分比与 Multica 的 token/cost 分栏，不能相加；不返回 credits 或身份信息。
+`external_quotas`、旧版 `signals`（dispatchable/exhausting）、`multica_daily` 和 `quota_pool`（ACM-650）。
+CodexBar 的窗口百分比与 Multica 的 token/cost 分栏，不能相加；不返回身份信息
+（邮箱、account_key、source_path、token 一律不返回）；credits 仅以 `quota_pool` 内别名为键的数值返回。
+
+`quota_pool` 是快照 `codex_accounts` 块的白名单视图，固定 5 个 Codex 别名账号
+（6e / aq / he / mg / pe），逐账号展示，绝不跨账号相加或平均。字段：
+
+| 字段 | 类型 / 语义 |
+| --- | --- |
+| status | ok / empty / error / missing；快照无 `codex_accounts` 块或非对象时为 missing，否则取块的 status，非三值按 error |
+| source | 固定 `codexbar-disk` |
+| sampled_at | `codex_accounts.sampled_at` 或 null |
+| stale_after_s | 固定 1800（秒），陈旧阈值 |
+| account_count / present_aliases | 5 个别名中有记录的个数 / 别名列表（按固定顺序） |
+| accounts[] | 固定 5 项，顺序 6e、aq、he、mg、pe |
+
+`accounts[]` 每项：
+
+| 字段 | 类型 / 语义 |
+| --- | --- |
+| alias / present | 别名 / 快照里有没有该别名；present=false 时其余字段全为 null/空，不补 0 |
+| plan | 套餐字符串或 null |
+| pace_applicable | bool；别名在排除表（6e）里为 false，该账号不参与节奏比 |
+| windows["5h"/"weekly"] | 按 window_minutes 300 / 10080 匹配，缺失为 null；`{used_percent, resets_at, hours_until_reset, window_minutes}`，hours_until_reset 读取时按 now 重算，可为 null；monthly 等其他窗口不返回 |
+| reset_cards | `{available_count, soonest_expires_at, hours_until_soonest, expiry_flag}` 或 null；hours_until_soonest 读取时重算、可为负（已过期但源未更新）；expiry_flag 为满足 hours≤阈值的最小阈值（6/24/72），available_count=0 或无最近到期时为 null；cards 明细不返回 |
+| credits | `{present, remaining, unit: "Credits"}`；present = `credits_remaining` 非 null，0.0 是真 0 不是未知 |
+| source_updated_at | 源采样时间或 null |
+| sample_age_s / stale | now − source_updated_at，负差钳 0；source_updated_at 缺失或不可解析时 sample_age_s=null 且 stale=true；age>1800 才 stale，恰好 1800 仍新鲜；不以采集退出码或 snapshot_state 判断 |
+| pace | `{ratio, reference_at}`；仅 pace_applicable 且有 weekly 窗口时可非 null。以 source_updated_at 为参考时刻：elapsed = 1 − (resets_at − reference)/(window_minutes 分钟)，钳 [0,1]；elapsed≤0 或字段缺失时 ratio=null，否则 round(weekly.used_percent/(elapsed×100), 2) |
 
 `external_quotas[]` 的 provider 为 cursor/grok/codex；9router/orca 返回 status=unconnected、
 label=未接入、windows=[]。已接入 provider 含 `status`（ok/error）、`source`、`updated_at`、

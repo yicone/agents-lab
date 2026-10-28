@@ -367,6 +367,7 @@ async function refresh(force = false) {
       else jobs.push(getJSON("layers").catch((err) => ({ error: String(err.message || err) })));
       const [issues, agents, runtimes, extra] = await Promise.all(jobs);
       state.issues = issues.items ?? [];
+      state.governanceScan = issues.governance_scan;
       state.agents = agents.items ?? [];
       state.recentWindowH = agents.recent_window_h ?? 24;
       state.runtimes = runtimes.items ?? [];
@@ -1957,7 +1958,7 @@ function renderDecide() {
         "p",
         { class: "decide-sub" },
         model.acm
-          ? `范围：${model.acm.name}。待验收和受阻，等待最久的排在最前。${model.outside ? `其他 workspace 还有 ${model.outside} 条待验收 / 受阻，不在这一页。` : "其他 workspace 没有待验收或受阻。"}`
+          ? `范围：${model.acm.name}。待验收、受阻和高优先巡检待决，等待最久的排在最前。${model.outside ? `其他 workspace 还有 ${model.outside} 条待验收 / 受阻，不在这一页。` : "其他 workspace 没有待验收或受阻。"}`
           : "范围：ACM Lab。快照里没有这个 workspace，所以这一页是空的。",
       ),
       h(
@@ -1966,6 +1967,7 @@ function renderDecide() {
         stat(summary.total, "合计"),
         stat(summary.review, "待验收"),
         stat(summary.blocked, "受阻"),
+        stat(summary.governance, "巡检待决"),
         stat(summary.over7, "等待超过 7 天", summary.over7 ? "warn" : ""),
         stat(
           longest ? formatWait(longest.ms, longest.approximate) : "—",
@@ -2055,12 +2057,15 @@ function renderDecide() {
   const foot = h(
     "div",
     { class: "decide-foot" },
-    h("span", null, "已等待 = 进入当前状态至今；超过 14 天标红，超过 7 天标黄。≥ 表示超出状态迁移保留期，改用最后活动时间。"),
+    h("span", null, "已等待 = 进入当前状态至今；仅巡检待决按检测时间起算。超过 14 天标红，超过 7 天标黄。≥ 表示超出状态迁移保留期，改用最后活动时间。"),
     h("a", { href: "#/issues" }, "在全部事项中查看"),
   );
 
   return [
     head,
+    h("div", { class: "decide-note", role: "status" }, state.governanceScan?.state === "ok"
+      ? `只读巡检：${state.governanceScan.detected_at}；巡检待决按 issue 去重，可能与待验收/受阻重叠。`
+      : `只读巡检：${({ not_collected: "未采集", stale: "报告已过期", invalid: "报告不可读", incompatible: "报告范围不匹配", changed: "部分 issue 已变化，需重跑" })[state.governanceScan?.state] || "未采集"}；告警数量未知。`),
     note ? h("div", { class: "decide-note", role: "status" }, note) : null,
     degraded ? h("div", { class: "decide-note" }, "ACM Lab 这次快照是旧数据。") : null,
     toolbar,
@@ -2096,7 +2101,7 @@ function decideRow(row, degraded, ready) {
       "data-level": wait.level,
       "data-approx": wait.approximate ? "1" : "0",
       onclick: (e) => {
-        if (e.target.closest("a")) return;
+        if (e.target.closest("a, details")) return;
         openDrawer(it, e.currentTarget);
       },
     },
@@ -2107,7 +2112,11 @@ function decideRow(row, degraded, ready) {
       h("span", { class: "wait-since" }, formatSince(wait.iso, now())),
     ),
     h("td", { class: "ident" }, it.identifier || it.id),
-    h("td", null, extLink(it.url, { class: "decide-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title || "")),
+    h("td", null, extLink(it.url, { class: "decide-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title || ""),
+      ...(it.governance_findings || []).map(f => h("details", null,
+        h("summary", null, `${f.rule} · 巡检待决`),
+        h("p", null, `${f.code} · 置信度 ${f.confidence} · ${f.detected_at}`),
+        h("pre", { class: "governance-evidence" }, JSON.stringify({ 当前值: f.current, 候选值: f.candidate, 证据: f.evidence, 白名单: f.whitelist }, null, 2))))),
     h("td", null, h("span", { class: `tag ${typeClass}` }, STATUS_LABEL[it.status] ?? it.status)),
     ready
       ? h("td", null, layerBar(h, layer), " ", layerLabel(layer?.primary))

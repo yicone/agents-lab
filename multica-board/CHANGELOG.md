@@ -8,15 +8,19 @@
 
 - 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）
 
-- 本地候选（未合并、未部署）：流速巡检 JSON 附加只读 `run-metrics.v0.1` 聚合摘要。原有流速告警、阈值和 `null` 未知态保持原样；统一结果缺失时不补 0，也不把失败分类改写成告警。（ACM-572；仅本地提交，无 PR）
+- 用量页三列下方新增只读「额度池利用」节，按 6e / aq / he / mg / pe 别名逐账号展示 5h/周窗口用量、重置卡临期提示、Credits 余额与 Q4 节奏比，字段缺失标「无该字段」，超 30 分钟未更新标「陈旧」，无颜色告警、不跨账号相加；Q4 旁注只显示文字「建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整」，不执行判定。（[PR #134](https://github.com/yicone/agents-lab/pull/134)；[合并提交 `c6f41bc`](https://github.com/yicone/agents-lab/commit/c6f41bcc2708359fa434bf1fe4834991904a02ce)；ACM-650；已合并、已部署到 8765，部署事实据 ACM-650 2026-10-27 部署核对：生产目录快进到该 SHA 并重启 `one.yic.multica-board`，`/api/usage` 含 `quota_pool` 且无邮箱/`account_key`/`source_path`）
 
-- 本地候选（未合并、未部署）：Skills 增加「Grok Bot 导出」来源，支持查看 user skill 正文与附件、显示导出时间，并按 manifest 逐文件核对 SHA-256 和字节数；缺失或校验失败时明确提示。（ACM-613；仅本地提交，无 PR）
+- 已合并、已同步到部署目录（据 ACM-572 部署记录，非本轮实测）：流速巡检 JSON 附加只读 `run-metrics.v0.1` 聚合摘要。原有流速告警、阈值和 `null` 未知态保持原样；统一结果缺失时不补 0，也不把失败分类改写成告警。（[PR #129](https://github.com/yicone/agents-lab/pull/129)；[合并提交 `4c08374`](https://github.com/yicone/agents-lab/commit/4c083740efe87a14014be939fa7cccea3eb6f3ce)；ACM-572；统一结果文件 `run-metrics.v0.1.json` 线上尚不存在，真实数据消费未观察）
+
+- 已合并、部署待核实：Skills 增加「Grok Bot 导出」来源，支持查看 user skill 正文与附件、显示导出时间，并按 manifest 逐文件核对 SHA-256 和字节数；缺失或校验失败时明确提示。（[PR #121](https://github.com/yicone/agents-lab/pull/121)；[合并提交 `72fd24f`](https://github.com/yicone/agents-lab/commit/72fd24f998a90cff822314ddfd017a5cd4bb676e)；ACM-613）
 
 ### 变更
 
-- 本地候选（未合并、未部署）：usage-collector 的 launchd 模板增加 `HTTPS_PROXY`、`HTTP_PROXY`，均指向 `http://127.0.0.1:7890`，供采集进程使用本机代理。（ACM-642；仅本地提交，无 PR）
+- 本地候选（未合并、未部署）：全量只读巡检 project 与三属性 P1–P9；高优先结果从绑定 workspace/profile 的新鲜报告进入待批准队列，可展开当前值、候选与证据，不修改 issue。（ACM-597；无 PR）
 
-- 本地候选（未合并、未部署）：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（ACM-586；仅本地提交，无 PR）
+- 已合并、已部署：usage-collector 的 launchd 模板增加 `HTTPS_PROXY`、`HTTP_PROXY`，均指向 `http://127.0.0.1:7890`，供采集进程使用本机代理。（[PR #130](https://github.com/yicone/agents-lab/pull/130)；[合并提交 `07921e8`](https://github.com/yicone/agents-lab/commit/07921e8b631400800de09867e1524fa9b3dd5cc1)；ACM-642；部署 SHA `07921e8`（ff-only），2026-10-27 采集两轮 exit=0、errors=0、无回滚，据副调度回报，部署目录 HEAD 已核对，Grok 凭据过期自动恢复尚未验证）
+
+- 已合并、部署待核实：用量 API 增加分池分级、新鲜度、UTC 每日增量与历史 ETA；attention 在 85% 起提示额度风险，陈旧样本提示未知。Cursor Third Party 按 `cursor:tertiary` 识别。（[PR #115](https://github.com/yicone/agents-lab/pull/115)；[合并提交 `2a81234`](https://github.com/yicone/agents-lab/commit/2a8123453573497259a08ea0c02a0d8e0906769c)；ACM-586）
 
 - 指令目录与当前文档中的两位设计 agent 名称统一为「UI 设计师」，保留历史运行与回滚证据。（[PR #108](https://github.com/yicone/agents-lab/pull/108)；[合并提交 `eb1f9ea`](https://github.com/yicone/agents-lab/commit/eb1f9ea572d706db44a7e7c2daab6fdbb979dacf)；ACM-518；已合并、已部署到 8765，部署事实据 ACM-542 发布前补记指示确认，非本轮部署实测）
 
@@ -32,15 +36,15 @@
 
 ### 修复
 
-- 本地候选（未合并、未部署）：usage-collector 继续通过 codexbar 采集；失败时优先读取 stdout JSON 的 `error`/`message`，将脱敏后的真实错误写入日志与采集退出信息，并过滤 Grok Build 升级提示，避免升级提示掩盖故障；成功输出格式不变。（ACM-642；仅本地提交，无 PR）
+- 已合并、已部署：usage-collector 继续通过 codexbar 采集；失败时优先读取 stdout JSON 的 `error`/`message`，将脱敏后的真实错误写入日志与采集退出信息，并过滤 Grok Build 升级提示，避免升级提示掩盖故障；成功输出格式不变。（[PR #130](https://github.com/yicone/agents-lab/pull/130)；[合并提交 `07921e8`](https://github.com/yicone/agents-lab/commit/07921e8b631400800de09867e1524fa9b3dd5cc1)；ACM-642；部署 SHA `07921e8`（ff-only），2026-10-27 采集两轮 exit=0、errors=0、无回滚，据副调度回报，部署目录 HEAD 已核对，Grok 凭据过期自动恢复尚未验证）
 
-- 本分支候选（未合并、未部署）：Skills 与证据清单冷启动时后台预热技能文档，升级探测整轮限时 18 秒；超时项明确显示「升级状态待补」，后续轮次补齐，避免首次请求长时间等待。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；ACM-630）
+- 已合并、部署待核实：Skills 与证据清单冷启动时后台预热技能文档，升级探测整轮限时 18 秒；超时项明确显示「升级状态待补」，后续轮次补齐，避免首次请求长时间等待。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；[合并提交 `8b08b0f`](https://github.com/yicone/agents-lab/commit/8b08b0f64641156c8e0d0db59a8c2f3c13e7ada5)；ACM-630）
 
-- 本分支候选（未合并、未部署）：修复后台预热期间服务收到退出信号时可能卡住的问题。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；ACM-630）
+- 已合并、部署待核实：修复后台预热期间服务收到退出信号时可能卡住的问题。（[PR #126](https://github.com/yicone/agents-lab/pull/126)；[合并提交 `8b08b0f`](https://github.com/yicone/agents-lab/commit/8b08b0f64641156c8e0d0db59a8c2f3c13e7ada5)；ACM-630）
 
-- 本地候选（未合并、未部署）：用量页区分分带和陈旧字段的缺失与显式 null。缺失不显示；null 显示占位。采样为陈旧时分带仍显示未知。（ACM-587；仅本地提交，无 PR）
+- 已合并、部署待核实：用量页区分分带和陈旧字段的缺失与显式 null。缺失不显示；null 显示占位。采样为陈旧时分带仍显示未知。（[PR #116](https://github.com/yicone/agents-lab/pull/116)；[合并提交 `6ded6f5`](https://github.com/yicone/agents-lab/commit/6ded6f5123e97f9e0eb4fde1987d5354ac7ac7e7)；ACM-587）
 
-- 本地候选（未合并、未部署）：修复收件箱窄屏横向溢出与标题断行，Agent 表格可横向滚动，runtime 汇总卡片窄屏单列、宽屏网格等宽；只读实例或授权码开关关闭时不显示授权码输入框，开关关闭且支持写入时自动加载配置目录，只读提示为「本实例只读。」。（ACM-542；仅本地提交，无 PR）
+- 已合并、部署待核实：修复收件箱窄屏横向溢出与标题断行，Agent 表格可横向滚动，runtime 汇总卡片窄屏单列、宽屏网格等宽；只读实例或授权码开关关闭时不显示授权码输入框，开关关闭且支持写入时自动加载配置目录，只读提示为「本实例只读。」。（[PR #111](https://github.com/yicone/agents-lab/pull/111)；[合并提交 `8f45af1`](https://github.com/yicone/agents-lab/commit/8f45af1a96cc53d5558130d8e781cc1f01823f64)；ACM-542）
 
 - 本地候选（未合并、未部署）：地图工具入口、层侧栏和未接入引导中的三处旧称统一为「全部事项」，路由保持不变。（ACM-505 / ACM-520 返修；无 PR）
 
@@ -60,7 +64,7 @@
 
 - 本分支候选（未合并、未部署）：Skills 对 Codex、Cursor、Hermes 显示加载探针。只有配置里的显式禁用标成未加载；没有逐条加载名单时保持未验证，不把磁盘入口当成已加载。（[PR #118](https://github.com/yicone/agents-lab/pull/118)；ACM-360；未合并、未部署）
 
-- 本地候选（未合并、未部署）：用量页窗口展示分带（常规 / 关注 / 预警 / 危急 / 耗尽 / 未知）、24h 与今日增量、预计耗尽时间和采样年龄。采样陈旧时分带显示未知。`cursor:tertiary` 显示为 Third Party。原有可派活 / 即将耗尽标记不变。（ACM-587；仅本地提交，无 PR）
+- 已合并、部署待核实：用量页窗口展示分带（常规 / 关注 / 预警 / 危急 / 耗尽 / 未知）、24h 与今日增量、预计耗尽时间和采样年龄。采样陈旧时分带显示未知。`cursor:tertiary` 显示为 Third Party。原有可派活 / 即将耗尽标记不变。（[PR #116](https://github.com/yicone/agents-lab/pull/116)；[合并提交 `6ded6f5`](https://github.com/yicone/agents-lab/commit/6ded6f5123e97f9e0eb4fde1987d5354ac7ac7e7)；ACM-587）
 
 - 本地分支候选（未合并、未部署）：新增只读 `flow-check` 巡检，默认增量读取所有 workspace 的近 48h 变更 timeline，台账与代理分栏，用已确认下限/候选上限比较批准的 4.5 件/天阈值，附提速线索口径和缺数原因；支持 Board 状态观测导出及指定窗口对账。（ACM-486；仅本地提交，无 PR）
 

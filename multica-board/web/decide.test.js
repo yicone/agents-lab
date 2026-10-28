@@ -199,3 +199,22 @@ test("status changes are requested with kind=status and runs do not fill the pag
   assert.equal(payload.incomplete, false);
   assert.deepEqual(payload.items.map((item) => item.id), ["ACM-1", "ACM-2"]);
 });
+
+test('shadow governance alerts enter ACM queue without changing issue status', () => {
+  const pending = issue({identifier: 'ACM-597', status: 'todo', governance_findings: [{rule: 'P4'}, {rule: 'P5'}]});
+  const model = decideQueue({issues: [pending, {...pending, id: 'other', workspace_id: OTHER.id}], workspaces: [ACM, OTHER], nowMs: NOW});
+  assert.equal(model.rows.length, 1);
+  assert.equal(model.rows[0].issue.status, 'todo');
+  assert.equal(model.summary.governance, 1);
+  assert.equal(model.summary.review, 0);
+  assert.equal(model.outside, 1);
+  assert.equal(filterDecide(model.rows, {type: 'review'}).length, 0);
+  assert.equal(filterDecide(model.rows, {query: 'ACM-597'}).length, 1);
+});
+
+
+test('governance-only waiting starts at detection, not unrelated issue activity', () => {
+  const it = issue({identifier: 'ACM-1', status: 'todo', governance_findings: [{detected_at: new Date(NOW - 5000).toISOString()}]});
+  assert.equal(waitFor(it, [], NOW).ms, 5000);
+  assert.equal(waitFor(it, [], NOW).approximate, false);
+});

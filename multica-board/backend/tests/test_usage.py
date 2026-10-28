@@ -583,6 +583,235 @@ class ApiShapeTests(unittest.TestCase):
         self.assertNotIn("combined", json.dumps(body))
 
 
+class QuotaPoolTests(unittest.TestCase):
+    """whitelist view of the codex_accounts snapshot block (ACM-650)."""
+
+    @staticmethod
+    def _account(alias, **overrides):
+        record = {
+            "alias": alias,
+            "plan": "plus",
+            "is_system_account": False,
+            "account_key": "deadbeef",
+            "data_confidence": "exact",
+            "windows": [
+                {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 10, "resets_at": "2026-10-16T21:00:00Z", "reset_description": "soon"},
+                {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 20, "resets_at": "2026-10-20T16:43:00Z", "reset_description": "later"},
+            ],
+            "credits_remaining": 100.0,
+            "reset_cards": {
+                "available_count": 1,
+                "soonest_expires_at": "2026-10-17T16:43:00Z",
+                "cards": [{"title": f"card {EMAIL}", "token": SECRET}],
+            },
+            "source_updated_at": "2026-10-16T16:30:00Z",
+            "sampled_at": "2026-10-16T16:42:00Z",
+            "source": "codexbar-disk",
+            "source_path": "CodexBar/codex-account-snapshots.json",
+            "account_email": EMAIL,
+            "token": SECRET,
+        }
+        record.update(overrides)
+        return record
+
+    @classmethod
+    def _snapshot(cls):
+        return {
+            "usage_collected_at": "2026-10-16T16:43:00Z",
+            "days": 14,
+            "external_quotas": [],
+            "token_by_runtime": [],
+            "codex_accounts": {
+                "status": "ok",
+                "source": "codexbar-disk",
+                "sampled_at": "2026-10-16T16:42:30Z",
+                "file_mtime": "2026-10-16T16:42:00Z",
+                "account_count": 5,
+                "error": None,
+                "accounts": [
+                    # 6e: free plan, monthly window only, excluded from pace by alias.
+                    cls._account(
+                        "6e",
+                        plan="free",
+                        windows=[{"key": "primary", "label": "monthly", "window_minutes": 43200, "used_percent": 0.0, "resets_at": "2026-11-15T16:43:00Z", "reset_description": "monthly"}],
+                        credits_remaining=62500.0,
+                        reset_cards={"available_count": 2, "soonest_expires_at": "2026-10-18T19:14:20Z", "cards": []},
+                        source_updated_at="2026-10-16T16:40:00Z",
+                    ),
+                    # aq: fresh, weekly pace example, no credits, card expiring in ~20h -> flag 24.
+                    cls._account(
+                        "aq",
+                        plan="team",
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 21, "resets_at": "2026-10-16T21:52:09Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 6, "resets_at": "2026-10-20T16:41:00Z"},
+                        ],
+                        credits_remaining=None,
+                        reset_cards={"available_count": 2, "soonest_expires_at": "2026-10-17T12:38:50Z", "cards": []},
+                        source_updated_at="2026-10-16T16:41:00Z",
+                    ),
+                    # he: system account flag is ignored for pace, true zero credits, card in ~6h -> flag 6.
+                    cls._account(
+                        "he",
+                        is_system_account=True,
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 1, "resets_at": "2026-10-16T21:14:48Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 43, "resets_at": "2026-10-22T16:42:30Z"},
+                        ],
+                        credits_remaining=0.0,
+                        reset_cards={"available_count": 2, "soonest_expires_at": "2026-10-16T22:42:36Z", "cards": []},
+                        source_updated_at="2026-10-16T16:42:30Z",
+                    ),
+                    # mg: stale (>1800s), zero cards, resets past flag horizon -> flag null.
+                    cls._account(
+                        "mg",
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 11, "resets_at": "2026-10-17T01:01:21Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 93, "resets_at": "2026-10-21T00:40:00Z"},
+                        ],
+                        credits_remaining=72807.3522155,
+                        reset_cards={"available_count": 0, "soonest_expires_at": None, "cards": []},
+                        source_updated_at="2026-10-16T00:40:00Z",
+                    ),
+                    # pe: exactly 1800s old -> still fresh; weekly just started -> pace null; no credits.
+                    cls._account(
+                        "pe",
+                        plan="team",
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 1, "resets_at": "2026-10-16T21:16:58Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 6, "resets_at": "2026-10-23T16:30:00Z"},
+                        ],
+                        credits_remaining=None,
+                        reset_cards={"available_count": 0, "soonest_expires_at": None, "cards": []},
+                        source_updated_at="2026-10-16T16:13:00Z",
+                    ),
+                ],
+            },
+        }
+
+    def _body(self, snapshot=None):
+        return build_usage_response(self._snapshot() if snapshot is None else snapshot, [], [], [], now=NOW)
+
+    def test_structure_and_fixed_order(self):
+        pool = self._body()["quota_pool"]
+        self.assertEqual(pool["status"], "ok")
+        self.assertEqual(pool["source"], "codexbar-disk")
+        self.assertEqual(pool["sampled_at"], "2026-10-16T16:42:30Z")
+        self.assertEqual(pool["stale_after_s"], 1800)
+        self.assertEqual(pool["account_count"], 5)
+        self.assertEqual(pool["present_aliases"], ["6e", "aq", "he", "mg", "pe"])
+        self.assertEqual([item["alias"] for item in pool["accounts"]], ["6e", "aq", "he", "mg", "pe"])
+        for account in pool["accounts"]:
+            self.assertEqual(
+                set(account.keys()),
+                {"alias", "present", "plan", "pace_applicable", "windows", "reset_cards",
+                 "credits", "source_updated_at", "sample_age_s", "stale", "pace"},
+            )
+
+    def test_per_account_fields(self):
+        accounts = {item["alias"]: item for item in self._body()["quota_pool"]["accounts"]}
+        free = accounts["6e"]
+        self.assertEqual(free["plan"], "free")
+        self.assertEqual(free["windows"], {"5h": None, "weekly": None})
+        self.assertFalse(free["pace_applicable"])
+        self.assertEqual(free["pace"], {"ratio": None, "reference_at": None})
+        self.assertEqual(free["credits"], {"present": True, "remaining": 62500.0, "unit": "Credits"})
+        self.assertEqual(free["reset_cards"]["expiry_flag"], 72)
+
+        he = accounts["he"]
+        self.assertEqual(he["credits"], {"present": True, "remaining": 0.0, "unit": "Credits"})
+        self.assertTrue(he["pace_applicable"])
+        self.assertEqual(he["reset_cards"]["expiry_flag"], 6)
+        self.assertEqual(he["pace"]["ratio"], 3.01)
+        self.assertEqual(he["pace"]["reference_at"], "2026-10-16T16:42:30Z")
+
+        aq = accounts["aq"]
+        self.assertEqual(aq["credits"], {"present": False, "remaining": None, "unit": "Credits"})
+        self.assertEqual(aq["windows"]["5h"]["used_percent"], 21)
+        self.assertEqual(aq["windows"]["weekly"]["window_minutes"], 10080)
+        self.assertEqual(aq["windows"]["5h"]["hours_until_reset"], 5.2)
+        self.assertEqual(aq["reset_cards"]["expiry_flag"], 24)
+        self.assertEqual(aq["pace"]["ratio"], 0.14)
+        self.assertEqual(aq["pace"]["reference_at"], "2026-10-16T16:41:00Z")
+
+        mg = accounts["mg"]
+        self.assertTrue(mg["stale"])
+        self.assertEqual(mg["sample_age_s"], 57780)
+        self.assertIsNone(mg["reset_cards"]["expiry_flag"])
+        self.assertEqual(mg["reset_cards"]["available_count"], 0)
+        self.assertEqual(mg["pace"]["ratio"], 3.26)
+
+        pe = accounts["pe"]
+        self.assertFalse(pe["stale"])
+        self.assertEqual(pe["sample_age_s"], 1800)
+        self.assertIsNone(pe["pace"]["ratio"])
+        self.assertEqual(pe["pace"]["reference_at"], "2026-10-16T16:13:00Z")
+        self.assertEqual(pe["credits"]["present"], False)
+
+    def test_stale_boundary_and_missing_timestamp(self):
+        snapshot = self._snapshot()
+        records = snapshot["codex_accounts"]["accounts"]
+        records[4]["source_updated_at"] = "2026-10-16T16:12:59Z"  # 1801s -> stale
+        accounts = {a["alias"]: a for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertTrue(accounts["pe"]["stale"])
+        records[4]["source_updated_at"] = "2026-10-16T16:13:00Z"  # exactly 1800s -> fresh
+        accounts = {a["alias"]: a for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertFalse(accounts["pe"]["stale"])
+        records[4]["source_updated_at"] = None
+        accounts = {a["alias"]: a for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertIsNone(accounts["pe"]["sample_age_s"])
+        self.assertTrue(accounts["pe"]["stale"])
+
+    def test_expiry_flag_boundaries(self):
+        snapshot = self._snapshot()
+        cards = snapshot["codex_accounts"]["accounts"][0]["reset_cards"]
+        for soonest, expected in (
+            ("2026-10-19T16:43:00Z", 72),   # exactly 72h
+            ("2026-10-19T16:49:00Z", None), # 72.1h
+            ("2026-10-17T16:43:00Z", 24),   # exactly 24h
+            ("2026-10-16T22:43:00Z", 6),    # exactly 6h
+            ("2026-10-16T16:30:00Z", 6),    # already past, still the smallest bucket
+        ):
+            with self.subTest(soonest=soonest):
+                cards["soonest_expires_at"] = soonest
+                flags = {a["alias"]: a["reset_cards"]["expiry_flag"] for a in self._body(snapshot)["quota_pool"]["accounts"]}
+                self.assertEqual(flags["6e"], expected)
+        cards["available_count"] = 0
+        cards["soonest_expires_at"] = "2026-10-16T22:43:00Z"
+        flags = {a["alias"]: a["reset_cards"]["expiry_flag"] for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertIsNone(flags["6e"])
+
+    def test_hours_until_soonest_can_be_negative(self):
+        snapshot = self._snapshot()
+        cards = snapshot["codex_accounts"]["accounts"][0]["reset_cards"]
+        cards["soonest_expires_at"] = "2026-10-16T15:43:00Z"  # 1h ago
+        account = self._body(snapshot)["quota_pool"]["accounts"][0]
+        self.assertEqual(account["reset_cards"]["hours_until_soonest"], -1.0)
+
+    def test_missing_block_and_bad_status(self):
+        for snapshot, status in (
+            ({"usage_collected_at": "2026-10-16T16:43:00Z", "days": 14}, "missing"),
+            ({"codex_accounts": "not-a-dict"}, "missing"),
+            ({"codex_accounts": {"status": "weird", "accounts": []}}, "error"),
+            ({"codex_accounts": {"status": "empty", "accounts": []}}, "empty"),
+        ):
+            with self.subTest(status=status):
+                pool = self._body(snapshot)["quota_pool"]
+                self.assertEqual(pool["status"], status)
+                self.assertEqual(pool["account_count"], 0)
+                self.assertEqual(len(pool["accounts"]), 5)
+                self.assertTrue(all(account["present"] is False for account in pool["accounts"]))
+                self.assertTrue(all(account["sample_age_s"] is None for account in pool["accounts"]))
+
+    def test_whitelist_drops_identity_and_card_details(self):
+        body = self._body()
+        text = json.dumps(body, ensure_ascii=False)
+        for leaked in ("account_key", "source_path", "@", SECRET, EMAIL, "reset_description", "data_confidence", "is_system_account", "deadbeef"):
+            self.assertNotIn(leaked, text)
+        cards = body["quota_pool"]["accounts"][0]["reset_cards"]
+        self.assertNotIn("cards", cards)
+
+
 class CliTests(unittest.TestCase):
     def test_collect_usage_command(self):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")

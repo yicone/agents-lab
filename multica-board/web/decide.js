@@ -14,7 +14,7 @@ function statusOf(issue) {
 
 export function isDecideStatus(issue) {
   const status = statusOf(issue);
-  return status === "in_review" || status === "blocked";
+  return status === "in_review" || status === "blocked" || Boolean(issue?.governance_findings?.length);
 }
 
 /** ACM Lab is the only workspace this page lists. Slug wins over display name. */
@@ -61,6 +61,12 @@ function fallbackIso(issue) {
 }
 
 export function waitFor(issue, changes, nowMs, historyIncomplete = false) {
+  if (issue?.governance_findings?.length && !["in_review", "blocked"].includes(statusOf(issue))) {
+    const iso = issue.governance_findings.map(f => f.detected_at).filter(Boolean).sort()[0] || null;
+    const start = iso ? Date.parse(iso) : NaN;
+    const ms = Number.isNaN(start) ? null : Math.max(0, nowMs - start);
+    return { ms, iso, approximate: false, level: waitLevel(ms) };
+  }
   const entry = historyIncomplete ? null : latestStatusEntry(issue, changes);
   const iso = entry?.iso ?? fallbackIso(issue);
   const start = iso ? Date.parse(iso) : NaN;
@@ -86,7 +92,9 @@ function summarize(rows) {
   let review = 0;
   let blocked = 0;
   let over7 = 0;
+  let governance = 0;
   for (const row of rows) {
+    if (row.issue.governance_findings?.length) governance += 1;
     const status = statusOf(row.issue);
     if (status === "in_review") review += 1;
     else if (status === "blocked") blocked += 1;
@@ -97,6 +105,7 @@ function summarize(rows) {
     review,
     blocked,
     over7,
+    governance,
     longest: rows.find((row) => row.wait.ms != null)?.wait ?? null,
   };
 }
