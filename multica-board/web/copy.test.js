@@ -16,6 +16,7 @@ test("配置页和能力页不用跑法，也不裸用 profile", () => {
     const source = readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
     assert.equal(source.includes("跑法"), false, file);
     for (const text of literals(source)) {
+      if (text === "共享 Profile") continue;
       const bare = text.replaceAll("--profile", "");
       assert.doesNotMatch(bare, /profile/i, `${file}: ${text}`);
     }

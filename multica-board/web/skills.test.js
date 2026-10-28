@@ -36,6 +36,24 @@ test("Grok Bot export has an independent source, integrity warnings and a read-o
   assert.equal(findText(drawer, "Exported body"), false);
 });
 
+test("a real cloud-only skill keeps the product name out of the list tip and the drawer note", () => {
+  const cloud = JSON.parse(readFileSync(new URL("./fixtures/skills-cloud/skills.json", import.meta.url), "utf8"));
+  const item = cloud.items.find((row) => row.origin === "cloud" && row.shared_entry?.detail?.includes("Multica"));
+  assert.ok(item, "cloud-only fixture");
+  const payload = basePayload([item]);
+  const list = { children: renderSkills(renderCtx(payload)) };
+  const title = findAll(list, (node) => String(node.attrs?.class || "").includes("shared-entry"))[0]?.attrs?.title || "";
+  assert.match(title, /Workspace 技能不在本机清单，共享入口未检查/);
+  assert.doesNotMatch(title, /Multica/);
+  const drawer = { children: renderSkillDrawer(renderCtx(payload), item) };
+  const note = findAll(drawer, (node) => node.tag === "section" && findText(node, "共享入口"))
+    .map((node) => flatten(node).filter((child) => typeof child === "string").join("\n"))
+    .join("\n");
+  assert.match(note, /Workspace 技能不在本机清单，共享入口未检查/);
+  assert.doesNotMatch(note, /Multica/);
+  assert.match(item.shared_entry.detail, /Multica/);
+});
+
 test("today fixture: queue count equals attention badge and debt stays out", () => {
   assert.equal(today.attention.baseline_debt, 76);
   assert.equal(badgeOf(today), 4);

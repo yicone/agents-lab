@@ -114,7 +114,7 @@ export function sharedEntryOf(item, payload) {
   if (!entry || typeof entry !== "object" || typeof entry.state !== "string" || !SHARED_LABEL[entry.state]) {
     return { state: "unknown", label: SHARED_LABEL.unknown, reason: "field_invalid", path: null, target: null, resolved: null, detail: "共享入口字段缺失或不可识别" };
   }
-  return { ...entry, label: entry.label || SHARED_LABEL[entry.state] };
+  return { ...entry, label: entry.label || SHARED_LABEL[entry.state], detail: visibleLabel(entry.detail) };
 }
 
 export function sharedSummary(payload) {
@@ -1017,7 +1017,7 @@ function contentPanel(h, ctx, item, target, result, requestedFile = "SKILL.md") 
     );
   }
   const retry = result.state === "loading" ? null : h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path, requestedFile) }, "重试");
-  return h("p", null, h("span", { class: `tag ${meta.cls}` }, meta.label), result.message ? h("span", { class: "muted" }, ` ${result.message}`) : null, retry ? " " : null, retry);
+  return h("p", null, h("span", { class: `tag ${meta.cls}` }, meta.label), result.message ? h("span", { class: "muted" }, ` ${visibleLabel(result.message)}`) : null, retry ? " " : null, retry);
 }
 
 function contentSection(h, ctx, item) {

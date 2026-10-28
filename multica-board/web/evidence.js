@@ -192,6 +192,11 @@ function row(h, item) {
   );
 }
 
+function slotDisplayName(slot) {
+  const name = slot?.display_name || "—";
+  return name === "共享 Profile" ? "共享登录配置" : name;
+}
+
 function memoryBlock(h, slots) {
   return h(
     "section",
@@ -201,7 +206,7 @@ function memoryBlock(h, slots) {
     h(
       "ul",
       null,
-      slots.map((slot) => h("li", null, `${collectionMark(slot.collection_state).symbol} ${slot.display_name} · ${slot.scope} · ${reasonText(slot.reason)}`)),
+      slots.map((slot) => h("li", null, `${collectionMark(slot.collection_state).symbol} ${slotDisplayName(slot)} · ${slot.scope} · ${reasonText(slot.reason)}`)),
     ),
   );
 }

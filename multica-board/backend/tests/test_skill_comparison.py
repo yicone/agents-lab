@@ -74,6 +74,8 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(item["reconciliation_status"], "unrecorded")
         self.assertEqual(next(block for block in _summary([item]) if block["id"] == "unrecorded")["statuses"], {"unrecorded": 1})
         cloud = _cloud_only_item("cloud", [{"id": "s"}])
+        self.assertEqual(cloud["shared_entry"]["detail"], "Workspace 技能不在本机清单，共享入口未检查")
+        self.assertNotIn("Multica", cloud["shared_entry"]["detail"])
         self.assertEqual(cloud["reconciliation_status"], "unrecorded")
         self.assertEqual(cloud["status_label"], "未登记")
         result = runtime_columns({"tools": [{"id": "codex", "label": "Codex"}], "items": [cloud]}, {"items": [{"provider": "future"}]}, [])

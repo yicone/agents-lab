@@ -90,6 +90,9 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   assert.equal(page.includes("声明"), true);
   assert.equal(page.includes("未知"), true);
   assert.equal(page.includes("Bot 私有 Memory"), true);
+  assert.equal(page.includes("共享登录配置"), true);
+  assert.equal(/\bProfile\b/.test(page), false);
+  assert.equal(payload.items.find((item) => item.object_id === "memory:shared_profile").display_name, "共享 Profile");
   assert.equal(page.includes("当前实现只列出未采集槽位"), true);
   assert.equal(page.includes("不能相加成数量"), true);
   assert.equal(page.includes("来源未证实"), true);

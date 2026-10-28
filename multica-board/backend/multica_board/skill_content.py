@@ -108,7 +108,7 @@ def read_content(document: dict, *, name: str, path: str = "", file: str | None 
                               "collected_at": observed, "evidence_state": "unknown"}
     if source == "cloud":
         return {**result, "state": "uncollected", "collected_at": None,
-                "message": "Multica Workspace 正文未采集；本机文件不代表 Multica Workspace 内容"}
+                "message": "Workspace 正文未采集；本机文件不代表 Workspace 内容"}
     try:
         if source != "local":
             raise ValueError("invalid source")
