@@ -87,7 +87,7 @@ test("fixture keeps the three layers apart and follows API signals", () => {
 test("the page shows three columns and does not add token counts to quota percents", () => {
   const nodes = render(fixture);
   const page = textOf({ children: nodes });
-  const runtime = column(nodes, "Multica 运行层");
+  const runtime = column(nodes, "运行层");
   const quota = column(nodes, "外部额度");
   const failure = column(nodes, "失败");
 
@@ -95,6 +95,7 @@ test("the page shows three columns and does not add token counts to quota percen
   assert.match(page, /2026-10-16T16:43:00Z/);
   assert.match(page, /分栏展示，不相加/);
   assert.match(page, /must not be summed/);
+  assert.doesNotMatch(page, /Multica/);
 
   assert.match(runtime, /Hermes/);
   assert.match(runtime, new RegExp(formatCount(7)));
@@ -154,7 +155,8 @@ test("a missing snapshot still names the gap and leaves 9router and orca unconne
   assert.match(column(nodes, "外部额度"), /9router[\s\S]*未接入/);
   assert.match(column(nodes, "外部额度"), /orca[\s\S]*未接入/);
   assert.match(column(nodes, "失败"), /耗时和原始 error 文本不在 \/api\/usage/);
-  assert.match(column(nodes, "Multica 运行层"), /没有 runtime 用量/);
+  assert.match(column(nodes, "运行层"), /没有 runtime 用量/);
+  assert.doesNotMatch(page, /Multica/);
   assert.equal(usageSignal(payload), "快照未采集");
   assert.equal(usageAlert(payload), false);
 });

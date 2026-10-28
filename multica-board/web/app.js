@@ -359,7 +359,7 @@ async function refresh(force = false) {
     const previousMcp = mcpRefreshKey(state.mcp);
     const previousAgents = JSON.stringify([state.agents, state.ownerInventory]);
     const agentsPromise = getJSON("agents");
-    // Skills, the Grok roster, and the usage snapshot live beside the Multica issue snapshot, so they reload even when that snapshot is unchanged.
+    // Skills, the Grok roster, and the usage snapshot live beside the issue snapshot, so they reload even when that snapshot is unchanged.
     const skillsPromise = loadSkills();
     const mcpPromise = loadMcp();
     const botsPromise = loadBots();
@@ -924,7 +924,7 @@ function renderContainer() {
     const ws = wsById();
     const rows = recentRuns(state.issues, state.meta?.workspaces, state.route, matchesQuery);
     return [h("h2", null, "最近运行"), h("p", { class: "muted" }, "每个 issue 只显示最近一次；不是完整日志。时间为 UTC+8。"),
-      ...rows.map(it => h("div", { class: "toolbar" }, h("span", null, `${ws.get(it.workspace_id)?.name || "未知 workspace"} · ${it.identifier} · ${it.title} · ${it.latest_run.agent_name || "未知 agent"} · ${absTime(it.latest_run.created_at || it.latest_run.started_at) || "未知时间"} UTC+8 · ${RUN_STATUS_LABEL[it.latest_run.status] || it.latest_run.status}`), it.url ? extLink(`${it.url}/runs`, null, "Multica 运行历史 ↗") : null, h("button", { type: "button", onclick: () => openDrawer(it) }, "查看缓存"))),
+      ...rows.map(it => h("div", { class: "toolbar" }, h("span", null, `${ws.get(it.workspace_id)?.name || "未知 workspace"} · ${it.identifier} · ${it.title} · ${it.latest_run.agent_name || "未知 agent"} · ${absTime(it.latest_run.created_at || it.latest_run.started_at) || "未知时间"} UTC+8 · ${RUN_STATUS_LABEL[it.latest_run.status] || it.latest_run.status}`), it.url ? extLink(`${it.url}/runs`, null, "运行历史 ↗") : null, h("button", { type: "button", onclick: () => openDrawer(it) }, "查看缓存"))),
       !rows.length ? h("p", { class: "muted" }, "当前缓存没有匹配的运行记录；不代表没有运行。") : null];
   }
   return [h("h2", null, view === "schedules" ? "定时任务" : "服务健康"), h("p", { class: "decide-note", role: "status" }, "未接入：尚无此视图的数据来源。")];
@@ -977,7 +977,7 @@ function issueCard(it, ws, cls) {
       h("span", { class: "status" }, STATUS_LABEL[it.status] ?? it.status),
       showBar ? layerBar(h, layer) : null,
     ),
-    extLink(it.url, { class: "card-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title),
+    extLink(it.url, { class: "card-title", title: it.url ? "打开来源" : "无法生成链接" }, it.title),
     context ? h("div", { class: "card-context" }, context) : null,
     failedLine,
     h(
@@ -1338,7 +1338,7 @@ function renderDrawer() {
         close,
       ),
       h("h2", { class: "drawer-title" }, d.it.title),
-      d.it.url ? extLink(d.it.url, { class: "drawer-link" }, "在 Multica 打开 ↗") : null,
+      d.it.url ? extLink(d.it.url, { class: "drawer-link" }, "打开来源 ↗") : null,
       h(
         "p",
         { class: "muted" },
@@ -1670,7 +1670,7 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     h(
       "td",
       { class: "num" },
-      h("span", { class: "ok-n", title: "Multica completed 数，包含单列的交付异常" }, `✓${recent.completed ?? 0}`),
+      h("span", { class: "ok-n", title: "已完成次数，包含单列的交付异常" }, `✓${recent.completed ?? 0}`),
       " ",
       h("span", { class: recent.failed ? "bad-n" : "muted" }, `✗${recent.failed ?? 0}`),
       recent.delivery_anomalies ? h("span", { class: "bad-n" }, `交付异常 ${recent.delivery_anomalies}`) : null,
@@ -2019,7 +2019,7 @@ function renderDecide() {
       h("button", { type: "button", class: state.route.group === "layer" ? "" : "active", "aria-pressed": state.route.group === "layer" ? "false" : "true", onclick: () => setRoute({ group: "" }) }, "不分组"),
       h("button", { type: "button", disabled: !ready, class: state.route.group === "layer" ? "active" : "", title: ready ? "" : pendingTitle, onclick: () => ready && setRoute({ group: "layer" }) }, "按主层"),
     ),
-    h("span", { class: "muted decide-hint" }, "点行打开运行记录，点标题在 Multica 打开"),
+    h("span", { class: "muted decide-hint" }, "点行打开运行记录，点标题打开来源"),
   );
 
   const table = h(
@@ -2117,7 +2117,7 @@ function decideRow(row, degraded, ready) {
       h("span", { class: "wait-since" }, formatSince(wait.iso, now())),
     ),
     h("td", { class: "ident" }, it.identifier || it.id),
-    h("td", null, extLink(it.url, { class: "decide-title", title: it.url ? "在 Multica 打开" : "无法生成链接" }, it.title || ""),
+    h("td", null, extLink(it.url, { class: "decide-title", title: it.url ? "打开来源" : "无法生成链接" }, it.title || ""),
       ...(it.governance_findings || []).map(f => h("details", null,
         h("summary", null, `${f.rule} · 巡检待决`),
         h("p", null, `${f.code} · 置信度 ${f.confidence} · ${f.detected_at}`),

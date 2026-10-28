@@ -1,3 +1,4 @@
+import { visibleLabel } from "./ia-view.js";
 import { runtimeIcon } from "./runtime-mark.js";
 /** Read-only usage page. Counts and signals come from GET /api/usage; this file only displays them. */
 
@@ -78,7 +79,7 @@ const SNAPSHOT_LABEL = {
   missing: "还没有用量快照",
 };
 
-const SPLIT_NOTE = "Multica 的 token / cost 与 CodexBar 额度是两套口径，分栏展示，不相加。";
+const SPLIT_NOTE = "看板记录的 token / cost 与 CodexBar 额度是两套口径，分栏展示，不相加。";
 const FAILURE_GAP = "耗时和原始 error 文本不在 /api/usage。这一栏只显示满载失败和真失败的计数，不补这两项。";
 const FAILURE_PARTS = "额度失败和限流失败已经计在满载失败里，这里分开列出，不再加一次。";
 
@@ -814,15 +815,15 @@ export function renderUsage(ctx) {
       h("p", null, h("a", { href: "#/map/l1" }, "返回 L1 地图")),
       h("p", null, `${windowText} · 采集于 ${collected} · ${model.snapshot}`),
       h("p", { class: "usage-split" }, SPLIT_NOTE),
-      model.note ? h("p", { class: "muted" }, model.note) : null,
+      model.note ? h("p", { class: "muted" }, visibleLabel(model.note)) : null,
     ),
     h(
       "div",
       { class: "usage-columns" },
       h(
         "section",
-        { class: "usage-col", "aria-label": "Multica 运行层" },
-        h("h3", null, "Multica 运行层"),
+        { class: "usage-col", "aria-label": "运行层" },
+        h("h3", null, "运行层"),
         h("p", { class: "muted" }, "按 runtime 汇总这个时间窗。token 计数和 cost ticks 只在这一栏。"),
         runtimes.length ? runtimes.map((row) => runtimeCard(ctx, row)) : h("p", { class: "empty" }, query ? "没有匹配的 runtime" : "这个时间窗里没有 runtime 用量。"),
       ),

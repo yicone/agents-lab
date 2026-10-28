@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { COPY, visibleLabel } from "./ia-view.js";
 
 const PAGES = ["skills.js", "mcp.js", "agents-view.js", "runtime-config.js", "evidence.js", "skill-content.js", "plan.js", "ia-view.js"];
+const UI_FILES = readdirSync(new URL("./", import.meta.url))
+  .filter((name) => (name.endsWith(".js") || name.endsWith(".html") || name.endsWith(".css")) && !name.endsWith(".test.js") && name !== "ia-view.js");
 
 function literals(source) {
   return [...source.matchAll(/`(?:\\.|[^`])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g)].map((match) => match[0].slice(1, -1));
@@ -20,13 +22,10 @@ test("配置页和能力页不用跑法，也不裸用 profile", () => {
   }
 });
 
-test("能力页、Agent 配置抽屉和运行配置的界面词不含产品名", () => {
-  for (const file of PAGES) {
-    if (file === "ia-view.js") continue;
+test("界面词不含产品名，命令和对象名称不在这层替换", () => {
+  for (const file of UI_FILES) {
     const source = readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
-    for (const text of literals(source)) {
-      assert.equal(text.includes("Multica"), false, `${file}: ${text}`);
-    }
+    assert.equal(source.includes("Multica"), false, file);
   }
 });
 
