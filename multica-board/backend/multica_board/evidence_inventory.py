@@ -175,8 +175,8 @@ def _source(source_id: str, source_kind: str, label: str, scope: str, state: str
 
 def _memory_slots() -> list[dict[str, Any]]:
     specs = (
-        ("memory:bot-private", "Bot 私有 Memory", "bot-private", "bot-private 槽位；不与共享 Profile 或 Journal 合并"),
-        ("memory:shared_profile", "共享 Profile", "shared", "shared_profile 槽位；不是某个 Bot 的私有正文"),
+        ("memory:bot-private", "Bot 私有 Memory", "bot-private", "bot-private 槽位；不与共享登录配置或 Journal 合并"),
+        ("memory:shared_profile", "共享登录配置", "shared", "shared_profile 槽位；不是某个 Bot 的私有正文"),
         ("memory:shared_journal", "共享 Journal", "shared", "shared_journal 槽位；不是某个 Bot 的私有正文"),
     )
     slots = []

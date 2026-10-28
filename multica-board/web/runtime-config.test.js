@@ -71,7 +71,7 @@ test("unavailable preview sends an acknowledgement bound to its id only after bo
   try {
     await settle();
     find(n => n.tag === "form").attrs.onsubmit({ preventDefault() {} }); await settle();
-    button("调整配置").attrs.onclick();
+    button("调整运行配置").attrs.onclick();
     find(n => n.attrs["aria-label"] === "模型 操作").attrs.onchange({ target: { value: "set" } });
     find(n => n.attrs["aria-label"] === "模型 目标").attrs.oninput({ target: { value: "denied-model" } });
     button("预览差异").attrs.onclick({}); await settle();
@@ -114,7 +114,7 @@ for (const field of ["model", "runtime_id", "custom_model"]) {
       await settle();
       find(n => n.tag === "form").attrs.onsubmit({ preventDefault() {} });
       await settle();
-      find(n => n.tag === "button" && text(n) === "调整配置").attrs.onclick();
+      find(n => n.tag === "button" && text(n) === "调整运行配置").attrs.onclick();
       const label = field === "model" ? "模型" : field === "runtime_id" ? "Runtime" : "custom_args · --model";
       find(n => n.attrs["aria-label"] === label + " 操作").attrs.onchange({ target: { value: "set" } });
       const input = find(n => n.attrs["aria-label"] === label + " 目标");

@@ -185,7 +185,7 @@
     ]
   },
   "multica_daily": {
-    "note": "Multica token usage and codexbar quota percentages use independent accounting and must not be summed.",
+    "note": "token / cost and codexbar quota percentages use independent accounting and must not be summed.",
     "by_provider": [],
     "by_runtime": [
       {

@@ -5,7 +5,7 @@ import {parseHash,formatHash,applyPatch} from './route.js';
 test('status and configuration have distinct task columns; selection keeps config columns',()=>{
  assert.deepEqual(agentColumns(false,false),['Agent','运行或排队','当前任务','24h 失败 / 完成','最近失败','最近运行','同一 Agent']);
  const config=agentColumns(true,false);
- for(const column of ['Runtime','模型','Instructions 来源','Skills 绑定','MCP 绑定','调整入口']) assert.ok(config.includes(column));
+ for(const column of ['Runtime','模型','Instructions 来源','Skills 绑定','MCP 绑定','运行配置']) assert.ok(config.includes(column));
  assert.ok(!config.includes('当前任务'));
  assert.deepEqual(agentColumns(false,true),['选择',...config]);
 });

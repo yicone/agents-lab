@@ -1,5 +1,6 @@
 import { contentKey, loadSkillContent } from "./skill-content.js";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, loadStateText, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
@@ -34,6 +35,51 @@ test("Grok Bot export has an independent source, integrity warnings and a read-o
   drawer = {children: renderSkillDrawer(ctx, item)};
   assert.ok(findText(drawer, "导出文件或清单已变化"));
   assert.equal(findText(drawer, "Exported body"), false);
+});
+
+function sharedSurfaces(item) {
+  const payload = basePayload([item]);
+  const list = { children: renderSkills(renderCtx(payload)) };
+  const title = findAll(list, (node) => String(node.attrs?.class || "").includes("shared-entry"))[0]?.attrs?.title || "";
+  const drawer = { children: renderSkillDrawer(renderCtx(payload), item) };
+  const note = findAll(drawer, (node) => node.tag === "section" && findText(node, "共享入口"))
+    .map((node) => flatten(node).filter((child) => typeof child === "string").join("\n"))
+    .join("\n");
+  return { title, note };
+}
+
+function generatedCloudItem() {
+  const backend = new URL("../backend/", import.meta.url);
+  const run = spawnSync("python3", ["-c", [
+    "import json",
+    "from multica_board.views import _cloud_only_item",
+    "item = _cloud_only_item('de-ai-chinese-x-copy', [{'id': 'f359fc29-5277-4b52-b025-bf773801366a', 'workspace_id': '8ebc87ea-27f2-42c4-90f6-24a04e64d3f5', 'workspace_name': 'ACM Lab'}])",
+    "print(json.dumps(item))",
+  ].join("\n")], { cwd: backend, encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  return JSON.parse(run.stdout);
+}
+
+test("real cloud-only skills keep the product name out of the list tip and the drawer note", () => {
+  const cloud = JSON.parse(readFileSync(new URL("./fixtures/skills-cloud/skills.json", import.meta.url), "utf8"));
+  const captured = cloud.items.filter((row) => row.origin === "cloud");
+  assert.ok(captured.length >= 2, "captured cloud-only skills");
+  assert.ok(captured.some((row) => row.shared_entry?.detail?.includes("Multica")), "captured payload still has the old interface sentence");
+  for (const item of captured) {
+    const { title, note } = sharedSurfaces(item);
+    assert.match(title, /Workspace 技能不在本机清单，共享入口未检查/, item.name);
+    assert.match(note, /Workspace 技能不在本机清单，共享入口未检查/, item.name);
+    assert.doesNotMatch(title, /Multica/, item.name);
+    assert.doesNotMatch(note, /Multica/, item.name);
+  }
+  const generated = generatedCloudItem();
+  assert.equal(generated.origin, "cloud");
+  assert.doesNotMatch(generated.shared_entry.detail, /Multica/);
+  const fresh = sharedSurfaces(generated);
+  assert.match(fresh.title, /Workspace 技能不在本机清单，共享入口未检查/);
+  assert.match(fresh.note, /Workspace 技能不在本机清单，共享入口未检查/);
+  assert.doesNotMatch(fresh.title, /Multica/);
+  assert.doesNotMatch(fresh.note, /Multica/);
 });
 
 test("today fixture: queue count equals attention badge and debt stays out", () => {
@@ -655,12 +701,12 @@ test("local skills directory newer than the cloud copy enters the pending queue"
   assert.deepEqual(cloudPending(payload).map((item) => item.name), ["colgrep-search", "summary-skill"]);
   const tree = { children: renderSkills(renderCtx(payload)) };
   const queue = findAll(tree, (n) => n.attrs?.class === "skill-bucket cloud-pending")[0];
-  assert.ok(findText(queue, "Multica Workspace 待核对"));
+  assert.ok(findText(queue, "Workspace 待核对"));
   assert.ok(findText(queue, "colgrep-search"));
-  assert.ok(findText(queue, "Multica Workspace 较旧（按时间推断）"));
+  assert.ok(findText(queue, "Workspace 较旧（按时间推断）"));
   assert.equal(findText(queue, "fresh-skill"), false);
   const row = findAll(tree, (n) => n.attrs?.id === "skill-colgrep-search")[0];
-  assert.ok(findText(row, "Multica Workspace 较旧"));
+  assert.ok(findText(row, "Workspace 较旧"));
 });
 
 test("Grok CLI symlinks under ~/.grok/skills render as a filled circle", () => {
@@ -702,7 +748,7 @@ test("Grok CLI symlinks under ~/.grok/skills render as a filled circle", () => {
 test("skill drawer copies refresh, update, and agent skill add commands without running them", () => {
   const item = cloudItem();
   const tree = { children: renderSkillDrawer(renderCtx(basePayload([item])), item) };
-  assert.ok(findText(tree, "Multica Workspace（跨 Workspace）"));
+  assert.ok(findText(tree, "Workspace（跨 Workspace）"));
   assert.ok(findText(tree, "multica --workspace-id ws-acm skill refresh skill-acm"));
   assert.ok(findText(tree, "multica --workspace-id ws-acm skill update skill-acm"));
   assert.ok(findText(tree, "multica --workspace-id ws-acm skill update skill-acm --content-file skills/colgrep-search/SKILL.md"));
@@ -746,7 +792,7 @@ test("sourceBlocks appends a synthesized cloud block matching filteredItems", ()
   const blocks = sourceBlocks(payload);
   const cloud = blocks[blocks.length - 1];
   assert.equal(cloud.id, "cloud");
-  assert.equal(cloud.label, "Multica Workspace · 已安装");
+  assert.equal(cloud.label, "Workspace · 已安装");
   assert.equal(cloud.count, filteredItems(payload, { ...baseRoute, source: "cloud" }).length);
   assert.deepEqual(cloud.statuses, { stale: 1, aligned: 1 });
   assert.equal(cloud.uncollected, false);
@@ -755,8 +801,8 @@ test("sourceBlocks appends a synthesized cloud block matching filteredItems", ()
   const neverCloud = sourceBlocks(never).pop();
   assert.equal(neverCloud.uncollected, true);
   const card = findAll({ children: renderSkills(renderCtx(never)) }, (n) => String(n.attrs?.class || "").includes("source-card")).pop();
-  assert.ok(findText(card, "Multica Workspace"));
-  assert.ok(findText(card, "Multica Workspace 数据未采集"));
+  assert.ok(findText(card, "Workspace"));
+  assert.ok(findText(card, "Workspace 数据未采集"));
   const strong = findAll(card, (n) => n.tag === "strong")[0];
   assert.equal(flatten(strong).filter((c) => typeof c === "string").join(""), "—");
   // empty arrays do count as collected
@@ -765,11 +811,11 @@ test("sourceBlocks appends a synthesized cloud block matching filteredItems", ()
   assert.equal(collected.count, 0);
 });
 
-test("source dropdown contains Multica Workspace and the cloud card is a filter toggle", () => {
+test("source dropdown contains Workspace and the cloud card is a filter toggle", () => {
   const payload = basePayload([cloudItem()]);
   const tree = { children: renderSkills(renderCtx(payload, { route: { ...baseRoute, source: "cloud" } })) };
   const options = findAll(tree, (n) => n.tag === "option").map((n) => flatten(n).filter((c) => typeof c === "string").join(""));
-  assert.ok(options.includes("Multica Workspace · 已安装"), options.join("|"));
+  assert.ok(options.includes("Workspace · 已安装"), options.join("|"));
   const card = findAll(tree, (n) => String(n.attrs?.class || "").includes("source-card")).pop();
   assert.match(card.attrs.class, /active/);
 });
@@ -777,9 +823,9 @@ test("source dropdown contains Multica Workspace and the cloud card is a filter 
 test("empty table text distinguishes uncollected cloud, empty cloud, and no match", () => {
   const route = { ...baseRoute, source: "cloud" };
   const never = { children: renderSkills(renderCtx(basePayload([simpleItem({})]), { route })) };
-  assert.ok(findText(never, "Multica Workspace 安装数据未采集，无法筛选"));
+  assert.ok(findText(never, "Workspace 安装数据未采集，无法筛选"));
   const empty = { children: renderSkills(renderCtx(basePayload([simpleItem({ workspace_installs: [] })]), { route })) };
-  assert.ok(findText(empty, "没有已安装到 Multica Workspace 的 skill"));
+  assert.ok(findText(empty, "没有已安装到 Workspace 的 skill"));
   const nomatch = { children: renderSkills(renderCtx(basePayload([simpleItem({})]), { route: { ...baseRoute, q: "zzz" } })) };
   assert.ok(findText(nomatch, "没有符合筛选的 skill"));
 });
@@ -836,9 +882,9 @@ test("drawer 正文 section renders the viewer for each state and keeps raw text
   assert.deepEqual(pre.children, ["line1\n<script>alert(1)</script>\n<b>bold</b>"]);
   assert.ok(findText(okTree, "30 字节"));
   assert.ok(findText(okTree, "0123456789ab"));
-  // Multica Workspace 行只有未采集说明，没有任何正文按钮
-  assert.ok(findText(okTree, "Multica Workspace 正文未采集"));
-  const cloudLines = findAll(okTree, (n) => n.tag === "p" && flatten(n).some((c) => typeof c === "string" && c.includes("Multica Workspace 正文未采集")));
+  // Workspace 行只有未采集说明，没有任何正文按钮
+  assert.ok(findText(okTree, "Workspace 正文未采集"));
+  const cloudLines = findAll(okTree, (n) => n.tag === "p" && flatten(n).some((c) => typeof c === "string" && c.includes("Workspace 正文未采集")));
   assert.ok(cloudLines.length);
   for (const cloudLine of cloudLines) assert.equal(findAll(cloudLine, (n) => n.tag === "button").length, 0);
 });
@@ -944,7 +990,7 @@ test("equal hashes suppress checkout mtime drift; differing hashes outrank times
   item.workspace_installs[0].content_hash = "b".repeat(64);
   item.workspace_installs[0].updated_at = "2026-12-01T00:00:00Z";
   assert.equal(cloudDrift(item).comparisons[0].basis, "hash");
-  assert.equal(cloudDrift(item).label, "Multica Workspace 内容不同");
+  assert.equal(cloudDrift(item).label, "Workspace 内容不同");
   assert.match(cloudDrift(item).explanation, /无法据此判断新旧/);
   const before = skillsRefreshKey(basePayload([item]));
   item.workspace_installs[0].content_hash = "a".repeat(64);
@@ -974,7 +1020,7 @@ test("cloud-only runtime cells use a distinct symbol even without configured roo
   const cells = findAll(tree,n=>n.tag==="td" && n.attrs?.class?.includes("tool-mark"));
   assert.equal(cells.length,1);
   assert.deepEqual(cells[0].children,["∅"]);
-  assert.match(cells[0].attrs.title,/不适用：仅 Multica Workspace /);
+  assert.match(cells[0].attrs.title,/不适用：仅 Workspace /);
   assert.match(cells[0].attrs.title,/— 表示数据未采集/);
 });
 
@@ -1036,9 +1082,9 @@ test("all Skills Workspace labels and tooltips use the approved name",()=>{
   assert.equal(source.includes("云端"),false);
   const payload=JSON.parse(readFileSync(new URL("./fixtures/skills-grok/skills.json",import.meta.url),"utf8"));
   const tree={children:renderSkills(renderCtx(payload))};
-  assert.ok(findAll(tree,n=>n.tag==="th").some(n=>findText(n,"Multica Workspace")));
+  assert.ok(findAll(tree,n=>n.tag==="th").some(n=>findText(n,"Workspace")));
   const card=sourceBlocks(payload).find(block=>block.id==="cloud");
-  assert.equal(card.label,"Multica Workspace · 已安装");
+  assert.equal(card.label,"Workspace · 已安装");
   const bot=payload.items.find(item=>item.origin==="grok_bot");
   const before=skillsRefreshKey(payload);
   bot.grok_bots[0].evidence_state="inferred";

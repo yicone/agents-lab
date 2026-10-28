@@ -192,7 +192,7 @@ def build_workspace_installs(
                 "updated_at": skill.get("updated_at"),
                 "content_hash": skill.get("content_hash"),
                 "content": {"state": "uncollected", "source": "cloud", "collected_at": None,
-                            "evidence_state": "unknown", "message": "Multica Workspace 正文未采集"},
+                            "evidence_state": "unknown", "message": "Workspace 正文未采集"},
                 "agents": agents,
             }
         )
@@ -335,7 +335,7 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
             "path": None,
             "target": None,
             "resolved": None,
-            "detail": "Multica Workspace 技能不在本机清单，共享入口未检查",
+            "detail": "Workspace 技能不在本机清单，共享入口未检查",
         },
         "workspace_installs": installs,
     }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { applyPatch, formatHash, historyWrite, parseHash, redirectHash } from "./route.js";
 import { collectionMark, emptyInventoryText, evidenceLevel, renderEvidence, sourceCountLabel, visibleItems } from "./evidence.js";
@@ -59,6 +60,25 @@ test("uncollected and unavailable marks are not zero", () => {
   assert.equal(emptyInventoryText("multica_workspace", payload), "— 未采集");
 });
 
+test("a real shared memory slot renders as 共享登录配置", () => {
+  const backend = new URL("../backend/", import.meta.url);
+  const run = spawnSync("python3", ["-c", [
+    "import json",
+    "from multica_board.evidence_inventory import build_evidence_inventory",
+    "print(json.dumps(build_evidence_inventory({'ok': True, 'generated_at': '2026-10-26T09:00:00Z', 'items': []})))",
+  ].join("\n")], { cwd: backend, encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  const inventory = JSON.parse(run.stdout);
+  const slot = inventory.items.find((item) => item.object_id === "memory:shared_profile");
+  assert.equal(slot.display_name, "共享登录配置");
+  assert.equal(slot.object_type, "memory_collection");
+  const tree = renderEvidence({ h: vnode, route: { source: "", q: "" }, evidence: inventory, setRoute() {} });
+  const page = textOf({ children: tree });
+  assert.equal(page.includes("共享登录配置"), true);
+  assert.equal(/\bProfile\b/.test(page), false);
+  assert.equal(slot.object_id, "memory:shared_profile");
+});
+
 test("evidence levels keep distinct labels", () => {
   for (const [level, label] of [
     ["observed", "直接观察"],
@@ -77,7 +97,7 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   const tree = renderEvidence({ h: vnode, route: { source: "", q: "" }, evidence: payload, setRoute() {} });
   const rendered = walk(tree);
   const byLabel = Object.fromEntries(rendered.map((card) => [textOf(card.children[0]), textOf(card.children[1])]));
-  assert.equal(byLabel["Multica Workspace"], "—");
+  assert.equal(byLabel["Workspace"], "—");
   assert.equal(byLabel["Grok CLI"], "—");
   assert.equal(byLabel["Memory"], "—");
   assert.equal(byLabel["本机"], "2");
@@ -90,6 +110,9 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   assert.equal(page.includes("声明"), true);
   assert.equal(page.includes("未知"), true);
   assert.equal(page.includes("Bot 私有 Memory"), true);
+  assert.equal(page.includes("共享登录配置"), true);
+  assert.equal(/\bProfile\b/.test(page), false);
+  assert.equal(payload.items.find((item) => item.object_id === "memory:shared_profile").display_name, "共享 Profile");
   assert.equal(page.includes("当前实现只列出未采集槽位"), true);
   assert.equal(page.includes("不能相加成数量"), true);
   assert.equal(page.includes("来源未证实"), true);
