@@ -71,6 +71,7 @@ class CliError(Exception):
     def __init__(self, message: str, *, transient: bool = False):
         # Messages surface in /api/meta, so every one is redacted at construction.
         super().__init__(redact(message) or "cli error")
+        self.detail = redact(message, limit=None) or "cli error"
         self.transient = transient
 
 
@@ -177,8 +178,8 @@ class CliRunner:
 
         stderr = proc.stderr or ""
         if proc.returncode != 0:
-            msg = redact(stderr.strip() or f"exit code {proc.returncode}")
-            transient = bool(re.search(r"(?i)timeout|timed out|connection|50[234]|429|rate limit|EOF", stderr))
+            msg = redact(stderr.strip() or f"exit code {proc.returncode}", limit=None)
+            transient = bool(re.search(r"(?i)timeout|timed out|connection|\b5\d{2}\b|429|rate limit|TLS|EOF", stderr))
             raise CliError(msg or "cli error", transient=transient)
         if identity_only:
             # auth status has no JSON mode. Keep only one verified Server origin.

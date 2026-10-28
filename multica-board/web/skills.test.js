@@ -189,6 +189,23 @@ function renderCtx(payload, extra = {}) {
   };
 }
 
+test("conflict drawer separates live findings from manual state and fallback stays visible", () => {
+  const item = simpleItem({conflict_status: "closed", conflict_detection_state: "ok", conflict_findings: [
+    {type: "responsibility_overlap", skills: ["alpha", "beta"], evidence: ["Shared architecture diagrams"], routing_note: "Boundary note"},
+  ]});
+  let tree = {children: renderSkillDrawer(renderCtx(basePayload([item])), item)};
+  for (const text of ["人工标记（登记表）", "closed", "实时检测 · 职责重叠 · alpha / beta", "Shared architecture diagrams", "Boundary note", "不代表人工确认冲突"])
+    assert.ok(findText(tree, text), text);
+  item.conflict_detection_state = "fallback";
+  item.conflict_findings = [];
+  tree = {children: renderSkillDrawer(renderCtx(basePayload([item])), item)};
+  assert.ok(findText(tree, "实时检测未完成，仅保留人工标记"));
+  const payload = basePayload([item]);
+  payload.attention.buckets.overlap = {connected: true, reason: "检测失败，仅保留人工标记", items: [{identifier:"alpha", title:"人工标记 open"}]};
+  tree = {children: renderSkills(renderCtx(payload))};
+  assert.ok(findText(tree, "检测失败，仅保留人工标记"));
+});
+
 test("upgrade failure stays a dash and a finished empty check stays 无", () => {
   const failed = {
     ...today,
