@@ -114,6 +114,37 @@ class SkillsPayloadTests(unittest.TestCase):
         skills_view._CACHE.clear()
         self.tmp.cleanup()
 
+    def test_explicit_clock_rollback_refills_once_and_keeps_install_invalidation(self):
+        at = [NOW]
+        stamp = [0]
+        with mock.patch.object(skills_view, "_install_stamp", side_effect=lambda *_: (stamp[0],)), \
+             mock.patch.object(skills_view, "build_payload", side_effect=lambda **_: {}) as build:
+            first = self.cached(lambda: at[0])
+            at[0] -= timedelta(days=1)
+            second = self.cached(lambda: at[0])
+            self.assertIsNot(second, first)
+            self.assertIs(self.cached(lambda: at[0]), second)
+            stamp[0] += 1
+            self.assertIsNot(self.cached(lambda: at[0]), second)
+            self.assertEqual(build.call_count, 3)
+
+    def test_wall_clock_rollback_keeps_cache_until_monotonic_ttl_expires(self):
+        wall = [NOW]
+        elapsed = [100.0]
+        with mock.patch.object(skills_view, "_now", side_effect=lambda: wall[0]), \
+             mock.patch("time.monotonic", side_effect=lambda: elapsed[0]), \
+             mock.patch.object(skills_view, "_install_stamp", return_value=()), \
+             mock.patch.object(skills_view, "build_payload", side_effect=lambda **_: {}) as build:
+            first = self.cached(None)
+            wall[0] -= timedelta(days=1)
+            self.assertIs(self.cached(None), first)
+            elapsed[0] += CACHE_TTL_SECONDS
+            self.assertIsNot(self.cached(None), first)
+            self.assertEqual(build.call_count, 2)
+            skills_view._CACHE.clear()
+            self.assertIsNot(self.cached(None), first)
+            self.assertEqual(build.call_count, 3)
+
     def test_warmup_and_first_request_share_one_completed_cache_fill(self):
         entered, release = threading.Event(), threading.Event()
         clock = [NOW]
@@ -126,6 +157,7 @@ class SkillsPayloadTests(unittest.TestCase):
         responses = []
         with mock.patch.object(skills_view, "build_payload", side_effect=build) as builder, \
              mock.patch.object(skills_view, "_install_stamp", return_value=()), \
+             mock.patch("time.monotonic", side_effect=lambda: clock[0].timestamp()), \
              mock.patch.object(skills_view, "_now", side_effect=lambda: clock[0]):
             warm = skills_view.prewarm_skills()
             try:

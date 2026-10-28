@@ -129,7 +129,7 @@ overlay 有两种 delta 形态，记录里 `ops` 与 `patch` 二选一：
 
 ### 冲突标记与激活阻断
 
-`content` 冲突在冲突树里长这样：
+以下 fenced code block 是 `content` 冲突树的 diff3 输出示例，不是本文档尚未解决的合并冲突；这些标记仅用于说明门禁应当阻断的输入：
 
 ```
 <<<<<<< local

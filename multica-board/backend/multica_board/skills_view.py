@@ -17,6 +17,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -136,7 +137,7 @@ SUMMARY_SOURCES = (
     ("grok_bot_export", "Grok Bot 导出"),
 )
 
-_CACHE: dict[tuple, dict[str, Any]] = {}
+_CACHE: dict[tuple, tuple[dict[str, Any], float]] = {}
 
 
 def parse_review_days(value: str | None) -> int:
@@ -1659,7 +1660,6 @@ def build_payload(
 
 
 _DOCUMENT_LOCK = threading.Lock()
-_CACHE_AT: datetime | None = None
 
 
 def _single_document(build):
@@ -1727,9 +1727,12 @@ def skills_document(
             scan_roots=scan_roots,
             upgrade_fetch=upgrade_fetch,
         )
-    global _CACHE_AT
     moment = clock() if clock is not None else _now()
+    # Wall time describes the payload; production TTL must survive clock resets.
+    # An explicit clock keeps tests deterministic, in a separate cache domain.
+    cache_time = moment.timestamp() if clock is not None else time.monotonic()
     key = (
+        clock is not None,
         review_days,
         str(inventory_path),
         _mtime(inventory_path),
@@ -1740,8 +1743,8 @@ def skills_document(
         _install_stamp(inventory_path, tool_roots_path, repo_root, staging_root, scan_roots),
     )
     cached = _CACHE.get(key)
-    if cached is not None and _CACHE_AT is not None and 0 <= (moment - _CACHE_AT).total_seconds() < CACHE_TTL_SECONDS:
-        return cached
+    if cached is not None and 0 <= cache_time - cached[1] < CACHE_TTL_SECONDS:
+        return cached[0]
     document = build_payload(
         repo_root=repo_root,
         inventory_path=inventory_path,
@@ -1755,6 +1758,7 @@ def skills_document(
         upgrade_fetch=upgrade_fetch,
     )
     _CACHE.clear()
-    _CACHE[key] = document
-    _CACHE_AT = clock() if clock is not None else _now()
+    # Bind completion time to this entry so clearing it clears all TTL state.
+    completed_at = clock().timestamp() if clock is not None else time.monotonic()
+    _CACHE[key] = (document, completed_at)
     return document
