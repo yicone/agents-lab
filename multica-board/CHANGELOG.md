@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### 修复
+
+- 本地候选（未合并、未部署）：流速采集在 110 秒预算内重试列表页，记录脱敏错误、命令、offset 和耗时，并逐轮保存采集快照与报告；timeline 缺失单独标记，不使完整清单降级。（ACM-675；无 PR）
+
 ### 新增
 
 - 用量页三列下方新增只读「额度池利用」节，按 6e / aq / he / mg / pe 别名逐账号展示 5h/周窗口用量、重置卡临期提示、Credits 余额与 Q4 节奏比，字段缺失标「无该字段」，超 30 分钟未更新标「陈旧」，无颜色告警、不跨账号相加；Q4 旁注只显示文字「建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整」，不执行判定。（[PR #134](https://github.com/yicone/agents-lab/pull/134)；[合并提交 `c6f41bc`](https://github.com/yicone/agents-lab/commit/c6f41bcc2708359fa434bf1fe4834991904a02ce)；ACM-650；已合并、已部署到 8765，部署事实据 ACM-650 2026-10-27 部署核对：生产目录快进到该 SHA 并重启 `one.yic.multica-board`，`/api/usage` 含 `quota_pool` 且无邮箱/`account_key`/`source_path`）

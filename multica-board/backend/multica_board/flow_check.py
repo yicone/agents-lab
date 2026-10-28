@@ -252,6 +252,11 @@ def command(args):
     else:
         report = flow_report(snapshot, load_ledger(args.ledger), now=now, config=config)
         report['run_metrics'] = _attach_run_metrics(report, getattr(args, 'run_metrics', None))
+        if not args.snapshot:
+            from uuid import uuid4
+            path = Path.home() / '.multica-board' / 'flow-reports' / f'{now:%Y%m%dT%H%M%S}-{uuid4().hex}.json'
+            write_private(path, dict(snapshot=snapshot, report=report))
+            report['raw_report_file'] = str(path)
         print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
     return 0
 
