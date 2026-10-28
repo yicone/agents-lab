@@ -1487,6 +1487,36 @@ class CacheDependencyTests(unittest.TestCase):
             (self.shared / name).mkdir()
             (self.shared / name / "SKILL.md").write_text("x", encoding="utf-8")
 
+    def test_runtime_home_noise_preserves_document_cache(self):
+        runtime_home = self.root / ".hermes"
+        installed = runtime_home / "skills"
+        installed.mkdir(parents=True)
+        self.tools.write_text(json.dumps({
+            "tools": [{"id": "hermes", "label": "Hermes"}],
+            "roots": [{"path": str(installed), "tools": ["hermes"], "kind": "direct"}],
+        }), encoding="utf-8")
+        self.inventory.write_text(json.dumps({"skills": [
+            skill("hermes", visible_paths=[str(installed)])
+        ]}), encoding="utf-8")
+        first = self.cached()
+        stamp = skills_view._install_stamp(self.inventory, self.tools, self.repo, self.staging, [])
+        # Deterministic parent metadata change, like atomic gateway state writes.
+        (runtime_home / "gateway_state.json").write_text("{}", encoding="utf-8")
+        (runtime_home / "kanban.db-wal").write_text("runtime noise", encoding="utf-8")
+        (runtime_home / "cache").mkdir()
+        os.utime(runtime_home, ns=(1_000_000_000, 2_000_000_000))
+        self.assertEqual(
+            skills_view._install_stamp(self.inventory, self.tools, self.repo, self.staging, []), stamp)
+        self.assertIs(self.cached(), first)
+        added = installed / "new-skill"
+        added.mkdir()
+        (added / "SKILL.md").write_text("---\nname: new-skill\n---\n", encoding="utf-8")
+        next_document = self.cached()
+        self.assertIsNot(next_document, first)
+        self.assertIn("new-skill", [item["name"] for item in next_document["items"]])
+        (added / "SKILL.md").unlink()
+        self.assertIsNot(self.cached(), next_document)
+
     def test_shared_skill_md_chmod_invalidates(self):
         self.make_skill()
         first = self.cached()
