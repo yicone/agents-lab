@@ -10,7 +10,7 @@
       "id": "grok_cli",
       "label": "Grok CLI",
       "collection_state": "collected",
-      "count": 1,
+      "count": 2,
       "error": {
         "code": "cursor_format_not_run",
         "message": "Grok 再扫到 Cursor 格式的 hooks，报告不会运行。这只属于 Grok CLI，不并入 Cursor。",
@@ -63,6 +63,18 @@
       "declared": "present",
       "reachable": "unknown",
       "observed": "unknown"
+    },
+    {
+      "id": "grok_cli:load-error:pre_tool_use:0",
+      "name": "pre_tool_use",
+      "event": "pre_tool_use",
+      "plugin": "",
+      "source_id": "grok_cli",
+      "source_label": "Grok CLI",
+      "declared": "present",
+      "reachable": "missing",
+      "observed": "unknown",
+      "detail": "Grok 报告这条不会运行，不标成可达。观察到没有稳定运行日志。"
     },
     {
       "id": "hermes_plugin:nowledge-mem:post_llm_call:0",

@@ -54,5 +54,19 @@ test("same event stays one row per source, and another source's error stays out"
   assert.match(visible, /hooks/);
   const all = textOf({ children: renderHooks({ h, hooks: payload, route: { source: "", q: "" }, setRoute() {} }) });
   assert.match(all, /Grok 再扫到/);
-  assert.equal(all.includes("Hermes shell"), false);
+  assert.equal(all.includes("Hermes shell 没读到"), false);
+  assert.match(all, /声明了/);
+  assert.match(all, /可达/);
+  assert.match(all, /未知/);
+  assert.match(all, /不可达/);
+  const allTree = { children: renderHooks({ h, hooks: payload, route: { source: "", q: "" }, setRoute() {} }) };
+  const lines = [];
+  (function walk(node) {
+    if (!node || typeof node === "string") return;
+    if (node.attrs?.class === "tri-line") lines.push(textOf(node).replace(/\s+/g, ""));
+    for (const child of node.children || []) walk(child);
+  })(allTree);
+  const observed = lines.filter((line) => line.startsWith("观察到"));
+  assert.ok(observed.length >= 4);
+  assert.ok(observed.every((line) => line.endsWith("未知")));
 });

@@ -2349,7 +2349,7 @@ function renderMain() {
         ? renderDecide()
         : view === "skills"
           ? (state.route.evidence ? renderEvidence(ctx) : renderSkills(ctx))
-          : view === "mcp"
+            : view === "mcp"
             ? renderMcp(mcpCtx())
             : view === "hooks"
             ? renderHooks({ h, route: state.route, hooks: state.hooks, setRoute })

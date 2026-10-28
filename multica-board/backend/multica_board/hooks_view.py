@@ -27,21 +27,28 @@ MAX_BYTES = 1_000_000
 GROK_TIMEOUT_S = 8
 GROK_CACHE_S = 15
 _EVENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:-]{0,80}$")
-_ABS_PATH = re.compile(r"(?<![\w.])(/(?:[^/\s\"'`\\]+/)*[^/\s\"'`\\]+)")
+_ABS = re.compile(r"(?<![\w.~])(/[^\s\"';|&<>]+)")
+_GROK_ERROR = re.compile(r"^hook hooks:([A-Za-z0-9_.:()-]+)\[(\d+)\]")
 
 _grok_cache: dict[str, Any] = {"at": 0.0, "payload": None, "error": None}
 
 Inspect = Callable[[], tuple[dict[str, Any] | None, str | None]]
 
 
-def collect_hooks(home: Path, inspect: Inspect | None = None, now: float | None = None) -> dict[str, Any]:
+def collect_hooks(
+    home: Path,
+    inspect: Inspect | None = None,
+    now: float | None = None,
+    exists: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
     home = Path(home)
+    file_exists = exists or os.path.exists
     items: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     for source_id, label, reader in (
-        ("cursor", "Cursor", _read_cursor),
-        ("codex_user", "Codex 用户 hooks", _read_codex),
-        ("grok_cli", "Grok CLI", lambda root: _read_grok(root, inspect, now)),
+        ("cursor", "Cursor", lambda root: _read_cursor(root, file_exists)),
+        ("codex_user", "Codex 用户 hooks", lambda root: _read_codex(root, file_exists)),
+        ("grok_cli", "Grok CLI", lambda root: _read_grok(root, inspect, now, file_exists)),
         ("hermes_plugin", "Hermes 插件事件", _read_hermes_plugins),
     ):
         try:
@@ -79,7 +86,7 @@ def _public_item(source_id: str, label: str, item: dict[str, Any]) -> dict[str, 
     event = str(item.get("event") or "")
     index = int(item.get("index") or 0)
     plugin = item.get("plugin") or ""
-    identity = f"{source_id}:{plugin}:{event}:{index}" if plugin else f"{source_id}:{event}:{index}"
+    identity = str(item.get("id") or (f"{source_id}:{plugin}:{event}:{index}" if plugin else f"{source_id}:{event}:{index}"))
     return {
         "id": identity,
         "name": event,
@@ -127,7 +134,43 @@ def _unavailable(reason: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return [], _error("unreadable", "这个来源没读到" if reason != "invalid" else "这个来源的内容读不懂")
 
 
-def _read_cursor(home: Path) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+def path_reach(command: str, exists: Callable[[str], bool], *, compatibility: str | None = None, load_error: bool = False) -> str:
+    """Return yes / no / unknown. ``enabled`` and ``trusted_hash`` are not arguments."""
+    if load_error:
+        return "no"
+    if compatibility not in (None, "", "enabled"):
+        return "unknown"
+    paths = []
+    for match in _ABS.finditer(command or ""):
+        path = match.group(1).rstrip("),")
+        if path.startswith("//") or len(path) < 2:
+            continue
+        paths.append(path)
+    if not paths:
+        return "unknown"
+    return "yes" if all(exists(path) for path in paths) else "no"
+
+
+def _mark(command: str, exists: Callable[[str], bool], *, compatibility: str | None = None, load_error: bool = False) -> str:
+    return {"yes": "present", "no": "missing"}.get(
+        path_reach(command, exists, compatibility=compatibility, load_error=load_error),
+        "unknown",
+    )
+
+
+def _error_ref(text: str) -> tuple[str, int, str] | None:
+    match = _GROK_ERROR.match(text.strip())
+    if not match:
+        return None
+    rest = text[match.end():]
+    path = ""
+    marker = " in "
+    if marker in rest:
+        path = rest.split(marker, 1)[1].split(":", 1)[0].strip()
+    return match.group(1), int(match.group(2)), path
+
+
+def _read_cursor(home: Path, exists: Callable[[str], bool]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     text, reason = _read_file(home / ".cursor" / "hooks.json")
     if reason == "absent":
         return [], None
@@ -146,11 +189,11 @@ def _read_cursor(home: Path) -> tuple[list[dict[str, Any]], dict[str, Any] | Non
             continue
         for index, entry in enumerate(entries):
             command = entry.get("command") if isinstance(entry, dict) else ""
-            items.append({"event": event, "index": index, "reachable": _reachable(command if isinstance(command, str) else "")})
+            items.append({"event": event, "index": index, "reachable": _mark(command if isinstance(command, str) else "", exists)})
     return items, None
 
 
-def _read_codex(home: Path) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+def _read_codex(home: Path, exists: Callable[[str], bool]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     text, reason = _read_file(home / ".codex" / "hooks.json")
     if reason == "absent":
         return [], None
@@ -173,12 +216,17 @@ def _read_codex(home: Path) -> tuple[list[dict[str, Any]], dict[str, Any] | None
             commands = nested if isinstance(nested, list) else [entry]
             for command_entry in commands:
                 command = command_entry.get("command") if isinstance(command_entry, dict) else ""
-                items.append({"event": event, "index": index, "reachable": _reachable(command if isinstance(command, str) else "")})
+                items.append({"event": event, "index": index, "reachable": _mark(command if isinstance(command, str) else "", exists)})
                 index += 1
     return items, None
 
 
-def _read_grok(home: Path, inspect: Inspect | None, now: float | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+def _read_grok(
+    home: Path,
+    inspect: Inspect | None,
+    now: float | None,
+    exists: Callable[[str], bool],
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     del home  # Grok CLI reports its own discovery; the Cursor file is not merged in.
     payload, failure = _cached_grok(inspect, now)
     if failure:
@@ -191,22 +239,56 @@ def _read_grok(home: Path, inspect: Inspect | None, now: float | None) -> tuple[
     hooks = payload.get("hooks") if isinstance(payload, dict) else None
     if not isinstance(hooks, list):
         return [], _error("invalid", "Grok CLI 没有返回清单")
+    raw_errors = payload.get("hookLoadErrors")
+    error_refs = [_error_ref(str(text)) for text in raw_errors] if isinstance(raw_errors, list) else []
+    matched: set[int] = set()
     items = []
+    local_index: dict[tuple[str, str], int] = {}
     for index, hook in enumerate(hooks):
         if not isinstance(hook, dict):
             continue
         event = hook.get("event") if isinstance(hook.get("event"), str) else ""
         source = hook.get("source") if isinstance(hook.get("source"), dict) else {}
         plugin = source.get("plugin_name") if isinstance(source.get("plugin_name"), str) else ""
+        source_path = source.get("path") if isinstance(source.get("path"), str) else ""
+        shown = event or plugin or "hook"
+        key = (source_path, shown)
+        local = local_index.get(key, 0)
+        local_index[key] = local + 1
+        load_error = False
+        if source_path.startswith("/") and source_path != "/":
+            for err_index, ref in enumerate(error_refs):
+                if ref and ref[0] == shown and ref[1] == local and ref[2] == source_path:
+                    load_error = True
+                    matched.add(err_index)
+        compatibility = hook.get("compatibilityStatus")
+        compat = compatibility if isinstance(compatibility, str) else None
         target = hook.get("target") if isinstance(hook.get("target"), str) else ""
-        items.append({"event": event or plugin or "hook", "index": index, "plugin": plugin, "reachable": _reachable(target)})
-    errors = payload.get("hookLoadErrors")
+        items.append({
+            "event": shown,
+            "index": index,
+            "plugin": plugin,
+            "reachable": _mark(target, exists, compatibility=compat, load_error=load_error),
+        })
+    if isinstance(raw_errors, list):
+        for index, _text in enumerate(raw_errors):
+            if index in matched:
+                continue
+            ref = error_refs[index] if index < len(error_refs) else None
+            event = ref[0] if ref else "加载错误"
+            items.append({
+                "id": f"grok_cli:load-error:{event}:{index}",
+                "event": event,
+                "index": index,
+                "plugin": "",
+                "reachable": "missing",
+            })
     error = None
-    if isinstance(errors, list) and errors:
+    if isinstance(raw_errors, list) and raw_errors:
         error = _error(
             "cursor_format_not_run",
             "Grok 再扫到 Cursor 格式的 hooks，报告不会运行。这只属于 Grok CLI，不并入 Cursor。",
-            len(errors),
+            len(raw_errors),
         )
     return items, error
 
@@ -345,13 +427,3 @@ def _shell_hook_count(text: str) -> int:
     return count
 
 
-def _reachable(command: str) -> str:
-    paths = _ABS_PATH.findall(command or "")
-    if not paths:
-        return "unknown"
-    target = paths[0]
-    try:
-        info = os.stat(target, follow_symlinks=True)
-    except OSError:
-        return "missing"
-    return "present" if stat.S_ISREG(info.st_mode) else "missing"
