@@ -184,11 +184,11 @@ python3 -m http.server --bind 127.0.0.1 8765 -d multica-board/web
 
 回答「同一个 server 在本机各工具、仓库项目级和各 Multica workspace 是否一致，哪些不会生效」。顶栏第 6 项，地址 `#/mcp`，地图 L3 的工具列表里也有入口。页面只读，管理操作只给可复制的命令。重写后的完整设计（列序、单元格词汇、角标 tone、抽屉六节、命令安全）见 `mcp-redesign.md`，接口见 `api-contract.md` 的 `GET /api/mcp`（schema 2）。
 
-- 一张分组表：按 `source_class` 或按工具分组；列序固定为 Server、来源/出现位置、Multica Workspace、各本机工具列、仓库入口、传输、一致性。
+- 一张分组表：按 `source_class` 或按工具分组；列序固定为 Server、三态、来源/出现位置、Multica Workspace、各本机工具列、仓库入口、传输、一致性。三态用文字写声明了、可达、观察到；MCP 没有连接探测，可达和观察到为未知。
 - 筛选：来源（含合成的「仓库项目级」）、一致性状态、工具、分组、「只看已分配给 agent」、待清理开关、搜索；没有 workspace 下拉，也没有视图切换。
 - 单元格词汇：`●` 有同名条目、`●停` 显式停用、`✕` 条目损坏、`?` 文件没读到、`∅` 确定只在 Multica、空白=已读没有；`?` 优先于 `∅`。
 - 角标四态：`attention.tone` 的 `bad`（红）/`warn`（黄）/`unknown`（灰 `?`）/`none`（隐藏）；`badge` 只是五桶条数之和，待清理不计入。
-- 抽屉按行 id 打开（`mcp-row-<id>`），六节固定顺序：来源与范围、一致性、本机工具配置、仓库项目级、Multica Workspace、在终端处理。命令只用 `--*-config-file` 形式、全部带 `--workspace-id`，复制用 `copyWithFallback`（clipboard → execCommand → 选中 `<code>` 加提示行）。
+- 抽屉按行 id 打开（`mcp-row-<id>`），顺序为能力三态、来源与范围、一致性、本机工具配置、仓库项目级、Multica Workspace、在终端处理。命令只用 `--*-config-file` 形式、全部带 `--workspace-id`，复制用 `copyWithFallback`（clipboard → execCommand → 选中 `<code>` 加提示行）。
 - 只读提示「页面只读，不代为执行。复制命令后在自己的终端运行。」只出现在抽屉的命令区，不出现在页顶。
 
 ## 用量与额度（ACM-299）

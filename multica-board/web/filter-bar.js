@@ -3,6 +3,7 @@
 export const DECIDE_SCOPE = "范围：ACM Lab";
 export const SKILLS_SCOPE = "范围：全部来源";
 export const MCP_SCOPE = "范围：全部来源";
+export const HOOKS_SCOPE = "范围：全部来源";
 
 /** "shared" shows the filter. "decide" / "skills" / "mcp" show a fixed scope. "none" shows neither. */
 export function filterChrome(view) {
@@ -10,6 +11,7 @@ export function filterChrome(view) {
   if (view === "decide") return "decide";
   if (view === "skills") return "skills";
   if (view === "mcp") return "mcp";
+  if (view === "hooks") return "hooks";
   return "none";
 }
 
@@ -17,6 +19,7 @@ export function scopeNote(view) {
   if (view === "decide") return DECIDE_SCOPE;
   if (view === "skills") return SKILLS_SCOPE;
   if (view === "mcp") return MCP_SCOPE;
+  if (view === "hooks") return HOOKS_SCOPE;
   return "";
 }
 

@@ -813,6 +813,10 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。
 
+## `GET /api/hooks`（ACM-664，本地未合并）
+
+只读。不接受查询参数。不返回命令文本、`target`、`enabled`、`trusted_hash` 或密钥。`items[].observed` 恒为 `unknown`。`declared` / `reachable` 取 `yes`、`no`、`unknown`；读不到的来源 `sources[].state` 为 `unknown`，`count` 为 `null`，不当成异常，也不进入 attention。来源只有 `cursor`、`codex`、`grok_cli`、`hermes`。Grok 的加载错误留在 `grok_cli`，不并进 Cursor。Hermes shell 空列表的 `state` 是 `empty`。
+
 ## G1 meta API identity
 
 `GET /api/meta` additionally returns `server_identity`: a best-effort normalized API origin observed from the selected CLI profile's unique `Server:` line in read-only `auth status`. It is distinct from `multica_web_base` and the profile name. Resolution failure returns null; serve still starts and the collector retains its existing profile routing, without pinning an origin via `--server-url`. No actor or on-behalf-of identity is inferred. See `runtime-plan-contract.md` (v1.2 draft) for the plan interfaces and their null/empty-string exception.

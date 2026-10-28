@@ -347,7 +347,7 @@ test("mcp route: parse, serialize, whitelist, legacy drop and l3 redirect", () =
 });
 
 test("IA v2 canonical routes round trip without alias loops", () => {
-  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/metrics", "#/running/schedules", "#/running/health", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/runtime", "#/settings"]) {
+  for (const hash of ["#/running", "#/running/changes", "#/running/changes/new", "#/running/changes/hist", "#/running/usage", "#/running/runs", "#/running/metrics", "#/running/schedules", "#/running/health", "#/configure/agents", "#/configure/skills", "#/configure/mcp", "#/configure/hooks", "#/configure/runtime", "#/settings"]) {
     assert.equal(redirectHash(hash), null, hash);
     assert.equal(formatHash(parseHash(hash)), hash, hash);
   }
