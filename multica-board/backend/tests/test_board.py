@@ -814,7 +814,7 @@ class ServerTests(unittest.TestCase):
                 listen_hosts([host])
 
     def test_endpoints(self):
-        for path in ("/api/meta", "/api/issues", "/api/layers", "/api/agents", "/api/bots", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures"):
+        for path in ("/api/meta", "/api/issues", "/api/layers", "/api/agents", "/api/bots", "/api/runtimes", "/api/issues/w1/member/runs", "/api/attention", "/api/changes", "/api/stats/failures", "/api/run-metrics"):
             r, body = self.req("GET", path)
             self.assertEqual(r.status, 200, path)
             self.assertEqual(r.getheader("Content-Type"), "application/json; charset=utf-8")

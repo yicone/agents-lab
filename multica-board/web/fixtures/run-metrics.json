@@ -1,0 +1,4094 @@
+{
+  "ok": true,
+  "readonly": true,
+  "writes": [],
+  "schema_version": "run-metrics.v0.1",
+  "reason": null,
+  "message": null,
+  "report": {
+    "schema_version": "run-metrics.v0.1",
+    "rule_version": "failure-rules.v0.2",
+    "generated_at": "2026-10-25T16:00:00Z",
+    "default_window": "14d",
+    "window_semantics": "边界为 [generated_at-window, generated_at]，UTC。run 用 started_at，缺失时用 created_at 作为 anchor_at。",
+    "source": {
+      "mode": "fixture",
+      "workspace_id": "ws-1",
+      "commands": [
+        "multica issue list",
+        "multica issue runs",
+        "multica issue timeline --action status_changed",
+        "multica issue comment list --roots-only --summary",
+        "multica runtime list",
+        "multica runtime usage"
+      ]
+    },
+    "collection": {
+      "workspace_total": null,
+      "issues_fetched": null,
+      "issues_in_default_window": null,
+      "run_missing_ids": [],
+      "timeline_missing_ids": [],
+      "timeline_truncated_ids": [],
+      "comment_missing_ids": [],
+      "errors": [],
+      "runs_missing_anchor": [],
+      "partial": false
+    },
+    "runtime_reconciliation": {
+      "checked_at": "2026-10-25T16:00:00Z",
+      "source": "multica runtime list",
+      "s1_claim": {
+        "runtime_count": 12,
+        "all_online": true,
+        "source_comment_id": "01a173e7-4d1b-7c12-9e40-a94ee2c675a9"
+      },
+      "observed_count": 10,
+      "online_count": 10,
+      "offline_count": 0,
+      "runtimes": [
+        {
+          "runtime_id": "rt-0",
+          "name": "Runtime 0",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-1",
+          "name": "Runtime 1",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-2",
+          "name": "Runtime 2",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-3",
+          "name": "Runtime 3",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-4",
+          "name": "Runtime 4",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-5",
+          "name": "Runtime 5",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-6",
+          "name": "Runtime 6",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-7",
+          "name": "Runtime 7",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-8",
+          "name": "Runtime 8",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        },
+        {
+          "runtime_id": "rt-9",
+          "name": "Runtime 9",
+          "provider": "codex",
+          "status": "online",
+          "last_seen_at": null
+        }
+      ],
+      "gemini_runtimes": [],
+      "atlas_gemini_display": {
+        "claimed_by": "Steward",
+        "source_comment_id": "01a173ef-44df-738b-b354-b74523090400",
+        "claim": "gemini 0/1 online",
+        "rechecked_in_atlas_ui": false
+      },
+      "discrepancies": [
+        "S1（评论 01a173e7-4d1b-7c12-9e40-a94ee2c675a9）记录 12 个本地 runtime 且均为 online；本次 `multica runtime list` 于 2026-10-25T16:00:00Z 返回 10 个，其中 online 10、非 online 0。S1 未列出 runtime id，因此不能点名少掉的是哪几个。",
+        "本次 CLI 列表没有 provider 或 name 含 gemini 的 runtime。这和 S1 的 12 个 online runtime 不能逐个对齐。"
+      ],
+      "unverified": [
+        "未打开 Atlas UI，不能复核评论 01a173ef-44df-738b-b354-b74523090400 里的 gemini 0/1 显示。"
+      ],
+      "usage_probes": [
+        {
+          "runtime_id": "rt-0",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-1",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-2",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-3",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-4",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-5",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-6",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-7",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-8",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        },
+        {
+          "runtime_id": "rt-9",
+          "days": 1,
+          "record_count": 0,
+          "quota_remaining_present": false
+        }
+      ],
+      "quota_remaining_present": false
+    },
+    "timeline_from_to": {
+      "events": 2,
+      "with_from_to": 1,
+      "without_from_to": 1,
+      "compared_with_s1": "本次 1 条 status_changed 同时有 from/to，1 条没有。S1 说没有统一 from/to，只能部分成立；缺字段的事件不推断为返工。"
+    },
+    "scheduling": {
+      "policy": "current_quota_health_only",
+      "unknown_hard_disable": false,
+      "historical_quota_excludes_agent": false,
+      "excluded_agent_ids": [],
+      "historical_quota_agent_ids": [
+        "agent-quota"
+      ],
+      "historical_quota_note": "这些 agent 在默认窗口有 quota 分类，仅作历史记录，不产生排除名单。",
+      "signals": [
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-0",
+          "provider": "codex",
+          "name": "Runtime 0",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-1",
+          "provider": "codex",
+          "name": "Runtime 1",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-2",
+          "provider": "codex",
+          "name": "Runtime 2",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-3",
+          "provider": "codex",
+          "name": "Runtime 3",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-4",
+          "provider": "codex",
+          "name": "Runtime 4",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-5",
+          "provider": "codex",
+          "name": "Runtime 5",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-6",
+          "provider": "codex",
+          "name": "Runtime 6",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-7",
+          "provider": "codex",
+          "name": "Runtime 7",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-8",
+          "provider": "codex",
+          "name": "Runtime 8",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        },
+        {
+          "subject_type": "runtime",
+          "subject_id": "rt-9",
+          "provider": "codex",
+          "name": "Runtime 9",
+          "connection_status": "online",
+          "health": "unknown",
+          "quota_remaining": null,
+          "recovery_at": null,
+          "capacity_used": null,
+          "capacity_limit": null,
+          "hard_disable": false,
+          "checked_at": "2026-10-25T16:00:00Z",
+          "ttl_seconds": null,
+          "source": "multica runtime list 只有连接状态；runtime usage 未提供剩余额度",
+          "usage_probe": {
+            "days": 1,
+            "record_count": 0,
+            "quota_remaining_present": false
+          }
+        }
+      ]
+    },
+    "provider_unstable_class": {
+      "emitted": false,
+      "run_count": 0,
+      "rule_version": "failure-rules.v0.2",
+      "reason": "用户 2026-10-26 未采纳 provider_unstable 阈值。候选信号只计数，不产出该分类。",
+      "threshold_proposal": null,
+      "deferred_to": null,
+      "candidates": [
+        {
+          "id": "PC-001-HTTP-5XX",
+          "condition": "HTTP 5xx 或网关错误文本。不是 failure_class。",
+          "produces_failure_class": false,
+          "sample_count": 1,
+          "sample_run_ids": [
+            "g1"
+          ]
+        },
+        {
+          "id": "PC-002-CONNECTION",
+          "condition": "连接中断、DNS、TLS、不可达、broken pipe 或 EPIPE。不是 failure_class。已分类的 run 仍计入候选，不因阈值方案而剔除。",
+          "produces_failure_class": false,
+          "sample_count": 0,
+          "sample_run_ids": []
+        },
+        {
+          "id": "PC-003-GENERIC-PROVIDER",
+          "condition": "供应商通用处理失败文本（不含 quota/capacity 词）。不是 failure_class。",
+          "produces_failure_class": false,
+          "sample_count": 1,
+          "sample_run_ids": [
+            "g1"
+          ]
+        },
+        {
+          "id": "PC-004-PROVIDER-SERVER-REASON",
+          "condition": "文本或 failure_reason 含 provider_server_error。不是 failure_class，也不能升格为 provider_unstable。",
+          "produces_failure_class": false,
+          "sample_count": 0,
+          "sample_run_ids": []
+        }
+      ]
+    },
+    "failure_rules": {
+      "version": "failure-rules.v0.2",
+      "first_match_wins": true,
+      "window": "14d",
+      "rules": [
+        {
+          "id": "FR-001-CANCELLED-STATUS",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "cancelled",
+          "condition": "raw status 为 cancelled 或 canceled（平台终态，优先于错误文本）",
+          "recoverable": false,
+          "hit_count": 1
+        },
+        {
+          "id": "FR-002-CANCELLED-REASON",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "cancelled",
+          "condition": "failure_reason 精确等于 cancelled 或 canceled",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-003-QUOTA-REASON",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "quota",
+          "condition": "failure_reason 精确等于 agent_error.provider_quota_limit、provider_quota_limit、quota、usage_limit",
+          "recoverable": true,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-004-QUOTA-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "quota",
+          "condition": "error 或 failure_reason 匹配 usage limit / quota / provider_quota / insufficient credit / billing / 额度 / 配额 / 余额不足",
+          "recoverable": true,
+          "hit_count": 1
+        },
+        {
+          "id": "FR-005-CAPACITY-REASON",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "capacity",
+          "condition": "failure_reason 精确等于 provider_capacity、rate_limit、agent_error.provider_capacity_or_rate_limit、agent_error.model_not_found_or_unavailable。后者在 S4 窗口里的文本都是 at capacity，命中后不再看配置类文本",
+          "recoverable": "unknown",
+          "hit_count": 0
+        },
+        {
+          "id": "FR-006-CAPACITY-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "capacity",
+          "condition": "error 或 failure_reason 匹配 at capacity / 429 / rate limit / overloaded / resource_exhausted / 容量不足 / 并发限制",
+          "recoverable": "unknown",
+          "hit_count": 1
+        },
+        {
+          "id": "FR-007-ACCESS-REASON",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "access_denied",
+          "condition": "failure_reason 精确等于 access_denied、unauthorized、forbidden、authentication_failed、agent_error.access_denied、agent_error.provider_auth_or_access",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-008-ACCESS-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "access_denied",
+          "condition": "error 或 failure_reason 匹配 401/403、unauthorized、forbidden、permission denied、access denied、拒绝访问、未授权、无权限",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-012-GEO-ACCESS",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "access_denied",
+          "condition": "error 或 failure_reason 匹配 user location is not supported / location is not supported for the API。归入 access_denied，不单开 geo 类",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-009-TIMEOUT",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "timeout",
+          "condition": "failure_reason 精确等于 timeout、timed_out、deadline_exceeded，或文本匹配 timeout / timed out / deadline exceeded / 超时",
+          "recoverable": "unknown",
+          "hit_count": 0
+        },
+        {
+          "id": "FR-013-CONFIG-REASON",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "config_failed",
+          "condition": "failure_reason 精确等于 api_invalid_request。确定性配置失败，类为 config_failed",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-014-CONFIG-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "config_failed",
+          "condition": "error 或 failure_reason 匹配 from --model flag is not available、model … is not available、model … is not supported、not supported when using。先于进程规则，避免 exit status 把模型不可用记成 process_failed",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-015-RUNTIME-RECOVERY",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "runtime_recovery",
+          "condition": "failure_reason 精确等于 runtime_recovery，或文本匹配 daemon restarted while task was in flight。单独成类，不并入 process_failed",
+          "recoverable": "unknown",
+          "hit_count": 0
+        },
+        {
+          "id": "FR-010-PROCESS",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "process_failed",
+          "condition": "failure_reason 精确等于 process_failed、process_exited、agent_error.process_failed、agent_error.process_failure，或文本匹配 process exited / exit code / crash / panic / CLI not found / 进程退出 / 崩溃",
+          "recoverable": "unknown",
+          "hit_count": 0
+        },
+        {
+          "id": "FR-011-CANCELLED-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "cancelled",
+          "condition": "文本匹配 cancelled / cancellation / 已取消 / 被取消 / 任务取消",
+          "recoverable": false,
+          "hit_count": 0
+        },
+        {
+          "id": "FR-090-UNMATCHED",
+          "rule_version": "failure-rules.v0.2",
+          "failure_class": "unknown",
+          "condition": "失败或 blocked 的 run 未命中以上规则。禁止猜测，也不升格为 provider_unstable",
+          "recoverable": "unknown",
+          "hit_count": 1
+        }
+      ]
+    },
+    "windows": {
+      "24h": {
+        "start": "2026-10-24T16:00:00Z",
+        "end": "2026-10-25T16:00:00Z",
+        "issue_count": 9,
+        "run_count": 11,
+        "succeeded_count": 6,
+        "completed_count": 6,
+        "failed_count": 3,
+        "blocked_count": 0,
+        "cancelled_count": 1,
+        "running_count": 1,
+        "queued_count": 0,
+        "unknown_status_count": 0,
+        "success_rate": {
+          "including_cancelled": {
+            "numerator": 6,
+            "denominator": 10,
+            "rate": 0.6,
+            "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+          },
+          "excluding_cancelled": {
+            "numerator": 6,
+            "denominator": 9,
+            "rate": 0.666667,
+            "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+          }
+        },
+        "failure_rate": {
+          "including_cancelled": {
+            "numerator": 3,
+            "denominator": 10,
+            "rate": 0.3,
+            "definition": "failed / (succeeded+failed+blocked+cancelled)"
+          },
+          "excluding_cancelled": {
+            "numerator": 3,
+            "denominator": 9,
+            "rate": 0.333333,
+            "definition": "failed / (succeeded+failed+blocked)"
+          }
+        },
+        "failure_class_counts": {
+          "quota": 1,
+          "cancelled": 1,
+          "unknown": 1,
+          "capacity": 1
+        },
+        "failure_class_rates_excluding_cancelled": {
+          "quota": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          },
+          "unknown": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          },
+          "capacity": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          }
+        },
+        "failure_class_population": 4,
+        "duration_p50_ms": 60000,
+        "duration_p95_ms": 465000,
+        "duration_sample_count": 10,
+        "field_coverage": {
+          "started_at": {
+            "definition": "started_at 为空即缺失，不用读取时间填补",
+            "population": 11,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "ended_at": {
+            "definition": "ended_at 取 completed_at；为空即缺失",
+            "population": 11,
+            "known_count": 10,
+            "unknown_count": 0,
+            "missing_count": 1,
+            "missing_rate": 0.090909,
+            "unknown_rate": 0.0
+          },
+          "duration_ms": {
+            "definition": "仅 started_at 与 ended_at 都可解析且 end>=start 时已知",
+            "population": 11,
+            "known_count": 10,
+            "unknown_count": 0,
+            "missing_count": 1,
+            "missing_rate": 0.090909,
+            "unknown_rate": 0.0
+          },
+          "status": {
+            "definition": "无法映射的 raw status 记 unknown，不猜测",
+            "population": 11,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "agent_id": {
+            "definition": "空 agent_id 记缺失，分组键为 unknown",
+            "population": 11,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "runtime_id": {
+            "definition": "空 runtime_id 记缺失，分组键为 unknown",
+            "population": 11,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "failure_class": {
+            "definition": "分母是 failed、blocked、cancelled；规则外为 unknown，不是缺失",
+            "population": 4,
+            "known_count": 3,
+            "unknown_count": 1,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.25
+          }
+        },
+        "groups": {
+          "by_agent": {
+            "agent-1": {
+              "run_count": 10,
+              "succeeded_count": 6,
+              "completed_count": 6,
+              "failed_count": 2,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 6,
+                  "denominator": 9,
+                  "rate": 0.666667,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 6,
+                  "denominator": 8,
+                  "rate": 0.75,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 9,
+                  "rate": 0.222222,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 8,
+                  "rate": 0.25,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 3,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 480000,
+              "duration_sample_count": 9
+            },
+            "agent-quota": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1
+            }
+          },
+          "by_runtime": {
+            "runtime-1": {
+              "run_count": 11,
+              "succeeded_count": 6,
+              "completed_count": 6,
+              "failed_count": 3,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 6,
+                  "denominator": 10,
+                  "rate": 0.6,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 6,
+                  "denominator": 9,
+                  "rate": 0.666667,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 3,
+                  "denominator": 10,
+                  "rate": 0.3,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 3,
+                  "denominator": 9,
+                  "rate": 0.333333,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1,
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 4,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 465000,
+              "duration_sample_count": 10
+            }
+          },
+          "by_workspace": {
+            "ws-1": {
+              "run_count": 11,
+              "succeeded_count": 6,
+              "completed_count": 6,
+              "failed_count": 3,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 6,
+                  "denominator": 10,
+                  "rate": 0.6,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 6,
+                  "denominator": 9,
+                  "rate": 0.666667,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 3,
+                  "denominator": 10,
+                  "rate": 0.3,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 3,
+                  "denominator": 9,
+                  "rate": 0.333333,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1,
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 4,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 465000,
+              "duration_sample_count": 10
+            }
+          },
+          "by_issue": {
+            "a": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 10000,
+              "duration_p95_ms": 10000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "b": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "c": {
+              "run_count": 2,
+              "succeeded_count": 2,
+              "completed_count": 2,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 450000,
+              "duration_p95_ms": 585000,
+              "duration_sample_count": 2,
+              "rework_confidence": "inferred"
+            },
+            "d": {
+              "run_count": 2,
+              "succeeded_count": 2,
+              "completed_count": 2,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 300000,
+              "duration_p95_ms": 300000,
+              "duration_sample_count": 2,
+              "rework_confidence": "unknown"
+            },
+            "e": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "explicit"
+            },
+            "f": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "cancelled": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "g": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "unknown": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "h": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "capacity": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "i": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": null,
+              "duration_p95_ms": null,
+              "duration_sample_count": 0,
+              "rework_confidence": "not_candidate"
+            }
+          }
+        },
+        "failure_rules": [
+          {
+            "id": "FR-001-CANCELLED-STATUS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "raw status 为 cancelled 或 canceled（平台终态，优先于错误文本）",
+            "recoverable": false,
+            "hit_count": 1
+          },
+          {
+            "id": "FR-002-CANCELLED-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "failure_reason 精确等于 cancelled 或 canceled",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-003-QUOTA-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "quota",
+            "condition": "failure_reason 精确等于 agent_error.provider_quota_limit、provider_quota_limit、quota、usage_limit",
+            "recoverable": true,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-004-QUOTA-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "quota",
+            "condition": "error 或 failure_reason 匹配 usage limit / quota / provider_quota / insufficient credit / billing / 额度 / 配额 / 余额不足",
+            "recoverable": true,
+            "hit_count": 1
+          },
+          {
+            "id": "FR-005-CAPACITY-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "capacity",
+            "condition": "failure_reason 精确等于 provider_capacity、rate_limit、agent_error.provider_capacity_or_rate_limit、agent_error.model_not_found_or_unavailable。后者在 S4 窗口里的文本都是 at capacity，命中后不再看配置类文本",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-006-CAPACITY-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "capacity",
+            "condition": "error 或 failure_reason 匹配 at capacity / 429 / rate limit / overloaded / resource_exhausted / 容量不足 / 并发限制",
+            "recoverable": "unknown",
+            "hit_count": 1
+          },
+          {
+            "id": "FR-007-ACCESS-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "failure_reason 精确等于 access_denied、unauthorized、forbidden、authentication_failed、agent_error.access_denied、agent_error.provider_auth_or_access",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-008-ACCESS-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "error 或 failure_reason 匹配 401/403、unauthorized、forbidden、permission denied、access denied、拒绝访问、未授权、无权限",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-012-GEO-ACCESS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "error 或 failure_reason 匹配 user location is not supported / location is not supported for the API。归入 access_denied，不单开 geo 类",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-009-TIMEOUT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "timeout",
+            "condition": "failure_reason 精确等于 timeout、timed_out、deadline_exceeded，或文本匹配 timeout / timed out / deadline exceeded / 超时",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-013-CONFIG-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "config_failed",
+            "condition": "failure_reason 精确等于 api_invalid_request。确定性配置失败，类为 config_failed",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-014-CONFIG-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "config_failed",
+            "condition": "error 或 failure_reason 匹配 from --model flag is not available、model … is not available、model … is not supported、not supported when using。先于进程规则，避免 exit status 把模型不可用记成 process_failed",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-015-RUNTIME-RECOVERY",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "runtime_recovery",
+            "condition": "failure_reason 精确等于 runtime_recovery，或文本匹配 daemon restarted while task was in flight。单独成类，不并入 process_failed",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-010-PROCESS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "process_failed",
+            "condition": "failure_reason 精确等于 process_failed、process_exited、agent_error.process_failed、agent_error.process_failure，或文本匹配 process exited / exit code / crash / panic / CLI not found / 进程退出 / 崩溃",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-011-CANCELLED-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "文本匹配 cancelled / cancellation / 已取消 / 被取消 / 任务取消",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-090-UNMATCHED",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "unknown",
+            "condition": "失败或 blocked 的 run 未命中以上规则。禁止猜测，也不升格为 provider_unstable",
+            "recoverable": "unknown",
+            "hit_count": 1
+          }
+        ],
+        "provider_unstable_candidates": [
+          {
+            "id": "PC-001-HTTP-5XX",
+            "condition": "HTTP 5xx 或网关错误文本。不是 failure_class。",
+            "produces_failure_class": false,
+            "sample_count": 1,
+            "sample_run_ids": [
+              "g1"
+            ]
+          },
+          {
+            "id": "PC-002-CONNECTION",
+            "condition": "连接中断、DNS、TLS、不可达、broken pipe 或 EPIPE。不是 failure_class。已分类的 run 仍计入候选，不因阈值方案而剔除。",
+            "produces_failure_class": false,
+            "sample_count": 0,
+            "sample_run_ids": []
+          },
+          {
+            "id": "PC-003-GENERIC-PROVIDER",
+            "condition": "供应商通用处理失败文本（不含 quota/capacity 词）。不是 failure_class。",
+            "produces_failure_class": false,
+            "sample_count": 1,
+            "sample_run_ids": [
+              "g1"
+            ]
+          },
+          {
+            "id": "PC-004-PROVIDER-SERVER-REASON",
+            "condition": "文本或 failure_reason 含 provider_server_error。不是 failure_class，也不能升格为 provider_unstable。",
+            "produces_failure_class": false,
+            "sample_count": 0,
+            "sample_run_ids": []
+          }
+        ],
+        "rework": {
+          "rework_coverage": {
+            "population": "rework_candidate_issues",
+            "candidate_count": 3,
+            "explicit_count": 1,
+            "inferred_count": 1,
+            "unknown_count": 1,
+            "not_candidate_count": 6,
+            "explicit_ratio": 0.333333,
+            "inferred_ratio": 0.333333,
+            "unknown_ratio": 0.333333,
+            "proven_ratio": 0.666667
+          },
+          "rework_events": {
+            "explicit": 1,
+            "inferred": 1,
+            "unknown": 1
+          },
+          "rework_count": 2,
+          "rework_rate": null,
+          "rework_rate_lower_bound": {
+            "numerator": 2,
+            "denominator": 9,
+            "rate": 0.222222,
+            "definition": "有 explicit 或 inferred 返工链的 issue / 窗口内 issue；unknown 不计入分子"
+          },
+          "rework_rate_claim": "lower_bound_only",
+          "rework_rate_note": "候选 issue 中仍有 unknown，未批准覆盖率阈值，因此只给出返工率下限。",
+          "chains": [
+            {
+              "rework_id": "rw:c:inferred:chg-c:c2",
+              "issue_id": "c",
+              "issue_identifier": "C",
+              "trigger_event_id": "chg-c",
+              "source_run_id": "c1",
+              "rework_run_id": "c2",
+              "reason": "blocked",
+              "confidence": "inferred",
+              "evidence_ids": [
+                "chg-c",
+                "c1",
+                "c2"
+              ],
+              "occurred_at": "2026-10-25T15:00:00Z",
+              "note": "状态时间链；from/to 来自 timeline details"
+            },
+            {
+              "rework_id": "rw:d:unknown:none:none",
+              "issue_id": "d",
+              "issue_identifier": "D",
+              "trigger_event_id": null,
+              "source_run_id": null,
+              "rework_run_id": null,
+              "reason": "unknown",
+              "confidence": "unknown",
+              "evidence_ids": [],
+              "occurred_at": null,
+              "note": "attempt>1 但没有 parent_run_id，不猜测重试因果；status_changed 缺少 from/to，不能证明阻塞或退回"
+            },
+            {
+              "rework_id": "rw:e:explicit:parent-e:e1",
+              "issue_id": "e",
+              "issue_identifier": "E",
+              "trigger_event_id": "parent-e",
+              "source_run_id": "parent-e",
+              "rework_run_id": "e1",
+              "reason": "unknown",
+              "confidence": "explicit",
+              "evidence_ids": [
+                "parent-e",
+                "e1"
+              ],
+              "occurred_at": "2026-10-25T15:30:00Z",
+              "note": "平台 parent/previous/retried_from run 关系"
+            }
+          ]
+        }
+      },
+      "7d": {
+        "start": "2026-10-18T16:00:00Z",
+        "end": "2026-10-25T16:00:00Z",
+        "issue_count": 10,
+        "run_count": 12,
+        "succeeded_count": 7,
+        "completed_count": 7,
+        "failed_count": 3,
+        "blocked_count": 0,
+        "cancelled_count": 1,
+        "running_count": 1,
+        "queued_count": 0,
+        "unknown_status_count": 0,
+        "success_rate": {
+          "including_cancelled": {
+            "numerator": 7,
+            "denominator": 11,
+            "rate": 0.636364,
+            "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+          },
+          "excluding_cancelled": {
+            "numerator": 7,
+            "denominator": 10,
+            "rate": 0.7,
+            "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+          }
+        },
+        "failure_rate": {
+          "including_cancelled": {
+            "numerator": 3,
+            "denominator": 11,
+            "rate": 0.272727,
+            "definition": "failed / (succeeded+failed+blocked+cancelled)"
+          },
+          "excluding_cancelled": {
+            "numerator": 3,
+            "denominator": 10,
+            "rate": 0.3,
+            "definition": "failed / (succeeded+failed+blocked)"
+          }
+        },
+        "failure_class_counts": {
+          "quota": 1,
+          "cancelled": 1,
+          "unknown": 1,
+          "capacity": 1
+        },
+        "failure_class_rates_excluding_cancelled": {
+          "quota": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          },
+          "unknown": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          },
+          "capacity": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          }
+        },
+        "failure_class_population": 4,
+        "duration_p50_ms": 60000,
+        "duration_p95_ms": 450000,
+        "duration_sample_count": 11,
+        "field_coverage": {
+          "started_at": {
+            "definition": "started_at 为空即缺失，不用读取时间填补",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "ended_at": {
+            "definition": "ended_at 取 completed_at；为空即缺失",
+            "population": 12,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 1,
+            "missing_rate": 0.083333,
+            "unknown_rate": 0.0
+          },
+          "duration_ms": {
+            "definition": "仅 started_at 与 ended_at 都可解析且 end>=start 时已知",
+            "population": 12,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 1,
+            "missing_rate": 0.083333,
+            "unknown_rate": 0.0
+          },
+          "status": {
+            "definition": "无法映射的 raw status 记 unknown，不猜测",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "agent_id": {
+            "definition": "空 agent_id 记缺失，分组键为 unknown",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "runtime_id": {
+            "definition": "空 runtime_id 记缺失，分组键为 unknown",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "failure_class": {
+            "definition": "分母是 failed、blocked、cancelled；规则外为 unknown，不是缺失",
+            "population": 4,
+            "known_count": 3,
+            "unknown_count": 1,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.25
+          }
+        },
+        "groups": {
+          "by_agent": {
+            "agent-1": {
+              "run_count": 11,
+              "succeeded_count": 7,
+              "completed_count": 7,
+              "failed_count": 2,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 7,
+                  "denominator": 10,
+                  "rate": 0.7,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 7,
+                  "denominator": 9,
+                  "rate": 0.777778,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 10,
+                  "rate": 0.2,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 9,
+                  "rate": 0.222222,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 3,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 465000,
+              "duration_sample_count": 10
+            },
+            "agent-quota": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1
+            }
+          },
+          "by_runtime": {
+            "runtime-1": {
+              "run_count": 12,
+              "succeeded_count": 7,
+              "completed_count": 7,
+              "failed_count": 3,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 7,
+                  "denominator": 11,
+                  "rate": 0.636364,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 7,
+                  "denominator": 10,
+                  "rate": 0.7,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 3,
+                  "denominator": 11,
+                  "rate": 0.272727,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 3,
+                  "denominator": 10,
+                  "rate": 0.3,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1,
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 4,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 450000,
+              "duration_sample_count": 11
+            }
+          },
+          "by_workspace": {
+            "ws-1": {
+              "run_count": 12,
+              "succeeded_count": 7,
+              "completed_count": 7,
+              "failed_count": 3,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 7,
+                  "denominator": 11,
+                  "rate": 0.636364,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 7,
+                  "denominator": 10,
+                  "rate": 0.7,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 3,
+                  "denominator": 11,
+                  "rate": 0.272727,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 3,
+                  "denominator": 10,
+                  "rate": 0.3,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1,
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 4,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 450000,
+              "duration_sample_count": 11
+            }
+          },
+          "by_issue": {
+            "a": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 10000,
+              "duration_p95_ms": 10000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "b": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "c": {
+              "run_count": 2,
+              "succeeded_count": 2,
+              "completed_count": 2,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 450000,
+              "duration_p95_ms": 585000,
+              "duration_sample_count": 2,
+              "rework_confidence": "inferred"
+            },
+            "d": {
+              "run_count": 2,
+              "succeeded_count": 2,
+              "completed_count": 2,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 300000,
+              "duration_p95_ms": 300000,
+              "duration_sample_count": 2,
+              "rework_confidence": "unknown"
+            },
+            "e": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "explicit"
+            },
+            "f": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "cancelled": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "g": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "unknown": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "h": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "capacity": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "i": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": null,
+              "duration_p95_ms": null,
+              "duration_sample_count": 0,
+              "rework_confidence": "not_candidate"
+            },
+            "j": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            }
+          }
+        },
+        "failure_rules": [
+          {
+            "id": "FR-001-CANCELLED-STATUS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "raw status 为 cancelled 或 canceled（平台终态，优先于错误文本）",
+            "recoverable": false,
+            "hit_count": 1
+          },
+          {
+            "id": "FR-002-CANCELLED-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "failure_reason 精确等于 cancelled 或 canceled",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-003-QUOTA-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "quota",
+            "condition": "failure_reason 精确等于 agent_error.provider_quota_limit、provider_quota_limit、quota、usage_limit",
+            "recoverable": true,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-004-QUOTA-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "quota",
+            "condition": "error 或 failure_reason 匹配 usage limit / quota / provider_quota / insufficient credit / billing / 额度 / 配额 / 余额不足",
+            "recoverable": true,
+            "hit_count": 1
+          },
+          {
+            "id": "FR-005-CAPACITY-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "capacity",
+            "condition": "failure_reason 精确等于 provider_capacity、rate_limit、agent_error.provider_capacity_or_rate_limit、agent_error.model_not_found_or_unavailable。后者在 S4 窗口里的文本都是 at capacity，命中后不再看配置类文本",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-006-CAPACITY-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "capacity",
+            "condition": "error 或 failure_reason 匹配 at capacity / 429 / rate limit / overloaded / resource_exhausted / 容量不足 / 并发限制",
+            "recoverable": "unknown",
+            "hit_count": 1
+          },
+          {
+            "id": "FR-007-ACCESS-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "failure_reason 精确等于 access_denied、unauthorized、forbidden、authentication_failed、agent_error.access_denied、agent_error.provider_auth_or_access",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-008-ACCESS-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "error 或 failure_reason 匹配 401/403、unauthorized、forbidden、permission denied、access denied、拒绝访问、未授权、无权限",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-012-GEO-ACCESS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "error 或 failure_reason 匹配 user location is not supported / location is not supported for the API。归入 access_denied，不单开 geo 类",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-009-TIMEOUT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "timeout",
+            "condition": "failure_reason 精确等于 timeout、timed_out、deadline_exceeded，或文本匹配 timeout / timed out / deadline exceeded / 超时",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-013-CONFIG-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "config_failed",
+            "condition": "failure_reason 精确等于 api_invalid_request。确定性配置失败，类为 config_failed",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-014-CONFIG-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "config_failed",
+            "condition": "error 或 failure_reason 匹配 from --model flag is not available、model … is not available、model … is not supported、not supported when using。先于进程规则，避免 exit status 把模型不可用记成 process_failed",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-015-RUNTIME-RECOVERY",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "runtime_recovery",
+            "condition": "failure_reason 精确等于 runtime_recovery，或文本匹配 daemon restarted while task was in flight。单独成类，不并入 process_failed",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-010-PROCESS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "process_failed",
+            "condition": "failure_reason 精确等于 process_failed、process_exited、agent_error.process_failed、agent_error.process_failure，或文本匹配 process exited / exit code / crash / panic / CLI not found / 进程退出 / 崩溃",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-011-CANCELLED-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "文本匹配 cancelled / cancellation / 已取消 / 被取消 / 任务取消",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-090-UNMATCHED",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "unknown",
+            "condition": "失败或 blocked 的 run 未命中以上规则。禁止猜测，也不升格为 provider_unstable",
+            "recoverable": "unknown",
+            "hit_count": 1
+          }
+        ],
+        "provider_unstable_candidates": [
+          {
+            "id": "PC-001-HTTP-5XX",
+            "condition": "HTTP 5xx 或网关错误文本。不是 failure_class。",
+            "produces_failure_class": false,
+            "sample_count": 1,
+            "sample_run_ids": [
+              "g1"
+            ]
+          },
+          {
+            "id": "PC-002-CONNECTION",
+            "condition": "连接中断、DNS、TLS、不可达、broken pipe 或 EPIPE。不是 failure_class。已分类的 run 仍计入候选，不因阈值方案而剔除。",
+            "produces_failure_class": false,
+            "sample_count": 0,
+            "sample_run_ids": []
+          },
+          {
+            "id": "PC-003-GENERIC-PROVIDER",
+            "condition": "供应商通用处理失败文本（不含 quota/capacity 词）。不是 failure_class。",
+            "produces_failure_class": false,
+            "sample_count": 1,
+            "sample_run_ids": [
+              "g1"
+            ]
+          },
+          {
+            "id": "PC-004-PROVIDER-SERVER-REASON",
+            "condition": "文本或 failure_reason 含 provider_server_error。不是 failure_class，也不能升格为 provider_unstable。",
+            "produces_failure_class": false,
+            "sample_count": 0,
+            "sample_run_ids": []
+          }
+        ],
+        "rework": {
+          "rework_coverage": {
+            "population": "rework_candidate_issues",
+            "candidate_count": 3,
+            "explicit_count": 1,
+            "inferred_count": 1,
+            "unknown_count": 1,
+            "not_candidate_count": 7,
+            "explicit_ratio": 0.333333,
+            "inferred_ratio": 0.333333,
+            "unknown_ratio": 0.333333,
+            "proven_ratio": 0.666667
+          },
+          "rework_events": {
+            "explicit": 1,
+            "inferred": 1,
+            "unknown": 1
+          },
+          "rework_count": 2,
+          "rework_rate": null,
+          "rework_rate_lower_bound": {
+            "numerator": 2,
+            "denominator": 10,
+            "rate": 0.2,
+            "definition": "有 explicit 或 inferred 返工链的 issue / 窗口内 issue；unknown 不计入分子"
+          },
+          "rework_rate_claim": "lower_bound_only",
+          "rework_rate_note": "候选 issue 中仍有 unknown，未批准覆盖率阈值，因此只给出返工率下限。",
+          "chains": [
+            {
+              "rework_id": "rw:c:inferred:chg-c:c2",
+              "issue_id": "c",
+              "issue_identifier": "C",
+              "trigger_event_id": "chg-c",
+              "source_run_id": "c1",
+              "rework_run_id": "c2",
+              "reason": "blocked",
+              "confidence": "inferred",
+              "evidence_ids": [
+                "chg-c",
+                "c1",
+                "c2"
+              ],
+              "occurred_at": "2026-10-25T15:00:00Z",
+              "note": "状态时间链；from/to 来自 timeline details"
+            },
+            {
+              "rework_id": "rw:d:unknown:none:none",
+              "issue_id": "d",
+              "issue_identifier": "D",
+              "trigger_event_id": null,
+              "source_run_id": null,
+              "rework_run_id": null,
+              "reason": "unknown",
+              "confidence": "unknown",
+              "evidence_ids": [],
+              "occurred_at": null,
+              "note": "attempt>1 但没有 parent_run_id，不猜测重试因果；status_changed 缺少 from/to，不能证明阻塞或退回"
+            },
+            {
+              "rework_id": "rw:e:explicit:parent-e:e1",
+              "issue_id": "e",
+              "issue_identifier": "E",
+              "trigger_event_id": "parent-e",
+              "source_run_id": "parent-e",
+              "rework_run_id": "e1",
+              "reason": "unknown",
+              "confidence": "explicit",
+              "evidence_ids": [
+                "parent-e",
+                "e1"
+              ],
+              "occurred_at": "2026-10-25T15:30:00Z",
+              "note": "平台 parent/previous/retried_from run 关系"
+            }
+          ]
+        }
+      },
+      "14d": {
+        "start": "2026-10-11T16:00:00Z",
+        "end": "2026-10-25T16:00:00Z",
+        "issue_count": 10,
+        "run_count": 12,
+        "succeeded_count": 7,
+        "completed_count": 7,
+        "failed_count": 3,
+        "blocked_count": 0,
+        "cancelled_count": 1,
+        "running_count": 1,
+        "queued_count": 0,
+        "unknown_status_count": 0,
+        "success_rate": {
+          "including_cancelled": {
+            "numerator": 7,
+            "denominator": 11,
+            "rate": 0.636364,
+            "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+          },
+          "excluding_cancelled": {
+            "numerator": 7,
+            "denominator": 10,
+            "rate": 0.7,
+            "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+          }
+        },
+        "failure_rate": {
+          "including_cancelled": {
+            "numerator": 3,
+            "denominator": 11,
+            "rate": 0.272727,
+            "definition": "failed / (succeeded+failed+blocked+cancelled)"
+          },
+          "excluding_cancelled": {
+            "numerator": 3,
+            "denominator": 10,
+            "rate": 0.3,
+            "definition": "failed / (succeeded+failed+blocked)"
+          }
+        },
+        "failure_class_counts": {
+          "quota": 1,
+          "cancelled": 1,
+          "unknown": 1,
+          "capacity": 1
+        },
+        "failure_class_rates_excluding_cancelled": {
+          "quota": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          },
+          "unknown": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          },
+          "capacity": {
+            "numerator": 1,
+            "denominator": 3,
+            "rate": 0.333333,
+            "definition": "该分类 / (失败分类中排除 cancelled)"
+          }
+        },
+        "failure_class_population": 4,
+        "duration_p50_ms": 60000,
+        "duration_p95_ms": 450000,
+        "duration_sample_count": 11,
+        "field_coverage": {
+          "started_at": {
+            "definition": "started_at 为空即缺失，不用读取时间填补",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "ended_at": {
+            "definition": "ended_at 取 completed_at；为空即缺失",
+            "population": 12,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 1,
+            "missing_rate": 0.083333,
+            "unknown_rate": 0.0
+          },
+          "duration_ms": {
+            "definition": "仅 started_at 与 ended_at 都可解析且 end>=start 时已知",
+            "population": 12,
+            "known_count": 11,
+            "unknown_count": 0,
+            "missing_count": 1,
+            "missing_rate": 0.083333,
+            "unknown_rate": 0.0
+          },
+          "status": {
+            "definition": "无法映射的 raw status 记 unknown，不猜测",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "agent_id": {
+            "definition": "空 agent_id 记缺失，分组键为 unknown",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "runtime_id": {
+            "definition": "空 runtime_id 记缺失，分组键为 unknown",
+            "population": 12,
+            "known_count": 12,
+            "unknown_count": 0,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.0
+          },
+          "failure_class": {
+            "definition": "分母是 failed、blocked、cancelled；规则外为 unknown，不是缺失",
+            "population": 4,
+            "known_count": 3,
+            "unknown_count": 1,
+            "missing_count": 0,
+            "missing_rate": 0.0,
+            "unknown_rate": 0.25
+          }
+        },
+        "groups": {
+          "by_agent": {
+            "agent-1": {
+              "run_count": 11,
+              "succeeded_count": 7,
+              "completed_count": 7,
+              "failed_count": 2,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 7,
+                  "denominator": 10,
+                  "rate": 0.7,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 7,
+                  "denominator": 9,
+                  "rate": 0.777778,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 10,
+                  "rate": 0.2,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 9,
+                  "rate": 0.222222,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 3,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 465000,
+              "duration_sample_count": 10
+            },
+            "agent-quota": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1
+            }
+          },
+          "by_runtime": {
+            "runtime-1": {
+              "run_count": 12,
+              "succeeded_count": 7,
+              "completed_count": 7,
+              "failed_count": 3,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 7,
+                  "denominator": 11,
+                  "rate": 0.636364,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 7,
+                  "denominator": 10,
+                  "rate": 0.7,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 3,
+                  "denominator": 11,
+                  "rate": 0.272727,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 3,
+                  "denominator": 10,
+                  "rate": 0.3,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1,
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 4,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 450000,
+              "duration_sample_count": 11
+            }
+          },
+          "by_workspace": {
+            "ws-1": {
+              "run_count": 12,
+              "succeeded_count": 7,
+              "completed_count": 7,
+              "failed_count": 3,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 7,
+                  "denominator": 11,
+                  "rate": 0.636364,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 7,
+                  "denominator": 10,
+                  "rate": 0.7,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 3,
+                  "denominator": 11,
+                  "rate": 0.272727,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 3,
+                  "denominator": 10,
+                  "rate": 0.3,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1,
+                "cancelled": 1,
+                "unknown": 1,
+                "capacity": 1
+              },
+              "failure_class_population": 4,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 450000,
+              "duration_sample_count": 11
+            }
+          },
+          "by_issue": {
+            "a": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 10000,
+              "duration_p95_ms": 10000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "b": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "quota": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "c": {
+              "run_count": 2,
+              "succeeded_count": 2,
+              "completed_count": 2,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 450000,
+              "duration_p95_ms": 585000,
+              "duration_sample_count": 2,
+              "rework_confidence": "inferred"
+            },
+            "d": {
+              "run_count": 2,
+              "succeeded_count": 2,
+              "completed_count": 2,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 2,
+                  "denominator": 2,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 2,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 300000,
+              "duration_p95_ms": 300000,
+              "duration_sample_count": 2,
+              "rework_confidence": "unknown"
+            },
+            "e": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "explicit"
+            },
+            "f": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 1,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "cancelled": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "g": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "unknown": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "h": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 1,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {
+                "capacity": 1
+              },
+              "failure_class_population": 1,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            },
+            "i": {
+              "run_count": 1,
+              "succeeded_count": 0,
+              "completed_count": 0,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 1,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 0,
+                  "rate": null,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": null,
+              "duration_p95_ms": null,
+              "duration_sample_count": 0,
+              "rework_confidence": "not_candidate"
+            },
+            "j": {
+              "run_count": 1,
+              "succeeded_count": 1,
+              "completed_count": 1,
+              "failed_count": 0,
+              "blocked_count": 0,
+              "cancelled_count": 0,
+              "running_count": 0,
+              "queued_count": 0,
+              "unknown_status_count": 0,
+              "success_rate": {
+                "including_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked+cancelled)；非终态不计入"
+                },
+                "excluding_cancelled": {
+                  "numerator": 1,
+                  "denominator": 1,
+                  "rate": 1.0,
+                  "definition": "succeeded / (succeeded+failed+blocked)；cancelled 与非终态不计入"
+                }
+              },
+              "failure_rate": {
+                "including_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked+cancelled)"
+                },
+                "excluding_cancelled": {
+                  "numerator": 0,
+                  "denominator": 1,
+                  "rate": 0.0,
+                  "definition": "failed / (succeeded+failed+blocked)"
+                }
+              },
+              "failure_class_counts": {},
+              "failure_class_population": 0,
+              "duration_p50_ms": 60000,
+              "duration_p95_ms": 60000,
+              "duration_sample_count": 1,
+              "rework_confidence": "not_candidate"
+            }
+          }
+        },
+        "failure_rules": [
+          {
+            "id": "FR-001-CANCELLED-STATUS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "raw status 为 cancelled 或 canceled（平台终态，优先于错误文本）",
+            "recoverable": false,
+            "hit_count": 1
+          },
+          {
+            "id": "FR-002-CANCELLED-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "failure_reason 精确等于 cancelled 或 canceled",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-003-QUOTA-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "quota",
+            "condition": "failure_reason 精确等于 agent_error.provider_quota_limit、provider_quota_limit、quota、usage_limit",
+            "recoverable": true,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-004-QUOTA-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "quota",
+            "condition": "error 或 failure_reason 匹配 usage limit / quota / provider_quota / insufficient credit / billing / 额度 / 配额 / 余额不足",
+            "recoverable": true,
+            "hit_count": 1
+          },
+          {
+            "id": "FR-005-CAPACITY-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "capacity",
+            "condition": "failure_reason 精确等于 provider_capacity、rate_limit、agent_error.provider_capacity_or_rate_limit、agent_error.model_not_found_or_unavailable。后者在 S4 窗口里的文本都是 at capacity，命中后不再看配置类文本",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-006-CAPACITY-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "capacity",
+            "condition": "error 或 failure_reason 匹配 at capacity / 429 / rate limit / overloaded / resource_exhausted / 容量不足 / 并发限制",
+            "recoverable": "unknown",
+            "hit_count": 1
+          },
+          {
+            "id": "FR-007-ACCESS-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "failure_reason 精确等于 access_denied、unauthorized、forbidden、authentication_failed、agent_error.access_denied、agent_error.provider_auth_or_access",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-008-ACCESS-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "error 或 failure_reason 匹配 401/403、unauthorized、forbidden、permission denied、access denied、拒绝访问、未授权、无权限",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-012-GEO-ACCESS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "access_denied",
+            "condition": "error 或 failure_reason 匹配 user location is not supported / location is not supported for the API。归入 access_denied，不单开 geo 类",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-009-TIMEOUT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "timeout",
+            "condition": "failure_reason 精确等于 timeout、timed_out、deadline_exceeded，或文本匹配 timeout / timed out / deadline exceeded / 超时",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-013-CONFIG-REASON",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "config_failed",
+            "condition": "failure_reason 精确等于 api_invalid_request。确定性配置失败，类为 config_failed",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-014-CONFIG-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "config_failed",
+            "condition": "error 或 failure_reason 匹配 from --model flag is not available、model … is not available、model … is not supported、not supported when using。先于进程规则，避免 exit status 把模型不可用记成 process_failed",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-015-RUNTIME-RECOVERY",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "runtime_recovery",
+            "condition": "failure_reason 精确等于 runtime_recovery，或文本匹配 daemon restarted while task was in flight。单独成类，不并入 process_failed",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-010-PROCESS",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "process_failed",
+            "condition": "failure_reason 精确等于 process_failed、process_exited、agent_error.process_failed、agent_error.process_failure，或文本匹配 process exited / exit code / crash / panic / CLI not found / 进程退出 / 崩溃",
+            "recoverable": "unknown",
+            "hit_count": 0
+          },
+          {
+            "id": "FR-011-CANCELLED-TEXT",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "cancelled",
+            "condition": "文本匹配 cancelled / cancellation / 已取消 / 被取消 / 任务取消",
+            "recoverable": false,
+            "hit_count": 0
+          },
+          {
+            "id": "FR-090-UNMATCHED",
+            "rule_version": "failure-rules.v0.2",
+            "failure_class": "unknown",
+            "condition": "失败或 blocked 的 run 未命中以上规则。禁止猜测，也不升格为 provider_unstable",
+            "recoverable": "unknown",
+            "hit_count": 1
+          }
+        ],
+        "provider_unstable_candidates": [
+          {
+            "id": "PC-001-HTTP-5XX",
+            "condition": "HTTP 5xx 或网关错误文本。不是 failure_class。",
+            "produces_failure_class": false,
+            "sample_count": 1,
+            "sample_run_ids": [
+              "g1"
+            ]
+          },
+          {
+            "id": "PC-002-CONNECTION",
+            "condition": "连接中断、DNS、TLS、不可达、broken pipe 或 EPIPE。不是 failure_class。已分类的 run 仍计入候选，不因阈值方案而剔除。",
+            "produces_failure_class": false,
+            "sample_count": 0,
+            "sample_run_ids": []
+          },
+          {
+            "id": "PC-003-GENERIC-PROVIDER",
+            "condition": "供应商通用处理失败文本（不含 quota/capacity 词）。不是 failure_class。",
+            "produces_failure_class": false,
+            "sample_count": 1,
+            "sample_run_ids": [
+              "g1"
+            ]
+          },
+          {
+            "id": "PC-004-PROVIDER-SERVER-REASON",
+            "condition": "文本或 failure_reason 含 provider_server_error。不是 failure_class，也不能升格为 provider_unstable。",
+            "produces_failure_class": false,
+            "sample_count": 0,
+            "sample_run_ids": []
+          }
+        ],
+        "rework": {
+          "rework_coverage": {
+            "population": "rework_candidate_issues",
+            "candidate_count": 3,
+            "explicit_count": 1,
+            "inferred_count": 1,
+            "unknown_count": 1,
+            "not_candidate_count": 7,
+            "explicit_ratio": 0.333333,
+            "inferred_ratio": 0.333333,
+            "unknown_ratio": 0.333333,
+            "proven_ratio": 0.666667
+          },
+          "rework_events": {
+            "explicit": 1,
+            "inferred": 1,
+            "unknown": 1
+          },
+          "rework_count": 2,
+          "rework_rate": null,
+          "rework_rate_lower_bound": {
+            "numerator": 2,
+            "denominator": 10,
+            "rate": 0.2,
+            "definition": "有 explicit 或 inferred 返工链的 issue / 窗口内 issue；unknown 不计入分子"
+          },
+          "rework_rate_claim": "lower_bound_only",
+          "rework_rate_note": "候选 issue 中仍有 unknown，未批准覆盖率阈值，因此只给出返工率下限。",
+          "chains": [
+            {
+              "rework_id": "rw:c:inferred:chg-c:c2",
+              "issue_id": "c",
+              "issue_identifier": "C",
+              "trigger_event_id": "chg-c",
+              "source_run_id": "c1",
+              "rework_run_id": "c2",
+              "reason": "blocked",
+              "confidence": "inferred",
+              "evidence_ids": [
+                "chg-c",
+                "c1",
+                "c2"
+              ],
+              "occurred_at": "2026-10-25T15:00:00Z",
+              "note": "状态时间链；from/to 来自 timeline details"
+            },
+            {
+              "rework_id": "rw:d:unknown:none:none",
+              "issue_id": "d",
+              "issue_identifier": "D",
+              "trigger_event_id": null,
+              "source_run_id": null,
+              "rework_run_id": null,
+              "reason": "unknown",
+              "confidence": "unknown",
+              "evidence_ids": [],
+              "occurred_at": null,
+              "note": "attempt>1 但没有 parent_run_id，不猜测重试因果；status_changed 缺少 from/to，不能证明阻塞或退回"
+            },
+            {
+              "rework_id": "rw:e:explicit:parent-e:e1",
+              "issue_id": "e",
+              "issue_identifier": "E",
+              "trigger_event_id": "parent-e",
+              "source_run_id": "parent-e",
+              "rework_run_id": "e1",
+              "reason": "unknown",
+              "confidence": "explicit",
+              "evidence_ids": [
+                "parent-e",
+                "e1"
+              ],
+              "occurred_at": "2026-10-25T15:30:00Z",
+              "note": "平台 parent/previous/retried_from run 关系"
+            }
+          ]
+        }
+      }
+    },
+    "rework": {
+      "rework_coverage": {
+        "population": "rework_candidate_issues",
+        "candidate_count": 3,
+        "explicit_count": 1,
+        "inferred_count": 1,
+        "unknown_count": 1,
+        "not_candidate_count": 7,
+        "explicit_ratio": 0.333333,
+        "inferred_ratio": 0.333333,
+        "unknown_ratio": 0.333333,
+        "proven_ratio": 0.666667
+      },
+      "rework_events": {
+        "explicit": 1,
+        "inferred": 1,
+        "unknown": 1
+      },
+      "rework_count": 2,
+      "rework_rate": null,
+      "rework_rate_lower_bound": {
+        "numerator": 2,
+        "denominator": 10,
+        "rate": 0.2,
+        "definition": "有 explicit 或 inferred 返工链的 issue / 窗口内 issue；unknown 不计入分子"
+      },
+      "rework_rate_claim": "lower_bound_only",
+      "rework_rate_note": "候选 issue 中仍有 unknown，未批准覆盖率阈值，因此只给出返工率下限。",
+      "chains": [
+        {
+          "rework_id": "rw:c:inferred:chg-c:c2",
+          "issue_id": "c",
+          "issue_identifier": "C",
+          "trigger_event_id": "chg-c",
+          "source_run_id": "c1",
+          "rework_run_id": "c2",
+          "reason": "blocked",
+          "confidence": "inferred",
+          "evidence_ids": [
+            "chg-c",
+            "c1",
+            "c2"
+          ],
+          "occurred_at": "2026-10-25T15:00:00Z",
+          "note": "状态时间链；from/to 来自 timeline details"
+        },
+        {
+          "rework_id": "rw:d:unknown:none:none",
+          "issue_id": "d",
+          "issue_identifier": "D",
+          "trigger_event_id": null,
+          "source_run_id": null,
+          "rework_run_id": null,
+          "reason": "unknown",
+          "confidence": "unknown",
+          "evidence_ids": [],
+          "occurred_at": null,
+          "note": "attempt>1 但没有 parent_run_id，不猜测重试因果；status_changed 缺少 from/to，不能证明阻塞或退回"
+        },
+        {
+          "rework_id": "rw:e:explicit:parent-e:e1",
+          "issue_id": "e",
+          "issue_identifier": "E",
+          "trigger_event_id": "parent-e",
+          "source_run_id": "parent-e",
+          "rework_run_id": "e1",
+          "reason": "unknown",
+          "confidence": "explicit",
+          "evidence_ids": [
+            "parent-e",
+            "e1"
+          ],
+          "occurred_at": "2026-10-25T15:30:00Z",
+          "note": "平台 parent/previous/retried_from run 关系"
+        }
+      ]
+    },
+    "runs": [
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "a1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "a",
+        "created_at": "2026-10-25T15:00:00Z",
+        "started_at": "2026-10-25T15:00:00Z",
+        "ended_at": "2026-10-25T15:00:10Z",
+        "anchor_at": "2026-10-25T15:00:00Z",
+        "duration_ms": 10000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "b1",
+        "agent_id": "agent-quota",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "b",
+        "created_at": "2026-10-25T15:10:00Z",
+        "started_at": "2026-10-25T15:10:00Z",
+        "ended_at": "2026-10-25T15:11:00Z",
+        "anchor_at": "2026-10-25T15:10:00Z",
+        "duration_ms": 60000,
+        "status": "failed",
+        "raw_status": "failed",
+        "failure_class": "quota",
+        "failure_rule_id": "FR-004-QUOTA-TEXT",
+        "failure_rule_version": "failure-rules.v0.2",
+        "failure_evidence": {
+          "rule_id": "FR-004-QUOTA-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "source_field": "error",
+          "condition": "error 或 failure_reason 匹配 usage limit / quota / provider_quota / insufficient credit / billing / 额度 / 配额 / 余额不足",
+          "excerpt": "usage limit resets at 2026-10-26T00:00:00Z"
+        },
+        "failure_recoverable": true,
+        "recovery_at": "2026-10-26T00:00:00Z",
+        "raw_reason_redacted": "usage limit resets at 2026-10-26T00:00:00Z",
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "c1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "c",
+        "created_at": "2026-10-25T14:00:00Z",
+        "started_at": "2026-10-25T14:00:00Z",
+        "ended_at": "2026-10-25T14:10:00Z",
+        "anchor_at": "2026-10-25T14:00:00Z",
+        "duration_ms": 600000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "c2",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "c",
+        "created_at": "2026-10-25T15:00:00Z",
+        "started_at": "2026-10-25T15:00:00Z",
+        "ended_at": "2026-10-25T15:05:00Z",
+        "anchor_at": "2026-10-25T15:00:00Z",
+        "duration_ms": 300000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "d1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "d",
+        "created_at": "2026-10-25T12:00:00Z",
+        "started_at": "2026-10-25T12:00:00Z",
+        "ended_at": "2026-10-25T12:05:00Z",
+        "anchor_at": "2026-10-25T12:00:00Z",
+        "duration_ms": 300000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "d2",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "d",
+        "created_at": "2026-10-25T13:00:00Z",
+        "started_at": "2026-10-25T13:00:00Z",
+        "ended_at": "2026-10-25T13:05:00Z",
+        "anchor_at": "2026-10-25T13:00:00Z",
+        "duration_ms": 300000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 2,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "e1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "e",
+        "created_at": "2026-10-25T15:30:00Z",
+        "started_at": "2026-10-25T15:30:00Z",
+        "ended_at": "2026-10-25T15:31:00Z",
+        "anchor_at": "2026-10-25T15:30:00Z",
+        "duration_ms": 60000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 2,
+        "parent_run_id": "parent-e",
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "f1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "f",
+        "created_at": "2026-10-25T15:40:00Z",
+        "started_at": "2026-10-25T15:40:00Z",
+        "ended_at": "2026-10-25T15:41:00Z",
+        "anchor_at": "2026-10-25T15:40:00Z",
+        "duration_ms": 60000,
+        "status": "cancelled",
+        "raw_status": "cancelled",
+        "failure_class": "cancelled",
+        "failure_rule_id": "FR-001-CANCELLED-STATUS",
+        "failure_rule_version": "failure-rules.v0.2",
+        "failure_evidence": {
+          "rule_id": "FR-001-CANCELLED-STATUS",
+          "rule_version": "failure-rules.v0.2",
+          "source_field": "status",
+          "condition": "raw status 为 cancelled 或 canceled（平台终态，优先于错误文本）",
+          "excerpt": "cancelled"
+        },
+        "failure_recoverable": false,
+        "recovery_at": null,
+        "raw_reason_redacted": "usage limit",
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "g1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "g",
+        "created_at": "2026-10-25T15:41:00Z",
+        "started_at": "2026-10-25T15:41:00Z",
+        "ended_at": "2026-10-25T15:42:00Z",
+        "anchor_at": "2026-10-25T15:41:00Z",
+        "duration_ms": 60000,
+        "status": "failed",
+        "raw_status": "failed",
+        "failure_class": "unknown",
+        "failure_rule_id": "FR-090-UNMATCHED",
+        "failure_rule_version": "failure-rules.v0.2",
+        "failure_evidence": {
+          "rule_id": "FR-090-UNMATCHED",
+          "rule_version": "failure-rules.v0.2",
+          "source_field": "error",
+          "condition": "失败或 blocked 的 run 未命中以上规则。禁止猜测，也不升格为 provider_unstable",
+          "excerpt": "503 An error occurred while processing your request"
+        },
+        "failure_recoverable": "unknown",
+        "recovery_at": null,
+        "raw_reason_redacted": "503 An error occurred while processing your request",
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": [
+          "PC-001-HTTP-5XX",
+          "PC-003-GENERIC-PROVIDER"
+        ]
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "h1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "h",
+        "created_at": "2026-10-25T15:42:00Z",
+        "started_at": "2026-10-25T15:42:00Z",
+        "ended_at": "2026-10-25T15:43:00Z",
+        "anchor_at": "2026-10-25T15:42:00Z",
+        "duration_ms": 60000,
+        "status": "failed",
+        "raw_status": "failed",
+        "failure_class": "capacity",
+        "failure_rule_id": "FR-006-CAPACITY-TEXT",
+        "failure_rule_version": "failure-rules.v0.2",
+        "failure_evidence": {
+          "rule_id": "FR-006-CAPACITY-TEXT",
+          "rule_version": "failure-rules.v0.2",
+          "source_field": "error",
+          "condition": "error 或 failure_reason 匹配 at capacity / 429 / rate limit / overloaded / resource_exhausted / 容量不足 / 并发限制",
+          "excerpt": "server is at capacity"
+        },
+        "failure_recoverable": "unknown",
+        "recovery_at": null,
+        "raw_reason_redacted": "server is at capacity",
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "i1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "i",
+        "created_at": "2026-10-25T15:50:00Z",
+        "started_at": "2026-10-25T15:50:00Z",
+        "ended_at": null,
+        "anchor_at": "2026-10-25T15:50:00Z",
+        "duration_ms": null,
+        "status": "running",
+        "raw_status": "running",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      },
+      {
+        "schema_version": "run-metrics.v0.1",
+        "run_id": "j1",
+        "agent_id": "agent-1",
+        "runtime_id": "runtime-1",
+        "workspace_id": "ws-1",
+        "issue_id": "j",
+        "created_at": "2026-10-20T00:00:00Z",
+        "started_at": "2026-10-20T00:00:00Z",
+        "ended_at": "2026-10-20T00:01:00Z",
+        "anchor_at": "2026-10-20T00:00:00Z",
+        "duration_ms": 60000,
+        "status": "succeeded",
+        "raw_status": "completed",
+        "failure_class": null,
+        "failure_rule_id": null,
+        "failure_rule_version": null,
+        "failure_evidence": null,
+        "failure_recoverable": null,
+        "recovery_at": null,
+        "raw_reason_redacted": null,
+        "source": "multica issue runs",
+        "attempt_no": 1,
+        "parent_run_id": null,
+        "provider_candidate_ids": []
+      }
+    ]
+  }
+}

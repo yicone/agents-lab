@@ -988,6 +988,12 @@ class Views:
             now=_now(),
         )
 
+    def run_metrics(self) -> dict[str, Any]:
+        """Read the S3 run-metrics.v0.1 file. No collection and no scheduling write."""
+        from .run_metrics_view import load_run_metrics_file, report_path_for
+
+        return load_run_metrics_file(report_path_for(self.store.path))
+
     def attention_text(self) -> str:
         return render_attention_text(self.attention())
 

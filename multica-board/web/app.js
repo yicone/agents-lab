@@ -24,6 +24,7 @@ import { badgeOf as mcpBadgeOf, badgeTitle as mcpBadgeTitle, badgeTone as mcpBad
 import { setMcpTools } from "./route.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
+import { metricsScopeNote, renderRunMetrics, runMetricsRefreshKey } from "./run-metrics-view.js";
 import { agentQueryFields, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillRecords } from "./agents-view.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
@@ -115,6 +116,7 @@ const state = {
   evidenceLoading: false,
   mcp: null,
   usage: null,
+  runMetrics: null,
   reviewDays: [30, 90, 180].includes(Number(localStorage.getItem("aa.skillReviewDays"))) ? Number(localStorage.getItem("aa.skillReviewDays")) : 90,
   expandedSkills: new Set(),
   skillContent: new Map(),
@@ -233,6 +235,14 @@ async function loadUsage() {
   }
 }
 
+async function loadRunMetrics() {
+  try {
+    return await getJSON("run-metrics");
+  } catch (err) {
+    return { ok: false, readonly: true, writes: [], schema_version: "run-metrics.v0.1", reason: "error", message: String(err.message || err), report: null };
+  }
+}
+
 async function loadSkills() {
   try {
     if (MOCK) return await getJSON("skills");
@@ -340,6 +350,7 @@ async function refresh(force = false) {
     const previousBots = botsRefreshKey(state.bots);
     const previousSources = JSON.stringify(state.instructionSources || {});
     const previousUsage = usageRefreshKey(state.usage);
+    const previousMetrics = runMetricsRefreshKey(state.runMetrics);
     const previousMcp = mcpRefreshKey(state.mcp);
     const previousAgents = JSON.stringify([state.agents, state.ownerInventory]);
     const agentsPromise = getJSON("agents");
@@ -349,6 +360,7 @@ async function refresh(force = false) {
     const botsPromise = loadBots();
     const sourcesPromise = loadInstructionSources();
     const usagePromise = loadUsage();
+    const metricsPromise = loadRunMetrics();
     if (changed) {
       const jobs = [getJSON("issues"), agentsPromise, getJSON("runtimes")];
       if (MOCK) jobs.push(loadChanges());
@@ -386,6 +398,7 @@ async function refresh(force = false) {
     state.bots = await botsPromise;
     state.instructionSources = await sourcesPromise;
     state.usage = await usagePromise;
+    state.runMetrics = await metricsPromise;
     const mcp = await mcpPromise;
     // A failed MCP read keeps the last good payload, dimmed with the error attached.
     state.mcp = mcp?.ok === false && !mcp.absent && state.mcp?.workspaces ? { ...state.mcp, ok: false, error: mcp.error } : mcp;
@@ -402,11 +415,12 @@ async function refresh(force = false) {
     const botsChanged = botsRefreshKey(state.bots) !== previousBots;
     const sourcesChanged = JSON.stringify(state.instructionSources || {}) !== previousSources;
     const usageChanged = usageRefreshKey(state.usage) !== previousUsage;
+    const metricsChanged = runMetricsRefreshKey(state.runMetrics) !== previousMetrics;
     const mcpChanged = mcpRefreshKey(state.mcp) !== previousMcp;
     state.meta = meta;
     state.fetchError = null;
     if (state.route.evidence && skillsChanged) invalidateEvidence();
-    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged || mcpChanged) render();
+    if (changed || agentsChanged || skillsChanged || botsChanged || sourcesChanged || usageChanged || metricsChanged || mcpChanged) render();
     else renderChrome();
   } catch (err) {
     state.fetchError = { message: String(err.message || err), at: Date.now() };
@@ -863,6 +877,10 @@ function renderChrome() {
         onClear: () => setRoute({ ws: "" }),
       }),
     );
+  } else if (state.route.view === "metrics") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "运行指标范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, metricsScopeNote(state.runMetrics, state.route)));
   } else {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "页面范围");
@@ -873,7 +891,7 @@ function renderChrome() {
 function renderSubnav() {
   const group = navGroup(state.route);
   const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
-    : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
+    : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/metrics", "运行指标"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
     : group === "configure" ? [["#/configure/agents", "Agent 配置"], ["#/configure/skills", "Skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/runtime", "模型与 Runtime"]] : [];
   const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
   const el = document.getElementById("subnav");
@@ -887,7 +905,8 @@ function renderSubnav() {
   el.querySelectorAll("a").forEach(link => {
     const path = link.dataset.path;
     const target = parseHash(path);
-    link.href = formatHash({ ...target, ws: state.route.ws, q: state.route.q });
+    const metrics = target.view === "metrics" ? { win: state.route.win, mws: state.route.mws, magent: state.route.magent, mrt: state.route.mrt, missue: state.route.missue } : {};
+    link.href = formatHash({ ...target, ...metrics, ws: state.route.ws, q: state.route.q });
     link.classList.toggle("active", current === path);
     link.setAttribute("aria-current", current === path ? "page" : "false");
   });
@@ -2254,6 +2273,7 @@ function atlasCtx() {
     mcpAbsent: !state.mcp || !!state.mcp.absent,
     usageAlert: usageAlert(state.usage),
     usage: state.usage,
+    runMetrics: state.runMetrics,
     skills: state.skills,
     evidence: state.evidence,
     reviewDays: state.reviewDays,
@@ -2306,6 +2326,8 @@ function renderMain() {
             ? renderMcp(mcpCtx())
             : view === "usage"
             ? renderUsage(ctx)
+            : view === "metrics"
+            ? renderRunMetrics(ctx)
             : view === "map" && state.route.layer
             ? renderLayer(ctx)
             : view === "map"
@@ -2334,7 +2356,7 @@ function render() {
   const view = state.route.view;
   search.placeholder =
     state.route.view === "mcp" ? "搜索 server / 工具 / workspace / agent" :
-    view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : "搜索 identifier / 标题 / agent / 模型";
+    view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : view === "metrics" ? "搜索 run / issue / 规则 / evidence" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();

@@ -130,6 +130,7 @@ STATIC_ROUTES: dict[str, Callable[[Views], Any]] = {
     "/api/runtimes": lambda v: v.runtimes(),
     "/api/stats/failures": lambda v: v.failure_stats(),
     "/api/usage": lambda v: v.usage(),
+    "/api/run-metrics": lambda v: v.run_metrics(),
 }
 ISSUE_RUNS = re.compile(r"^/api/issues/([0-9A-Za-z-]{1,64})/([0-9A-Za-z-]{1,64})/runs$")
 

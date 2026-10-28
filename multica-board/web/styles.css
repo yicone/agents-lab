@@ -1034,6 +1034,10 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 /* Neutral identity badge inherits theme foreground/background; status dots stay separate. */
 .runtime-mark { display: inline-flex; box-sizing: border-box; width: 16px; height: 16px; flex: none; align-items: center; justify-content: center; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--muted); border-radius: 4px; background: var(--panel-2); color: var(--text); font: 650 10px/1 var(--mono); }
 .usage-card h4, .usage-signal { overflow-wrap: anywhere; }
+.metrics-windows, .metrics-filters { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin: 8px 0; }
+.metrics-filters label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 12px; }
+.metrics-filters select { color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.metrics-windows a[aria-current="true"] { font-weight: 650; }
 
 .skill-markdown { line-height: 1.65; overflow-wrap: anywhere; }
 .skill-markdown pre, .skill-markdown table { max-width: 100%; overflow-x: auto; }
