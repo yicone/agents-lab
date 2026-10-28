@@ -33,16 +33,16 @@ const payload = {
     { source_id: "multica_workspace", source_kind: "multica_workspace", label: "Multica Workspace", collection_state: "uncollected", evidence_level: "unknown", reason: "not_implemented" },
     { source_id: "grok_bot", source_kind: "grok_bot", label: "Grok Bot", collection_state: "collected", evidence_level: "declared", reason: null },
     { source_id: "grok_cli", source_kind: "grok_cli", label: "Grok CLI", collection_state: "uncollected", evidence_level: "unknown", reason: "not_implemented" },
-    { source_id: "memory", source_kind: "grok_bot", label: "Memory", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
+    { source_id: "memory", source_kind: "grok_bot", label: "Memory", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
   ],
   items: [
     { object_type: "skill", object_id: "local:demo", display_name: "demo", source_id: "local", source_kind: "local_machine", scope: "shared", collection_state: "collected", evidence_level: "observed", observed_at: "2026-10-26T09:00:00Z", related_name: "demo", evidence: { location: "~/.agents/skills/demo", source_label: "本机目录" } },
     { object_type: "skill", object_id: "repo:demo", display_name: "demo", source_id: "repository", source_kind: "repository", scope: "repository", collection_state: "collected", evidence_level: "declared", observed_at: "2026-10-26T09:00:00Z", related_name: "demo", evidence: { location: "skills/demo", source_label: "声明" } },
     { object_type: "skill", object_id: "bot:demo", display_name: "demo", source_id: "grok_bot", source_kind: "grok_bot", scope: "bot-private", collection_state: "collected", evidence_level: "declared", observed_at: "2026-10-26T09:00:00Z", related_name: "demo", evidence: { location: null, source_label: "名称声明" } },
     { object_type: "skill", object_id: "blocked", display_name: "blocked", source_id: "local", source_kind: "local_machine", scope: "shared", collection_state: "unavailable", evidence_level: "unknown", observed_at: "2026-10-26T09:00:00Z", related_name: null, evidence: { location: null, source_label: "无权限" } },
-    { object_type: "memory_collection", object_id: "memory:bot-private", display_name: "Bot 私有 Memory", source_id: "memory", source_kind: "grok_bot", scope: "bot-private", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
-    { object_type: "memory_collection", object_id: "memory:shared_profile", display_name: "共享 Profile", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
-    { object_type: "memory_collection", object_id: "memory:shared_journal", display_name: "共享 Journal", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "no_supported_export" },
+    { object_type: "memory_collection", object_id: "memory:bot-private", display_name: "Bot 私有 Memory", source_id: "memory", source_kind: "grok_bot", scope: "bot-private", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
+    { object_type: "memory_collection", object_id: "memory:shared_profile", display_name: "共享 Profile", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
+    { object_type: "memory_collection", object_id: "memory:shared_journal", display_name: "共享 Journal", source_id: "memory", source_kind: "grok_bot", scope: "shared", collection_state: "uncollected", evidence_level: "unknown", reason: "source_unverified" },
   ],
 };
 
@@ -90,11 +90,48 @@ test("evidence page shows symbols, keeps same names apart, and has no write cont
   assert.equal(page.includes("声明"), true);
   assert.equal(page.includes("未知"), true);
   assert.equal(page.includes("Bot 私有 Memory"), true);
+  assert.equal(page.includes("当前实现只列出未采集槽位"), true);
   assert.equal(page.includes("不能相加成数量"), true);
+  assert.equal(page.includes("来源未证实"), true);
+  assert.equal(page.includes("没有出口"), false);
+  assert.equal(page.includes("没有可用导出"), false);
   assert.equal(page.includes("不写回"), true);
   assert.equal(page.includes("批准"), false);
   assert.equal(visibleItems(payload, { source: "grok_bot", q: "" }).map((item) => item.object_id).join(), "bot:demo");
   assert.deepEqual(visibleItems(payload, { source: "", q: "demo" }).map((item) => item.object_id), ["local:demo", "repo:demo", "bot:demo"]);
+});
+
+function findClass(node, className, found = []) {
+  if (node == null || node === false) return found;
+  if (Array.isArray(node)) {
+    node.forEach((child) => findClass(child, className, found));
+    return found;
+  }
+  if (typeof node === "object") {
+    if (String(node.attrs?.class || "").split(/\s+/).includes(className)) found.push(node);
+    (node.children || []).forEach((child) => findClass(child, className, found));
+  }
+  return found;
+}
+
+test("empty table distinguishes a search miss from a collected source with no records", () => {
+  const miss = emptyInventoryText("local", payload, { q: "no-such-skill" });
+  assert.equal(miss, "没有符合筛选的证据");
+  assert.equal(emptyInventoryText("", payload, { q: "no-such-skill" }), "没有符合筛选的证据");
+
+  const emptyCollected = {
+    ok: true,
+    sources: [{ source_id: "local", source_kind: "local_machine", label: "本机", collection_state: "collected", evidence_level: "observed", reason: null }],
+    items: [],
+  };
+  assert.equal(emptyInventoryText("local", emptyCollected, { q: "" }), "已采集，0 条");
+  assert.equal(emptyInventoryText("local", emptyCollected, { q: "demo" }), "没有符合筛选的证据");
+
+  const searched = renderEvidence({ h: vnode, route: { source: "local", q: "zzzz-not-a-skill" }, evidence: payload, setRoute() {} });
+  assert.equal(textOf(findClass(searched, "empty")[0]), "没有符合筛选的证据");
+  const emptyPage = renderEvidence({ h: vnode, route: { source: "local", q: "" }, evidence: emptyCollected, setRoute() {} });
+  assert.equal(textOf(findClass(emptyPage, "empty")[0]), "已采集，0 条");
+  assert.equal(sourceCountLabel(emptyCollected.sources[0], emptyCollected.items).caption, "已采集，0 条");
 });
 
 test("evidence route round-trips and does not keep a workspace filter", () => {

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from .governance_scan import load_for_atlas
 from .agent_delivery import decide_delivery
 from .changes import CHANGE_RETENTION_DAYS, CHANGES_PAGE, BadRequest, format_cursor, parse_kind, parse_since
 from .collector import COLLECTOR, WORKSPACE
@@ -250,9 +251,21 @@ def render_attention_text(body: dict[str, Any]) -> str:
         lines.append("# quota_alerts")
         lines.append(f"quota_alerts {len(alerts)}")
         for it in alerts:
+            summary = _cell(it.get("title"))
+            if "band" in it:
+                summary += " " + " ".join(
+                    f"{label}={_cell(it.get(field))}"
+                    for label, field in (("band", "band"), ("age_s", "sample_age_s"),
+                                         ("stale", "stale"), ("Δ24h_pp", "delta_24h_percent"),
+                                         ("reset", "resets_at"),
+                                         ("ETA85", "eta_warning_at"), ("ETA100", "eta_exhausted_at"))
+                )
+                daily = it.get("daily_delta") or []
+                if daily:
+                    summary += f" Δday_pp={_cell(daily[-1].get('delta_percent'))}@{_cell(daily[-1].get('date'))}"
             lines.append(
                 "\t".join(
-                    _cell(it.get(field))
+                    summary if field == "title" else _cell(it.get(field))
                     for field in ("identifier", "status", "time", "agent_name", "title")
                 )
             )
@@ -496,12 +509,19 @@ class Views:
             if t["status"] == "failed" and (t["completed_at"] or t["created_at"] or "") >= failed_cutoff:
                 last_failed.setdefault(k, t)
 
+        acm = next((ws for ws, slug in slugs.items() if slug == ATLAS_SLUG), None)
+        governance = load_for_atlas(self.store.path, self.server, acm) if acm else {"state": "not_collected", "findings": []}
+        findings_by = {}
+        for finding in governance.pop("findings"):
+            findings_by.setdefault(finding["issue_id"], []).append(finding)
         items = []
         for r in self.store.query("SELECT * FROM issues WHERE server=? ORDER BY last_activity_at DESC", (self.server,)):
             ws = r["workspace_id"]
             k = (ws, r["id"])
             if _closed(r) and k not in last_failed and k not in last_anomaly:
                 continue
+            if ws == acm and any(f.get("source_updated_at") != r.get("updated_at") for f in findings_by.get(r["id"], [])):
+                governance["state"] = "changed"
             assignee = None
             if r["assignee_type"] and r["assignee_id"]:
                 name = None
@@ -534,9 +554,11 @@ class Views:
                         {"task_id": lf["id"], "completed_at": lf["completed_at"], "error_kind": lf["error_kind"]} if lf else None
                     ),
                     "layer": layers.get(k) or empty_layer(),
+                    "governance_findings": [f for f in findings_by.get(r["id"], [])
+                        if ws == acm and f.get("source_updated_at") == r.get("updated_at")],
                 }
             )
-        return {"generated_at": self.generated_at(), "items": items}
+        return {"generated_at": self.generated_at(), "items": items, "governance_scan": governance}
 
     def _layer_index(self) -> dict[tuple[str, str], dict[str, Any]]:
         rows = self.store.query("SELECT * FROM issues WHERE server=?", (self.server,))
@@ -1256,7 +1278,9 @@ class Views:
         document = skills_document(days)
         from .skills_view import _load_tool_roots, TOOL_ROOTS_PATH, REPO_ROOT
         from .skill_runtimes import runtime_columns
+        from .runtime_load import collect_runtime_load
         from .skill_grok_bots import grok_bot_skills
+        from .skill_grok_export import grok_export_skills
         try:
             roots, _ = _load_tool_roots(TOOL_ROOTS_PATH, REPO_ROOT)
         except (OSError, ValueError, TypeError, KeyError):
@@ -1282,18 +1306,33 @@ class Views:
         for item in bot_items:
             item["related_skill_name"] = item["name"] if item["name"] in local_names else None
         items.extend(bot_items)
+        export_items, export_source = grok_export_skills()
+        for item in export_items:
+            item["related_skill_name"] = item["name"] if item["name"] in local_names else None
+        items.extend(export_items)
         summary = _summary(items)
         for block in summary:
             if block["id"] == "grok_bot":
                 block["uncollected"] = bot_source["state"] != "ok"
                 block["detail"] = bot_source["detail"]
+            if block["id"] == "grok_bot_export":
+                block["uncollected"] = not export_items
+                block["detail"] = export_source["detail"]
         meta = {**(document.get("meta") or {})}
-        meta["sources"] = [*(meta.get("sources") or []), bot_source]
-        return runtime_columns({**document, "items": items, "summary": summary, "meta": meta}, self.runtimes(), roots)
+        meta["sources"] = [*(meta.get("sources") or []), bot_source, export_source]
+        return runtime_columns(
+            {**document, "items": items, "summary": summary, "meta": meta},
+            self.runtimes(),
+            roots,
+            collect_runtime_load(),
+        )
 
     def skills_content(self, **arguments) -> dict[str, Any]:
+        from .skill_grok_export import PREFIX, read_export_content
         from .skill_content import read_content
         from .skills_view import REPO_ROOT, skills_document
+        if arguments.get("source", "local") == "local" and arguments.get("path", "").startswith(PREFIX):
+            return read_export_content(**arguments)
         # Cloud selection never consults local files. Only the local inventory
         # (not workspace metadata) can authorize a filesystem read.
         document = {} if arguments.get("source") == "cloud" else skills_document()

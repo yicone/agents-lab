@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from multica_board.evidence_inventory import EVIDENCE_LEVELS, build_evidence_inventory  # noqa: E402
+from multica_board.evidence_inventory import EVIDENCE_LEVELS, REASONS, build_evidence_inventory  # noqa: E402
 from multica_board.server import BoardServer  # noqa: E402
 
 HOME = "/Users/tr"
@@ -106,6 +106,20 @@ class EvidenceInventoryTest(unittest.TestCase):
         self.assertEqual(body["read_only"], True)
         self.assertEqual(body["schema"], "atlas.evidence_inventory/v1")
 
+    def test_export_does_not_duplicate_declaration_ids_or_claim_runtime_loading(self):
+        exported = dict(grok_item(), key="grok-export:demo", source_class="grok_bot_export",
+                        export={"state": "ok", "exported_at": GENERATED}, status_label="已校验 2 个文件")
+        for state, expected in [("ok", "collected"), ("bad", "unavailable")]:
+            exported["export"]["state"] = state
+            body = self.build(payload(items=[grok_item(), exported]))
+            skills = [i for i in body["items"] if i["object_type"] == "skill"]
+            self.assertEqual(len(skills), len({i["object_id"] for i in skills}))
+            row = next(i for i in skills if i["object_id"] == "grok-export:demo")
+            self.assertEqual(row["collection_state"], expected)
+            self.assertEqual(row["evidence_level"], "observed")
+            self.assertIsNone(row["runtime_loaded"])
+            self.assertIn("Grok Bot 导出", row["evidence"]["source_label"])
+
     def test_uncollected_sources_are_not_zero_and_levels_cover_observation_failure(self):
         body = self.build(payload(items=[
             disk_item(),
@@ -127,7 +141,15 @@ class EvidenceInventoryTest(unittest.TestCase):
         self.assertFalse(any(item["source_id"] == "grok_cli" for item in body["items"]))
         memory = [item for item in body["items"] if item["object_type"] == "memory_collection"]
         self.assertEqual(len(memory), 3)
-        self.assertTrue(all(item["collection_state"] == "uncollected" and item["reason"] == "no_supported_export" for item in memory))
+        self.assertEqual(by_id["memory"]["collection_state"], "uncollected")
+        self.assertEqual(by_id["memory"]["reason"], "source_unverified")
+        self.assertTrue(all(item["collection_state"] == "uncollected" and item["reason"] == "source_unverified" for item in memory))
+        encoded_memory = json.dumps(body)
+        self.assertNotIn("no_supported_export", encoded_memory)
+        self.assertNotIn("export_candidate_unverified", encoded_memory)
+        self.assertIn("source_unverified", REASONS)
+        self.assertNotIn("no_supported_export", REASONS)
+        self.assertNotIn("export_candidate_unverified", REASONS)
         self.assertTrue(all(item["hash"]["value"] is None and item["evidence"]["location"] is None for item in memory))
         self.assertEqual({item["scope"] for item in memory}, {"bot-private", "shared"})
         denied = next(item for item in body["items"] if item["display_name"] == "blocked")

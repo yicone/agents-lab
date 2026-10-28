@@ -78,6 +78,8 @@
 
 ## `GET /api/issues`
 
+ACM-597 本地候选新增：响应顶层 `governance_scan:{state, detected_at?}`，state 为 `ok / not_collected / stale / invalid / incompatible / changed`。逐 issue 增加 `governance_findings:[]`：只包含绑定当前 profile、ACM Lab workspace、24 小时内完整 shadow 报告且 `source_updated_at` 与缓存相等的高优先告警；不改 issue status。每项包括 `issue_id, identifier, rule, code, current, candidate, confidence, evidence, whitelist, detected_at, source_updated_at, fingerprint, priority`。多规则在待决队列按 issue 合并，原状态仍可见，数量可与 review/blocked 重叠。报告不可用不代表零告警；缺报告时该列表为空并明确返回状态。其他 workspace 不消费此报告。地图统计仍保持真实 issue 状态计数，巡检待决仅在待批准队列体现。
+
 所有 workspace 的“关注范围”issue，一次全量，不分页（ACM Lab 约 150 条；有 workspace 超过 500 条时再讨论分页）。前端负责分栏、筛选与停滞判断。
 
 关注范围 = `status_category` 不是 `done` / `cancelled` 的 issue，加上 7 天内 run 失败过的已关闭 issue。
@@ -311,6 +313,95 @@ ACM-349：本机 `local_source.content_hash` 为 SKILL.md 原始字节的 SHA-25
 ```
 
 `name` 优先用 runtime 的自定义名。同一台机器在不同 workspace 注册为不同 runtime 记录（不同 `id`），前端按 `provider` 聚合做跨 workspace 汇总，按 `workspace_id + id` 精确 join。
+
+## `GET /api/usage`（ACM-586）
+
+只读快照视图；不执行采集、不扫描历史、不写文件。`generated_at` 为响应时刻，
+`usage_collected_at` 为最近快照采集时刻；这是通用 generated_at 约定的例外。
+顶层包含 `days`、`snapshot_state`（missing/empty/ok/partial/error）、`collection_errors`、
+`external_quotas`、旧版 `signals`（dispatchable/exhausting）、`multica_daily` 和 `quota_pool`（ACM-650）。
+CodexBar 的窗口百分比与 Multica 的 token/cost 分栏，不能相加；不返回身份信息
+（邮箱、account_key、source_path、token 一律不返回）；credits 仅以 `quota_pool` 内别名为键的数值返回。
+
+`quota_pool` 是快照 `codex_accounts` 块的白名单视图，固定 5 个 Codex 别名账号
+（6e / aq / he / mg / pe），逐账号展示，绝不跨账号相加或平均。字段：
+
+| 字段 | 类型 / 语义 |
+| --- | --- |
+| status | ok / empty / error / missing；快照无 `codex_accounts` 块或非对象时为 missing，否则取块的 status，非三值按 error |
+| source | 固定 `codexbar-disk` |
+| sampled_at | `codex_accounts.sampled_at` 或 null |
+| stale_after_s | 固定 1800（秒），陈旧阈值 |
+| account_count / present_aliases | 5 个别名中有记录的个数 / 别名列表（按固定顺序） |
+| accounts[] | 固定 5 项，顺序 6e、aq、he、mg、pe |
+
+`accounts[]` 每项：
+
+| 字段 | 类型 / 语义 |
+| --- | --- |
+| alias / present | 别名 / 快照里有没有该别名；present=false 时其余字段全为 null/空，不补 0 |
+| plan | 套餐字符串或 null |
+| pace_applicable | bool；别名在排除表（6e）里为 false，该账号不参与节奏比 |
+| windows["5h"/"weekly"] | 按 window_minutes 300 / 10080 匹配，缺失为 null；`{used_percent, resets_at, hours_until_reset, window_minutes}`，hours_until_reset 读取时按 now 重算，可为 null；monthly 等其他窗口不返回 |
+| reset_cards | `{available_count, soonest_expires_at, hours_until_soonest, expiry_flag}` 或 null；hours_until_soonest 读取时重算、可为负（已过期但源未更新）；expiry_flag 为满足 hours≤阈值的最小阈值（6/24/72），available_count=0 或无最近到期时为 null；cards 明细不返回 |
+| credits | `{present, remaining, unit: "Credits"}`；present = `credits_remaining` 非 null，0.0 是真 0 不是未知 |
+| source_updated_at | 源采样时间或 null |
+| sample_age_s / stale | now − source_updated_at，负差钳 0；source_updated_at 缺失或不可解析时 sample_age_s=null 且 stale=true；age>1800 才 stale，恰好 1800 仍新鲜；不以采集退出码或 snapshot_state 判断 |
+| pace | `{ratio, reference_at}`；仅 pace_applicable 且有 weekly 窗口时可非 null。以 source_updated_at 为参考时刻：elapsed = 1 − (resets_at − reference)/(window_minutes 分钟)，钳 [0,1]；elapsed≤0 或字段缺失时 ratio=null，否则 round(weekly.used_percent/(elapsed×100), 2) |
+
+`external_quotas[]` 的 provider 为 cursor/grok/codex；9router/orca 返回 status=unconnected、
+label=未接入、windows=[]。已接入 provider 含 `status`（ok/error）、`source`、`updated_at`、
+`last_success_at`、`error`、`sample_age_s`、`stale`、`windows`。
+`sample_age_s` 单位秒，取源 updated_at 与 last_success_at 中较早的有效时间距当前时间的差，
+负差钳为 0；只有一个有效时间则用该时间。两者都缺失时为 null 且 stale=true。
+超过 2700 秒（3 个 900 秒采集周期）即 stale=true；恰好 2700 秒仍新鲜。
+抓取成功不能掩盖源数据陈旧。采集失败保留旧窗口和成功时间，错误状态与新鲜度分别表达。
+
+窗口字段：
+
+| 字段 | 类型 / 语义 |
+| --- | --- |
+| key / label | 源窗口槽位与显示名；`cursor:tertiary` 固定显示 Third Party，不用 label 匹配池 |
+| window_minutes | number 或 null |
+| used_percent / remaining_percent | number，窗口百分比，非 token 或金额 |
+| resets_at / hours_until_reset | UTC 时间或 null / 小时或 null，读取时重算 |
+| pace | 源 pace 对象或 null，含 expected_used_percent、delta_percent、will_last_to_reset、stage |
+| signal / signal_reason | 保留旧 normal/dispatchable/exhausting 规则和理由；stale 时 signal=normal，理由说明未知，不再建议派发 |
+| band | `<70 normal`、`>=70 watch`、`>=85 warning`、`>=95 critical`、`>=99.9 exhausted`；stale 时 unknown |
+| sample_age_s / stale | 与 provider 相同的秒数/null 与 boolean |
+| delta_24h_percent | number 或 null；当前值减去同周期内 **至少 24h 前最近样本**的值，单位百分点，不插值、不归一化为正好 24h |
+| daily_delta | `[{"date":"YYYY-MM-DD","delta_percent":number或null}]`；同周期按 UTC 日首末样本差，日期升序，只有一条样本则 null；无有效趋势为 [] |
+| eta_exhausted_at / eta_warning_at | 预计到 100% / 85% 的 UTC 时间或 null |
+| eta_source | pace/history_24h/history_cycle 或 null；表示线性估算来源，不保证实际耗尽时刻 |
+
+趋势与 ETA **只在采集写快照时计算**。按 provider+window key 隔离，只取当前连续周期；
+resets_at 变化即切断（即使之后又变回旧值），used_percent 回落也切断。
+历史旧格式缺少 sample_at 时兼容使用 provider.updated_at 或记录 at；新历史额外保存源采样时间与 stale，
+同一采样时间去重，error/stale 样本不作趋势证据。历史为本地保留期内数据，单测夹具为合成观测，非账单。
+
+优先从有效 pace 的 expected_used_percent 与 window_minutes 推导已过窗口时长，
+以 used_percent/已过小时估算速率；Cursor pace 缺失时使用历史：有 24h 锚点则用实际时间差的斜率，
+否则至少 3 个不同时间的同周期样本，使用本周期首个非零观测至当前的斜率。
+无历史、样本不足、速率非正或预测落在重置之后时返回 null；已达到阈值则返回本次源采样时间。
+GET 不把 ETA 向后平移：预测已过期且尚未在样本中达到阈值时返回 null。
+stale 时 band=unknown、两个 ETA 与 delta_24h_percent=null、daily_delta=[]、eta_source=null。
+ETA 不升级 band，也不自动停派或修改 runtime。
+
+### `/api/attention` 的 `quota_alerts`
+
+顶层 `quota_alerts` 为跨 workspace 的窗口提醒数组，空时 []。
+新鲜的 warning/critical/exhausted 窗口进入数组，watch 不进入；陈旧窗口以 unknown 提示需重新核实额度。
+保留 `identifier`、`title`、`status`、`time`、`agent_name`；identifier=`provider:window_key`，
+status=quota_exhausting（新鲜风险）或 quota_unknown（陈旧/无时间），time 为 provider.updated_at，agent_name=null。
+增加 `provider`、`window_key`、`label`、`band`、`used_percent`、`remaining_percent`、`resets_at`、
+`hours_until_reset`、`sample_age_s`、`stale`、`delta_24h_percent`、`daily_delta`、
+`eta_exhausted_at`、`eta_warning_at`、`eta_source`；类型与窗口一致。
+陈旧标题说明“数据为 Xh 前采样”或“无采样时间”，旧百分比仅作历史读数，不作为当前额度结论。
+按 identifier、title 排序。无快照或未接入且无窗口的 provider 不产生窗口提醒。
+
+`?format=text` 保持五列与整行截断，title 列追加 band、age_s、stale、Δ24h_pp、reset、ETA85、ETA100，
+有每日数据时追加最新 UTC 日 Δday_pp。缺失用 `-`。UTF-8 总预算仍为 2048 字节，超限保留原桶计数并以 `…` 行收尾。
+两个端点保持 GET/HEAD 只读（无采集或调度副作用），不增加任何写入路由。
 
 ## `GET /api/attention`
 
@@ -600,9 +691,11 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 
 `GET /api/skills` 和 `/api/skills/meta` 的 `tools` 取已配置工具 ∪ `/api/runtimes` 缓存 provider ∪ 安装证据 harness。provider 去空格并转小写后去重，保留任意新 provider；缺失 provider 归 `unknown` 并保留实例引用。`project` 仍是配置中的仓库入口。
 
-每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。
+每列 `{id,provider,label,sources:[{source,collected_at,evidence_state}],runtime_ids:[{workspace_id,id}],roots_state:"configured"|"unconfigured",roots:[{path,kind}],runtime_loaded:null,load_probe?:{state,source,credibility,detail,collected_at}}`。source 为 `tool_roots`、`runtimes`、`skill_evidence`。配置和磁盘证据时间来自本机扫描，runtime 时间来自缓存文档；null 表示没有采集时间。runtime 名称不用于推断 provider 别名或加载规则。列上的 `runtime_loaded` 仍为 null：探针没有完整加载清单时，不用「部分技能被禁用」把整列标成已加载或未加载。
 
-每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅 Multica Workspace 、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。Multica Workspace 列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
+`load_probe` 只出现在 Codex、Cursor、Hermes。`state` 为 `partial`（有显式禁用）、`unverified`（读到了但没有可采纳的加载名单）或 `unavailable`（文件缺失、不可读、是符号链接或无法解析）。`credibility` 为 `explicit_opt_out` 或 `none`。`detail` 是固定中文，不含路径和配置原文。Codex 读 `config.toml` 的 `skills.config`：`enabled=false` 且路径与本机入口一致时，该技能为未加载；`enabled=true` 和未列出的技能不标成已加载。Hermes 读 `config.yaml` 的 `skills.disabled`：名单里的名称标为未加载，`hermes-agent` 除外；空名单和名单外的名称保持未验证。不运行 `hermes skills list`。Cursor 没有逐条探针，`load_probe.state` 为 `unverified`。
+
+每条 skill 增加 `runtime_evidence[provider]={mark,state,reason,source:"disk_installations",collected_at,runtime_loaded:null|false,load_checked?:true,load_source?:string,load_detail?:string}`；state 为 `observed`（有已知入口标记）、`no_match`（有配置根但无命中）、`unknown`（不可读、无配置根或无本机安装证据）、`not_applicable`（仅 Multica Workspace 、没有本机安装记录）。reason 对应 `skill_roots_unconfigured` / `local_installation_unobserved` / `cloud_only` 或 null。`runtime_loaded: true` 留给直接的加载名单；当前三个探针都不会因为磁盘入口或 `enabled=true` 把它设为 true。`false` 只表示显式禁用。没有探针的 provider 不带 `load_checked`，`runtime_loaded` 保持 null。Runtime 单元格只显示符号：不适用为 `∅`，无法确定为 `?`；原因码在提示里转换成中文。有探针时，提示区分「已加载（有证据）」「未加载（有证据）」「磁盘可见、未验证」「未见」。Multica Workspace 列的 `—` 专指数据未采集。不把无根列的空白当成没安装，不把磁盘入口当成当前会话实测加载。
 
 `tool_filter_ids` 与 tools 同源。前端路由收到列数据后使用 tools.id 生成筛选白名单；首次加载前仅暂存格式受限的 URL provider，避免 Grok/未来 provider 深链在数据到达前丢失。查看器、共享入口加载规则和无根标记的展示由阶段 2 消费。
 
@@ -696,12 +789,15 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - `items[]` 按 `source_id + object_id` 分条。同名只写 `related_name`，不合并。`source_kind` 里 `grok_cli` 与 `grok_bot` 不互换。`runtime_loaded` 恒为 null。`hash.value` 恒为 null。
 - Grok Bot 名称声明是 `evidence_level: declared`。历史实测标记不升级成当前 `observed`，也不生成本机安装、版本或正文。
 - 本机 `~/.grok/skills` 仍是 `local_machine`。没有 CLI 只读元数据时，Grok CLI 来源保持 `uncollected` / `not_implemented`。
-- Memory 只有三条 `object_type: memory_collection` 槽位，`collection_state: uncollected`，没有正文。
+- Memory 当前实现只有三条 `object_type: memory_collection` 槽位，`collection_state: uncollected`，`reason: source_unverified`。响应没有正文。这些槽位只描述当前实现，不作为没有出口的证据。
 - 清单无效时本机和仓库来源为 `invalid`，不把空列表显示成已采集 0 条。权限或读取失败为 `unavailable` + `evidence_level: unknown`，不降级成 absent。
 
 ## 变更记录
 
+- v0.12（2026-10-26）：ACM-360 给 Codex、Cursor、Hermes 增加 `load_probe`。`runtime_loaded: false` 只表示配置显式禁用；没有逐条加载名单时保持 null。证据清单接口的 `runtime_loaded` 仍恒为 null。
+
 - v0.11（2026-10-26）：ACM-581 增加 `GET /api/evidence-inventory`。它把现有 Skills 清单投影成 `atlas.evidence_inventory/v1`：来源不按名字合并，`related_name` 只做同名对照；Grok CLI 与 Grok Bot 分开；未采集保持 `uncollected`，不显示成 0。Memory 只有未采集元数据槽位。响应没有正文、哈希原文或命令。不新增 POST。页面入口 `#/configure/skills/evidence`。
+- v0.11（2026-10-27）：Memory 槽位的 `reason` 改为 `source_unverified`，`collection_state` 仍为 `uncollected`。未采集槽位只描述当前实现，不作为没有出口的证据。
 
 - v0.10（2026-10-24）：ACM-403（ACM-378 设计）把 `GET /api/mcp` 重写为 `mcp_schema: 2`：行按原名合并，本机/项目级文件按 `config/mcp-sources.json` 声明即时安全读取，指纹只在本进程内比较，前端列序、桶、角标 tone 与抽屉内容见 `mcp-redesign.md`。
 - v0.9（2026-10-23）：ACM-370 增加 `GET /api/mcp`（workspace MCP 库、agent 分配、自有配置摘要、各 runtime 是否加载、待处理分桶）。CLI 白名单只增加 `workspace mcp list` 与 `agent mcp list`。

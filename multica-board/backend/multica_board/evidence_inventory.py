@@ -24,7 +24,7 @@ REASONS = (
     "permission_denied",
     "read_failed",
     "schema_invalid",
-    "no_supported_export",
+    "source_unverified",
     "private_rpc_not_supported",
 )
 HASH_STATES = ("available", "unavailable", "not_collected", "not_applicable")
@@ -61,6 +61,19 @@ def build_evidence_inventory(
     for row in rows:
         kind = row.get("source_class")
         origin = row.get("origin")
+        if kind == "grok_bot_export" and isinstance(row.get("export"), dict):
+            exported = row["export"]
+            valid = exported.get("state") == "ok"
+            skill_items.append(_item(
+                object_type="skill", object_id=row.get("key") or "grok-export:" + quote(_display_name(row), safe=""), display_name=_display_name(row),
+                source_id="grok_bot", source_kind="grok_bot", scope="bot-private",
+                collection_state="collected" if valid else "unavailable", observed_at=generated_at,
+                evidence_level="observed", hash_state="available" if valid else "unavailable",
+                evidence_kind="export", location=None, object_ref=None,
+                source_label=f"Grok Bot 导出 · {exported.get('exported_at') or '时间未知'} · {row.get('status_label') or ''}；仅核对导出文件，不代表 Bot 当前加载",
+                reason=None if valid else "read_failed",
+            ))
+            continue
         if kind == "grok_bot" or origin == "grok_bot":
             if _grok_readable(grok_meta):
                 skill_items.extend(_grok_bot_items(row, generated_at))
@@ -130,7 +143,7 @@ def _fixed_sources(
         _source("multica_workspace", "multica_workspace", "Multica Workspace", "workspace", workspace_state, generated_at if workspace_state == "collected" else None, "observed" if workspace_state == "collected" else "unknown", _state_reason(workspace_state, "not_implemented")),
         _source("grok_bot", "grok_bot", "Grok Bot", "bot-private", grok_state, grok_collected_at or (generated_at if grok_state == "collected" else None), "declared" if grok_state == "collected" else "unknown", _state_reason(grok_state, "source_not_configured")),
         _source("grok_cli", "grok_cli", "Grok CLI", "shared", "collected" if grok_cli_collected else "uncollected", generated_at if grok_cli_collected else None, "declared" if grok_cli_collected else "unknown", None if grok_cli_collected else "not_implemented"),
-        _source("memory", "grok_bot", "Memory", "unknown", "uncollected", None, "unknown", "no_supported_export"),
+        _source("memory", "grok_bot", "Memory", "unknown", "uncollected", None, "unknown", "source_unverified"),
     ]
 
 
@@ -183,7 +196,7 @@ def _memory_slots() -> list[dict[str, Any]]:
             location=None,
             object_ref=None,
             source_label=f"{label}。无正文；不探测私有 RPC",
-            reason="no_supported_export",
+            reason="source_unverified",
         ))
     return slots
 

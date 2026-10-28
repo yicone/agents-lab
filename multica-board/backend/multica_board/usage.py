@@ -16,6 +16,7 @@ prefer_stdlib_imports()
 
 import json
 import logging
+import math
 import os
 import re
 import subprocess
@@ -37,6 +38,7 @@ USAGE_NOTE = (
 CODEXBAR_PROVIDERS = ("cursor", "grok", "codex")
 UNCONNECTED_PROVIDERS = ("9router", "orca")
 HISTORY_RETENTION_DAYS = 90
+SAMPLE_MAX_AGE_S = 2700
 DEFAULT_CODEXBAR = "/opt/homebrew/bin/codexbar"
 TOKEN_FIELDS = (
     "input_tokens",
@@ -112,7 +114,8 @@ def _num(value: Any) -> float | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        number = float(value)
+        return number if math.isfinite(number) else None
     return None
 
 
@@ -138,7 +141,7 @@ def _text(value: Any) -> str | None:
 
 
 def _parse_time(value: str | None) -> datetime | None:
-    if not value:
+    if not isinstance(value, str) or not value:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -325,10 +328,40 @@ def evaluate_signal(
     return "normal", None
 
 
-def decorate_window(window: dict[str, Any], now: datetime) -> dict[str, Any]:
+def quota_band(used: float) -> str:
+    for threshold, band in ((99.9, "exhausted"), (95, "critical"), (85, "warning"), (70, "watch")):
+        if used >= threshold:
+            return band
+    return "normal"
+
+
+def sample_freshness(item: dict[str, Any], now: datetime) -> tuple[float | None, bool]:
+    # A successful fetch must not make an old upstream sample look fresh.
+    times = [_parse_time(item.get(field)) for field in ("updated_at", "last_success_at")]
+    known = [at for at in times if at is not None]
+    age = max(0.0, (now - min(known)).total_seconds()) if known else None
+    return (None if age is None else round(age, 1), age is None or age > SAMPLE_MAX_AGE_S)
+
+
+def decorate_window(
+    window: dict[str, Any], now: datetime, *, sample_age_s: float | None = None, stale: bool = False,
+) -> dict[str, Any]:
     used = float(window["used_percent"])
     hours = hours_until(window.get("resets_at"), now)
     signal, reason = evaluate_signal(used, window.get("window_minutes"), hours, window.get("pace"))
+    if stale:
+        signal, reason = "normal", "stale sample; quota unknown"
+    # ETA is anchored to the observation, not to each GET. Past forecasts are
+    # no longer predictions; reaching a threshold in the sample is immediate.
+    def eta(field: str, threshold: float) -> str | None:
+        if stale or hours is None or hours <= 0:
+            return None
+        if used >= threshold:
+            return window.get("sample_at")
+        value = window.get(field)
+        parsed = _parse_time(value)
+        return value if parsed and now < parsed <= _parse_time(window.get("resets_at")) else None
+
     return {
         "key": window.get("key"),
         "label": window.get("label"),
@@ -340,6 +373,14 @@ def decorate_window(window: dict[str, Any], now: datetime) -> dict[str, Any]:
         "pace": window.get("pace"),
         "signal": signal,
         "signal_reason": reason,
+        "band": "unknown" if stale else quota_band(used),
+        "sample_age_s": sample_age_s,
+        "stale": stale,
+        "delta_24h_percent": None if stale else window.get("delta_24h_percent"),
+        "daily_delta": [] if stale else window.get("daily_delta", []),
+        "eta_exhausted_at": eta("eta_exhausted_at", 100),
+        "eta_warning_at": eta("eta_warning_at", 85),
+        "eta_source": None if stale else window.get("eta_source"),
     }
 
 
@@ -355,10 +396,14 @@ def _known_quotas(raw: Any) -> list[dict[str, Any]]:
 def present_quotas(raw: Any, now: datetime) -> list[dict[str, Any]]:
     presented: list[dict[str, Any]] = []
     for item in _known_quotas(raw):
+        age, stale = sample_freshness(item, now)
         windows = []
         for window in item.get("windows") or []:
             if isinstance(window, dict) and _num(window.get("used_percent")) is not None:
-                windows.append(decorate_window(window, now))
+                decorated = decorate_window(window, now, sample_age_s=age, stale=stale)
+                if item["provider"] == "cursor" and window.get("key") == "tertiary":
+                    decorated["label"] = "Third Party"
+                windows.append(decorated)
         presented.append({
             "provider": item["provider"],
             "status": item.get("status") if item.get("status") in ("ok", "error") else "error",
@@ -366,6 +411,8 @@ def present_quotas(raw: Any, now: datetime) -> list[dict[str, Any]]:
             "updated_at": _text(item.get("updated_at")),
             "last_success_at": _text(item.get("last_success_at")),
             "error": _error_obj(item.get("error")),
+            "sample_age_s": age,
+            "stale": stale,
             "windows": windows,
         })
     presented.extend(unconnected(name) for name in UNCONNECTED_PROVIDERS)
@@ -403,7 +450,7 @@ def quota_alerts_for(snapshot: dict[str, Any] | None, now: datetime) -> list[dic
     for quota in present_quotas(snapshot.get("external_quotas"), now):
         provider = str(quota.get("provider") or "")
         for window in quota.get("windows") or []:
-            if window.get("signal") != "exhausting":
+            if window.get("band") not in ("warning", "critical", "exhausted", "unknown"):
                 continue
             used = window.get("used_percent")
             hours = window.get("hours_until_reset")
@@ -413,12 +460,23 @@ def quota_alerts_for(snapshot: dict[str, Any] | None, now: datetime) -> list[dic
                 title = f"{title_name} 额度已用 {float(used):.0f}%（距重置 {float(hours):.0f}h）"
             else:
                 title = f"{title_name} 额度已用 {float(used):.0f}%"
+            if window["stale"]:
+                age = window["sample_age_s"]
+                title = f"{title_name} 额度未知（" + (f"数据为 {age / 3600:.1f}h 前采样" if age is not None else "无采样时间") + "）"
             alerts.append({
                 "identifier": f"{provider}:{window.get('key')}",
                 "title": title,
-                "status": "quota_exhausting",
+                "status": "quota_unknown" if window["stale"] else "quota_exhausting",
                 "time": quota.get("updated_at"),
                 "agent_name": None,
+                "provider": provider,
+                "window_key": window.get("key"),
+                "label": label,
+                **{key: window.get(key) for key in (
+                    "band", "used_percent", "remaining_percent", "resets_at", "hours_until_reset",
+                    "sample_age_s", "stale", "delta_24h_percent", "daily_delta",
+                    "eta_exhausted_at", "eta_warning_at", "eta_source",
+                )},
             })
     alerts.sort(key=lambda item: (item["identifier"] or "", item["title"] or ""))
     return alerts
@@ -620,6 +678,144 @@ def assemble_multica(
     return {"note": USAGE_NOTE, "by_provider": by_provider, "by_runtime": by_runtime}
 
 
+POOL_ALIASES = ("6e", "aq", "he", "mg", "pe")
+# Accounts excluded by fixed alias rule, not by is_system_account (ACM-650).
+POOL_EXCLUDED = frozenset({"6e"})
+POOL_STALE_AFTER_S = 1800
+POOL_EXPIRY_FLAGS = (6, 24, 72)
+_POOL_WINDOW_MINUTES = {"5h": 300, "weekly": 10080}
+
+
+def _pool_window(window: dict[str, Any] | None, now: datetime) -> dict[str, Any] | None:
+    if not isinstance(window, dict):
+        return None
+    used = _num(window.get("used_percent"))
+    if used is None:
+        return None
+    resets_at = _text(window.get("resets_at"))
+    hours = hours_until(resets_at, now)
+    return {
+        "used_percent": round(used, 2),
+        "resets_at": resets_at,
+        "hours_until_reset": None if hours is None else round(hours, 1),
+        "window_minutes": _num(window.get("window_minutes")),
+    }
+
+
+def _pool_windows(raw: Any, now: datetime) -> dict[str, Any]:
+    by_minutes: dict[float, dict[str, Any]] = {}
+    for window in raw if isinstance(raw, list) else []:
+        if not isinstance(window, dict):
+            continue
+        minutes = _num(window.get("window_minutes"))
+        if minutes is not None and minutes in _POOL_WINDOW_MINUTES.values() and minutes not in by_minutes:
+            by_minutes[minutes] = window
+    return {name: _pool_window(by_minutes.get(minutes), now) for name, minutes in _POOL_WINDOW_MINUTES.items()}
+
+
+def _pool_reset_cards(raw: Any, now: datetime) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    count = _int(raw.get("available_count"))
+    soonest = _text(raw.get("soonest_expires_at"))
+    hours = hours_until(soonest, now)
+    rounded = None if hours is None else round(hours, 1)
+    flag = None
+    if count > 0 and rounded is not None:
+        flag = next((threshold for threshold in POOL_EXPIRY_FLAGS if rounded <= threshold), None)
+    return {
+        "available_count": count,
+        "soonest_expires_at": soonest,
+        "hours_until_soonest": rounded,
+        "expiry_flag": flag,
+    }
+
+
+def _pool_pace(alias: str, windows: dict[str, Any], reference_at: str | None) -> dict[str, Any]:
+    pace: dict[str, Any] = {"ratio": None, "reference_at": None}
+    if alias in POOL_EXCLUDED:
+        return pace
+    weekly = windows.get("weekly")
+    if not isinstance(weekly, dict):
+        return pace
+    reference = _parse_time(reference_at)
+    if reference is None:
+        return pace
+    pace["reference_at"] = reference_at
+    resets = _parse_time(weekly.get("resets_at"))
+    minutes = _num(weekly.get("window_minutes"))
+    used = _num(weekly.get("used_percent"))
+    if resets is None or minutes is None or minutes <= 0 or used is None:
+        return pace
+    # Elapsed fraction of the weekly window at the snapshot moment, not at GET time.
+    elapsed = max(0.0, min(1.0, 1 - (resets - reference).total_seconds() / (minutes * 60)))
+    if elapsed <= 0:
+        return pace
+    pace["ratio"] = round(used / (elapsed * 100), 2)
+    return pace
+
+
+def _pool_account(alias: str, raw: dict[str, Any] | None, now: datetime) -> dict[str, Any]:
+    account: dict[str, Any] = {
+        "alias": alias,
+        "present": False,
+        "plan": None,
+        "pace_applicable": alias not in POOL_EXCLUDED,
+        "windows": {"5h": None, "weekly": None},
+        "reset_cards": None,
+        "credits": {"present": False, "remaining": None, "unit": "Credits"},
+        "source_updated_at": None,
+        "sample_age_s": None,
+        "stale": False,
+        "pace": {"ratio": None, "reference_at": None},
+    }
+    if not isinstance(raw, dict):
+        return account
+    account["present"] = True
+    account["plan"] = _text(raw.get("plan"))
+    windows = _pool_windows(raw.get("windows"), now)
+    account["windows"] = windows
+    account["reset_cards"] = _pool_reset_cards(raw.get("reset_cards"), now)
+    remaining = _num(raw.get("credits_remaining"))
+    account["credits"] = {"present": remaining is not None, "remaining": remaining, "unit": "Credits"}
+    updated = _text(raw.get("source_updated_at"))
+    account["source_updated_at"] = updated
+    parsed = _parse_time(updated)
+    age = None if parsed is None else max(0.0, (now.astimezone(timezone.utc) - parsed).total_seconds())
+    account["sample_age_s"] = None if age is None else round(age, 1)
+    account["stale"] = age is None or age > POOL_STALE_AFTER_S
+    account["pace"] = _pool_pace(alias, windows, updated)
+    return account
+
+
+def build_quota_pool(snapshot: dict[str, Any] | None, now: datetime) -> dict[str, Any]:
+    """Whitelist the codex_accounts block into the read-only quota pool view."""
+    block = snapshot.get("codex_accounts") if isinstance(snapshot, dict) else None
+    records: dict[str, dict[str, Any]] = {}
+    if not isinstance(block, dict):
+        status = "missing"
+        sampled_at = None
+    else:
+        raw_status = block.get("status")
+        status = raw_status if raw_status in ("ok", "empty", "error") else "error"
+        sampled_at = _text(block.get("sampled_at"))
+        for item in block.get("accounts") if isinstance(block.get("accounts"), list) else []:
+            if not isinstance(item, dict):
+                continue
+            alias = _text(item.get("alias"))
+            if alias in POOL_ALIASES and alias not in records:
+                records[alias] = item
+    return {
+        "status": status,
+        "source": "codexbar-disk",
+        "sampled_at": sampled_at,
+        "stale_after_s": POOL_STALE_AFTER_S,
+        "account_count": len(records),
+        "present_aliases": [alias for alias in POOL_ALIASES if alias in records],
+        "accounts": [_pool_account(alias, records.get(alias), now) for alias in POOL_ALIASES],
+    }
+
+
 def _snapshot_state(snapshot: dict[str, Any] | None, quotas: list[dict[str, Any]]) -> str:
     if snapshot is None:
         return "missing"
@@ -666,6 +862,7 @@ def build_usage_response(
         "external_quotas": quotas,
         "signals": collect_signals(quotas),
         "multica_daily": assemble_multica(tasks, runtimes, workspaces, token_rows, days=days, now=now),
+        "quota_pool": build_quota_pool(snapshot, now),
     }
 
 
@@ -706,12 +903,116 @@ def write_snapshot(path: Path, payload: dict[str, Any]) -> None:
     _atomic_write(path, body)
 
 
+def read_history(path: Path) -> list[dict[str, Any]]:
+    """Read history only during collection; tolerate truncated/corrupt records."""
+    records = []
+    try:
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    item = json.loads(line)
+                except (ValueError, UnicodeError):
+                    continue
+                if isinstance(item, dict) and _parse_time(item.get("at")):
+                    records.append(item)
+    except (OSError, UnicodeError):
+        pass
+    return sorted(records, key=lambda item: _parse_time(item["at"]))
+
+
+def enrich_quota_trends(quotas: list[dict[str, Any]], history: list[dict[str, Any]], now: datetime) -> None:
+    """Persist same-cycle observations and forecasts before writing the snapshot."""
+    for quota in _known_quotas(quotas):
+        _, stale = sample_freshness(quota, now)
+        at = _parse_time(quota.get("updated_at")) or _parse_time(quota.get("last_success_at"))
+        for window in quota.get("windows") or []:
+            window.update(delta_24h_percent=None, daily_delta=[], eta_exhausted_at=None,
+                          eta_warning_at=None, eta_source=None, sample_at=iso(at) if at else None)
+            reset = _parse_time(window.get("resets_at"))
+            used = _num(window.get("used_percent"))
+            if stale or quota.get("status") != "ok" or not at or not reset or reset <= at or used is None:
+                continue
+            samples: dict[datetime, float] = {}
+            for record in history:
+                if _parse_time(record["at"]) > at:
+                    continue
+                providers = record.get("providers")
+                for old_quota in providers if isinstance(providers, list) else []:
+                    if not isinstance(old_quota, dict) or old_quota.get("provider") != quota["provider"]:
+                        continue
+                    windows = old_quota.get("windows")
+                    for old in windows if isinstance(windows, list) else []:
+                        if not isinstance(old, dict) or old.get("key") != window.get("key"):
+                            continue
+                        # Even A -> B -> A is a discontinuity, not one cycle.
+                        if _parse_time(old.get("resets_at")) != reset:
+                            samples.clear()
+                            continue
+                        if old_quota.get("status") != "ok" or old_quota.get("stale") is True:
+                            continue
+                        old_at = _parse_time(old.get("sample_at") or old_quota.get("updated_at") or record["at"])
+                        old_used = _num(old.get("used_percent"))
+                        if old_at and old_at < at and old_used is not None:
+                            samples[old_at] = old_used
+            # A decrease without a changed resets_at is also an unsafe trend.
+            samples[at] = used
+            ordered = sorted(samples.items())
+            start = 0
+            for index in range(1, len(ordered)):
+                if ordered[index][1] < ordered[index - 1][1]:
+                    start = index
+            ordered = ordered[start:]
+            target = at - timedelta(hours=24)
+            anchors = [sample for sample in ordered if sample[0] <= target]
+            rate = None
+            source = None
+            if anchors:
+                anchor_at, anchor_used = anchors[-1]
+                delta = used - anchor_used
+                window["delta_24h_percent"] = round(delta, 2)
+                rate = delta / ((at - anchor_at).total_seconds() / 3600)
+                source = "history_24h"
+            elif len(ordered) >= 3:
+                nonzero = [sample for sample in ordered if sample[1] > 0]
+                if nonzero and nonzero[0][0] < at:
+                    anchor_at, anchor_used = nonzero[0]
+                    rate = (used - anchor_used) / ((at - anchor_at).total_seconds() / 3600)
+                    source = "history_cycle"
+            daily: dict[str, list[float]] = {}
+            for sample_at, sample_used in ordered:
+                daily.setdefault(sample_at.date().isoformat(), []).append(sample_used)
+            window["daily_delta"] = [
+                {"date": day, "delta_percent": round(values[-1] - values[0], 2) if len(values) >= 2 else None}
+                for day, values in daily.items()
+            ]
+            # Provider pace supplies elapsed expected consumption, not a direct
+            # exhaustion timestamp. Use its implied elapsed window for average rate.
+            pace = window.get("pace") or {}
+            expected = _num(pace.get("expected_used_percent"))
+            minutes = _num(window.get("window_minutes"))
+            if expected is not None and expected > 0 and minutes is not None and minutes > 0:
+                rate = used / (minutes / 60 * expected / 100)
+                source = "pace"
+            if rate is not None and rate > 0:
+                window["eta_source"] = source
+            for field, threshold in (("eta_exhausted_at", 100), ("eta_warning_at", 85)):
+                if used >= threshold:
+                    window[field] = iso(at)
+                elif rate is not None and rate > 0:
+                    hours = (threshold - used) / rate
+                    # Bound before timedelta construction and don't forecast past reset.
+                    if hours <= (reset - at).total_seconds() / 3600:
+                        window[field] = iso(at + timedelta(hours=hours))
+
+
 def history_from(response: dict[str, Any]) -> dict[str, Any]:
     providers = []
     for quota in response.get("external_quotas") or []:
         providers.append({
             "provider": quota.get("provider"),
             "status": quota.get("status"),
+            "updated_at": quota.get("updated_at"),
+            "stale": quota.get("stale"),
             "windows": [
                 {
                     "key": window.get("key"),
@@ -719,6 +1020,7 @@ def history_from(response: dict[str, Any]) -> dict[str, Any]:
                     "remaining_percent": window.get("remaining_percent"),
                     "signal": window.get("signal"),
                     "resets_at": window.get("resets_at"),
+                    "sample_at": quota.get("updated_at") or quota.get("last_success_at"),
                 }
                 for window in quota.get("windows") or []
             ],
@@ -779,9 +1081,20 @@ def run_codexbar(
         raise RuntimeError(f"timeout after {timeout:.0f}s") from exc
     except FileNotFoundError as exc:
         raise RuntimeError("codexbar not found") from exc
-    stderr = proc.stderr or ""
     if proc.returncode != 0:
-        raise RuntimeError(redact_usage(stderr.strip() or f"exit code {proc.returncode}") or "codexbar failed")
+        message = None
+        try:
+            root = _root_object(json.loads(proc.stdout or ""))
+            error = _error_obj(root.get("error")) or _error_obj(root.get("message"))
+            if error:
+                message = error["message"]
+        except (json.JSONDecodeError, ValueError):
+            pass
+        stderr = "\n".join(
+            line for line in (proc.stderr or "").splitlines()
+            if not line.strip().startswith("A new version of Grok Build is available")
+        ).strip()
+        raise RuntimeError(redact_usage(message or stderr or f"exit code {proc.returncode}") or "codexbar failed")
     try:
         return json.loads(proc.stdout) if (proc.stdout or "").strip() else None
     except json.JSONDecodeError as exc:
@@ -831,13 +1144,35 @@ class UsageCollector:
             if isinstance(item, dict)
         }
         quotas = self._codexbar(previous_quotas)
+        enrich_quota_trends(quotas, read_history(self.history_path), self.now)
         tokens, queried, errors = self._tokens(previous)
         for item in quotas:
             err = item.get("error")
             if item.get("status") == "error" and isinstance(err, dict) and err.get("message"):
                 errors.append(f"{item.get('provider')}: {err['message']}")
+        # Per-account Codex windows: read CodexBar on-disk snapshots only (no CLI refresh).
+        from .codex_accounts import collect_codex_accounts
+        try:
+            codex_accounts = collect_codex_accounts(
+                data_dir=self.snapshot_path.parent,
+                now=self.now,
+                retention_days=self.history_days,
+            )
+        except Exception as exc:
+            message = redact_usage(f"{type(exc).__name__}: {exc}") or "codex accounts failed"
+            log.warning("codex per-account snapshots failed: %s", message)
+            codex_accounts = {
+                "status": "error",
+                "source": "codexbar-disk",
+                "sampled_at": iso(self.now),
+                "account_count": 0,
+                "error": message,
+                "accounts": [],
+            }
+        if codex_accounts.get("status") != "ok":
+            errors.append(f"codex_accounts: {codex_accounts.get('error') or codex_accounts.get('status')}")
         collected_at = iso(self.now)
-        snapshot_state = "ok" if not errors else ("partial" if tokens or any(q.get("status") == "ok" for q in quotas) else "error")
+        snapshot_state = "ok" if not errors else ("partial" if tokens or any(q.get("status") == "ok" for q in quotas) or codex_accounts.get("status") == "ok" else "error")
         snapshot = scrub({
             "usage_collected_at": collected_at,
             "days": self.usage_days,
@@ -845,15 +1180,17 @@ class UsageCollector:
             "collection_errors": errors,
             "external_quotas": quotas,
             "token_by_runtime": tokens,
+            "codex_accounts": codex_accounts,
         })
         write_snapshot(self.snapshot_path, snapshot)
         response = self._response(snapshot)
         write_history(self.history_path, history_from(response), retention_days=self.history_days, now=self.now)
         log.info(
-            "usage snapshot providers=%s runtimes=%d errors=%d",
+            "usage snapshot providers=%s runtimes=%d errors=%d codex_accounts=%s",
             {item["provider"]: item["status"] for item in quotas},
             queried,
             len(errors),
+            f"{codex_accounts.get('status')}:{codex_accounts.get('account_count')}",
         )
         return {
             "ok": not bool(errors),
@@ -861,6 +1198,10 @@ class UsageCollector:
             "providers": {item["provider"]: item["status"] for item in quotas},
             "runtimes_queried": queried,
             "usage_errors": errors,
+            "codex_accounts": {
+                "status": codex_accounts.get("status"),
+                "account_count": codex_accounts.get("account_count"),
+            },
         }
 
     def _response(self, snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -888,7 +1229,7 @@ class UsageCollector:
                 return extracted
             except Exception as exc:
                 message = redact_usage(f"{type(exc).__name__}: {exc}") or "codexbar failed"
-                log.warning("codexbar %s failed", provider)
+                log.warning("codexbar %s failed: %s", provider, message)
                 return provider_error(provider, previous.get(provider), message)
 
         with ThreadPoolExecutor(max_workers=len(CODEXBAR_PROVIDERS)) as pool:

@@ -216,7 +216,7 @@
     {
       "id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
       "name": "EO-PM",
-      "path": null
+      "path": "bots/218f6ebc-7d91-49f9-851d-d533d6a38d87.md"
     },
     {
       "id": "597dbdb3-ec21-4092-a2ad-0524d1caf3c3",
@@ -317,6 +317,26 @@
       "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
       "name": "macOS 执委会",
       "path": null
+    },
+    {
+      "id": "d167e79b-b889-4192-a83b-dc56f854a55e",
+      "name": "3D 打印 Bot",
+      "path": "bots/d167e79b-b889-4192-a83b-dc56f854a55e.md"
+    },
+    {
+      "id": "02dfc706-356d-4348-b46b-975f404256ed",
+      "name": "Multica 运维",
+      "path": "bots/02dfc706-356d-4348-b46b-975f404256ed.md"
+    },
+    {
+      "id": "1ec8a0b4-0ff4-43e1-bd06-18f76113283d",
+      "name": "Atlas PM",
+      "path": "bots/1ec8a0b4-0ff4-43e1-bd06-18f76113283d.md"
+    },
+    {
+      "id": "87063b4c-1fb0-4f54-a43e-8c53fa544617",
+      "name": "Agent 研究主管",
+      "path": "bots/87063b4c-1fb0-4f54-a43e-8c53fa544617.md"
     }
   ]
 }

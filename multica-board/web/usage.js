@@ -35,6 +35,29 @@ const SIGNAL_CLASS = {
   normal: "",
 };
 
+const BAND_LABEL = {
+  normal: "常规",
+  watch: "关注",
+  warning: "预警",
+  critical: "危急",
+  exhausted: "耗尽",
+  unknown: "未知",
+};
+
+const BAND_CLASS = {
+  normal: "ok",
+  watch: "info",
+  warning: "warn",
+  critical: "bad",
+  exhausted: "quota",
+  unknown: "muted",
+};
+
+// Identity is provider:window_key. The tertiary slot is Third Party even when the source label differs.
+const WINDOW_ALIAS = {
+  "cursor:tertiary": "Third Party",
+};
+
 const STATUS_LABEL = {
   ok: "正常",
   error: "失败",
@@ -59,6 +82,20 @@ const SPLIT_NOTE = "Multica 的 token / cost 与 CodexBar 额度是两套口径�
 const FAILURE_GAP = "耗时和原始 error 文本不在 /api/usage。这一栏只显示满载失败和真失败的计数，不补这两项。";
 const FAILURE_PARTS = "额度失败和限流失败已经计在满载失败里，这里分开列出，不再加一次。";
 
+// Quota pool (ACM-650): read-only per-alias Codex accounts. Never summed across accounts.
+const POOL_ALIASES = ["6e", "aq", "he", "mg", "pe"];
+const ALIAS_TOKEN = /^[a-z0-9]{2}$/;
+const POOL_NOTE = "只读展示，不下结论；Codex 别名账号 6e / aq / he / mg / pe；不跨账号相加。";
+const POOL_STATUS_LABEL = {
+  missing: "用量快照里还没有 Codex 账号块",
+  error: "Codex 账号快照采集失败",
+  empty: "没有可用账号记录",
+};
+const POOL_B_BATCH = ["Q1", "Q3 闲置率", "Q4 冷热并存"];
+const POOL_B_PLACEHOLDER = "待积累（n=—，预计 11-02 后）";
+const Q4_THRESHOLD_NOTE = "建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整";
+const MISSING_FIELD = "无该字段";
+
 export function safeLabel(value) {
   if (typeof value !== "string") return "";
   const text = value.trim();
@@ -80,6 +117,84 @@ export function formatPercent(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   const rounded = Math.round(value * 100) / 100;
   return `${rounded}%`;
+}
+
+function trimNumber(value) {
+  return String(Math.round(value * 10) / 10);
+}
+
+export function formatDeltaPp(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const rounded = Math.round(value * 100) / 100;
+  if (rounded === 0) return "0pp";
+  return `${rounded > 0 ? "+" : ""}${rounded}pp`;
+}
+
+export function formatSampleAge(seconds) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return null;
+  if (seconds < 60) return `${Math.round(seconds)} 秒`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} 分钟`;
+  if (seconds < 48 * 3600) return `${trimNumber(seconds / 3600)} 小时`;
+  return `${trimNumber(seconds / 86400)} 天`;
+}
+
+function ownField(row, key) {
+  if (!row || typeof row !== "object" || !Object.hasOwn(row, key)) return { present: false, value: null };
+  return { present: true, value: row[key] };
+}
+
+function numberField(row, key) {
+  const field = ownField(row, key);
+  if (!field.present) return field;
+  const value = typeof field.value === "number" && Number.isFinite(field.value) ? field.value : null;
+  return { present: true, value };
+}
+
+function timeField(row, key) {
+  const field = ownField(row, key);
+  if (!field.present) return field;
+  return { present: true, value: safeLabel(field.value) || null };
+}
+
+function knownBand(value) {
+  return typeof value === "string" && Object.hasOwn(BAND_LABEL, value) ? value : null;
+}
+
+function bandField(row) {
+  const field = ownField(row, "band");
+  if (!field.present) return { present: false, value: null };
+  if (field.value === null) return { present: true, value: null };
+  return { present: true, value: knownBand(field.value) };
+}
+
+function freshnessOf(row) {
+  const age = numberField(row, "sample_age_s");
+  const staleField = ownField(row, "stale");
+  return {
+    present: age.present || staleField.present,
+    age_present: age.present,
+    sample_age_s: age.value,
+    stale_present: staleField.present,
+    stale_value: staleField.present ? staleField.value : undefined,
+    stale: staleField.value === true,
+  };
+}
+
+function windowIdentity(provider, key) {
+  const providerToken = safeLabel(provider);
+  const keyToken = safeLabel(key);
+  if (!providerToken || !keyToken) return "";
+  return `${providerToken}:${keyToken}`;
+}
+
+function freshnessText(freshness) {
+  if (!freshness?.present) return "";
+  const age = freshness.age_present ? formatSampleAge(freshness.sample_age_s) : null;
+  if (freshness.stale) return age ? `采样陈旧 · ${age}` : "采样陈旧";
+  const parts = [];
+  if (freshness.age_present) parts.push(age ? `采样 ${age}` : "采样 —");
+  if (freshness.stale_present && freshness.stale_value === null) parts.push("陈旧 —");
+  return parts.join(" · ");
 }
 
 function windowDays(payload) {
@@ -134,15 +249,28 @@ function signalToken(value) {
   return "normal";
 }
 
-function windowModel(row) {
+function windowModel(row, providerRow) {
   if (!row || typeof row !== "object") return null;
   const used = row.used_percent;
+  const identity = windowIdentity(providerRow?.provider, row.key);
+  const ownFreshness = freshnessOf(row);
+  const providerFreshness = freshnessOf(providerRow);
+  const stale = ownFreshness.stale || providerFreshness.stale;
+  const band = bandField(row);
   return {
     key: safeLabel(row.key) || "window",
-    label: safeLabel(row.label) || safeLabel(row.key) || "窗口",
+    identity,
+    label: WINDOW_ALIAS[identity] || safeLabel(row.label) || safeLabel(row.key) || "窗口",
     used_percent: typeof used === "number" && Number.isFinite(used) ? used : null,
     resets_at: safeLabel(row.resets_at) || null,
     signal: signalToken(row.signal),
+    band_present: band.present,
+    band: stale ? "unknown" : band.value,
+    stale,
+    delta_24h: numberField(row, "delta_24h_percent"),
+    daily_delta: numberField(row, "daily_delta"),
+    eta_exhausted_at: timeField(row, "eta_exhausted_at"),
+    freshness: ownFreshness,
   };
 }
 
@@ -157,19 +285,85 @@ export function quotaModels(payload) {
       source: safeLabel(row?.source) || "—",
       updated_at: safeLabel(row?.updated_at) || null,
       last_success_at: safeLabel(row?.last_success_at) || null,
-      windows: status === "unconnected" ? [] : (Array.isArray(row?.windows) ? row.windows : []).map(windowModel).filter(Boolean),
+      freshness: freshnessOf(row),
+      windows: status === "unconnected" ? [] : (Array.isArray(row?.windows) ? row.windows : []).map((window) => windowModel(window, row)).filter(Boolean),
     };
   });
 }
 
 function signalModels(rows) {
   if (!Array.isArray(rows)) return [];
-  return rows.map((row) => ({
-    provider: safeLabel(row?.provider) || "—",
-    label: safeLabel(row?.label) || safeLabel(row?.window_key) || "窗口",
-    resets_at: safeLabel(row?.resets_at) || null,
-    remaining_percent: typeof row?.remaining_percent === "number" && Number.isFinite(row.remaining_percent) ? row.remaining_percent : null,
-  }));
+  return rows.map((row) => {
+    const identity = windowIdentity(row?.provider, row?.window_key);
+    return {
+      provider: safeLabel(row?.provider) || "—",
+      identity,
+      label: WINDOW_ALIAS[identity] || safeLabel(row?.label) || safeLabel(row?.window_key) || "窗口",
+      resets_at: safeLabel(row?.resets_at) || null,
+      remaining_percent: typeof row?.remaining_percent === "number" && Number.isFinite(row.remaining_percent) ? row.remaining_percent : null,
+    };
+  });
+}
+
+function poolNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function poolWindowModel(row) {
+  if (!row || typeof row !== "object") return null;
+  const used = poolNumber(row.used_percent);
+  if (used === null) return null;
+  return {
+    used_percent: used,
+    resets_at: safeLabel(row.resets_at) || null,
+    hours_until_reset: poolNumber(row.hours_until_reset),
+  };
+}
+
+function poolAccountModel(row) {
+  const alias = safeLabel(row?.alias);
+  if (!ALIAS_TOKEN.test(alias) || !POOL_ALIASES.includes(alias)) return null;
+  const windows = row?.windows && typeof row.windows === "object" ? row.windows : {};
+  const cards = row?.reset_cards && typeof row.reset_cards === "object" ? row.reset_cards : null;
+  const credits = row?.credits && typeof row.credits === "object" ? row.credits : {};
+  const pace = row?.pace && typeof row.pace === "object" ? row.pace : {};
+  return {
+    alias,
+    present: row?.present === true,
+    plan: safeLabel(row?.plan) || null,
+    pace_applicable: row?.pace_applicable === true,
+    windows: { "5h": poolWindowModel(windows["5h"]), weekly: poolWindowModel(windows.weekly) },
+    reset_cards: cards
+      ? {
+          available_count: poolNumber(cards.available_count),
+          soonest_expires_at: safeLabel(cards.soonest_expires_at) || null,
+          hours_until_soonest: poolNumber(cards.hours_until_soonest),
+          expiry_flag: poolNumber(cards.expiry_flag),
+        }
+      : null,
+    credits: { present: credits.present === true, remaining: poolNumber(credits.remaining) },
+    source_updated_at: safeLabel(row?.source_updated_at) || null,
+    sample_age_s: poolNumber(row?.sample_age_s),
+    stale: row?.stale === true,
+    pace: { ratio: poolNumber(pace.ratio), reference_at: safeLabel(pace.reference_at) || null },
+  };
+}
+
+export function poolModels(payload) {
+  const pool = payload?.quota_pool && typeof payload.quota_pool === "object" ? payload.quota_pool : null;
+  const status = pool && (pool.status === "ok" || pool.status === "empty" || pool.status === "error" || pool.status === "missing") ? pool.status : "missing";
+  const rows = Array.isArray(pool?.accounts) ? pool.accounts : [];
+  const accounts = rows.map(poolAccountModel).filter(Boolean);
+  const declared = Array.isArray(pool?.present_aliases)
+    ? pool.present_aliases.map(safeLabel).filter((alias) => ALIAS_TOKEN.test(alias))
+    : accounts.filter((account) => account.present).map((account) => account.alias);
+  return {
+    status,
+    sampled_at: safeLabel(pool?.sampled_at) || null,
+    account_count: poolNumber(pool?.account_count) ?? accounts.filter((account) => account.present).length,
+    present_aliases: declared,
+    accounts,
+  };
 }
 
 export function modelUsage(payload) {
@@ -188,9 +382,57 @@ export function modelUsage(payload) {
   };
 }
 
+function keyedField(field) {
+  if (!field?.present) return "";
+  return field.value == null ? "null" : String(field.value);
+}
+
+function quotaKey(item) {
+  const windows = item.windows
+    .map((window) =>
+      [
+        window.identity,
+        window.signal,
+        window.band_present ? window.band ?? "null" : "",
+        window.stale ? "stale" : window.freshness.stale_present && window.freshness.stale_value === null ? "null" : "",
+        keyedField(window.delta_24h),
+        keyedField(window.daily_delta),
+        keyedField(window.eta_exhausted_at),
+        window.freshness.age_present ? String(window.freshness.sample_age_s) : "",
+      ].join("~"),
+    )
+    .join(";");
+  return [
+    item.provider,
+    item.status,
+    item.updated_at || "",
+    item.freshness.stale ? "stale" : item.freshness.stale_present && item.freshness.stale_value === null ? "null" : "",
+    item.freshness.age_present ? String(item.freshness.sample_age_s) : "",
+    windows,
+  ].join(":");
+}
+
+function poolAccountKey(item) {
+  const windows = [item.windows["5h"], item.windows.weekly]
+    .map((window) => (window ? String(window.used_percent) : ""))
+    .join("~");
+  const cards = item.reset_cards ? `${item.reset_cards.available_count ?? ""}~${item.reset_cards.soonest_expires_at || ""}` : "";
+  return [
+    item.alias,
+    item.present ? "1" : "0",
+    item.source_updated_at || "",
+    item.stale ? "stale" : "",
+    windows,
+    cards,
+    item.credits.present ? String(item.credits.remaining) : "",
+    item.pace.ratio ?? "",
+  ].join(":");
+}
+
 export function usageRefreshKey(payload) {
   if (!payload) return "";
   const model = payload.error ? null : modelUsage(payload);
+  const pool = payload.error ? null : poolModels(payload);
   return [
     payload.error || "",
     payload.usage_collected_at || "",
@@ -200,7 +442,8 @@ export function usageRefreshKey(payload) {
     model ? model.signals.exhausting.length : 0,
     model ? model.signals.dispatchable.length : 0,
     model ? model.runtimes.length : 0,
-    model ? model.quotas.map((item) => `${item.provider}:${item.status}:${item.updated_at || ""}`).join(",") : "",
+    model ? model.quotas.map(quotaKey).join(",") : "",
+    pool ? `${pool.status}|${pool.accounts.map(poolAccountKey).join(",")}` : "",
   ].join("\n");
 }
 
@@ -308,7 +551,7 @@ function signalList(ctx, title, rows, tone) {
       ? rows.map((row) =>
           h(
             "p",
-            { class: "usage-signal" },
+            { class: "usage-signal", title: row.identity || undefined },
             h("span", { class: `tag ${SIGNAL_CLASS[tone] || ""}`.trim() }, SIGNAL_LABEL[tone] || tone),
             runtimeIcon(h, row.provider),
             ` ${row.provider} · ${row.label}`,
@@ -317,6 +560,52 @@ function signalList(ctx, title, rows, tone) {
           ),
         )
       : h("p", { class: "muted" }, "无"),
+  );
+}
+
+function deltaText(window) {
+  const parts = [];
+  if (window.delta_24h.present) parts.push(`24h ${formatDeltaPp(window.delta_24h.value) || "—"}`);
+  if (window.daily_delta.present) parts.push(`今日 ${formatDeltaPp(window.daily_delta.value) || "—"}`);
+  return parts.join(" · ");
+}
+
+function etaText(ctx, field) {
+  if (!field.present) return "";
+  if (!field.value) return "预计耗尽 —";
+  const abs = when(ctx, field.value, { absolute: true });
+  const at = Date.parse(field.value);
+  const nowMs = ctx.nowMs;
+  if (typeof nowMs !== "number" || !Number.isFinite(nowMs) || !Number.isFinite(at) || at <= nowMs) return `预计耗尽 ${abs}`;
+  const hours = (at - nowMs) / 3600000;
+  const lead = hours < 48 ? `${trimNumber(hours)} 小时` : `${trimNumber(hours / 24)} 天`;
+  return `预计 ${lead}后耗尽 · ${abs}`;
+}
+
+function bandTag(h, window) {
+  if (window.stale) return h("span", { class: `tag ${BAND_CLASS.unknown}`.trim(), title: "unknown" }, BAND_LABEL.unknown);
+  if (!window.band_present) return null;
+  if (window.band) return h("span", { class: `tag ${BAND_CLASS[window.band] || "muted"}`.trim(), title: window.band }, BAND_LABEL[window.band] || window.band);
+  return h("span", { class: "tag muted", title: "band" }, "—");
+}
+
+function windowRow(ctx, window, providerFreshness) {
+  const { h } = ctx;
+  const ownText = freshnessText(window.freshness);
+  const providerText = freshnessText(providerFreshness);
+  const ageText = ownText && ownText !== providerText ? ownText : "";
+  return h(
+    "div",
+    { class: "usage-window", "data-window": window.identity || undefined },
+    h("span", { title: window.identity || undefined }, window.label),
+    WINDOW_ALIAS[window.identity] ? h("span", { class: "muted mono" }, window.identity) : null,
+    h("b", null, formatPercent(window.used_percent)),
+    h("span", { class: `tag ${SIGNAL_CLASS[window.signal] || ""}`.trim() }, SIGNAL_LABEL[window.signal] || window.signal),
+    h("span", { class: "muted" }, when(ctx, window.resets_at, { absolute: true })),
+    bandTag(h, window),
+    deltaText(window) ? h("span", { class: "muted" }, deltaText(window)) : null,
+    etaText(ctx, window.eta_exhausted_at) ? h("span", { class: "muted" }, etaText(ctx, window.eta_exhausted_at)) : null,
+    ageText ? h("span", { class: "muted" }, ageText) : null,
   );
 }
 
@@ -335,17 +624,9 @@ function quotaCard(ctx, row) {
           h("p", { class: "muted" }, `来源 ${row.source}`),
           h("p", { class: "muted" }, `更新 ${when(ctx, row.updated_at)}`),
           h("p", { class: "muted" }, `最近成功 ${when(ctx, row.last_success_at)}`),
+          freshnessText(row.freshness) ? h("p", { class: "muted" }, freshnessText(row.freshness)) : null,
           row.windows.length
-            ? row.windows.map((window) =>
-                h(
-                  "div",
-                  { class: "usage-window" },
-                  h("span", null, window.label),
-                  h("b", null, formatPercent(window.used_percent)),
-                  h("span", { class: `tag ${SIGNAL_CLASS[window.signal] || ""}`.trim() }, SIGNAL_LABEL[window.signal] || window.signal),
-                  h("span", { class: "muted" }, when(ctx, window.resets_at, { absolute: true })),
-                ),
-              )
+            ? row.windows.map((window) => windowRow(ctx, window, row.freshness))
             : h("p", { class: "muted" }, "没有窗口"),
         ),
   );
@@ -365,6 +646,141 @@ function failureCard(ctx, row) {
   );
 }
 
+function poolCell(ctx, children, attrs) {
+  return ctx.h("td", attrs || null, ...children);
+}
+
+function poolMissingCell(ctx, attrs) {
+  return poolCell(ctx, [MISSING_FIELD], { class: "muted", ...(attrs || {}) });
+}
+
+function poolWindowCell(ctx, window) {
+  if (!window) return poolMissingCell(ctx);
+  return poolCell(ctx, [
+    `已用 ${formatPercent(window.used_percent)}`,
+    ctx.h("span", { class: "muted" }, ` · 重置 ${when(ctx, window.resets_at, { absolute: true })}`),
+  ]);
+}
+
+function poolCardsCell(ctx, cards) {
+  const { h } = ctx;
+  if (!cards || cards.available_count === null) return poolMissingCell(ctx);
+  const parts = [`${cards.available_count} 张`];
+  if (cards.soonest_expires_at) {
+    parts.push(`最近到期 ${when(ctx, cards.soonest_expires_at, { absolute: true })}`);
+    if (cards.hours_until_soonest !== null) {
+      parts.push(cards.hours_until_soonest < 0 ? "已过到期时间（源未更新）" : `距到期 ${trimNumber(cards.hours_until_soonest)} 小时`);
+    }
+  } else if (cards.available_count > 0) {
+    parts.push(`最近到期 ${MISSING_FIELD}`);
+  }
+  return poolCell(ctx, [
+    h("div", null, parts.join(" · ")),
+    cards.expiry_flag !== null ? h("div", { class: "muted" }, `≤${cards.expiry_flag} 小时 · 建议阈值（未批准）`) : null,
+    h("div", { class: "muted" }, "只提示，不建议使用"),
+    h("div", { class: "muted" }, "Tibo 是否预告：未核查"),
+  ]);
+}
+
+function poolCreditsCell(ctx, account) {
+  const { h } = ctx;
+  if (!account.credits.present) return poolMissingCell(ctx);
+  return poolCell(ctx, [
+    h("b", { class: "mono" }, `${formatCount(account.credits.remaining)} Credits`),
+    h("div", { class: "muted" }, `采样 ${when(ctx, account.source_updated_at, { absolute: true })}`),
+    h("div", { class: "muted" }, "消耗速率：待积累"),
+  ]);
+}
+
+function poolPaceCell(ctx, account) {
+  if (!account.pace_applicable) return poolCell(ctx, ["系统账号，不参与"], { class: "muted" });
+  if (account.pace.ratio !== null) return poolCell(ctx, [`节奏比 ${account.pace.ratio}（当前快照）`]);
+  if (!account.windows.weekly) return poolMissingCell(ctx);
+  return poolCell(ctx, ["窗口刚开始，无法计算"], { class: "muted" });
+}
+
+function poolFreshnessCell(ctx, account) {
+  const { h } = ctx;
+  if (account.stale) {
+    return poolCell(ctx, [
+      "陈旧",
+      h("div", { class: "muted" }, account.source_updated_at ? `最后更新 ${when(ctx, account.source_updated_at, { absolute: true })}` : "无采样时间"),
+    ]);
+  }
+  return poolCell(ctx, [`采样 ${when(ctx, account.source_updated_at, { absolute: true })}`]);
+}
+
+function poolAccountRow(ctx, account, usable) {
+  const { h } = ctx;
+  const head = h("td", { class: "mono" }, account.alias);
+  if (!usable) {
+    return h("tr", null, head, ...Array.from({ length: 7 }, () => poolMissingCell(ctx)));
+  }
+  if (!account.present) {
+    return h("tr", null, head, poolCell(ctx, ["快照里没有该别名"], { class: "muted", colspan: 7 }));
+  }
+  return h(
+    "tr",
+    null,
+    head,
+    account.plan === null ? poolMissingCell(ctx) : poolCell(ctx, [account.plan]),
+    poolWindowCell(ctx, account.windows["5h"]),
+    poolWindowCell(ctx, account.windows.weekly),
+    poolCardsCell(ctx, account.reset_cards),
+    poolCreditsCell(ctx, account),
+    poolPaceCell(ctx, account),
+    poolFreshnessCell(ctx, account),
+  );
+}
+
+function poolSection(ctx, model) {
+  const { h } = ctx;
+  const usable = model.status === "ok";
+  const accounts = model.accounts.length
+    ? model.accounts
+    : POOL_ALIASES.map((alias) => ({ alias, present: false }));
+  const listed = model.present_aliases.join(" / ");
+  return h(
+    "section",
+    { class: "usage-pool", "aria-label": "额度池利用" },
+    h("h3", null, "额度池利用"),
+    h("p", { class: "muted" }, POOL_NOTE),
+    usable ? null : h("p", { class: "usage-gap" }, POOL_STATUS_LABEL[model.status] || "Codex 账号快照状态未知"),
+    h("p", { class: "muted" }, `共 ${model.account_count} 个别名有快照${listed ? `：${listed}` : ""}`),
+    h(
+      "div",
+      { class: "table-wrap usage-pool-wrap" },
+      h(
+        "table",
+        { class: "usage-pool-table" },
+        h(
+          "thead",
+          null,
+          h(
+            "tr",
+            null,
+            ...["别名", "套餐", "5 小时窗口", "周窗口", "重置卡", "Credits", "Q4 节奏比", "新鲜度"].map((label) => h("th", null, label)),
+          ),
+        ),
+        h("tbody", null, ...accounts.map((account) => poolAccountRow(ctx, account, usable))),
+      ),
+    ),
+    h("p", { class: "muted usage-pool-q4-note" }, Q4_THRESHOLD_NOTE),
+    h(
+      "div",
+      { class: "usage-pool-batch" },
+      ...POOL_B_BATCH.map((label) =>
+        h(
+          "div",
+          { class: "usage-pool-slot" },
+          h("p", { class: "usage-pool-slot-title" }, label),
+          h("p", { class: "muted" }, POOL_B_PLACEHOLDER),
+        ),
+      ),
+    ),
+  );
+}
+
 export function renderUsage(ctx) {
   const { h } = ctx;
   const payload = ctx.usage;
@@ -375,8 +791,16 @@ export function renderUsage(ctx) {
   const model = modelUsage(payload);
   const query = queryOf(ctx.route);
   const runtimes = model.runtimes.filter((row) => matches(query, row.name, row.provider, row.workspace));
-  const quotas = model.quotas.filter((row) => matches(query, row.provider, STATUS_LABEL[row.status] || ""));
-  const signalHit = (row) => matches(query, row.provider, row.label);
+  const quotas = model.quotas.filter((row) =>
+    matches(
+      query,
+      row.provider,
+      STATUS_LABEL[row.status] || "",
+      freshnessText(row.freshness),
+      ...row.windows.flatMap((window) => [window.label, window.identity, BAND_LABEL[window.band] || "", deltaText(window)]),
+    ),
+  );
+  const signalHit = (row) => matches(query, row.provider, row.label, row.identity);
   const dispatchable = model.signals.dispatchable.filter(signalHit);
   const exhausting = model.signals.exhausting.filter(signalHit);
   const windowText = model.days ? `近 ${model.days} 天` : "时间窗未知";
@@ -407,6 +831,7 @@ export function renderUsage(ctx) {
         { class: "usage-col", "aria-label": "外部额度" },
         h("h3", null, "外部额度"),
         h("p", { class: "muted" }, "按 provider 显示窗口用量。可派活和即将耗尽直接用接口给出的标记。"),
+        h("p", { class: "muted" }, "分带、24h 增量、今日增量和预计耗尽只展示接口字段。采样陈旧时分带显示未知，不沿用旧分带。"),
         signalList(ctx, "可派活", dispatchable, "dispatchable"),
         signalList(ctx, "即将耗尽", exhausting, "exhausting"),
         quotas.length ? quotas.map((row) => quotaCard(ctx, row)) : h("p", { class: "empty" }, query ? "没有匹配的额度" : "没有额度数据。"),
@@ -421,5 +846,6 @@ export function renderUsage(ctx) {
         runtimes.length ? runtimes.map((row) => failureCard(ctx, row)) : h("p", { class: "empty" }, query ? "没有匹配的 runtime" : "这个时间窗里没有失败计数。"),
       ),
     ),
+    poolSection(ctx, poolModels(payload)),
   ];
 }

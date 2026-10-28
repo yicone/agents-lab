@@ -224,3 +224,18 @@ PYTHONPATH=backend python3 -m multica_board metrics-reconcile --backfill backfil
 输出包含五项指标的已知数/候选数/coverage、周期 P90、每日 UTC 24 小时窗口交付数、滚动 24h、在制品、当前等待分类和返工诊断。缺台账 done 不算交付；分页不完整、workspace 不符、服务端截断和过期快照均显式 unknown。阈值默认不设，示例参数仅演示用法，不代表批准的目标。建议动作只供 Steward 判断，不执行派活或修改 issue。
 
 历史回补 v2 将父 issue done 作为 `evidence=proxy` 独立列，排除取消、验收/复验和纯推送/合并/部署单；台账自 2026-10-24 UTC 正式记录。代理与台账分别展示每日件数、五项指标与覆盖率、70% 示例阈值读数，不相加。详见 `docs/metrics.md`。
+
+## Project / 三属性只读巡检（ACM-597，本地候选）
+
+P1–P9 全量 shadow；只调用 `issue/project/property list`，不写 issue、不修复、不建 project。只读扫描当前任务授权的 workspace：
+
+```sh
+PYTHONPATH=multica-board/backend python3 -m multica_board.governance_scan \
+  --workspace-id <workspace-id> --output ./governance-report.json
+```
+
+报告含每项当前值、候选、置信度、证据、白名单、检测时间和稳定指纹。高优先只取未结束的高置信结果；历史缺属性留报告，不生成用户待办。P2 关键词只生成中置信候选；无明确 project 的 P1 保留低置信结果。P9 对已结束 issue 只在 `metadata.current_execution=true` 时判执行冲突，不因仍关联 active project 就误报；平台若没有该标记，不能从 project 关联推断当前执行。父子范围是否未变无法从属性缺失证明，因此检测 own 值，继承建议留给后续 shadow 修复器。
+
+Atlas 接入需显式使用与 Board 相同的只读 `--profile <profile>`，并把 `--output` 指定为 `<db-stem>-governance.json`（与 DB 同目录）。报告按 profile、workspace、24 小时新鲜度及 issue `updated_at` 绑定；未采集、损坏、过期、范围不符均显示未知，变化的 issue 不展示旧告警。高优先项进入「待批准 / 待你决定」，展开「P# · 巡检待决」可看证据；原 issue 状态保持原样。该文件不是修复批准，没有自动任务、部署或定时扫描。
+
+可选 `--exceptions approved.json` 是按稳定 issue UUID 索引的已批准白名单，字段为 `category`、`reason`、`owner`、`review_at`（含时区）、`allowed_statuses`、`allowed_projects`（可含 null）、`content_sha256`（标题 + 换行 + 描述）。类别为 `dispatch_inbox / weekly_triage / getting_started / operations_shell / migrated_history`。内容哈希变化、过期、project/status 不符均失效；关键词只提示候选，不能豁免。冻结目录中的 Getting Started 与已结束的「已迁出」project 为内置历史例外。扫描失败不替换上一次成功报告；旧报告仍受 24 小时与版本校验约束。

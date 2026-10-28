@@ -2,9 +2,39 @@ import { contentKey, loadSkillContent } from "./skill-content.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
+import { badgeOf, CLOUD_SOURCE, cloudCommands, cloudDrift, cloudPending, filteredItems, groupedItems, loadStateText, queueModel, renderSkills, renderSkillDrawer, sharedEntryOf, sharedSummary, skillsRefreshKey, sourceBlocks } from "./skills.js";
 
 const today = JSON.parse(readFileSync(new URL("./fixtures/skills.json", import.meta.url), "utf8"));
+
+test("Grok Bot export has an independent source, integrity warnings and a read-only body", () => {
+  const item = {name: "demo", key: "grok-export:demo", origin: "grok_bot", source_class: "grok_bot_export",
+    source_label: "Grok Bot 导出", status_label: "校验异常 1/2", tools: {}, entries: [],
+    export: {path: "grok-export:demo", exported_at: "2026-10-27T00:51:49+08:00", state: "bad",
+      files: [{path: "SKILL.md", state: "ok", message: "SHA-256 与字节数匹配"},
+        {path: "references/note.md", state: "missing", message: "文件缺失"}]}};
+  const payload = {...today, items: [item, {name: "demo", origin: "grok_bot", source_class: "grok_bot"}],
+    summary: [{id: "grok_bot_export", label: "Grok Bot 导出", count: 1, statuses: {}}]};
+  assert.equal(filteredItems(payload, {source: "grok_bot_export"}).length, 1);
+  const calls = [];
+  const ctx = {...drawerCtx(payload, new Map()), loadSkillContent: (...args) => calls.push(args)};
+  let drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "Grok Bot 导出"));
+  assert.ok(findText(drawer, item.export.exported_at));
+  assert.ok(findText(drawer, "文件缺失"));
+  findAll(drawer, n => n.tag === "button" && findText(n, "查看正文"))[0].attrs.onclick();
+  assert.deepEqual(calls[0], ["demo", "grok-export:demo"]);
+  ctx.skillContent.set(contentKey(item.name, item.export.path), {state: "hash_mismatch", message: "哈希或字节数不一致"});
+  drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "校验失败"));
+  assert.ok(findText(drawer, "哈希或字节数不一致"));
+  ctx.skillContent.set(contentKey(item.name, item.export.path), {state: "ok", content: "# Exported body", source: "grok_bot_export"});
+  drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "Exported body"));
+  item.export.files[0].state = "hash_mismatch";
+  drawer = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(drawer, "导出文件或清单已变化"));
+  assert.equal(findText(drawer, "Exported body"), false);
+});
 
 test("today fixture: queue count equals attention badge and debt stays out", () => {
   assert.equal(today.attention.baseline_debt, 76);
@@ -276,6 +306,26 @@ test("project cell groups entries by repo and shows location chips", () => {
   assert.ok(chipText.some((t) => t.includes(".cursor") && t.includes("✕")), chipText.join("|"));
   // fallback repo label for the unknown repo id
   assert.ok(findText(cell, "other"));
+});
+
+test("load probe labels stay unverified unless the runtime reports an explicit result", () => {
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: true }, "direct"), "已加载（有证据）");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: false }, "direct"), "未加载（有证据）");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: null }, "direct"), "磁盘可见、未验证");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: null }, "shared"), "磁盘可见、未验证");
+  assert.equal(loadStateText({ load_checked: true, runtime_loaded: null }, null), "未见");
+  assert.equal(loadStateText({ runtime_loaded: null }, "direct"), "");
+  const item = simpleItem({
+    tools: { codex: "direct", cursor: null },
+    runtime_evidence: {
+      codex: { load_checked: true, runtime_loaded: false, load_detail: "Codex skills.config 将该技能标为 enabled=false。", state: "observed" },
+      cursor: { load_checked: true, runtime_loaded: null, state: "no_match" },
+    },
+  });
+  const text = flatten({ children: renderSkillDrawer({ h: vnode, closeDrawer() {}, absTime: (value) => value }, item) }).filter((node) => typeof node === "string").join("\n");
+  assert.match(text, /codex · 未加载（有证据）/);
+  assert.match(text, /cursor · 未见/);
+  assert.match(text, /未验证 runtime 当前会话实际加载/);
 });
 
 test("via-target evidence adds a sup marker and via-target class", () => {
@@ -1027,4 +1077,13 @@ test("Workspace-only rows use unrecorded consistently in status chips, filter an
   const rows=findAll(tree,node=>node.tag==="tr"&&node.attrs?.class?.includes("skill-row"));
   assert.equal(rows.length,7);
   assert.ok(rows.every(row=>findText(row,"未登记")));
+});
+
+
+test("deferred upgrade state stays visible in the skill row", () => {
+  const item = {...today.items[0], upgrade_status: "deferred", upgrade_detail: "升级状态待补"};
+  const tree = {children: renderSkills(renderCtx(basePayload([item])))};
+  const rows = findAll(tree, n => n.tag === "tr" && String(n.attrs.class || "").includes("skill-row"));
+  assert.equal(rows.length, 1);
+  assert.ok(findText(rows[0], "升级状态待补"));
 });

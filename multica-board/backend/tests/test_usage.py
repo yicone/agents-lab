@@ -26,6 +26,7 @@ from multica_board.usage import (  # noqa: E402
     build_usage_response,
     evaluate_signal,
     extract_provider,
+    run_codexbar,
     write_snapshot,
 )
 from multica_board.views import ATTENTION_TEXT_BYTES, Views, render_attention_text  # noqa: E402
@@ -39,6 +40,37 @@ EMAIL = "person@example.com"
 
 def _mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
+
+
+class RunCodexbarTests(unittest.TestCase):
+    NOTICE = "A new version of Grok Build is available: 1.2.3"
+
+    def test_stdout_json_error_takes_priority(self):
+        message = "Grok web billing requires a signed-in grok.com browser session or `grok login`"
+        for payload in ({"error": message}, [{"error": {"message": message}}], {"message": message}):
+            with self.subTest(payload=payload):
+                def execute(argv, **kwargs):
+                    self.assertEqual(argv, ["codexbar", "usage", "--provider", "grok", "--format", "json", "--no-color"])
+                    return subprocess.CompletedProcess(argv, 1, json.dumps(payload), self.NOTICE)
+                with self.assertRaises(RuntimeError) as caught:
+                    run_codexbar("codexbar", "grok", exec_=execute)
+                self.assertEqual(str(caught.exception), message)
+
+    def test_upgrade_only_stderr_falls_back_to_exit_code(self):
+        for stdout in ("", "not JSON", "[]"):
+            with self.subTest(stdout=stdout):
+                with self.assertRaisesRegex(RuntimeError, "^exit code 7$"):
+                    run_codexbar("codexbar", "grok", exec_=lambda argv, **kw: subprocess.CompletedProcess(argv, 7, stdout, self.NOTICE))
+
+    def test_stderr_preserves_real_error_and_redacts(self):
+        with self.assertRaises(RuntimeError) as caught:
+            run_codexbar("codexbar", "grok", exec_=lambda argv, **kw: subprocess.CompletedProcess(argv, 1, "", self.NOTICE + "\nlogin failed for " + EMAIL))
+        self.assertEqual(str(caught.exception), "login failed for [redacted]")
+
+    def test_success_returns_unchanged_payload(self):
+        payload = [{"provider": "grok", "usage": {"primary": {"usedPercent": 42}}}]
+        result = run_codexbar("codexbar", "grok", exec_=lambda argv, **kw: subprocess.CompletedProcess(argv, 0, json.dumps(payload), self.NOTICE))
+        self.assertEqual(result, payload)
 
 
 class ClassifyTests(unittest.TestCase):
@@ -192,6 +224,35 @@ class _FakeCodexbar:
 
 
 class CollectTests(unittest.TestCase):
+    def test_stdout_error_reaches_logs_and_collection_result(self):
+        message = "Grok web billing requires a signed-in grok.com browser session or `grok login`"
+
+        def execute(argv, **kwargs):
+            if argv[argv.index("--provider") + 1] == "grok":
+                return subprocess.CompletedProcess(argv, 1, json.dumps([{"error": {"message": message}}]), RunCodexbarTests.NOTICE)
+            return _FakeCodexbar()(argv, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = Store(root / "board.sqlite")
+            self._seed(store)
+            try:
+                collector = UsageCollector(
+                    CliRunner(profile=SERVER, _exec=_FakeCli(), retries=0), store, SERVER,
+                    CollectOptions(all_workspaces=True),
+                    snapshot_path=root / "snapshot.json", history_path=root / "history.jsonl",
+                    codexbar_exec=execute, now=NOW,
+                )
+                with self.assertLogs("multica_board.usage", level="WARNING") as logs:
+                    result = collector.collect()
+                self.assertFalse(result["ok"])
+                self.assertIn("grok: RuntimeError: " + message, result["usage_errors"])
+                self.assertIn(message, "\n".join(logs.output))
+                self.assertNotIn(RunCodexbarTests.NOTICE, "\n".join(logs.output))
+                self.assertNotIn(RunCodexbarTests.NOTICE, json.dumps(result))
+            finally:
+                store.close()
+
     # Collection, response building and live views must share the fixture clock.
     @patch("multica_board.views._now", return_value=NOW)
     def test_failure_isolation_counts_and_snapshot(self, _clock):
@@ -312,8 +373,10 @@ class CollectTests(unittest.TestCase):
             signals = body["signals"]["dispatchable"]
             self.assertTrue(any(item["provider"] == "cursor" and item["window_key"] == "primary" for item in signals))
             grok_view = next(item for item in body["external_quotas"] if item["provider"] == "grok")
-            self.assertEqual(grok_view["windows"][0]["signal"], "exhausting")
-            self.assertEqual(body["signals"]["exhausting"][0]["provider"], "grok")
+            self.assertEqual(grok_view["windows"][0]["signal"], "normal")
+            self.assertEqual(grok_view["windows"][0]["band"], "unknown")
+            self.assertTrue(grok_view["stale"])
+            self.assertEqual(body["signals"]["exhausting"], [])
             unconnected = [item["provider"] for item in body["external_quotas"] if item["status"] == "unconnected"]
             self.assertEqual(unconnected, ["9router", "orca"])
 
@@ -340,10 +403,10 @@ class CollectTests(unittest.TestCase):
                 attention = view.attention()
             finally:
                 view.store.close()
-            self.assertEqual(attention["quota_alerts"][0]["identifier"], "grok:primary")
-            self.assertEqual(attention["quota_alerts"][0]["status"], "quota_exhausting")
+            alert = next(item for item in attention["quota_alerts"] if item["identifier"] == "grok:primary")
+            self.assertEqual(alert["status"], "quota_unknown")
             self.assertIsNone(attention["quota_alerts"][0]["agent_name"])
-            self.assertIn("95%", attention["quota_alerts"][0]["title"])
+            self.assertIn("额度未知", alert["title"])
             text = render_attention_text(attention)
             self.assertIn("# quota_alerts", text)
             self.assertLessEqual(len(text.encode()), ATTENTION_TEXT_BYTES)
@@ -408,7 +471,7 @@ class CollectTests(unittest.TestCase):
 
 
 class ApiShapeTests(unittest.TestCase):
-    def test_live_views_recompute_signals_from_snapshot_at_read_time(self):
+    def test_live_views_age_samples_without_rewriting_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Store(Path(tmp) / "board.sqlite")
             snapshot = Path(tmp) / "usage-snapshot.json"
@@ -418,7 +481,7 @@ class ApiShapeTests(unittest.TestCase):
                 "external_quotas": [{
                     "provider": provider,
                     "status": status,
-                    "last_success_at": "2026-10-16T00:00:00Z",
+                    "last_success_at": "2026-10-16T16:43:00Z",
                     "windows": [{
                         "key": "primary",
                         "label": "Weekly",
@@ -433,24 +496,24 @@ class ApiShapeTests(unittest.TestCase):
             original = snapshot.read_bytes()
             view = Views(store, SERVER, app_url="https://app.test", collect_interval_s=60)
             try:
-                for day, signal, alerts in (
-                    (16, "normal", ["grok:primary"]),
-                    (18, "dispatchable", ["grok:primary"]),
-                    (19, "normal", []),
-                    (20, "normal", []),
+                for day, alerts in (
+                    (16, ["grok:primary"]),
+                    (18, ["cursor:primary", "grok:primary"]),
+                    (19, ["cursor:primary", "grok:primary"]),
+                    (20, ["cursor:primary", "grok:primary"]),
                 ):
                     now = NOW.replace(day=day)
                     with self.subTest(now=now), patch("multica_board.views._now", return_value=now):
                         body = view.usage()
                         self.assertEqual(body["snapshot_state"], "partial")
-                        self.assertEqual(body["external_quotas"][0]["windows"][0]["signal"], signal)
+                        self.assertEqual(body["external_quotas"][0]["windows"][0]["signal"], "normal")
                         self.assertEqual(
                             [item["provider"] for item in body["signals"]["dispatchable"]],
-                            ["cursor"] if signal == "dispatchable" else [],
+                            [],
                         )
                         self.assertEqual(
                             [item["provider"] for item in body["signals"]["exhausting"]],
-                            ["grok"] if alerts else [],
+                            ["grok"] if day == 16 else [],
                         )
                         self.assertEqual(
                             [item["identifier"] for item in view.attention()["quota_alerts"]], alerts,
@@ -518,6 +581,235 @@ class ApiShapeTests(unittest.TestCase):
         self.assertEqual(body["external_quotas"][0]["windows"][0]["used_percent"], 36.43)
         self.assertEqual(body["multica_daily"]["by_provider"], [])
         self.assertNotIn("combined", json.dumps(body))
+
+
+class QuotaPoolTests(unittest.TestCase):
+    """whitelist view of the codex_accounts snapshot block (ACM-650)."""
+
+    @staticmethod
+    def _account(alias, **overrides):
+        record = {
+            "alias": alias,
+            "plan": "plus",
+            "is_system_account": False,
+            "account_key": "deadbeef",
+            "data_confidence": "exact",
+            "windows": [
+                {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 10, "resets_at": "2026-10-16T21:00:00Z", "reset_description": "soon"},
+                {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 20, "resets_at": "2026-10-20T16:43:00Z", "reset_description": "later"},
+            ],
+            "credits_remaining": 100.0,
+            "reset_cards": {
+                "available_count": 1,
+                "soonest_expires_at": "2026-10-17T16:43:00Z",
+                "cards": [{"title": f"card {EMAIL}", "token": SECRET}],
+            },
+            "source_updated_at": "2026-10-16T16:30:00Z",
+            "sampled_at": "2026-10-16T16:42:00Z",
+            "source": "codexbar-disk",
+            "source_path": "CodexBar/codex-account-snapshots.json",
+            "account_email": EMAIL,
+            "token": SECRET,
+        }
+        record.update(overrides)
+        return record
+
+    @classmethod
+    def _snapshot(cls):
+        return {
+            "usage_collected_at": "2026-10-16T16:43:00Z",
+            "days": 14,
+            "external_quotas": [],
+            "token_by_runtime": [],
+            "codex_accounts": {
+                "status": "ok",
+                "source": "codexbar-disk",
+                "sampled_at": "2026-10-16T16:42:30Z",
+                "file_mtime": "2026-10-16T16:42:00Z",
+                "account_count": 5,
+                "error": None,
+                "accounts": [
+                    # 6e: free plan, monthly window only, excluded from pace by alias.
+                    cls._account(
+                        "6e",
+                        plan="free",
+                        windows=[{"key": "primary", "label": "monthly", "window_minutes": 43200, "used_percent": 0.0, "resets_at": "2026-11-15T16:43:00Z", "reset_description": "monthly"}],
+                        credits_remaining=62500.0,
+                        reset_cards={"available_count": 2, "soonest_expires_at": "2026-10-18T19:14:20Z", "cards": []},
+                        source_updated_at="2026-10-16T16:40:00Z",
+                    ),
+                    # aq: fresh, weekly pace example, no credits, card expiring in ~20h -> flag 24.
+                    cls._account(
+                        "aq",
+                        plan="team",
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 21, "resets_at": "2026-10-16T21:52:09Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 6, "resets_at": "2026-10-20T16:41:00Z"},
+                        ],
+                        credits_remaining=None,
+                        reset_cards={"available_count": 2, "soonest_expires_at": "2026-10-17T12:38:50Z", "cards": []},
+                        source_updated_at="2026-10-16T16:41:00Z",
+                    ),
+                    # he: system account flag is ignored for pace, true zero credits, card in ~6h -> flag 6.
+                    cls._account(
+                        "he",
+                        is_system_account=True,
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 1, "resets_at": "2026-10-16T21:14:48Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 43, "resets_at": "2026-10-22T16:42:30Z"},
+                        ],
+                        credits_remaining=0.0,
+                        reset_cards={"available_count": 2, "soonest_expires_at": "2026-10-16T22:42:36Z", "cards": []},
+                        source_updated_at="2026-10-16T16:42:30Z",
+                    ),
+                    # mg: stale (>1800s), zero cards, resets past flag horizon -> flag null.
+                    cls._account(
+                        "mg",
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 11, "resets_at": "2026-10-17T01:01:21Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 93, "resets_at": "2026-10-21T00:40:00Z"},
+                        ],
+                        credits_remaining=72807.3522155,
+                        reset_cards={"available_count": 0, "soonest_expires_at": None, "cards": []},
+                        source_updated_at="2026-10-16T00:40:00Z",
+                    ),
+                    # pe: exactly 1800s old -> still fresh; weekly just started -> pace null; no credits.
+                    cls._account(
+                        "pe",
+                        plan="team",
+                        windows=[
+                            {"key": "primary", "label": "5h", "window_minutes": 300, "used_percent": 1, "resets_at": "2026-10-16T21:16:58Z"},
+                            {"key": "secondary", "label": "weekly", "window_minutes": 10080, "used_percent": 6, "resets_at": "2026-10-23T16:30:00Z"},
+                        ],
+                        credits_remaining=None,
+                        reset_cards={"available_count": 0, "soonest_expires_at": None, "cards": []},
+                        source_updated_at="2026-10-16T16:13:00Z",
+                    ),
+                ],
+            },
+        }
+
+    def _body(self, snapshot=None):
+        return build_usage_response(self._snapshot() if snapshot is None else snapshot, [], [], [], now=NOW)
+
+    def test_structure_and_fixed_order(self):
+        pool = self._body()["quota_pool"]
+        self.assertEqual(pool["status"], "ok")
+        self.assertEqual(pool["source"], "codexbar-disk")
+        self.assertEqual(pool["sampled_at"], "2026-10-16T16:42:30Z")
+        self.assertEqual(pool["stale_after_s"], 1800)
+        self.assertEqual(pool["account_count"], 5)
+        self.assertEqual(pool["present_aliases"], ["6e", "aq", "he", "mg", "pe"])
+        self.assertEqual([item["alias"] for item in pool["accounts"]], ["6e", "aq", "he", "mg", "pe"])
+        for account in pool["accounts"]:
+            self.assertEqual(
+                set(account.keys()),
+                {"alias", "present", "plan", "pace_applicable", "windows", "reset_cards",
+                 "credits", "source_updated_at", "sample_age_s", "stale", "pace"},
+            )
+
+    def test_per_account_fields(self):
+        accounts = {item["alias"]: item for item in self._body()["quota_pool"]["accounts"]}
+        free = accounts["6e"]
+        self.assertEqual(free["plan"], "free")
+        self.assertEqual(free["windows"], {"5h": None, "weekly": None})
+        self.assertFalse(free["pace_applicable"])
+        self.assertEqual(free["pace"], {"ratio": None, "reference_at": None})
+        self.assertEqual(free["credits"], {"present": True, "remaining": 62500.0, "unit": "Credits"})
+        self.assertEqual(free["reset_cards"]["expiry_flag"], 72)
+
+        he = accounts["he"]
+        self.assertEqual(he["credits"], {"present": True, "remaining": 0.0, "unit": "Credits"})
+        self.assertTrue(he["pace_applicable"])
+        self.assertEqual(he["reset_cards"]["expiry_flag"], 6)
+        self.assertEqual(he["pace"]["ratio"], 3.01)
+        self.assertEqual(he["pace"]["reference_at"], "2026-10-16T16:42:30Z")
+
+        aq = accounts["aq"]
+        self.assertEqual(aq["credits"], {"present": False, "remaining": None, "unit": "Credits"})
+        self.assertEqual(aq["windows"]["5h"]["used_percent"], 21)
+        self.assertEqual(aq["windows"]["weekly"]["window_minutes"], 10080)
+        self.assertEqual(aq["windows"]["5h"]["hours_until_reset"], 5.2)
+        self.assertEqual(aq["reset_cards"]["expiry_flag"], 24)
+        self.assertEqual(aq["pace"]["ratio"], 0.14)
+        self.assertEqual(aq["pace"]["reference_at"], "2026-10-16T16:41:00Z")
+
+        mg = accounts["mg"]
+        self.assertTrue(mg["stale"])
+        self.assertEqual(mg["sample_age_s"], 57780)
+        self.assertIsNone(mg["reset_cards"]["expiry_flag"])
+        self.assertEqual(mg["reset_cards"]["available_count"], 0)
+        self.assertEqual(mg["pace"]["ratio"], 3.26)
+
+        pe = accounts["pe"]
+        self.assertFalse(pe["stale"])
+        self.assertEqual(pe["sample_age_s"], 1800)
+        self.assertIsNone(pe["pace"]["ratio"])
+        self.assertEqual(pe["pace"]["reference_at"], "2026-10-16T16:13:00Z")
+        self.assertEqual(pe["credits"]["present"], False)
+
+    def test_stale_boundary_and_missing_timestamp(self):
+        snapshot = self._snapshot()
+        records = snapshot["codex_accounts"]["accounts"]
+        records[4]["source_updated_at"] = "2026-10-16T16:12:59Z"  # 1801s -> stale
+        accounts = {a["alias"]: a for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertTrue(accounts["pe"]["stale"])
+        records[4]["source_updated_at"] = "2026-10-16T16:13:00Z"  # exactly 1800s -> fresh
+        accounts = {a["alias"]: a for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertFalse(accounts["pe"]["stale"])
+        records[4]["source_updated_at"] = None
+        accounts = {a["alias"]: a for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertIsNone(accounts["pe"]["sample_age_s"])
+        self.assertTrue(accounts["pe"]["stale"])
+
+    def test_expiry_flag_boundaries(self):
+        snapshot = self._snapshot()
+        cards = snapshot["codex_accounts"]["accounts"][0]["reset_cards"]
+        for soonest, expected in (
+            ("2026-10-19T16:43:00Z", 72),   # exactly 72h
+            ("2026-10-19T16:49:00Z", None), # 72.1h
+            ("2026-10-17T16:43:00Z", 24),   # exactly 24h
+            ("2026-10-16T22:43:00Z", 6),    # exactly 6h
+            ("2026-10-16T16:30:00Z", 6),    # already past, still the smallest bucket
+        ):
+            with self.subTest(soonest=soonest):
+                cards["soonest_expires_at"] = soonest
+                flags = {a["alias"]: a["reset_cards"]["expiry_flag"] for a in self._body(snapshot)["quota_pool"]["accounts"]}
+                self.assertEqual(flags["6e"], expected)
+        cards["available_count"] = 0
+        cards["soonest_expires_at"] = "2026-10-16T22:43:00Z"
+        flags = {a["alias"]: a["reset_cards"]["expiry_flag"] for a in self._body(snapshot)["quota_pool"]["accounts"]}
+        self.assertIsNone(flags["6e"])
+
+    def test_hours_until_soonest_can_be_negative(self):
+        snapshot = self._snapshot()
+        cards = snapshot["codex_accounts"]["accounts"][0]["reset_cards"]
+        cards["soonest_expires_at"] = "2026-10-16T15:43:00Z"  # 1h ago
+        account = self._body(snapshot)["quota_pool"]["accounts"][0]
+        self.assertEqual(account["reset_cards"]["hours_until_soonest"], -1.0)
+
+    def test_missing_block_and_bad_status(self):
+        for snapshot, status in (
+            ({"usage_collected_at": "2026-10-16T16:43:00Z", "days": 14}, "missing"),
+            ({"codex_accounts": "not-a-dict"}, "missing"),
+            ({"codex_accounts": {"status": "weird", "accounts": []}}, "error"),
+            ({"codex_accounts": {"status": "empty", "accounts": []}}, "empty"),
+        ):
+            with self.subTest(status=status):
+                pool = self._body(snapshot)["quota_pool"]
+                self.assertEqual(pool["status"], status)
+                self.assertEqual(pool["account_count"], 0)
+                self.assertEqual(len(pool["accounts"]), 5)
+                self.assertTrue(all(account["present"] is False for account in pool["accounts"]))
+                self.assertTrue(all(account["sample_age_s"] is None for account in pool["accounts"]))
+
+    def test_whitelist_drops_identity_and_card_details(self):
+        body = self._body()
+        text = json.dumps(body, ensure_ascii=False)
+        for leaked in ("account_key", "source_path", "@", SECRET, EMAIL, "reset_description", "data_confidence", "is_system_account", "deadbeef"):
+            self.assertNotIn(leaked, text)
+        cards = body["quota_pool"]["accounts"][0]["reset_cards"]
+        self.assertNotIn("cards", cards)
 
 
 class CliTests(unittest.TestCase):

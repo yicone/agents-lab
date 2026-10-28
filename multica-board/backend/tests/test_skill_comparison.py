@@ -62,7 +62,7 @@ class ComparisonTests(unittest.TestCase):
         document = {"ok": True, "generated_at": "t", "items": [local], "tools": [], "summary": _summary([local])}
         views = Views(self.store, "test", app_url="https://example.test", collect_interval_s=60)
         installs = {"local": [{"id": "s1"}], "cloud": [{"id": "s2"}, {"id": "s3"}]}
-        with mock.patch("multica_board.skill_grok_bots.grok_bot_skills", return_value=([], {"state":"ok", "detail":"test"})), mock.patch("multica_board.skills_view.skills_document", return_value=document), mock.patch.object(views, "_workspace_installs", return_value=installs), mock.patch.object(views, "runtimes", return_value={"items": []}):
+        with mock.patch("multica_board.skill_grok_export.grok_export_skills", return_value=([], {"state":"absent", "detail":"test"})), mock.patch("multica_board.skill_grok_bots.grok_bot_skills", return_value=([], {"state":"ok", "detail":"test"})), mock.patch("multica_board.skills_view.skills_document", return_value=document), mock.patch.object(views, "_workspace_installs", return_value=installs), mock.patch.object(views, "runtimes", return_value={"items": []}):
             result = views.skills()
         self.assertEqual(result["summary"][0]["count"], 2)
         self.assertEqual(sum(result["summary"][0]["statuses"].values()), 2)
