@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {agentColumns,recentRuns,timeUTC8,agentFocusControl} from './ia-view.js';
+import {configFieldGroups} from './agent-config.js';
 import {parseHash,formatHash,applyPatch} from './route.js';
 test('status and configuration have distinct task columns; selection keeps config columns',()=>{
  assert.deepEqual(agentColumns(false,false),['Agent','运行或排队','当前任务','24h 失败 / 完成','最近失败','最近运行','同一 Agent']);
@@ -8,6 +9,13 @@ test('status and configuration have distinct task columns; selection keeps confi
  for(const column of ['Runtime','模型','Instructions 来源','Skills 绑定','MCP 绑定','运行配置']) assert.ok(config.includes(column));
  assert.ok(!config.includes('当前任务'));
  assert.deepEqual(agentColumns(false,true),['选择',...config]);
+ const groups=configFieldGroups();
+ for(const column of ['模型','推理','Tier','额度']){
+  assert.equal(groups.duty.includes(column), false);
+  assert.equal(groups.boundary.includes(column), false);
+ }
+ assert.ok(groups.duty.includes('Instructions 来源'));
+ assert.deepEqual(groups.boundary, ['Agent','边界']);
 });
 test('recent runs filter workspace and agent/title query then sort newest first',()=>{
  const rows=[{workspace_id:'a',title:'old',latest_run:{created_at:'2026-10-20T00:00Z'}},{workspace_id:'a',title:'new',latest_run:{started_at:'2026-10-24T00:00Z'}},{workspace_id:'b',title:'other',latest_run:{created_at:'2026-10-25T00:00Z'}},{workspace_id:'a',title:'no run'}];
