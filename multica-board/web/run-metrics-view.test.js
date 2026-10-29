@@ -133,6 +133,78 @@ test("a missing snapshot has no write controls", () => {
   assert.equal(writeControlTags(nodes).length, 0);
 });
 
+const WORKSPACE = "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5";
+
+function shadowPayload(shadow) {
+  return { ...payload, shadow };
+}
+
+test("an enabled shadow stays read-only and a closed switch shows no suggestion", () => {
+  const enabled = {
+    enabled: true,
+    status: "enabled",
+    readonly: true,
+    writes: [],
+    dispatch_changed: false,
+    workspace_id: WORKSPACE,
+    message: "已启用只读影子建议。",
+    in_scope_run_count: 3,
+    excluded_other_workspace_run_count: 2,
+    suggestions: [{
+      runtime_id: "rt-hermes",
+      signature: "agent_error.provider_server_error",
+      sample_count: 3,
+      mark: "provider_unstable",
+      suggested_route: { action: "avoid_runtime", applied: false },
+    }],
+  };
+  const nodes = renderRunMetrics({ h: vnode, route: {}, runMetrics: shadowPayload(enabled) });
+  const box = section(nodes, "影子建议");
+  assert.match(box, /rt-hermes/);
+  assert.match(box, /样本 3/);
+  assert.match(box, /避开该 runtime/);
+  assert.match(box, /未执行/);
+  assert.match(box, new RegExp(WORKSPACE));
+  assert.match(box, /范围内 run 3/);
+  assert.match(box, /范围外 run 2/);
+  assert.match(box, /未改派单/);
+  assert.equal(writeControlTags(nodes).length, 0);
+
+  const elsewhere = section(renderRunMetrics({
+    h: vnode,
+    route: { mws: "other-workspace" },
+    runMetrics: shadowPayload(enabled),
+  }), "影子建议");
+  assert.match(elsewhere, /不展示建议/);
+  assert.match(elsewhere, /建议 1 条/);
+  assert.doesNotMatch(elsewhere, /rt-hermes/);
+
+  const closed = section(renderRunMetrics({
+    h: vnode,
+    route: {},
+    runMetrics: shadowPayload({
+      enabled: false,
+      status: "disabled",
+      readonly: true,
+      writes: [],
+      dispatch_changed: false,
+      message: "S8 未启用。只读展示运行指标，不生成建议。",
+      suggestions: enabled.suggestions,
+    }),
+  }), "影子建议");
+  assert.match(closed, /不生成建议/);
+  assert.match(closed, /建议 0 条/);
+  assert.doesNotMatch(closed, /rt-hermes/);
+
+  const unsafe = section(renderRunMetrics({
+    h: vnode,
+    route: {},
+    runMetrics: shadowPayload({ ...enabled, dispatch_changed: true }),
+  }), "影子建议");
+  assert.match(unsafe, /不展示，也不执行/);
+  assert.doesNotMatch(unsafe, /rt-hermes/);
+});
+
 test("the running subnav points at the read-only page", () => {
   const app = readFileSync(new URL("./app.js", import.meta.url), "utf8");
   assert.match(app, /#\/running\/metrics", "运行指标"/);
