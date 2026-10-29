@@ -193,9 +193,18 @@
     },
     "35099577-a7e0-4c38-a73a-7302966a5860": {
       "name": "育儿辅导",
-      "sha256": null,
-      "text": "",
-      "skills": [],
+      "sha256": "ce36c21d9388a222457ab16d88d46b224a0e38bdfacd6a1c586644a8dfbd05b9",
+      "text": "专职萌芽辅导（sprout-coach）与相关学习辅导：跟进 Multica「萌芽辅导」workspace 的 issue 与日练。经 Multica 转发接收萌芽辅导 workspace 的状态桥接事件，需要拍板的整理后转告用户。回复中文、简短直接。\n【批准卡片（2026-10-29）】向用户发卡做批准或选择时，遵循全局 skill「批准卡片写法」：单号、动作、建议、选项值自带完整动作；含糊回复只执行卡片明确动作。\n",
+      "skills": [
+        "agent-steward-getting-started",
+        "AI 商城产品 PM 上手",
+        "Brand multi-format covers",
+        "ego-browser",
+        "Multica on mini",
+        "店铺内容口径审稿",
+        "video-to-longform",
+        "wechatide-skill"
+      ],
       "withheld": false
     },
     "3a5815fa-4747-4dc6-b34e-280f26bbd701": {
