@@ -3,9 +3,7 @@ import { TRI_LEGEND, mcpTriState, renderTriState } from "./capability-state.js";
 /** MCP page (ACM-378 schema 2): one row per raw server name across local tools,
  * the repo's project-level files, and workspace libraries. Read-only. */
 
-import { COPY, pageHead, visibleLabel } from "./ia-view.js";
-
-import { capabilitySwitch } from "./capability.js";
+import { pageHead, visibleLabel } from "./ia-view.js";
 
 export const PROJECT_SOURCE = "project"; // 伪来源：按 in_project 筛选，重叠于其他三类
 export const REPO_TOOL = "repo";
@@ -797,22 +795,17 @@ function emptyGuide(h, ctx, payload) {
 }
 
 function capabilityHead(h) {
-  return pageHead(h, [{ label: COPY.capability }, { label: "MCP" }], COPY.capability);
-}
-
-function capabilityKinds(ctx) {
-  return capabilitySwitch(ctx.h, "mcp", (view) => ctx.setRoute({ view, source: "", section: "configure" }));
+  return pageHead(h, [{ label: "MCP" }], "MCP");
 }
 
 export function renderMcp(ctx) {
   const { h, route } = ctx;
   const payload = ctx.mcp;
-  const kinds = capabilityKinds(ctx);
   if (!payload || payload.absent) {
-    return [...capabilityHead(h), kinds, h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
+    return [...capabilityHead(h), h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
   }
   if (payload.ok === false) {
-    return [...capabilityHead(h), kinds, h("div", { class: "atlas-guide" },
+    return [...capabilityHead(h), h("div", { class: "atlas-guide" },
       h("h2", null, "MCP 数据无效"),
       h("p", null, payload.error?.message || payload.error?.code || payload.error || "读取失败"),
       h("p", { class: "muted" }, "检查 mcp-sources.json 声明是否有效，修好后刷新。"))];
@@ -824,7 +817,6 @@ export function renderMcp(ctx) {
   const noItems = !(payload.items || []).length;
   return [
     ...capabilityHead(h),
-    kinds,
     h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
     h("div", { class: "toolbar" },
       select(h, "来源", route.source, [["", "全部来源"], ...blocks.filter((b) => b.id !== "all").map((b) => [b.id, b.label])], (v) => ctx.setRoute({ source: v })),

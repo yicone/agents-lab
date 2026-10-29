@@ -1,6 +1,6 @@
 /** Read-only evidence inventory. Layout A list; no write actions and no skill body. */
 
-import { COPY, pageHead, visibleLabel } from "./ia-view.js";
+import { pageHead, visibleLabel } from "./ia-view.js";
 
 export const EVIDENCE_SCOPE = "范围：只读证据清单，不按 workspace 筛选";
 
@@ -106,10 +106,9 @@ export function emptyInventoryText(sourceId, payload, route) {
 
 function capabilityHead(h) {
   return pageHead(h, [
-    { href: "#/configure/skills", label: COPY.capability },
-    { label: "skills" },
+    { href: "#/configure/skills", label: "skills" },
     { label: "证据清单" },
-  ], COPY.capability);
+  ], "证据清单");
 }
 
 export function renderEvidence(ctx) {
@@ -125,7 +124,7 @@ export function renderEvidence(ctx) {
   return [
     ...capabilityHead(h),
     h("p", { class: "muted" }, "只读证据清单。不写回、不同步、不删除，也不读取正文。"),
-    h("div", { class: "toolbar" }, h("button", { type: "button", class: "text-btn", onclick: () => ctx.setRoute({ evidence: false, source: "" }) }, `返回${COPY.capability}`)),
+    h("div", { class: "toolbar" }, h("button", { type: "button", class: "text-btn", onclick: () => ctx.setRoute({ evidence: false, source: "" }) }, "返回 skills")),
     h("div", { class: "source-grid" }, (payload.sources || []).map((source) => sourceCard(ctx, source, payload.items))),
     invalid.length ? h("p", { class: "skills-anomaly" }, "有来源无效，页面不会把没检查显示成 0。") : null,
     legend(h),

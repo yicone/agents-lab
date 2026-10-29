@@ -1,9 +1,8 @@
-import { COPY, pageHead, visibleLabel } from "./ia-view.js";
+import { pageHead, visibleLabel } from "./ia-view.js";
 import { TRI_LEGEND, renderTriState, skillTriState } from "./capability-state.js";
 import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
-import { capabilitySwitch } from "./capability.js";
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
 
 /** 伪来源 id：选中时按「已安装到 Workspace」筛选，不是 source_class。 */
@@ -270,22 +269,16 @@ function relTime(iso, ago) {
 }
 
 function capabilityHead(h, type) {
-  return pageHead(h, [{ label: COPY.capability }, { label: type }], COPY.capability);
-}
-
-function capabilityKinds(ctx) {
-  return capabilitySwitch(ctx.h, "skills", (view) => ctx.setRoute({ view, source: "", section: "configure" }));
+  return pageHead(h, [{ label: type }], type);
 }
 
 export function renderSkills(ctx) {
   const { h, route } = ctx;
   const payload = ctx.skills;
-  const kinds = capabilityKinds(ctx);
-  if (!payload) return [...capabilityHead(h, "skills"), kinds, h("div", { class: "empty big" }, "正在读取 Skills 清单…")];
+  if (!payload) return [...capabilityHead(h, "skills"), h("div", { class: "empty big" }, "正在读取 Skills 清单…")];
   if (payload.ok === false) {
     return [
       ...capabilityHead(h, "skills"),
-      kinds,
       h(
         "section",
         { class: "atlas-guide" },
@@ -304,7 +297,6 @@ export function renderSkills(ctx) {
   const visible = new Map(tools.map((tool) => [tool.id, (payload.items || []).filter((item) => item.tools?.[tool.id] === "direct" || item.tools?.[tool.id] === "shared").length]));
   return [
     ...capabilityHead(h, "skills"),
-    kinds,
     h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
     h(
       "div",

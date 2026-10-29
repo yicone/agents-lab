@@ -924,7 +924,7 @@ function renderSubnav() {
   const group = navGroup(state.route);
   const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
     : group === "running" ? [["#/running", "Agent 状态"], ["#/running/usage", "用量与额度"], ["#/running/runs", "最近运行"], ["#/running/metrics", "运行指标"], ["#/running/schedules", "定时任务"], ["#/running/health", "服务健康"]]
-    : group === "configure" ? [["#/configure/agents", COPY.agent], ["#/configure/skills", `${COPY.capability} · skills`, "skills-badge"], ["#/configure/mcp", `${COPY.capability} · MCP`, "mcp-badge"], ["#/configure/hooks", `${COPY.capability} · hooks`, "hooks-badge"], ["#/configure/runtime", COPY.runtime]] : [];
+    : group === "configure" ? [["#/configure/agents", COPY.agent], ["#/configure/skills", "skills", "skills-badge"], ["#/configure/mcp", "MCP", "mcp-badge"], ["#/configure/hooks", "hooks", "hooks-badge"], ["#/configure/runtime", COPY.runtime]] : [];
   const current = formatHash({ ...state.route, ws: "", q: "" }).split("?")[0];
   const el = document.getElementById("subnav");
   el.hidden = !links.length;

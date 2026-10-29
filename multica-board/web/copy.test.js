@@ -30,8 +30,9 @@ test("界面词不含产品名，命令和对象名称不在这层替换", () =>
   }
 });
 
-test("三个术语和来源名展示固定", () => {
-  assert.deepEqual([COPY.agent, COPY.runtime, COPY.capability], ["Agent 配置", "运行配置", "能力"]);
+test("配置页术语不再用能力总称，来源名展示固定", () => {
+  assert.deepEqual([COPY.agent, COPY.runtime], ["Agent 配置", "运行配置"]);
+  assert.equal(Object.hasOwn(COPY, "capability"), false);
   assert.equal(visibleLabel("Multica Workspace · 已安装"), "Workspace · 已安装");
   assert.equal(visibleLabel("仅 Multica"), "仅 Workspace");
   assert.equal(visibleLabel("本机 + Multica"), "本机 + Workspace");

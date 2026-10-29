@@ -4,7 +4,6 @@ export const COPY = {
   section: "配置管理",
   agent: "Agent 配置",
   runtime: "运行配置",
-  capability: "能力",
 };
 
 /** 来源名里的产品前缀不进页面。对象自己的名称不要走这里。 */
