@@ -49,9 +49,12 @@ test("same event stays one row per source, and another source's error stays out"
   assert.equal(visible.includes("Memory"), false);
   assert.equal(visible.includes("Grok Bot"), false);
   assert.equal(visible.includes("Multica"), false);
-  assert.match(visible, /skills/);
-  assert.match(visible, /MCP/);
+  assert.match(visible, /配置管理/);
   assert.match(visible, /hooks/);
+  assert.equal(visible.includes("skills"), false);
+  assert.equal(visible.includes("MCP"), false);
+  assert.equal(visible.includes("能力类别"), false);
+  assert.equal(visible.includes("返回能力"), false);
   const all = textOf({ children: renderHooks({ h, hooks: payload, route: { source: "", q: "" }, setRoute() {} }) });
   assert.match(all, /Grok 再扫到/);
   assert.equal(all.includes("Hermes shell 没读到"), false);

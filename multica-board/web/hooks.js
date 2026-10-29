@@ -1,6 +1,6 @@
 /** Capability-page hooks. Sources are a filter. Rows are never merged across sources. */
 
-import { capabilitySwitch } from "./capability.js";
+import { pageHead } from "./ia-view.js";
 import { TRI_LEGEND, renderTriState } from "./capability-state.js";
 
 export const HOOK_SOURCES = [
@@ -46,13 +46,17 @@ export function visibleSourceErrors(payload, route) {
   });
 }
 
+function hooksHead(h) {
+  return pageHead(h, [{ label: "hooks" }], "hooks");
+}
+
 export function renderHooks(ctx) {
   const { h, route } = ctx;
   const payload = ctx.hooks;
-  const kinds = capabilitySwitch(h, "hooks", (view) => ctx.setRoute({ view, source: "", section: "configure" }));
-  if (!payload) return [kinds, h("div", { class: "empty big" }, "正在读取 hooks…")];
+  const head = hooksHead(h);
+  if (!payload) return [...head, h("div", { class: "empty big" }, "正在读取 hooks…")];
   if (payload.ok === false && !(payload.sources || []).length) {
-    return [kinds, h("section", { class: "atlas-guide" }, h("h2", null, "hooks 没读到"), h("p", null, payload.error?.message || "清单读不出来。"))];
+    return [...head, h("section", { class: "atlas-guide" }, h("h2", null, "hooks 没读到"), h("p", null, payload.error?.message || "清单读不出来。"))];
   }
   const items = filteredItems(payload, route);
   const errors = visibleSourceErrors(payload, route);
@@ -61,7 +65,7 @@ export function renderHooks(ctx) {
     ? "Hermes shell 没读到。空列表才是正常结果；这不影响当前选中的其他来源。"
     : null;
   return [
-    kinds,
+    ...head,
     h("div", { class: "toolbar" },
       h("span", { class: "muted" }, "来源"),
       h("div", { class: "seg agents-kind", role: "radiogroup", "aria-label": "hooks 来源" },
