@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .collect import collect_snapshot
 from .report import build_report, summarize
+from .shadow import build_shadow
 from .timeutil import parse_ts
 
 
@@ -26,6 +27,32 @@ def _dump(path: str, payload: dict) -> None:
 
 def _load(path: str) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _shadow(args) -> int:
+    source = Path(args.input)
+    target = Path(args.output)
+    if source.resolve() == target.resolve():
+        raise SystemExit("shadow 输出不能覆盖输入报告")
+    try:
+        before = source.read_bytes()
+    except OSError as exc:
+        raise SystemExit(f"无法读取报告：{exc.strerror or exc}") from exc
+    try:
+        report = json.loads(before)
+    except (json.JSONDecodeError, UnicodeError) as exc:
+        raise SystemExit("输入不是合法 JSON，未写出建议") from exc
+    built = build_shadow(report)
+    if source.read_bytes() != before:
+        raise SystemExit("输入报告被改动，已中止")
+    _dump(args.output, built)
+    print(json.dumps({
+        "status": built["status"],
+        "suggestion_count": len(built["suggestions"]),
+        "dispatch_changed": built["dispatch_changed"],
+        "writes": built["writes"],
+    }, ensure_ascii=False), file=sys.stderr)
+    return 0
 
 
 def _parse_now(value: str | None) -> datetime:
@@ -60,7 +87,13 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("--workers", type=int, default=6)
     report.add_argument("--window", default="14d")
 
+    shadow = sub.add_parser("shadow", help="从已有报告记录建议路由，不改派单")
+    shadow.add_argument("--input", required=True)
+    shadow.add_argument("--output", required=True)
+
     args = parser.parse_args(argv)
+    if args.command == "shadow":
+        return _shadow(args)
     if args.command == "collect":
         snapshot = collect_snapshot(now=_parse_now(args.now), workers=args.workers, window=args.window)
         _dump(args.output, snapshot)
