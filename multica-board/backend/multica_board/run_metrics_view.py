@@ -2,11 +2,15 @@
 
 The file is produced by the S3 prototype. This module only reads it.
 It does not collect, classify, schedule, or write the file back.
+When the local S8 switch is on, the response also carries in-memory
+shadow suggestions for the approved workspace. Those suggestions are
+not written and do not change dispatch.
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -32,16 +36,16 @@ def report_path_for(db_path: str | Path | None) -> Path | None:
 
 def load_run_metrics_file(path: Path | None) -> dict[str, Any]:
     if path is None or not path.is_file():
-        return _envelope(False, "missing", MISSING_MESSAGE, None)
+        return _with_shadow(_envelope(False, "missing", MISSING_MESSAGE, None))
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeError):
-        return _envelope(False, "invalid", INVALID_MESSAGE, None)
+        return _with_shadow(_envelope(False, "invalid", INVALID_MESSAGE, None))
     if not isinstance(data, dict) or data.get("schema_version") != SCHEMA_VERSION:
-        return _envelope(False, "schema", SCHEMA_MESSAGE, None)
+        return _with_shadow(_envelope(False, "schema", SCHEMA_MESSAGE, None))
     if _window_contract_broken(data):
-        return _envelope(False, "invalid", SCHEMA_MESSAGE, None)
-    return _envelope(True, None, None, data, scheduling_field_states(data))
+        return _with_shadow(_envelope(False, "invalid", SCHEMA_MESSAGE, None))
+    return _with_shadow(_envelope(True, None, None, data, scheduling_field_states(data)))
 
 
 def scheduling_field_states(report: dict | None) -> dict[str, str]:
@@ -83,6 +87,60 @@ def _envelope(
         "message": message,
         "report": report,
         "scheduling_fields": scheduling_fields or {name: "missing" for name in (*_BOOL_FIELDS, *_LIST_FIELDS)},
+    }
+
+
+def _with_shadow(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Attach the S8 switch result. The report file is not written."""
+    report = envelope.get("report")
+    if envelope.get("ok") is not True or not isinstance(report, dict):
+        envelope["shadow"] = _shadow_unavailable("not_loaded")
+        return envelope
+    try:
+        envelope["shadow"] = _evaluate_s8(report)
+    except Exception:
+        envelope["shadow"] = _shadow_unavailable("unavailable")
+    return envelope
+
+
+def _evaluate_s8(report: dict) -> dict[str, Any]:
+    root = _run_metrics_root()
+    if root is None:
+        return _shadow_unavailable("unavailable")
+    entry = str(root)
+    if entry not in sys.path:
+        sys.path.insert(0, entry)
+    from run_metrics.s8_enable import evaluate_s8
+
+    return evaluate_s8(report)
+
+
+def _run_metrics_root() -> Path | None:
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "run-metrics"
+        if (candidate / "run_metrics" / "s8_enable.py").is_file():
+            return candidate
+    return None
+
+
+def _shadow_unavailable(status: str) -> dict[str, Any]:
+    message = {
+        "not_loaded": "运行指标还没接上。不生成建议。",
+        "unavailable": "影子建议模块不可用。只读展示运行指标，不生成建议。",
+    }[status]
+    return {
+        "schema_version": "s8-shadow-enable.v0.1",
+        "enabled": False,
+        "status": status,
+        "mode": "readonly_display",
+        "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+        "readonly": True,
+        "writes": [],
+        "write_endpoints_added": [],
+        "dispatch_changed": False,
+        "message": message,
+        "suggestions": [],
+        "routing_shadow": None,
     }
 
 

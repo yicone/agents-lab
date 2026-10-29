@@ -62,6 +62,9 @@ class LoadTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
             self.assertTrue(loaded["ok"])
             self.assertEqual(loaded["report"]["default_window"], "14d")
+            self.assertIn("shadow", loaded)
+            self.assertEqual(loaded["shadow"]["writes"], [])
+            self.assertFalse(loaded["shadow"]["dispatch_changed"])
             path.write_text(json.dumps({"schema_version": "run-metrics.v9"}), encoding="utf-8")
             rejected = load_run_metrics_file(path)
             self.assertEqual(rejected["reason"], "schema")
@@ -120,6 +123,49 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(states["unknown_hard_disable"], "missing")
 
 
+class ShadowAttachTests(unittest.TestCase):
+    def test_file_read_suggests_only_the_approved_workspace(self):
+        approved = "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5"
+        other = "11111111-1111-1111-1111-111111111111"
+        report = _report()
+        window = {"start": "2026-10-28T02:00:00Z", "end": "2026-10-29T02:00:00Z"}
+        for name in report["windows"]:
+            report["windows"][name].update(window)
+
+        def run(run_id, workspace_id, runtime_id):
+            return {
+                "run_id": run_id,
+                "runtime_id": runtime_id,
+                "workspace_id": workspace_id,
+                "status": "failed",
+                "anchor_at": "2026-10-29T01:00:00Z",
+                "failure_class": "process_failed",
+                "raw_reason_redacted": "agent_error.provider_server_error",
+                "failure_evidence": {"excerpt": "Internal error"},
+            }
+
+        report["runs"] = [
+            *[run(f"a{index}", approved, "rt-hermes") for index in range(3)],
+            *[run(f"b{index}", other, "rt-other") for index in range(3)],
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "run-metrics.v0.1.json"
+            path.write_text(json.dumps(report), encoding="utf-8")
+            before = path.read_bytes()
+            loaded = load_run_metrics_file(path)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(loaded["report"]["runs"][3]["workspace_id"], other)
+            shadow = loaded["shadow"]
+            self.assertTrue(shadow["enabled"])
+            self.assertEqual(shadow["in_scope_run_count"], 3)
+            self.assertEqual(shadow["excluded_other_workspace_run_count"], 3)
+            self.assertEqual(len(shadow["suggestions"]), 1)
+            self.assertEqual(shadow["suggestions"][0]["runtime_id"], "rt-hermes")
+            self.assertEqual(shadow["writes"], [])
+            self.assertFalse(shadow["dispatch_changed"])
+            self.assertFalse(shadow["routing_shadow"]["failure_class_rewritten"])
+
+
 class HttpTests(unittest.TestCase):
     def test_get_reads_and_post_does_not_write(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -143,6 +189,13 @@ class HttpTests(unittest.TestCase):
                 self.assertTrue(body["readonly"])
                 self.assertEqual(body["writes"], [])
                 self.assertTrue(body["ok"])
+                self.assertTrue(body["shadow"]["enabled"])
+                self.assertEqual(body["shadow"]["workspace_id"], "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5")
+                self.assertEqual(body["shadow"]["suggestions"], [])
+                self.assertEqual(body["shadow"]["writes"], [])
+                self.assertFalse(body["shadow"]["dispatch_changed"])
+                self.assertEqual(body["shadow"]["write_endpoints_added"], [])
+                self.assertTrue(body["shadow"]["readonly"])
                 conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
                 conn.request("POST", "/api/run-metrics")
                 denied = conn.getresponse()

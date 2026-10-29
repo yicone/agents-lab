@@ -1,0 +1,17 @@
+{
+  "schema_version": "s8-shadow-enable.v0.1",
+  "enabled": true,
+  "workspace_id": "8ebc87ea-27f2-42c4-90f6-24a04e64d3f5",
+  "mode": "readonly_shadow_suggestions",
+  "rollback": {
+    "method": "set_enabled_false",
+    "pre_enable_main": "ece1fbd81f78b02b88b997a74b569e2a4bac0a1b",
+    "steps": [
+      "把本文件的 enabled 改为 false。",
+      "再读运行指标：shadow.enabled 为 false，suggestions 为空，writes 为 []，dispatch_changed 为 false。",
+      "页面回到只读展示，不再生成建议。",
+      "不要重启 8767，不要改派单、agent、workspace 或 runtime。",
+      "若要丢掉这段启用代码，回到启用前 main ece1fbd81f78b02b88b997a74b569e2a4bac0a1b。"
+    ]
+  }
+}

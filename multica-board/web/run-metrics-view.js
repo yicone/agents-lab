@@ -250,7 +250,48 @@ export function presentRunMetrics(payload, route = {}) {
     schedulingView: schedulingFactsForReport,
     unstable,
     gaps,
+    shadow: shadowModel(payload.shadow, route),
     filterOptions: Object.fromEntries(FILTERS.map(([key, , groupName]) => [key, optionIds(window, groupName, route[key])])),
+  };
+}
+
+function shadowModel(shadow, route) {
+  const closed = {
+    enabled: false,
+    withheld: false,
+    filteredOut: false,
+    status: shadow?.status || "disabled",
+    workspaceId: typeof shadow?.workspace_id === "string" ? shadow.workspace_id : null,
+    message: shadow?.message || "S8 未启用。只读展示运行指标，不生成建议。",
+    suggestions: [],
+    suggestionCount: 0,
+    inScope: shadow?.in_scope_run_count,
+    excluded: shadow?.excluded_other_workspace_run_count,
+    routingStatus: shadow?.routing_status,
+  };
+  const writes = Array.isArray(shadow?.writes) ? shadow.writes : null;
+  const switchOn = shadow?.enabled === true && shadow?.status === "enabled" && typeof shadow.workspace_id === "string" && shadow.workspace_id !== "";
+  const safe = switchOn && shadow.readonly === true && writes?.length === 0 && shadow.dispatch_changed === false;
+  if (!safe) {
+    if (switchOn) return { ...closed, withheld: true, message: "建议结果不是只读。页面不展示，也不执行。" };
+    return closed;
+  }
+  const filteredOut = Boolean(route?.mws) && route.mws !== shadow.workspace_id;
+  const all = Array.isArray(shadow.suggestions) ? shadow.suggestions : [];
+  return {
+    enabled: true,
+    withheld: false,
+    filteredOut,
+    status: "enabled",
+    workspaceId: shadow.workspace_id,
+    message: filteredOut
+      ? "当前筛选的 workspace 不在已批准范围内。这里保留指标，不展示建议。"
+      : (shadow.message || "已启用只读影子建议。建议和审计留在页面上，不改派单。"),
+    suggestions: filteredOut ? [] : all,
+    suggestionCount: all.length,
+    inScope: shadow.in_scope_run_count,
+    excluded: shadow.excluded_other_workspace_run_count,
+    routingStatus: shadow.routing_status,
   };
 }
 
@@ -383,6 +424,7 @@ export function renderRunMetrics(ctx) {
       model.chainHidden ? h("p", { class: "usage-gap" }, `其余 ${model.chainHidden} 条返工链留在报告里。`) : null,
       model.chains.length ? null : h("p", { class: "muted" }, "当前窗口和筛选下没有返工链。"),
     ),
+    shadowSection(h, model.shadow),
     h(
       "section",
       { class: "usage-col", "aria-label": "数据缺口" },
@@ -391,6 +433,33 @@ export function renderRunMetrics(ctx) {
       model.gaps.length ? null : h("p", { class: "muted" }, "这份快照没有额外缺口标记。"),
     ),
   ];
+}
+
+function shadowSection(h, shadow) {
+  const rows = shadow.enabled ? shadow.suggestions.map((row) => shadowRow(h, row)) : [];
+  return h(
+    "section",
+    { class: "usage-col", "aria-label": "影子建议", "data-readonly": "true", "data-writes": "0" },
+    h("h3", null, "影子建议"),
+    h("p", null, shadow.message),
+    h("p", { class: "muted" }, shadow.workspaceId ? `批准范围 ${shadow.workspaceId}` : "批准范围缺失"),
+    h("p", { class: "muted" }, `范围内 run ${count(shadow.inScope)} · 范围外 run ${count(shadow.excluded)} · 建议 ${shadow.suggestionCount} 条 · 未改派单 · writes 0`),
+    shadow.filteredOut ? h("p", { class: "usage-gap" }, "筛选落在批准范围之外，建议行已留在接口响应里，本页不执行。") : null,
+    ...rows,
+    shadow.enabled && !shadow.suggestions.length && !shadow.filteredOut ? h("p", { class: "muted" }, "这次没有达到阈值的建议。") : null,
+  );
+}
+
+function shadowRow(h, row) {
+  const route = row?.suggested_route && typeof row.suggested_route === "object" ? row.suggested_route : {};
+  const action = route.action === "avoid_runtime" ? "避开该 runtime" : route.action === "no_alternative" ? "没有可替换 runtime" : route.action || "建议缺失";
+  return h(
+    "div",
+    { class: "usage-card" },
+    h("h4", null, `${row?.runtime_id || "runtime 缺失"} · ${row?.signature || "签名缺失"}`),
+    h("p", null, `样本 ${count(row?.sample_count)} · 标记 ${row?.mark || "无"} · ${action}`),
+    h("p", { class: "muted" }, route.applied === false ? "未执行。额度未知仍记为未知，不据此硬禁用。" : "执行状态不是未执行。页面没有执行入口。"),
+  );
 }
 
 function countList(h, counts) {
