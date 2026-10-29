@@ -25,6 +25,7 @@ export function pageHead(h, items, title) {
   return [configCrumb(h, items), h("h2", null, title)];
 }
 
+/** Plan picking still uses one mixed table. The Agent 配置 page uses configFieldGroups() instead. */
 export function agentColumns(configure, planMode, hours = 24) {
   return [...(planMode ? ["选择"] : []), "Agent", ...(configure || planMode
     ? ["Runtime", "模型", "推理", "Tier", "Instructions 来源", "Skills 绑定", "MCP 绑定", COPY.runtime]

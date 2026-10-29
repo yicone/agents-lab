@@ -1,4 +1,5 @@
 import { agentColumns, recentRuns, timeUTC8, agentFocusControl, COPY, pageHead, visibleLabel } from "./ia-view.js";
+import { BOUNDARY_COLUMNS, DUTY_COLUMNS, RUNTIME_COLUMNS, boundaryText, quotaText, safeConfigText } from "./agent-config.js";
 import { createRuntimeConfig } from "./runtime-config.js";
 import { runtimeIcon } from "./runtime-mark.js";
 import { QUEUED_RUN, classifyIssue, attentionSummary, scopedAttentionSummary } from "./attention.js";
@@ -1598,6 +1599,53 @@ function dimCell(v) {
   return v ? h("td", { class: "mono" }, v) : h("td", { class: "inherit", title: "未设置，继承 runtime 默认；实际值未知" }, "默认");
 }
 
+function configValueCell(value, field) {
+  if (value == null || value === "") {
+    return h("td", { "data-field": field, class: "inherit", title: "未设置，继承 runtime 默认；实际值未知" }, "默认");
+  }
+  const safe = safeConfigText(value, "已隐藏");
+  if (safe === "已隐藏") return h("td", { "data-field": field, class: "muted" }, "已隐藏");
+  return h("td", { "data-field": field, class: "mono" }, safe);
+}
+
+function agentIdentityCell(a, ws, showWs) {
+  const degraded = isWsDegraded(ws);
+  return h(
+    "td",
+    { class: "agent-name" },
+    showWs ? wsTag(ws) : null,
+    a.url ? extLink(a.url, null, a.name) : a.name,
+    degraded ? h("span", { class: "tag warn" }, "旧数据") : null,
+  );
+}
+
+function configDataRow(a, ws, block, cells) {
+  const degraded = isWsDegraded(ws);
+  const selected = state.drawer?.kind === "agent" && state.drawer.agent?.id === a.id && state.drawer.agent?.workspace_id === a.workspace_id;
+  const id = block === "runtime" ? `agent-row-${a.workspace_id}-${a.id}` : `agent-row-${a.workspace_id}-${a.id}-${block}`;
+  return h(
+    "tr",
+    {
+      id,
+      class: `agent-row${degraded ? " is-stale" : ""}${a.archived ? " is-archived" : ""}${selected ? " is-selected" : ""}`,
+      tabindex: "0",
+      "aria-label": `打开 ${a.name}`,
+      onclick: (event) => {
+        if (event.target.closest("a, button, input")) return;
+        openRecordDrawer("agent", a, event.currentTarget);
+        if (state.drawer?.kind === "agent") state.drawer.rowId = id;
+      },
+      onkeydown: (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openRecordDrawer("agent", a, event.currentTarget);
+        if (state.drawer?.kind === "agent") state.drawer.rowId = id;
+      },
+    },
+    ...cells,
+  );
+}
+
 function agentRow({ a, ws, rt }, showWs, planMode) {
   const recent = a.recent ?? {};
   const degraded = isWsDegraded(ws);
@@ -1839,13 +1887,97 @@ function renderAgents() {
   for (const g of groups.values())
     g.rows.sort((x, y) => (y.a.recent?.failed ?? 0) - (x.a.recent?.failed ?? 0) || x.a.name.localeCompare(y.a.name));
 
+  const showWs = r.group === "provider";
+  const inventory = Object.entries(state.ownerInventory || {})
+    .filter(([, entry]) => !r.ws || entry.slug === r.ws);
+  const inventoryNote = inventory.length ? h("p", { class: "muted" },
+    "用户补采 · user-cli:desktop-api.multica.ai · ",
+    inventory.map(([, entry]) => `${entry.slug}: ${entry.status === "ok" ? "成功" : "失败（使用常规缓存）"} · ${entry.collected_at || "未知时间"}`).join("； ")) : null;
+
+  if (r.section === "configure" && !planMode) {
+    const blockTable = (label, columns, block, cellsFor) => {
+      if (!rows.length) return h("div", { class: "empty" }, "没有符合条件的 agent");
+      const head = h("thead", null, h("tr", null, columns.map((c) => h("th", { scope: "col" }, c))));
+      const bodies = [...groups.values()].map((g) =>
+        h(
+          "tbody",
+          null,
+          h(
+            "tr",
+            { class: "group-row" },
+            h(
+              "th",
+              { colspan: columns.length, scope: "rowgroup" },
+              g.ws ? wsTag(g.ws) : h("span", { class: "p-name" }, g.key),
+              h("span", { class: "muted" }, ` ${g.rows.length}`),
+            ),
+          ),
+          g.rows.map(({ a, ws, rt }) => configDataRow(a, ws, block, cellsFor(a, ws, rt))),
+        ),
+      );
+      return h("div", { class: "table-wrap sticky-head", tabindex: 0, role: "region", "aria-label": label }, h("table", { class: "matrix" }, head, bodies));
+    };
+    const runtimeCells = (a, ws, rt) => {
+      let rtCell;
+      if (!a.runtime_id) rtCell = h("td", { class: "rt", "data-field": "runtime" }, h("span", { class: "tag warn" }, "未绑定"));
+      else if (!rt) rtCell = h("td", { class: "rt muted", "data-field": "runtime" }, "未知 runtime");
+      else {
+        rtCell = h(
+          "td",
+          { class: "rt", "data-field": "runtime", title: `${rt.device_info ?? ""}\n最后在线 ${absTime(rt.last_seen_at)}` },
+          h("span", { class: `dot ${rt.status === "online" ? "ok" : "off"}` }),
+          runtimeIcon(h, rt.provider),
+          rt.name,
+          rt.status !== "online" ? h("span", { class: "tag bad" }, `离线 ${ago(rt.last_seen_at)}`) : null,
+        );
+      }
+      const quota = quotaText(a);
+      return [
+        agentIdentityCell(a, ws, showWs),
+        rtCell,
+        configValueCell(a.model, "model"),
+        configValueCell(a.thinking_level, "thinking"),
+        configValueCell(a.service_tier, "tier"),
+        h("td", { "data-field": "quota", class: quota === "未采集" ? "muted" : "mono", title: quota === "未采集" ? "接口没有逐 Agent 的额度字段" : null }, quota),
+      ];
+    };
+    const dutyCells = (a, ws) => [
+      agentIdentityCell(a, ws, showWs),
+      h("td", { "data-field": "instructions" }, gitAgent(a) ? `仓库对照：${gitAgent(a).name || "已登记"}` : a.instructions ? "已有指令" : "无指令", a.instructions ? ` · ${[...a.instructions].length} 字` : ""),
+      h("td", { class: "skill-bindings", "data-field": "skills" }, skillRecords(a).length ? skillRecords(a).map((skill) => h("div", { class: skill.enabled === false ? "muted" : "" }, skill.name || skill.id, skill.enabled === false ? "（停用）" : "")) : "无已知绑定"),
+      h("td", { "data-field": "mcp" }, a.mcp_bindings == null ? "绑定未知" : a.mcp_bindings.map((b) => `${b.name || b.server_id}${b.enabled === false ? "（停用）" : ""}`).join("、") || "无库绑定", ({ managed: " · 有自有配置", hidden: " · 自有配置已隐藏", invalid: " · 自有配置无效", unknown: " · 自有配置未知" })[a.mcp_own_state || "unknown"] || ""),
+      h("td", null, h("a", { href: formatHash({ ...state.route, view: "agents", section: "", q: "", sel: a.id, planMode: false }) }, "查看运行监控 →")),
+    ];
+    const boundaryCells = (a, ws) => [
+      agentIdentityCell(a, ws, showWs),
+      h("td", { "data-field": "boundary" }, boundaryText(a.instructions)),
+    ];
+    const fieldBlock = (id, label, note, columns, cellsFor) => h(
+      "section",
+      { class: "agent-block", "data-block": id, "data-readonly": "true", "data-writes": "0", "aria-label": label },
+      h("h3", null, label),
+      note ? h("p", { class: "muted" }, note) : null,
+      blockTable(label, columns, id, cellsFor),
+    );
+    return [
+      ...pageHead(h, [{ label: COPY.agent }], COPY.agent),
+      strip,
+      inventoryNote,
+      toolbar,
+      fieldBlock("runtime", COPY.runtime, "只读。Runtime、模型、推理、Tier 与额度。", RUNTIME_COLUMNS, runtimeCells),
+      fieldBlock("duty", "职责", null, DUTY_COLUMNS, dutyCells),
+      fieldBlock("boundary", "边界", null, BOUNDARY_COLUMNS, boundaryCells),
+    ];
+  }
+
+  const columns = agentColumns(r.section === "configure", planMode, state.recentWindowH);
   const head = h(
     "thead",
     null,
     h(
       "tr",
       null,
-      agentColumns(r.section === "configure", planMode, state.recentWindowH).map((c) => h("th", { scope: "col" }, c)),
+      columns.map((c) => h("th", { scope: "col" }, c)),
     ),
   );
   const bodies = [...groups.values()].map((g) =>
@@ -1857,25 +1989,20 @@ function renderAgents() {
         { class: "group-row" },
           h(
           "th",
-          { colspan: agentColumns(r.section === "configure", planMode, state.recentWindowH).length, scope: "rowgroup" },
+          { colspan: columns.length, scope: "rowgroup" },
           g.ws ? wsTag(g.ws) : h("span", { class: "p-name" }, g.key),
           h("span", { class: "muted" }, ` ${g.rows.length}`),
         ),
       ),
-      g.rows.map((row) => agentRow(row, r.group === "provider", planMode)),
+      g.rows.map((row) => agentRow(row, showWs, planMode)),
     ),
   );
 
   const table = rows.length
-    ? h("div", { class: "table-wrap sticky-head", tabindex: 0, role: "region", "aria-label": r.section === "configure" ? "Agent 配置" : "Agent 状态" }, h("table", { class: "matrix" }, head, bodies))
+    ? h("div", { class: "table-wrap sticky-head", tabindex: 0, role: "region", "aria-label": "Agent 状态" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
-  const inventory = Object.entries(state.ownerInventory || {})
-    .filter(([, entry]) => !r.ws || entry.slug === r.ws);
-  const inventoryNote = inventory.length ? h("p", { class: "muted" },
-    "用户补采 · user-cli:desktop-api.multica.ai · ",
-    inventory.map(([, entry]) => `${entry.slug}: ${entry.status === "ok" ? "成功" : "失败（使用常规缓存）"} · ${entry.collected_at || "未知时间"}`).join("； ")) : null;
-  if (!planMode) return [...(r.section === "configure" ? pageHead(h, [{ label: COPY.agent }], COPY.agent) : [h("h2", null, "Agent 状态")]), strip, inventoryNote, toolbar, table];
+  if (!planMode) return [h("h2", null, "Agent 状态"), strip, inventoryNote, toolbar, table];
   const selected = selectedAgentRecords();
   const outside = outsideCount(parseSel(r.sel), rows.map((row) => row.a.id));
   const bar = h(
