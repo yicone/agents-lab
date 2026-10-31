@@ -503,6 +503,8 @@ function syncFromLocation() {
 
 window.addEventListener("hashchange", syncFromLocation);
 window.addEventListener("popstate", syncFromLocation);
+window.addEventListener("scroll", syncChromeOffsets, { passive: true });
+window.addEventListener("resize", syncChromeOffsets);
 
 // ---------- helpers ----------
 
@@ -921,6 +923,30 @@ function renderChrome() {
   }
 }
 
+function chromeHeight() {
+  const topbar = document.querySelector(".topbar");
+  const subnav = document.getElementById("subnav");
+  return (topbar ? topbar.offsetHeight : 0) + (subnav && !subnav.hidden ? subnav.offsetHeight : 0);
+}
+
+/** Measure the primary bar and pin secondary nav, table heads, and plan scope under it. */
+function syncChromeOffsets() {
+  const topbarH = document.querySelector(".topbar")?.offsetHeight || 0;
+  const subnav = document.getElementById("subnav");
+  const subnavH = subnav && !subnav.hidden ? subnav.offsetHeight : 0;
+  const chrome = topbarH + subnavH;
+  const root = document.documentElement;
+  root.style.setProperty("--topbar-h", `${topbarH}px`);
+  root.style.setProperty("--subnav-h", `${subnavH}px`);
+  root.style.setProperty("--chrome-h", `${chrome}px`);
+  const main = document.getElementById("main");
+  if (!main) return;
+  for (const wrap of main.querySelectorAll(".table-wrap")) {
+    const overlap = Math.max(0, Math.ceil(chrome - wrap.getBoundingClientRect().top));
+    wrap.style.setProperty("--head-stick", `${overlap}px`);
+  }
+}
+
 function renderSubnav() {
   const group = navGroup(state.route);
   const links = group === "issues" ? [["#/decide", "待批准", "decide-badge"], ["#/issues", "全部事项"]]
@@ -1042,7 +1068,7 @@ function laneBody(id, entries) {
     renderMain();
     if (!on) {
       const head = document.querySelector(`.lane-${id} .lane-head`);
-      const offset = head ? head.getBoundingClientRect().top - document.querySelector(".topbar").offsetHeight - 8 : 0;
+      const offset = head ? head.getBoundingClientRect().top - chromeHeight() - 8 : 0;
       if (offset < 0) window.scrollBy(0, offset);
     }
   };
@@ -1741,7 +1767,7 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
     h("td", null, a.mcp_bindings == null ? "绑定未知" : a.mcp_bindings.map(b => `${b.name || b.server_id}${b.enabled === false ? "（停用）" : ""}`).join("、") || "无库绑定", ({ managed: " · 有自有配置", hidden: " · 自有配置已隐藏", invalid: " · 自有配置无效", unknown: " · 自有配置未知" })[a.mcp_own_state || "unknown"] || ""),
     h("td", null, h("a", { href: "#/configure/runtime" }, `${COPY.runtime} →`)),
     ] : [statusCell,
-    h("td", null, a.current_tasks == null ? "未知" : a.current_tasks.length ? a.current_tasks.map(t => h("div", null, `${t.identifier || "未知任务"} · ${t.title || ""}`)) : "无运行或排队任务"),
+    h("td", null, a.current_tasks == null ? h("span", { class: "muted" }, "未知") : a.current_tasks.length ? a.current_tasks.map(t => h("div", null, `${t.identifier || "未知任务"} · ${t.title || ""}`)) : h("span", { class: "muted" }, "无运行或排队任务")),
     h(
       "td",
       { class: "num" },
@@ -1769,22 +1795,28 @@ function onAgentKind(id) {
 function renderAgents() {
   const r = state.route;
   const planMode = r.planMode && !r.planPage && r.kind !== "bots";
-  const switcher = h("div", { class: "toolbar" },
+  const title = r.section === "configure"
+    ? pageHead(h, [{ label: COPY.agent }], COPY.agent)
+    : [h("h2", null, "Agent 状态")];
+  const kindBar = h("div", { class: "toolbar" },
     kindSwitch(h, { route: r, planMode, onKind: onAgentKind }),
     h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行监控与配置视图" }, r.section === "configure" ? "查看运行监控 →" : `查看 ${COPY.agent} →`));
   if (r.kind === "bots" && !r.planPage) {
-    return renderBotPage(h, {
-      route: r,
-      payload: state.bots,
-      nowMs: now(),
-      ago,
-      absTime,
-      matchesQuery,
-      setRoute,
-      kindSwitch: switcher,
-      selectedId: state.drawer?.kind === "bot" ? state.drawer.bot?.id : "",
-      openBot: (bot, opener) => openRecordDrawer("bot", bot, opener),
-    });
+    return [
+      ...title,
+      kindBar,
+      ...renderBotPage(h, {
+        route: r,
+        payload: state.bots,
+        nowMs: now(),
+        ago,
+        absTime,
+        matchesQuery,
+        setRoute,
+        selectedId: state.drawer?.kind === "bot" ? state.drawer.bot?.id : "",
+        openBot: (bot, opener) => openRecordDrawer("bot", bot, opener),
+      }),
+    ];
   }
   const all = agentRows();
   const scoped = all.filter(({ ws }) => !r.ws || ws?.slug === r.ws);
@@ -1858,7 +1890,6 @@ function renderAgents() {
   const toolbar = h(
     "div",
     { class: "toolbar" },
-    switcher,
     agentFocusControl(h, r, all.map(({a}) => a), () => setRoute({ sel: "" })),
     h(
       "div",
@@ -1960,7 +1991,8 @@ function renderAgents() {
       blockTable(label, columns, id, cellsFor),
     );
     return [
-      ...pageHead(h, [{ label: COPY.agent }], COPY.agent),
+      ...title,
+      kindBar,
       strip,
       inventoryNote,
       toolbar,
@@ -2002,7 +2034,7 @@ function renderAgents() {
     ? h("div", { class: "table-wrap sticky-head", tabindex: 0, role: "region", "aria-label": "Agent 状态" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
-  if (!planMode) return [h("h2", null, "Agent 状态"), strip, inventoryNote, toolbar, table];
+  if (!planMode) return [...title, kindBar, strip, inventoryNote, toolbar, table];
   const selected = selectedAgentRecords();
   const outside = outsideCount(parseSel(r.sel), rows.map((row) => row.a.id));
   const bar = h(
@@ -2021,7 +2053,7 @@ function renderAgents() {
       "下一步",
     ),
   );
-  return [strip, toolbar, table, bar];
+  return [...title, kindBar, strip, toolbar, table, bar];
 }
 
 // ---------- render ----------
@@ -2524,6 +2556,7 @@ function render() {
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
   if (state.route.evidence) void ensureEvidence();
   ensurePlans();
+  syncChromeOffsets();
 }
 
 // ---------- boot ----------
@@ -2580,7 +2613,10 @@ document.querySelectorAll(".tab").forEach((t) =>
 syncFromLocation();
 refresh(true);
 if (!MOCK) setInterval(refresh, META_POLL_MS);
-setInterval(renderChrome, 5_000);
+setInterval(() => {
+  renderChrome();
+  syncChromeOffsets();
+}, 5_000);
 function syncPlanClock() {
   if (state.route.view !== "agents" || state.route.planPage !== "review") return;
   const plan = detailPlan(state.route.planId);

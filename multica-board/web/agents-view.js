@@ -522,7 +522,6 @@ export function renderBotPage(h, ctx) {
   const toolbar = h(
     "div",
     { class: "toolbar" },
-    ctx.kindSwitch,
     scope,
     h("span", { class: "muted" }, `${filtered.length} / ${items.length} bot`),
   );

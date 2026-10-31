@@ -152,11 +152,15 @@ test("agent drawer renders instructions as text and bot rows keep duty and room 
     absTime: () => "",
     matchesQuery: (q, ...fields) => !q || fields.some((field) => field && String(field).toLowerCase().includes(q.toLowerCase())),
     setRoute() {},
-    kindSwitch: h("div"),
+    kindSwitch: h("div", { class: "seg agents-kind" }),
     selectedId: "",
     openBot() {},
   });
   const pageText = textOf({ children: page });
+  assert.equal(page[0].attrs.class, "bot-bar");
+  const classes = [];
+  for (const part of page) walk(part, (node) => classes.push(String(node.attrs?.class || "")));
+  assert.equal(classes.includes("seg agents-kind"), false);
   assert.match(pageText, /Room/);
   assert.match(pageText, /未填职责说明/);
   assert.match(pageText, /12345678/);

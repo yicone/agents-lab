@@ -79,10 +79,15 @@ test("#/gov goes to the cross-layer governance list", () => {
   assert.equal(redirectHash("#/gov?q=1"), "#/map/all?gov=1");
 });
 
-test("empty hash goes to the map", () => {
-  assert.equal(redirectHash(""), "#/map");
-  assert.equal(redirectHash("#"), "#/map");
-  assert.equal(redirectHash("#/"), "#/map");
+test("empty hash goes to the inbox", () => {
+  assert.equal(redirectHash(""), "#/issues");
+  assert.equal(redirectHash("#"), "#/issues");
+  assert.equal(redirectHash("#/"), "#/issues");
+  assert.equal(redirectHash("#/?ws=acm-lab"), "#/issues?ws=acm-lab");
+  assert.equal(parseHash("").view, "issues");
+  assert.equal(parseHash("#").view, "issues");
+  assert.equal(parseHash("#/").view, "issues");
+  assert.equal(formatHash(parseHash("")), "#/issues");
 });
 
 test("unknown hash goes to the map", () => {
