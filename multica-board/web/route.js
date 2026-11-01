@@ -96,6 +96,8 @@ export function redirectHash(hash) {
     if (scope === "primary" || scope === "involved") next.set("scope", scope);
     return withQuery(`map/l${legacy[1]}`, next);
   }
+  // Empty address follows the first primary tab. Unknown paths still fall back to the map.
+  if (!path) return withQuery("issues", params);
   return "#/map";
 }
 
@@ -160,7 +162,7 @@ export function emptyRoute() {
 
 export function parseHash(hash) {
   const redirected = redirectHash(hash);
-  const source = redirected || (hash ? hash : "#/map");
+  const source = redirected || (hash ? hash : "#/issues");
   let { path, params } = splitHash(source.startsWith("#") ? source : `#${source}`);
   const route = emptyRoute();
   route.ws = params.get("ws") || "";

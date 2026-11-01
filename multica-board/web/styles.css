@@ -21,6 +21,9 @@
   --ws-bg-l: 93%;
   --radius: 6px;
   --page-gutter: 16px;
+  --topbar-h: 46px;
+  --subnav-h: 36px;
+  --chrome-h: 82px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font: 13px/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Noto Sans CJK SC", sans-serif;
 }
@@ -358,9 +361,11 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .table-wrap { min-width: 0; max-width: 100%; overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 .matrix { width: 100%; border-collapse: collapse; }
 .matrix th, .matrix td { padding: 5px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.matrix td { font-size: 12px; }
 .matrix thead th {
   position: sticky;
   top: 0;
+  transform: translateY(var(--head-stick, 0px));
   z-index: 2;
   background: var(--panel);
   font-size: 11px;
@@ -773,11 +778,11 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .source-recon { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 11px; }
 .skills-layout { display: grid; grid-template-columns: minmax(0, 1fr) 352px; gap: 12px; align-items: start; }
 .table-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-.table-wrap.sticky-head { max-height: max(320px, calc(100vh - 160px)); overflow: auto; }
+.table-wrap.sticky-head { max-height: max(320px, calc(100vh - var(--chrome-h) - 24px)); overflow: auto; }
 .skills-table { width: max-content; min-width: 100%; border-collapse: collapse; }
 .skills-table th, .skills-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; font-size: 12px; }
 .skills-table th { font-weight: 600; color: var(--muted); background: var(--panel-2); white-space: nowrap; }
-.skills-table thead th { position: sticky; top: 0; z-index: 2; background: var(--panel-2); }
+.skills-table thead th { position: sticky; top: 0; transform: translateY(var(--head-stick, 0px)); z-index: 2; background: var(--panel-2); }
 .skills-table th:last-child, .skills-table td:last-child { white-space: nowrap; }
 .tool-col { width: 44px; text-align: center; }
 .tool-col small { display: block; color: var(--faint); font-weight: 400; }
@@ -923,7 +928,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .plan-card-head h2 { margin: 0; }
 .plan-cross { background: var(--warn-bg); border-color: var(--warn); }
 .plan-bad { background: var(--bad-bg); border-color: var(--bad); }
-.plan-scope { position: sticky; top: 52px; z-index: 4; }
+.plan-scope { position: sticky; top: var(--chrome-h); z-index: 3; }
 .plan-expired-bar { margin: -10px -12px 8px; padding: 4px 12px; background: var(--panel-2); color: var(--muted); }
 .plan-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
 .plan-field input[type="text"], .plan-field select {
@@ -1067,8 +1072,21 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .tool-mark.off { color: var(--muted); }
 .tool-mark.off sup { font-size: 9px; color: var(--muted); margin-left: 1px; }
 
-.subnav { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px var(--page-gutter); border-bottom: 1px solid var(--line); }
+.subnav {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px var(--page-gutter);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
 .subnav[hidden] { display: none; }
+@media (max-width: 760px) {
+  .subnav { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+}
 .config-links a { display: inline-flex; gap: 6px; align-items: center; padding: 7px 10px; color: var(--muted); text-decoration: none; border-radius: 6px; }
 .config-links a:focus-visible { outline: 2px solid var(--accent); }
 .config-links { display: flex; flex-wrap: wrap; gap: 16px; }
