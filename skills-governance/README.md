@@ -137,3 +137,36 @@ Local LaunchAgents/LaunchDaemons, repository scripts and standard shell startup
 files had no SkilLock references. `~/go/bin/skil-lock` reports dev/commit none;
 `go version -m` identifies upstream module v0.2.5. It is outside current PATH and
 is retained unchanged. This audit did not read credentials or modify services.
+
+### Latest gate record (ACM-827)
+
+`skill_guard.py diff --gate` and the gate of non-forced `activate` atomically
+replace `~/.local/share/agents-lab/skill-staging/last-gate.json` before returning
+(including when blocked). `--gate-record PATH` selects another file for an
+isolated run. Plain `diff` and forced activation do not record a gate; forced
+activation must not turn a previous blocked result into a pass. Record-write
+failure aborts the CLI before any activation. Existing stdout/exit-code semantics
+remain: gated diff exits 2 for block, 0 for pass.
+
+`GET /api/skills/attention?format=json` exposes `upgrade_candidates` with
+identifier/installed/latest/via, including upgrades whose primary bucket is
+another problem, plus `last_gate` with time, result (`pass|block`), source
+(`skill_guard|skil-lock`) and `summary_json_path`. The file is a summary JSON
+with schema `skill-governance-last-gate/v1`, signals and capability-gate details.
+Board reads `last-gate.json` under its configured staging root; when overriding
+`--gate-record`, use that root if Board should consume the record. Reads never
+run a gate or create the staging root. The record is independent of inventory
+validity and its atomic replacement invalidates the Skills cache.
+
+`last_gate.state` is `empty` (no record; time/result/source are null), `fallback`
+(local risk-signal verdict, not SkilLock approval), `recorded`, or `error`
+(unreadable/invalid record; result is null). Historical records are not a fresh
+check of the currently installed skills. An empty candidate list after an
+incomplete upstream check is not proof of no upgrades: inspect the existing
+`buckets.upgradable.connected` and `reason` fields. No Board HTTP activate route
+exists; activation stays in `skill_guard` CLI with user-numbered approval.
+
+```sh
+curl -fsS 'http://127.0.0.1:8765/api/skills/attention?format=json' |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k:d[k] for k in ("upgrade_candidates","last_gate")}, indent=2))'
+```

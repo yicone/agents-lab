@@ -97,6 +97,13 @@ class WriteHttpTests(unittest.TestCase):
         status, payload = self.request(path='/api/runtime-actions', method='GET')
         self.assertEqual((status,payload), (200,{'enabled':False}))
 
+    def test_board_never_activates_skills_even_with_writer_enabled(self):
+        for path in ('/api/skills/activate', '/api/skills/demo/activate',
+                     '/api/runtime-actions/skills/activate'):
+            with self.subTest(path=path):
+                self.assertEqual(self.request(path=path)[0], 400 if path.startswith("/api/runtime-actions/") else 405)
+        self.assertFalse(self.adapter.writes)
+
     def test_remote_binding_rejected_with_writer(self):
         with self.assertRaises(ValueError):
             BoardServer('0.0.0.0', 0, SimpleNamespace(), runtime_actions=self.actions)

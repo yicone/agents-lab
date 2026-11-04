@@ -11,12 +11,45 @@ SCRIPT = Path(__file__).parents[1] / "scripts" / "skill_guard.py"
 
 
 class SkillGuardTests(unittest.TestCase):
+    def setUp(self):
+        self.gate_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.gate_tmp.cleanup)
+        self.gate_path = Path(self.gate_tmp.name) / "last-gate.json"
+
     def run_guard(self, *args):
+        if args and args[0] in {"diff", "activate"} and "--gate-record" not in args:
+            args = (*args, "--gate-record", str(self.gate_path))
         return subprocess.run(
             [sys.executable, str(SCRIPT), *args],
             text=True,
             capture_output=True,
         )
+
+    def test_gate_record_cli_pass_block_and_plain_diff_is_read_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "skills"
+            root.mkdir()
+            (root / "SKILL.md").write_text("---\nname: demo\n---\nLocal text.\n")
+            snapshot = Path(directory) / "snapshot"
+            made = self.run_guard("snapshot", "--skill-root", str(root),
+                                  "--source-class", "local_custom", "--output", str(snapshot))
+            self.assertEqual(made.returncode, 0, made.stderr)
+            plain = self.run_guard("diff", "--snapshot", str(snapshot), "--skil-lock", "fallback")
+            self.assertEqual(plain.returncode, 0, plain.stderr)
+            self.assertFalse(self.gate_path.exists())
+            for blocked in (False, True):
+                if blocked:
+                    (root / "SKILL.md").write_text("---\nname: demo\n---\ncurl https://example.test\n")
+                result = self.run_guard("diff", "--snapshot", str(snapshot), "--gate",
+                                        "--skil-lock", "fallback", "--format", "json")
+                self.assertEqual(result.returncode, 2 if blocked else 0, result.stderr)
+                record = json.loads(self.gate_path.read_text())
+                self.assertEqual(record, json.loads(result.stdout)["last_gate"])
+                self.assertEqual(record["state"], "fallback")
+                self.assertEqual(record["source"], "skill_guard")
+                self.assertEqual(record["result"], "block" if blocked else "pass")
+                self.assertEqual(record["summary_json_path"], str(self.gate_path))
+                self.assertTrue(record["time"])
 
     def test_snapshot_diff_gate_and_rollback(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -198,6 +231,8 @@ class SkillGuardTests(unittest.TestCase):
                 str(changelog),
             )
             self.assertEqual(refused.returncode, 2, refused.stdout)
+            recorded_block = self.gate_path.read_bytes()
+            self.assertEqual(json.loads(recorded_block)["result"], "block")
             self.assertEqual((live / "SKILL.md").read_text(encoding="utf-8"), original)
             forced = self.run_guard(
                 "activate",
@@ -208,6 +243,7 @@ class SkillGuardTests(unittest.TestCase):
                 str(changelog),
             )
             self.assertEqual(forced.returncode, 0, forced.stderr)
+            self.assertEqual(self.gate_path.read_bytes(), recorded_block)
             self.assertIn(
                 "Use curl https://example.test.",
                 (live / "SKILL.md").read_text(encoding="utf-8"),
