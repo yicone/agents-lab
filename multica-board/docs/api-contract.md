@@ -275,7 +275,55 @@ agent 矩阵，一次全量。包含已归档 agent（`archived=true`），前�
 
 `custom_env`、`mcp_config`、`runtime_config`、`launch_header` 不采集（`mcp_config` 只在内存里降成摘要，经 `/api/mcp` 输出，见下文）。某个 workspace 返回 `error.kind=auth` 时，该 workspace 的缓存（含 `workspace_skills`）整表清空。
 
+## Instructions 三方查询（ACM-828）
+
+独立入口，与 Skills inventory 分轨；不新增 HTTP 采集或写入。
+
+```sh
+python3 instructions-governance/scripts/query_instructions.py \
+  --board-url http://127.0.0.1:8765/instruction-sources.json
+```
+
+从仓库根运行，一次 JSON 返回 `instruction-query/v1`：`items[]`、`summary`、
+`generated_at`、`live_sources`、`freshness`、`source_errors`、`inaccessible_workspaces`。
+每行包含 `kind`、`workspace_id`（bot 为 null）、`id`、`path`（仓库相对路径）、
+`git_sha256`、`board_sha256`、`live_sha256`、`updated_at`、`drift`、`comparison`、`stale_reasons`。
+不返回正文、Skills 绑定或原始 CLI 错误。Agent 按 workspace+id 对齐，bot 按 id；
+Git、Board、live 任一方独有的对象都保留为行，未追踪对象的 path 为 null。
+
+三方定义：Git 是本次 worktree 的 `instructions-governance/sources/index.json` 所指文件，
+直接重算正文 hash，不信任历史索引摘要；Board 是从实际服务下载的抽屉正文导出
+`instruction-sources.json`，校验其声明 hash 与 text，不用本地 Git 导出冒充线上 Board；
+live agent 通过当前授权 Multica CLI 只读采集，拒绝的 workspace 单列且不跨 workspace 复用。
+每次 CLI 调用最多 30 秒，Board HTTP 请求最多 10 秒。live bot 等价读法是当前账号的
+Grok 本地 roster 描述缓存，**不等于云端实时验证**；只读 account-slot 和选中账号的
+roster 白名单切片，不读聊天、凭据或 Keychain。`live_sources` 明示此区别。
+
+统一 hash：对完整 instructions／description 正文先统一 CRLF/CR 为 LF，再 Unicode NFC，
+最后去首尾空白，对 UTF-8 字节计算 SHA-256。Markdown 标题、正文和文件内已有 frontmatter
+全部参与；不移除 frontmatter、不附加路径或包装字段。空正文、缺失正文无 hash（null），
+不把 null 相等判为 aligned。Agent 的 `instructions_sha256` 与 Bot API 的
+`description_sha256` 都在脱敏之前计算；脱敏正文不能用于重算线上原文 hash。
+withheld 对象不暴露三方 hash。
+
+`updated_at` 是 live 观测时间，不是对象最后编辑时间：CLI 成功读回时间、或选中 roster
+文件的 mtime；账号槽位的 mtime 不充当 roster 时效。缓存或离线输入默认超过 300 秒
+即 stale（`--max-age-seconds` 可调，负数拒绝），未来时间同样 stale。
+`--agents-json` / `--bots-json` 接受采集快照列表或 `{agents:[...]}` / `{bots:[...]}`；
+`--board-json` 接受 Board 导出，与 `--board-url` 互斥。这些离线输入以文件 mtime
+标时效、来源标 snapshot，不声称实时。快照内容应来自受信采集，不要通过重新保存文件伪造新鲜度。
+
+内容枚举 `comparison`：三方非空且相同为 aligned；Git=live 而 Board 不同为 stale
+（`board_outdated`）；三方非空且两两不同为 split；其它两方相同为 modified；
+任何 hash 缺失为 stale。`drift` 在此基础上将过期、缺失或 hash 校验失败降为 stale，
+withheld 单列。过期的 split 仍保留 `comparison:split`，避免掩盖内容分裂。
+`stale_reasons` 说明过期或缺失原因。数据不全仍退出 0 并返回可解析矩阵，
+脚本应检查 drift 和 source_errors；参数错误退出 2，Git 真源不可读取时失败，不返回伪矩阵。
+静态 JSON 下载成功本身不构成三方验收；此命令还必须读取 live 并比较。
+
 ## `GET /api/bots`
+
+ACM-828：`items[].description_sha256` 是规范化原始 description 的 SHA-256，在脱敏之前计算，空值为 null；口径见上文 Instructions 三方查询。该 API 读取本地 roster 缓存，不承诺云端实时状态。
 
 本机 Grok Bot 花名册。只读 sand-client 的 5 个切片，以及 `routes.json` 和 `outbox.json`。不读 transcript、草稿、secret、Cookies、credential 或 Keychain。目录不存在或未登录时：
 

@@ -604,9 +604,9 @@ def export_ui(root: Path) -> dict[str, Any]:
     return {"schema": "instruction-sources/v1", "agents": agents, "bots": bots}
 
 
-def multica_runner(binary: str) -> Runner:
+def multica_runner(binary: str, *, timeout: float | None = None) -> Runner:
     def run(argv: list[str]) -> str:
-        proc = subprocess.run([binary, *argv], check=False, capture_output=True, text=True)
+        proc = subprocess.run([binary, *argv], check=False, capture_output=True, text=True, timeout=timeout)
         if proc.returncode != 0:
             detail = (proc.stderr or proc.stdout or "").strip().splitlines()
             tail = detail[-1] if detail else f"exit {proc.returncode}"

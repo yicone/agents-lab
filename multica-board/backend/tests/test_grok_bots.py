@@ -173,6 +173,10 @@ class AllowListTests(unittest.TestCase):
         names = [item["name"] for item in body["items"]]
         self.assertEqual(names, ["Agent Steward", "macOS 执委会"])
         steward = body["items"][0]
+        from multica_board.collector import instructions_sha256
+        self.assertEqual(steward["description_sha256"], instructions_sha256("uses sk-abcdefghijk"))
+        self.assertNotEqual(steward["description_sha256"], instructions_sha256(steward["description"]))
+        self.assertIsNone(body["items"][1]["description_sha256"])
         self.assertTrue(steward["pinned"])
         self.assertEqual(steward["section_name"], "基建")
         self.assertEqual(steward["bridge"]["routine"], "Multica 状态提醒")

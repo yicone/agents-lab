@@ -239,3 +239,10 @@ PYTHONPATH=multica-board/backend python3 -m multica_board.governance_scan \
 Atlas 接入需显式使用与 Board 相同的只读 `--profile <profile>`，并把 `--output` 指定为 `<db-stem>-governance.json`（与 DB 同目录）。报告按 profile、workspace、24 小时新鲜度及 issue `updated_at` 绑定；未采集、损坏、过期、范围不符均显示未知，变化的 issue 不展示旧告警。高优先项进入「待批准 / 待你决定」，展开「P# · 巡检待决」可看证据；原 issue 状态保持原样。该文件不是修复批准，没有自动任务、部署或定时扫描。
 
 可选 `--exceptions approved.json` 是按稳定 issue UUID 索引的已批准白名单，字段为 `category`、`reason`、`owner`、`review_at`（含时区）、`allowed_statuses`、`allowed_projects`（可含 null）、`content_sha256`（标题 + 换行 + 描述）。类别为 `dispatch_inbox / weekly_triage / getting_started / operations_shell / migrated_history`。内容哈希变化、过期、project/status 不符均失效；关键词只提示候选，不能豁免。冻结目录中的 Getting Started 与已结束的「已迁出」project 为内置历史例外。扫描失败不替换上一次成功报告；旧报告仍受 24 小时与版本校验约束。
+
+### Instructions 三方脚本查询
+
+在仓库根运行 `python3 instructions-governance/scripts/query_instructions.py`，一次读取
+Git、运行在 8765 的 Board 导出及当前可读 agent／bot 描述，输出三方 hash 和 drift 矩阵。
+这是独立 instructions 查询，不经过 Skills。Grok 数据来自本地 roster 缓存，过期明确标 stale。
+参数、hash、时效和枚举见 [API 契约](docs/api-contract.md#instructions-三方查询acm-828)。

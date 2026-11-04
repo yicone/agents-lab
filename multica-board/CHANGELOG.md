@@ -20,6 +20,8 @@
 
 - 本地候选（未合并、未部署）：Skills 只读结果新增多路径 SKILL.md 原始字节 SHA-256、哈希分组及 match/mismatch 状态；缺失或不可读入口明确标为未完成比较，原有相对清单基线的漂移结果继续保留。（ACM-826；无 PR）
 
+- 本地候选（未合并、未部署）：独立 instructions 查询命令一次返回 Git、Board 与线上观测的 hash、路径及漂移矩阵；缺失与过期明确标 stale，Bots API 补齐脱敏前描述 hash。（ACM-828；无 PR）
+
 - 本地候选（未合并、未部署）：运行指标页在已批准的 ACM Lab workspace 内显示只读影子建议和审计。本地开关打开才生成建议；关掉后只保留指标展示。不改派单，不增加写入，不改 runtime 或账号。（ACM-574；无 PR）
 
 - 本地候选（未合并、未部署）：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（ACM-662；无 PR）注：ACM-715 起不再使用「能力」总称。

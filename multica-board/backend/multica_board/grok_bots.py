@@ -17,6 +17,7 @@ from typing import Any, Callable
 from urllib.parse import unquote
 
 from .redact import redact
+from .collector import instructions_sha256
 
 SLOT_KEY = "sand.client.slice.client-meta.account-slot"
 ACCOUNT_PREFIX = "sand.client.slice.account."
@@ -313,6 +314,7 @@ def _roster_items(
                 "name": _text(raw.get("name")),
                 "title": title,
                 "description": _text(raw.get("description")),
+                "description_sha256": instructions_sha256(raw.get("description")),
                 "is_group": bool(raw.get("isGroup")),
                 "member_ids": members,
                 "harness": raw.get("harness") if isinstance(raw.get("harness"), str) else None,
