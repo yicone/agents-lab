@@ -33,6 +33,7 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import drift_report  # noqa: E402
+import gate_record  # noqa: E402
 
 INVENTORY_PATH = REPO_ROOT / "skills-governance" / "config" / "skills-inventory.json"
 TOOL_ROOTS_PATH = REPO_ROOT / "skills-governance" / "config" / "tool-roots.json"
@@ -43,7 +44,7 @@ TEXT_BYTES = 2048
 REVIEW_DAYS = (30, 90, 180)
 DEFAULT_REVIEW_DAYS = 90
 CACHE_TTL_SECONDS = 15
-_STAMP_FILES = frozenset({"SKILL.md", "plugin.json", "capability-gate.json", "manifest.json"})
+_STAMP_FILES = frozenset({"SKILL.md", "plugin.json", "capability-gate.json", "manifest.json", "last-gate.json"})
 _SKIP_DIRS = frozenset({"node_modules", ".git", "__pycache__", "dist", "build"})
 
 BUCKETS = (
@@ -1412,6 +1413,11 @@ def _attention(
         "badge": sum(counts.values()),
         "counts": counts,
         "buckets": buckets,
+        "upgrade_candidates": [
+            {"identifier": item["name"], "installed": (item.get("upgrade") or {}).get("installed"),
+             "latest": (item.get("upgrade") or {}).get("latest"), "via": (item.get("upgrade") or {}).get("via")}
+            for item in items if item.get("upgrade_status") == "update"
+        ],
     }
 
 
@@ -1467,12 +1473,14 @@ def build_payload(
 ) -> dict[str, Any]:
     moment = now or _now()
     generated_at = _iso(moment)
+    last_gate = gate_record.read(staging_root / "last-gate.json")
     try:
         document = _read_inventory(inventory_path)
         skills = document["skills"]
         roots, tools = _load_tool_roots(tool_roots_path, repo_root)
     except (OSError, json.JSONDecodeError, UnicodeError, ValueError, KeyError, TypeError, AttributeError) as exc:
         attention = _attention([], generated_at=generated_at, inventory_updated_at=None, inventory_sha=None, review_days=review_days, staging_connected=False)
+        attention["last_gate"] = last_gate
         return {
             "ok": False,
             "error": {"code": "inventory_invalid", "message": str(exc)},
@@ -1636,6 +1644,7 @@ def build_payload(
         upgrade=(upgrade.state, upgrade.detail, bool(upgrade.updates)),
         overlap=(overlap["state"], overlap["detail"]),
     )
+    attention["last_gate"] = last_gate
     return {
         "ok": True,
         "error": None,

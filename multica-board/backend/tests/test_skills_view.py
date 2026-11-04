@@ -56,6 +56,48 @@ def skill(name, **overrides):
 
 
 class SkillsPayloadTests(unittest.TestCase):
+    def test_last_gate_empty_fallback_recorded_error_and_invalid_inventory(self):
+        record_path = self.staging / "last-gate.json"
+        self.assertEqual(self.payload([])["attention"]["last_gate"]["state"], "empty")
+        self.assertFalse(record_path.exists())
+        for backend, blocked in (("fallback", False), ("skil-lock", False), ("skil-lock", True)):
+            with self.subTest(backend=backend, blocked=blocked):
+                skills_view.gate_record.save(record_path, {
+                    "blocked": blocked, "capability_gate": {"backend": backend}})
+                before = record_path.read_bytes()
+                gate = self.payload([])["attention"]["last_gate"]
+                self.assertEqual(gate["state"], "fallback" if backend == "fallback" else "recorded")
+                self.assertEqual(gate["result"], "block" if blocked else "pass")
+                self.assertEqual(gate["summary_json_path"], str(record_path))
+                self.assertEqual(record_path.read_bytes(), before)
+        self.inventory.write_text("bad inventory")
+        result = build_payload(repo_root=self.repo, inventory_path=self.inventory,
+                               tool_roots_path=self.tools, staging_root=self.staging, scan_roots=[])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["attention"]["last_gate"]["result"], "block")
+        for raw in ('{', '[]', '{"schema": "wrong"}'):
+            record_path.write_text(raw)
+            self.assertEqual(self.payload([])["attention"]["last_gate"]["state"], "error")
+
+    def test_gate_record_rewrite_invalidates_cached_attention(self):
+        self.inventory.write_text('{"skills": []}')
+        self.assertEqual(self.cached(lambda: NOW)["attention"]["last_gate"]["state"], "empty")
+        for blocked in (True, False):
+            skills_view.gate_record.save(self.staging / "last-gate.json", {
+                "blocked": blocked, "capability_gate": {"backend": "fallback"}})
+            result = self.cached(lambda: NOW)
+            self.assertEqual(result["attention"]["last_gate"]["result"], "block" if blocked else "pass")
+
+    def test_upgrade_candidates_include_skills_in_a_higher_priority_bucket(self):
+        body = skills_view._attention([
+            {"name": "demo", "bucket": "capability_pending", "upgrade_status": "update",
+             "upgrade": {"installed": "1", "latest": "2", "via": "npm"}}
+        ], generated_at=None, inventory_updated_at=None, inventory_sha=None,
+           review_days=90, staging_connected=True)
+        self.assertEqual(body["counts"]["upgradable"], 0)
+        self.assertEqual(body["upgrade_candidates"], [
+            {"identifier": "demo", "installed": "1", "latest": "2", "via": "npm"}])
+
     def test_live_conflicts_keep_manual_source_and_new_install_tag(self):
         shared = self.root / 'shared'
         for name in ('registered', 'new-install'):

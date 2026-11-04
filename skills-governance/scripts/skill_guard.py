@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import capability_contract  # noqa: E402
 import capability_gate  # noqa: E402
+import gate_record  # noqa: E402
 import drift_report  # noqa: E402
 import doctor as adapter_doctor  # noqa: E402
 
@@ -429,6 +430,10 @@ def diff_snapshot(args: argparse.Namespace) -> int:
     )
     if getattr(args, "staging", None):
         report["staging"] = str(root_path(args.staging))
+    if args.gate:
+        report["last_gate"] = gate_record.save(
+            Path(getattr(args, "gate_record", None) or gate_record.DEFAULT_PATH), report
+        )
     print_diff_report(report, args.format)
     return 2 if args.gate and report["blocked"] else 0
 
@@ -660,6 +665,9 @@ def activate(args: argparse.Namespace) -> int:
             report, snapshot_dir, manifest, current, getattr(args, "skil_lock", None)
         )
         report["staging"] = str(staging_dir)
+        report["last_gate"] = gate_record.save(
+            Path(getattr(args, "gate_record", None) or gate_record.DEFAULT_PATH), report
+        )
         if report["blocked"]:
             print(
                 json.dumps(
@@ -807,6 +815,7 @@ def parser() -> argparse.ArgumentParser:
         "--skil-lock",
         help="absolute pinned fork binary (default: SKIL_LOCK_BINARY or pinned install), or 'fallback'",
     )
+    diff.add_argument("--gate-record", help="latest gate JSON path (default: ~/.local/share/agents-lab/skill-staging/last-gate.json)")
     diff.set_defaults(func=diff_snapshot)
     staged = sub.add_parser(
         "stage",
@@ -851,6 +860,7 @@ def parser() -> argparse.ArgumentParser:
         "--new-ref",
         help="upstream ref or lock folder hash for the staged tree, stored as new_ref",
     )
+    apply.add_argument("--gate-record", help="latest gate JSON path (same default as diff --gate)")
     apply.set_defaults(func=activate)
     restore = sub.add_parser("rollback", help="restore trees from a snapshot")
     restore.add_argument("--snapshot", required=True)

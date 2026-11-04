@@ -324,8 +324,73 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(source["state"], "ok")
         self.assertTrue(body["attention"]["buckets"]["upgradable"]["connected"])
         self.assertEqual(body["attention"]["counts"]["upgradable"], 1)
+        self.assertEqual(body["attention"]["upgrade_candidates"], [
+            {"identifier": "demo", "installed": OLD, "latest": NEW, "via": "github"}
+        ])
         self.assertEqual(lock_path.read_bytes(), before_lock)
         self.assertEqual(skill_md.read_bytes(), before_skill)
+
+    def test_cli_gate_is_queryable_over_read_only_http(self):
+        from types import SimpleNamespace
+        from multica_board.server import BoardServer
+
+        skill_dir = self.repo / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("---\nname: demo\n---\nLocal body.\n")
+        (self.root / "skill-lock.json").write_text(json.dumps({
+            "version": 3, "skills": {"demo": self.lock_entry()}}))
+        script = Path(__file__).resolve().parents[3] / "skills-governance/scripts/skill_guard.py"
+        snapshot = self.root / "snapshot"
+        command = [sys.executable, str(script)]
+        made = subprocess.run(command + ["snapshot", "--skill-root", str(skill_dir),
+                              "--source-class", "local_custom", "--output", str(snapshot)],
+                              capture_output=True, text=True)
+        self.assertEqual(made.returncode, 0, made.stderr)
+        record = self.root / "staging/last-gate.json"
+        def attention(_days):
+            return self.payload(fetch=lambda _url: (200, tree("skills/demo", NEW), ""))["attention"]
+        server = BoardServer("127.0.0.1", 0, SimpleNamespace(skills_attention=attention))
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        samples = []
+        try:
+            for state in ("empty", "fallback"):
+                if state == "fallback":
+                    result = subprocess.run(command + ["diff", "--snapshot", str(snapshot),
+                        "--gate", "--skil-lock", "fallback", "--gate-record", str(record),
+                        "--format", "json"], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+                try:
+                    conn.request("GET", "/api/skills/attention?format=json")
+                    response = conn.getresponse()
+                    body = json.loads(response.read())
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(body["last_gate"]["state"], state)
+                    self.assertEqual(len(body["upgrade_candidates"]), 1)
+                    if state == "fallback":
+                        self.assertEqual(body["last_gate"]["result"], "pass")
+                        self.assertEqual(body["last_gate"]["source"], "skill_guard")
+                        self.assertEqual(body["last_gate"]["summary_json_path"], str(record))
+                    samples.append({"upgrade_candidates": body["upgrade_candidates"],
+                                    "last_gate": body["last_gate"]})
+                finally:
+                    conn.close()
+            conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+            try:
+                conn.request("POST", "/api/skills/activate", body="{}")
+                response = conn.getresponse()
+                response.read()
+                self.assertEqual(response.status, 405)
+            finally:
+                conn.close()
+            self.assertEqual(skill_file.read_text(), "---\nname: demo\n---\nLocal body.\n")
+            print("ACM-827 fixture HTTP samples: " + json.dumps(samples))
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
 
     def test_payload_network_failure_stays_disconnected(self) -> None:
         skill_dir = self.repo / "skills" / "demo"
