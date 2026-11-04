@@ -1335,12 +1335,13 @@ class Views:
                 block["detail"] = export_source["detail"]
         meta = {**(document.get("meta") or {})}
         meta["sources"] = [*(meta.get("sources") or []), bot_source, export_source]
-        return runtime_columns(
+        from .skill_registration import registration_fields
+        return registration_fields(runtime_columns(
             {**document, "items": items, "summary": summary, "meta": meta},
             self.runtimes(),
             roots,
             collect_runtime_load(),
-        )
+        ), repo_root=REPO_ROOT)
 
     def skills_content(self, **arguments) -> dict[str, Any]:
         from .skill_grok_export import PREFIX, read_export_content
