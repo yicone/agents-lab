@@ -98,6 +98,33 @@ class SkillsPayloadTests(unittest.TestCase):
         self.assertEqual(body["upgrade_candidates"], [
             {"identifier": "demo", "installed": "1", "latest": "2", "via": "npm"}])
 
+    def test_copy_hash_compare_is_independent_of_baseline_drift(self):
+        paths = [self.repo / "skills" / name for name in ("copy-a", "copy-b")]
+        body = b"---\nname: compare-demo\n---\nSame bytes.\r\n"
+        for path in paths:
+            path.mkdir()
+            (path / "SKILL.md").write_bytes(body)
+        record = skill("compare-demo", source_class="local_custom",
+                       visible_paths=[str(path) for path in paths],
+                       subject=hashlib.sha256(b"old baseline").hexdigest())
+        first = next(item for item in self.payload([record])["items"]
+                     if item["name"] == "compare-demo")
+        self.assertEqual(first["hash_compare"]["status"], "match")
+        self.assertEqual(first["hash_compare"]["groups"], [
+            {"content_hash": hashlib.sha256(body).hexdigest(), "entry_indexes": [0, 1]}])
+        self.assertTrue(first["findings"])
+        self.assertEqual(first["entries"][0]["content_hash"], hashlib.sha256(body).hexdigest())
+        (paths[1] / "SKILL.md").write_bytes(body + b"changed\n")
+        second = next(item for item in self.payload([record])["items"]
+                      if item["name"] == "compare-demo")
+        self.assertEqual(second["hash_compare"]["status"], "mismatch")
+        self.assertEqual(len(second["hash_compare"]["groups"]), 2)
+        self.assertEqual(second["findings"], first["findings"])
+        print("ACM-826 payload sample=compare-demo " + json.dumps({
+            "same_bytes": first["hash_compare"], "changed_bytes": second["hash_compare"],
+            "drift_preserved": second["findings"] == first["findings"],
+        }, sort_keys=True))
+
     def test_live_conflicts_keep_manual_source_and_new_install_tag(self):
         shared = self.root / 'shared'
         for name in ('registered', 'new-install'):

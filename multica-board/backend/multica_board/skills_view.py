@@ -26,6 +26,7 @@ from typing import Any, Callable
 from .skill_discovery import scan_installs
 from .skill_upgrade import DEFAULT_TOTAL_TIMEOUT, check_upgrades
 from .skill_conflicts import check_conflicts
+from .skill_hash_compare import compare_entries
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = REPO_ROOT / "skills-governance" / "scripts"
@@ -1611,6 +1612,10 @@ def build_payload(
     shared = _shared_root(roots)
     _attach_grok_symlinks(items, roots)
     for item in items:
+        item["hash_compare"] = compare_entries(
+            item.get("entries", []),
+            lambda raw: drift_report.inventory.locate_path(raw, repo_root),
+        )
         item["shared_entry"] = _shared_entry(item.get("name"), shared)
         item["command"] = _command(item.get("bucket"))
 
