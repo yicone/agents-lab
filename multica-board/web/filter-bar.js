@@ -4,9 +4,11 @@ export const DECIDE_SCOPE = "范围：ACM Lab";
 export const SKILLS_SCOPE = "范围：全部来源";
 export const MCP_SCOPE = "范围：全部来源";
 export const HOOKS_SCOPE = "范围：全部来源";
+export const DIFF_SCOPE = "对账范围：已登记到 Git 的 Agent 与 Grok Bot；workspace 筛选不作用于本页";
 
-/** "shared" shows the filter. "decide" / "skills" / "mcp" show a fixed scope. "none" shows neither. */
-export function filterChrome(view) {
+/** "shared" shows the filter. "decide" / "skills" / "mcp" / "diff" show a fixed scope. "none" shows neither. */
+export function filterChrome(view, kind) {
+  if (view === "agents" && kind === "diff") return "diff";
   if (view === "issues" || view === "agents" || view === "runs") return "shared";
   if (view === "decide") return "decide";
   if (view === "skills") return "skills";
@@ -20,6 +22,7 @@ export function scopeNote(view) {
   if (view === "skills") return SKILLS_SCOPE;
   if (view === "mcp") return MCP_SCOPE;
   if (view === "hooks") return HOOKS_SCOPE;
+  if (view === "diff") return DIFF_SCOPE;
   return "";
 }
 

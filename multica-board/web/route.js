@@ -255,7 +255,8 @@ export function parseHash(hash) {
     route.bucket = PLAN_BUCKETS.has(params.get("bucket")) ? params.get("bucket") : "";
     route.planFix = params.get("fix") === "empty" ? "empty" : "";
     if (!route.planPage) {
-      route.kind = params.get("kind") === "bots" ? "bots" : "";
+      const kind = params.get("kind");
+      route.kind = kind === "bots" || kind === "diff" ? kind : "";
       route.hasInstructions = flag(params, "has_instructions");
       route.botLinked = flag(params, "linked");
       route.planMode = flag(params, "plan");
@@ -316,7 +317,7 @@ export function formatHash(route) {
       if (r.failedOnly) p.set("failed", "1");
       if (r.offlineOnly) p.set("offline", "1");
       if (r.archived) p.set("archived", "1");
-      if (r.kind === "bots") p.set("kind", "bots");
+      if (r.kind === "bots" || r.kind === "diff") p.set("kind", r.kind);
       if (r.hasInstructions) p.set("has_instructions", "1");
       if (r.botLinked) p.set("linked", "1");
       if (r.planMode) p.set("plan", "1");

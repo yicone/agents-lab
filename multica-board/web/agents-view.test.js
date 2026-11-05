@@ -13,6 +13,7 @@ import {
   driftStatus,
   instructionCommand,
   instructionStat,
+  kindSwitch,
   lineDiff,
   missingHermesSkill,
   renderAgentDrawer,
@@ -167,6 +168,21 @@ test("agent drawer renders instructions as text and bot rows keep duty and room 
   assert.match(pageText, /shadow/);
   assert.match(pageText, /D4B/);
   assert.match(pageText, /未分组/);
+});
+
+test("kindSwitch offers Agents, Grok Bots, the diff reconciliation and the plan switch", () => {
+  const labels = [];
+  const kinds = [];
+  const tree = kindSwitch(h, { route: { kind: "diff" }, planMode: false, onKind: (id) => kinds.push(id) });
+  walk(tree, (node) => {
+    if (node.tag === "button") labels.push(textOf(node));
+  });
+  assert.deepEqual(labels, ["Agents", "Grok Bots", "职责说明对账", "规划切换…"]);
+  const active = [];
+  walk(tree, (node) => {
+    if (node.tag === "button" && node.attrs["aria-pressed"] === "true") active.push(textOf(node));
+  });
+  assert.deepEqual(active, ["职责说明对账"]);
 });
 
 test("agents view source does not assign innerHTML", () => {

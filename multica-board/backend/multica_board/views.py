@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -343,7 +344,8 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
 
 class Views:
     def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int,
-                 server_identity: str | None = None, mcp_every: int = 5, mcp_ctx=None):
+                 server_identity: str | None = None, mcp_every: int = 5, mcp_ctx=None,
+                 instructions_root: Path | None = None):
         self.store = store
         self.server = server
         self.server_identity = server_identity
@@ -351,6 +353,7 @@ class Views:
         self.collect_interval_s = collect_interval_s
         self.mcp_every = mcp_every
         self._mcp_ctx = mcp_ctx
+        self.instructions_root = instructions_root
 
     def _mcp_context(self):
         if self._mcp_ctx is None:
@@ -731,6 +734,35 @@ class Views:
         from .grok_bots import load_bots
 
         return load_bots()
+
+    # --- /api/instruction-diff ------------------------------------------------
+
+    def instruction_diff(self, static_dir: Path | None = None) -> dict[str, Any]:
+        from .instruction_diff import DEFAULT_INSTRUCTIONS_ROOT, build_instruction_diff
+
+        agents_payload = self.agents()
+        agents = [a for a in agents_payload.get("items", []) if not a.get("archived")]
+        agents_observed_at = _parse(agents_payload.get("generated_at"))
+        bot_error = False
+        bots: list[dict[str, Any]] = []
+        bots_observed_at = None
+        try:
+            bots_payload = self.bots()
+        except Exception:
+            bots_payload = None
+        if (not isinstance(bots_payload, dict) or bots_payload.get("ok") is False
+                or not isinstance(bots_payload.get("items"), list)):
+            bot_error = True
+        else:
+            bots = bots_payload["items"]
+            bots_observed_at = _parse(bots_payload.get("observed_at"))
+        board_path = (static_dir / "instruction-sources.json") if static_dir else None
+        root = self.instructions_root or DEFAULT_INSTRUCTIONS_ROOT
+        return build_instruction_diff(
+            root=root, board_path=board_path,
+            agents=agents, agents_observed_at=agents_observed_at,
+            bots=bots, bots_observed_at=bots_observed_at,
+            bot_error=bot_error, now=_now())
 
     # --- /api/mcp ------------------------------------------------------------
 

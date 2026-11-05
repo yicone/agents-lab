@@ -28,6 +28,7 @@ import { contentKey as skillContentKey, loadSkillContent as requestSkillContent 
 import { renderUsage, usageAlert, usageRefreshKey, usageSignal } from "./usage.js";
 import { metricsScopeNote, renderRunMetrics, runMetricsRefreshKey } from "./run-metrics-view.js";
 import { agentQueryFields, kindSwitch, renderAgentDrawer, renderBotDrawer, renderBotPage, skillRecords } from "./agents-view.js";
+import { hmOf, renderInstructionDiff } from "./instruction-diff.js";
 import { drawerCommands, drawerLayer, layerBar, renderLayer, renderMap } from "./view-atlas.js";
 
 const MOCK_PARAM = new URLSearchParams(location.search).get("mock");
@@ -105,6 +106,7 @@ const state = {
   agents: [],
   bots: null,
   instructionSources: { agents: {}, bots: {} },
+  instructionDiff: { status: "idle", data: null, error: null, checkedAt: null, lastOkAt: null, filter: "", expanded: new Set() },
   runtimes: [],
   recentWindowH: 24,
   ownerInventory: {},
@@ -218,6 +220,51 @@ function gitAgent(agent) {
 function gitBot(bot) {
   if (!bot) return null;
   return state.instructionSources?.bots?.[bot.id] || null;
+}
+
+/** The reconciliation endpoint fails closed: surface the server's own message. */
+async function loadInstructionDiff() {
+  if (MOCK) {
+    return { schema: "instruction-diff/v1", generated_at: new Date(now()).toISOString(),
+      summary: { total: 0, aligned: 0, modified: 0, stale: 0, split: 0, withheld: 0 },
+      freshness: { board: "fresh", agent: "fresh", bot: "fresh" },
+      live_sources: { agent: "board-cache", bot: "local-roster-cache" },
+      source_errors: {}, inaccessible_workspaces: [], items: [] };
+  }
+  const res = await fetch("/api/instruction-diff", { cache: "no-store", headers: { Accept: "application/json" } });
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+  if (!res.ok) {
+    const err = payload?.error && typeof payload.error === "object" ? payload.error : {};
+    throw Object.assign(
+      new Error(typeof err.message === "string" && err.message ? err.message : `HTTP ${res.status}`),
+      { diffCode: typeof err.code === "string" ? err.code : `http_${res.status}` },
+    );
+  }
+  return payload;
+}
+
+async function checkInstructionDiff() {
+  const d = state.instructionDiff;
+  if (d.status === "loading") return;
+  d.status = "loading";
+  d.error = null;
+  render();
+  try {
+    d.data = await loadInstructionDiff();
+    d.error = null;
+    d.status = "ok";
+    d.checkedAt = d.lastOkAt = now();
+  } catch (err) {
+    d.error = { code: err.diffCode || "unavailable", message: String(err.message || err) };
+    d.status = "error";
+    d.checkedAt = now();
+  }
+  render();
 }
 
 async function loadBots() {
@@ -861,7 +908,8 @@ function renderChrome() {
   const skillsHead = state.route.view === "skills" ? skillsSnapshot() : null;
   const mcpHead = state.route.view === "mcp" ? mcpSnapshot() : null;
   const planHead = state.route.view === "agents" && state.route.planPage === "list" ? planSnapshot() : null;
-  const pageHead = skillsHead || mcpHead || planHead;
+  const diffHead = state.route.view === "agents" && state.route.kind === "diff" && !state.route.planPage ? diffSnapshot() : null;
+  const pageHead = skillsHead || mcpHead || planHead || diffHead;
   snap.className = `snapshot ${pageHead?.level || hs.level}`;
   snap.title = pageHead?.title || hs.title || "";
   snap.replaceChildren(h("span", { class: "dot" }), pageHead?.text || hs.text);
@@ -882,7 +930,7 @@ function renderChrome() {
   }
 
   const healthEl = document.getElementById("health");
-  const chrome = filterChrome(state.route.view);
+  const chrome = filterChrome(state.route.view, state.route.kind);
   healthEl.dataset.filterChrome = chrome;
   if (chrome === "skills") {
     healthEl.hidden = false;
@@ -900,6 +948,10 @@ function renderChrome() {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "待批准范围");
     healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("decide")));
+  } else if (chrome === "diff") {
+    healthEl.hidden = false;
+    healthEl.setAttribute("aria-label", "对账范围");
+    healthEl.replaceChildren(h("p", { class: "scope-note" }, scopeNote("diff")));
   } else if (chrome === "shared") {
     healthEl.hidden = false;
     healthEl.setAttribute("aria-label", "Workspace 筛选");
@@ -1783,24 +1835,68 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
   );
 }
 
+function diffSnapshot() {
+  const d = state.instructionDiff;
+  if (d.status === "loading") return { level: "idle", text: "对账检查中…", title: "" };
+  if (d.status === "error") return { level: "bad", text: `对账失败：${d.error?.code || "未知"}`, title: d.error?.message || "" };
+  if (!d.data) return { level: "idle", text: "对账未检查", title: "点击页面中的「检查 / 刷新差异」读取" };
+  const live = state.meta?.generated_at;
+  const text = `对账于 ${hmOf(d.data.generated_at) || "—"} · 线上数据 ${live ? ago(live) : "未知"}`;
+  const problems = Object.keys(d.data.source_errors || {}).length || (d.data.inaccessible_workspaces || []).length;
+  return { level: problems ? "warn" : "ok", text, title: absTime(d.data.generated_at) };
+}
+
 function onAgentKind(id) {
   const drawerOpen = state.drawer?.kind === "agent" || state.drawer?.kind === "bot";
   if (drawerOpen) state.drawer = null;
   if (id === "plan") setRoute({ kind: "", planMode: true });
-  else if (id === "bots") setRoute({ kind: "bots", planMode: false });
+  else if (id === "bots" || id === "diff") setRoute({ kind: id, planMode: false });
   else setRoute({ kind: "", planMode: false, ...(state.route.planMode ? { sel: "" } : {}) });
   if (drawerOpen) renderDrawer();
 }
 
 function renderAgents() {
   const r = state.route;
-  const planMode = r.planMode && !r.planPage && r.kind !== "bots";
+  const planMode = r.planMode && !r.planPage && !r.kind;
   const title = r.section === "configure"
     ? pageHead(h, [{ label: COPY.agent }], COPY.agent)
     : [h("h2", null, "Agent 状态")];
   const kindBar = h("div", { class: "toolbar" },
     kindSwitch(h, { route: r, planMode, onKind: onAgentKind }),
     h("a", { href: formatHash({ ...r, section: r.section === "configure" ? "" : "configure" }), title: "保留当前筛选，切换运行监控与配置视图" }, r.section === "configure" ? "查看运行监控 →" : `查看 ${COPY.agent} →`));
+  if (r.kind === "diff" && !r.planPage) {
+    return [
+      ...title,
+      kindBar,
+      ...renderInstructionDiff(h, {
+        route: r,
+        diff: state.instructionDiff,
+        workspaces: state.meta?.workspaces ?? [],
+        agents: state.agents,
+        bots: state.bots?.items ?? [],
+        sources: state.instructionSources,
+        liveAt: state.meta?.generated_at,
+        ago,
+        absTime,
+        matchesQuery,
+        onCheck: checkInstructionDiff,
+        setFilter: (filter) => {
+          state.instructionDiff.filter = filter;
+          render();
+        },
+        toggleRow: (key) => {
+          const expanded = state.instructionDiff.expanded;
+          if (expanded.has(key)) expanded.delete(key);
+          else expanded.add(key);
+          render();
+        },
+        openHref: (item) =>
+          item.kind === "agent"
+            ? formatHash({ ...r, kind: "", sel: item.id, q: "", planMode: false })
+            : formatHash({ ...r, kind: "bots", sel: "", q: "", planMode: false }),
+      }),
+    ];
+  }
   if (r.kind === "bots" && !r.planPage) {
     return [
       ...title,

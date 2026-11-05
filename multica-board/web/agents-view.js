@@ -131,10 +131,11 @@ export function skillsCell(h, agent, provider) {
 }
 
 export function kindSwitch(h, { route, planMode, onKind }) {
-  const current = planMode ? "plan" : route?.kind === "bots" ? "bots" : "agents";
+  const current = planMode ? "plan" : route?.kind === "bots" || route?.kind === "diff" ? route.kind : "agents";
   const items = [
     ["agents", "Agents"],
     ["bots", "Grok Bots"],
+    ["diff", "职责说明对账"],
     ["plan", "规划切换…"],
   ];
   return h(

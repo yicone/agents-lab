@@ -140,7 +140,8 @@ def cmd_serve(a: argparse.Namespace) -> int:
     from .mcp_local import McpContext, REPO_ROOT
     mcp_ctx = McpContext(home=Path.home(), repo_root=REPO_ROOT, data_dir=a.db.parent)
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh,
-                  server_identity=origin, mcp_every=a.mcp_every, mcp_ctx=mcp_ctx)
+                  server_identity=origin, mcp_every=a.mcp_every, mcp_ctx=mcp_ctx,
+                  instructions_root=a.instructions_root)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
     actions = None
     journal = None
@@ -258,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--task-scoped", action="store_true", help="use the current injected task CLI identity, without Owner fallback")
     s.add_argument("--write-policy", type=Path, help="opt-in owner-private runtime write policy; loopback only")
     s.add_argument("--plan-dir", type=Path, default=DEFAULT_PLAN_DIR, help="private G1 plan directory (read-only HTTP)")
+    s.add_argument("--instructions-root", type=Path, default=None,
+                   help="instructions-governance root for /api/instruction-diff (dev/demo/testing only; default: repo checkout)")
 
     from .metrics_cli import register
     register(sub, _common)
