@@ -150,6 +150,8 @@ def judge_timeline(payload, stderr, new_status):
     event, ordered = ob.select_latest_status_event(events, new_status)
     if not ordered:
         return {"action": "pending", "reason": "unordered", "actor": None, "event": None}
+    if event is None and (new_status or "") in ob.STATUS_ACTOR_GATE:
+        return {"action": "pending", "reason": "no_event", "actor": None, "event": None}
     actor = None
     if event is not None and event.get("actor_type") is not None:
         actor = str(event.get("actor_type")).strip().lower() or None

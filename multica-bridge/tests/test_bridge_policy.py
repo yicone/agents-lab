@@ -408,6 +408,60 @@ class TimelineCursorTests(unittest.TestCase):
         bridge.hold_pending_issues(snap, {"issue-1": {"s": "in_progress", "a": "2026-11-05T00:00:00Z"}}, [])
         self.assertEqual(snap["issue-1"]["s"], "in_review")
 
+    def test_complete_timeline_without_a_matching_event_stays_pending_until_agent(self):
+        bridge = self.bridge()
+        prev_row = {"s": "in_progress", "a": "2026-11-05T00:00:00Z", "w": "ws"}
+        observed = {"s": "in_review", "a": "2026-11-06T03:00:00.250Z", "w": "ws"}
+        agent_event = {
+            "action": "status_changed", "actor_type": "agent",
+            "created_at": "2026-11-06T03:00:00.250Z",
+            "details": {"to": "in_review", "from": "in_progress"},
+        }
+        unrelated = [
+            {"action": "commented", "actor_type": "agent", "created_at": "2026-11-06T03:00:00Z"},
+            {"action": "status_changed", "actor_type": "agent", "created_at": "2026-11-06T02:00:00Z",
+             "details": {"to": "in_progress"}},
+        ]
+        recovered = {"items": [agent_event], "has_more": False}
+        sequences = [
+            ([], recovered),
+            ({"items": []}, recovered),
+            ({"items": unrelated, "has_more": False}, {"items": unrelated + [agent_event], "has_more": False}),
+        ]
+        for first, second in sequences:
+            calls = []
+            stored = {"issue-1": dict(prev_row)}
+            cursor = "2026-11-06T01:00:00Z"
+            tick = "2026-11-06T04:00:00Z"
+            actions = []
+            reasons = []
+
+            def fetch(_wid, iid, pages=(first, second)):
+                calls.append(iid)
+                return pages[len(calls) - 1], "", None
+
+            for _ in range(2):
+                decision = bridge.consider_status("in_review", fetch("ws", "issue-1"))
+                actions.append(decision["action"])
+                reasons.append(decision["reason"])
+                snap = {"issue-1": dict(observed)}
+                pending = ["issue-1"] if decision["action"] == "pending" else []
+                bridge.hold_pending_issues(snap, stored, pending)
+                cursor = bridge.saved_cursor(cursor, tick, pending)
+                if decision["action"] == "pending":
+                    self.assertEqual(decision["reason"], "no_event")
+                    self.assertEqual(snap["issue-1"]["s"], "in_progress")
+                    self.assertEqual(snap["issue-1"]["a"], "2026-11-05T00:00:00Z")
+                    self.assertEqual(cursor, "2026-11-06T01:00:00Z")
+                else:
+                    self.assertEqual(decision["actor"], "agent")
+                    stored = snap
+            self.assertEqual(calls, ["issue-1", "issue-1"])
+            self.assertEqual(actions, ["pending", "send"])
+            self.assertEqual(reasons, ["no_event", "ok"])
+            self.assertEqual(stored["issue-1"]["s"], "in_review")
+            self.assertEqual(cursor, tick)
+
 
 class CircuitAndFirstFailureTests(unittest.TestCase):
     def _drain(self, box, routes, poster):
