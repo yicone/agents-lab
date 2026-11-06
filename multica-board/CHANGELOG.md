@@ -102,7 +102,17 @@
 
 ## 2026-10-29
 
+归档例外：按 ACM-890 最新返工指示，ACM-660 / ACM-662 / ACM-664 归入本段。三项实际 UTC 合并时间分别为 2026-10-28 23:16:41Z / 19:07:12Z / 17:57:37Z（Asia/Singapore 均为 10-29）；本段分组不改变原始时间证据。
+
+### 新增
+
+- 已合并、部署待核实：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（[PR #146](https://github.com/yicone/agents-lab/pull/146)；[合并提交 `8bbe1a1`](https://github.com/yicone/agents-lab/commit/8bbe1a1e2e448b114c0cee298a58537e18fcaf29)；ACM-662）注：后续 [PR #148](https://github.com/yicone/agents-lab/pull/148)（2026-10-29 UTC，见对应日期段）移除了「能力」总称。
+
+- 已合并、部署待核实：能力条目用文字显示声明了、可达、观察到。缺数据写「未知」，不当成异常，也不新增告警。Hooks 的观察到全部为未知；可达只看命令里的绝对路径是否存在，Grok 另看加载错误和兼容状态，`enabled` 与 `trusted_hash` 不参与。命令文本不展示。（[PR #147](https://github.com/yicone/agents-lab/pull/147)；[合并提交 `d575a82`](https://github.com/yicone/agents-lab/commit/d575a82da5d15ebb0ff9933380ad34379660feb8)；ACM-664）
+
 ### 变更
+
+- 已合并、部署待核实：配置管理里「Agent 配置」「运行配置」「能力」的标题、面包屑和按钮用同一套词。能力页入口是 skills、MCP 与 hooks，页标题都是「能力」。这些页的来源名去掉产品前缀，展示为 Workspace。收件箱、待批准、最近运行、运行监控和用量页里当作产品名的称呼也去掉，分别改成「打开来源」「运行历史」「已完成次数」「运行层」和口径说明。能力页收到的云端独有技能说明去掉产品名前缀后再展示。证据清单的共享槽位可见名称是「共享登录配置」，内部标识仍是 shared_profile。终端里要复制的命令仍使用实际命令名。顶栏不改。对象自己的名称和历史记录保持原样。（[PR #145](https://github.com/yicone/agents-lab/pull/145)；[合并提交 `c70a654`](https://github.com/yicone/agents-lab/commit/c70a6545bf51d1e75cd40c752b188258eba07582)；ACM-660）注：后续 [PR #148](https://github.com/yicone/agents-lab/pull/148)（2026-10-29 UTC，见对应日期段）移除了「能力」总称。
 
 - 已合并、部署待核实：Agent 配置页把 Runtime、模型、推理、Tier、额度拆成只读「运行配置」字段组，与「职责」「边界」分块显示。这三块没有编辑按钮，不展示 account_key 或 source_path。二级导航和「运行配置」写入页未改。（[PR #150](https://github.com/yicone/agents-lab/pull/150)；[合并提交 `d897203`](https://github.com/yicone/agents-lab/commit/d89720347e6a4ea22958651954eed6a58b623ee8)；ACM-661）
 
@@ -112,17 +122,11 @@
 
 ### 新增
 
-- 已合并、部署待核实：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（[PR #146](https://github.com/yicone/agents-lab/pull/146)；[合并提交 `8bbe1a1`](https://github.com/yicone/agents-lab/commit/8bbe1a1e2e448b114c0cee298a58537e18fcaf29)；ACM-662）注：后续 [PR #148](https://github.com/yicone/agents-lab/pull/148)（2026-10-29 UTC，见对应日期段）移除了「能力」总称。
-
-- 已合并、部署待核实：能力条目用文字显示声明了、可达、观察到。缺数据写「未知」，不当成异常，也不新增告警。Hooks 的观察到全部为未知；可达只看命令里的绝对路径是否存在，Grok 另看加载错误和兼容状态，`enabled` 与 `trusted_hash` 不参与。命令文本不展示。（[PR #147](https://github.com/yicone/agents-lab/pull/147)；[合并提交 `d575a82`](https://github.com/yicone/agents-lab/commit/d575a82da5d15ebb0ff9933380ad34379660feb8)；ACM-664）
-
 - 已合并、部署待核实：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（[PR #140](https://github.com/yicone/agents-lab/pull/140)；[合并提交 `d2fd21b`](https://github.com/yicone/agents-lab/commit/d2fd21b8f20c3c9db37c1b8c463a69d7e53ec52c)；ACM-571）
 
 ### 变更
 
 - 已合并、部署待核实：Skills 接入本地实时重叠检测，覆盖新安装技能，分别展示检测证据与人工标记；检测缓存并在失败时明确回退。（[PR #117](https://github.com/yicone/agents-lab/pull/117)；[合并提交 `9b437d6`](https://github.com/yicone/agents-lab/commit/9b437d6bd43e19bfabb4994e0b54f24f737ce96f)；ACM-357）
-
-- 已合并、部署待核实：配置管理里「Agent 配置」「运行配置」「能力」的标题、面包屑和按钮用同一套词。能力页入口是 skills、MCP 与 hooks，页标题都是「能力」。这些页的来源名去掉产品前缀，展示为 Workspace。收件箱、待批准、最近运行、运行监控和用量页里当作产品名的称呼也去掉，分别改成「打开来源」「运行历史」「已完成次数」「运行层」和口径说明。能力页收到的云端独有技能说明去掉产品名前缀后再展示。证据清单的共享槽位可见名称是「共享登录配置」，内部标识仍是 shared_profile。终端里要复制的命令仍使用实际命令名。顶栏不改。对象自己的名称和历史记录保持原样。（[PR #145](https://github.com/yicone/agents-lab/pull/145)；[合并提交 `c70a654`](https://github.com/yicone/agents-lab/commit/c70a6545bf51d1e75cd40c752b188258eba07582)；ACM-660）注：后续 [PR #148](https://github.com/yicone/agents-lab/pull/148)（2026-10-29 UTC，见对应日期段）移除了「能力」总称。
 
 ### 修复
 
