@@ -1,0 +1,123 @@
+{
+  "ok": true,
+  "generated_at": "2026-11-06T06:00:00Z",
+  "items": [
+    {
+      "id": "colgrep-search",
+      "name": "colgrep-search",
+      "source_class": "local_custom",
+      "canonical_path": "/fixture/skills/colgrep-search",
+      "body_sha256": "a2de7f125b550c39454db031f17bcac4701e59a981f96bf94c33687e2bfa0d29",
+      "body_hash_path": "/fixture/skills/colgrep-search",
+      "body_hash_state": "observed",
+      "reconciliation_status": "modified",
+      "content": {
+        "content": "BODY_SENTINEL"
+      },
+      "entries": [
+        {
+          "path": "/fixture/skills/colgrep-search",
+          "content_hash": "a2de7f125b550c39454db031f17bcac4701e59a981f96bf94c33687e2bfa0d29",
+          "hash_file": "/fixture/skills/colgrep-search/SKILL.md",
+          "hash_state": "ok"
+        },
+        {
+          "path": "/fixture/shared/colgrep-search",
+          "content_hash": "a2de7f125b550c39454db031f17bcac4701e59a981f96bf94c33687e2bfa0d29",
+          "hash_file": "/fixture/shared/colgrep-search/SKILL.md",
+          "hash_state": "ok"
+        }
+      ],
+      "hash_compare": {
+        "algorithm": "sha256",
+        "subject": "SKILL.md",
+        "status": "match",
+        "entry_count": 2,
+        "compared_entry_count": 2,
+        "groups": [
+          {
+            "content_hash": "a2de7f125b550c39454db031f17bcac4701e59a981f96bf94c33687e2bfa0d29",
+            "entry_indexes": [
+              0,
+              1
+            ],
+            "content": "BODY_SENTINEL"
+          }
+        ],
+        "unknown_entry_indexes": []
+      },
+      "loaders": [
+        {
+          "id": "codex",
+          "kind": "runtime",
+          "mark": "shared",
+          "shared_auto_load": true,
+          "runtime_loaded": null,
+          "load_state": "unverified",
+          "source": "skill_evidence",
+          "collected_at": null
+        },
+        {
+          "id": "fixture-agent",
+          "kind": "workspace_agent",
+          "workspace_id": "fixture-workspace",
+          "skill_id": "fixture-install",
+          "enabled": true,
+          "mark": "declared",
+          "shared_auto_load": false,
+          "runtime_loaded": null,
+          "load_state": "unverified",
+          "source": "workspace_installs",
+          "collected_at": null,
+          "content": "BODY_SENTINEL"
+        }
+      ],
+      "workspace_installs": [
+        {
+          "workspace_id": "fixture-workspace",
+          "workspace_name": "Fixture Workspace",
+          "id": "fixture-install",
+          "content": {
+            "content": "BODY_SENTINEL"
+          },
+          "agents": [
+            {
+              "id": "fixture-agent",
+              "name": "Fixture Agent",
+              "enabled": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grok_bot:colgrep-search",
+      "name": "colgrep-search",
+      "source_class": "grok_bot",
+      "canonical_path": null,
+      "body_sha256": null,
+      "body_hash_path": null,
+      "body_hash_state": "not_applicable",
+      "entries": [],
+      "loaders": [
+        {
+          "id": "fixture-bot",
+          "kind": "grok_bot",
+          "mark": "declared",
+          "shared_auto_load": false,
+          "runtime_loaded": null,
+          "load_state": "unverified",
+          "source": "grok_bot",
+          "collected_at": null
+        }
+      ],
+      "grok_bots": [
+        {
+          "id": "fixture-bot",
+          "name": "Fixture Bot",
+          "evidence_state": "inferred"
+        }
+      ]
+    }
+  ]
+}

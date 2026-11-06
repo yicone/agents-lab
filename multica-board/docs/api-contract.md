@@ -766,6 +766,9 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 - `GET /api/skills`：`items` 是清单和未登记安装按名字合并后的行，带 `tools`（`direct` / `shared` / `missing` / `null`）、`bucket`、`baseline_debt`。`attention` 与下面的 attention 接口相同。`ok: false` 表示清单读不出来，此时 `items` 为空，不把「没检查」显示成「没问题」。
 - Per-skill 登记（ACM-825）：每行新增 `id`、`body_sha256`、`body_hash_path`、`body_hash_state`、`loaders[]`，并始终提供 `canonical_path`。本机/Workspace 合并行以名称作稳定 `id`（改名即换 ID），Grok 行沿用既有 `key`，同名来源互不冒充。`canonical_path` 保留登记路径；无登记时选本机已暴露的正文/安装入口，没有路径为 null。`body_sha256` 对选中路径的原始 `SKILL.md` 字节计算，不使用目录 hash、版本、基线 hash 或 Workspace 缓存 hash 代替；`body_hash_path` 指明本次读取入口（目录或 SKILL.md）。读取沿用正文接口的 512 KiB、UTF-8、普通文件与 symlink 安全限制，每次请求重新读取。成功为 `body_hash_state:"observed"`；缺失、拒绝、超限等保留读取状态且 hash 为 null，未采集为 `uncollected`；Grok 名称声明为 `not_applicable`，Grok 本机导出经逐文件核对后可提供 hash，导出选择器不冒充 canonical 路径。
 - `loaders[]` 每条含 `{id,kind,mark,shared_auto_load,runtime_loaded,load_state,source,collected_at}`。`kind=runtime` 的 id 为 provider；有 present/shared 入口证据或 `mark=shared` 时 `shared_auto_load:true`（即使 direct 标记优先也保留），只表示共享目录自动发现入口，**不证明当前 runtime 加载**。`runtime_loaded:null` 配 `load_state:"unverified"`；只有明确证据才给 true/`loaded` 或 false/`not_loaded`。所有 runtime 列均列入，包括无入口或未知的列；用 `mark` 区分。`kind=grok_bot` 为名称声明的 Bot id；`kind=workspace_agent` 为已声明挂载的 agent id，并带 `workspace_id/skill_id/enabled`。这些声明的加载状态始终未验证，enabled=true 不提升为已加载。
+- 多入口当前正文比较（ACM-826）：本机 inventory/discovery/staging 合并行的 `hash_compare` 为 `{algorithm:"sha256",subject:"SKILL.md",status,entry_count,compared_entry_count,groups:[{content_hash,entry_indexes:[]}],unknown_entry_indexes:[]}`。索引均指向同一行的 `entries[]`；同组相同、异组不同、unknown 不可比较。词法不同但指向同一文件的 symlink 入口仍保留各自索引。Workspace 独有行及随后追加的 Grok 声明/导出行目前没有此字段，消费者应显示不可用，不能补成 match 或零入口已检查。
+- 每个参与比较的 `entries[]` 增加 `{content_hash,hash_file,hash_state}`：目录读其 `SKILL.md`，文件入口直接读 `SKILL.md`；`hash_file` 是实际选择的文件路径，无法定位时为 null。`hash_state=ok` 时 `content_hash` 为原始字节 SHA-256（含 BOM、CRLF，空文件也可比较），否则为 null；状态包括 `missing`、`denied`、`not_regular`、`changed_during_read`、`unknown`。非普通文件不读；读取期间 size/mtime/ctime 变化则不采信。此比较只返回 hash 和入口元数据，不返回或持久化正文；它不沿用 `body_sha256` 的 UTF-8/512 KiB 正文预览限制，二者不可互换。
+- `hash_compare.status` 按顺序判断：存在至少两个不同 hash 组 → `mismatch`（即使有 unknown 也成立）；否则有不可比较入口 → `incomplete`；否则至少两个入口 → `match`；零或单个可读入口 → `insufficient_entries`。`compared_entry_count` 只计 `hash_state=ok` 的入口。此结果与相对清单 baseline 的 `reconciliation_status`、`baseline_debt` 独立：所有当前副本一致仍可能相对基线有漂移。实现与测试见 `backend/multica_board/skill_hash_compare.py`、`backend/tests/test_skill_hash_compare.py`。
 - `skills_schema: 2`：payload 结构版本（含 `ok:false` 的错误 payload）。前端见到缺失或 <2 视为 `legacy_payload`：所有条目按 `legacy`（旧数据）渲染、不计入未扫描，并显示「后端数据版本较旧，共享入口与仓库入口未检查」。schema≥2 时某条 `shared_entry` 缺失/非对象/state 不可识别 ⇒ 客户端 `unknown`/`field_invalid`。
 - `shared_root`：共享根探测 `{path, state, reason, detail}`；`state` ∈ `ok | absent | denied | unknown | unscanned`（未配置共享根 → `path:null`/`unscanned`/`no_shared_root`；清单无效也是 `unscanned`，表示探测根本没跑）。`repos` 是 `[{id, label, path, identity_state, reason}]`；`repo_id` 是**本次 payload 的展示分组键，非持久**：`realpath(repo_root, strict)` 派生，重启/移动/改名会变，不是 Multica 项目引用，不得存储或当 join key；realpath 失败 ⇒ 单条 `{id:"unknown", label:"未知仓库", identity_state:"unknown", reason: repo_root_absent|repo_root_denied|repo_root_error}`，`"unknown"` 不表示跨 payload/跨仓库相等。目录移动 ⇒ 新 id；大小写变体不合并。
 - 每条 item 带 `shared_entry`：`{state,label,reason,errno,step,path,target,resolved,link_kind,target_scope,detail,root}`，探测 `<共享根>/<name>`。步骤按固定顺序、首个终止态胜出：P0（无系统调用：无共享根→`unscanned/no_shared_root`；名字非法→`unknown/invalid_name`）→ S1 `_stat(根)`（denied/none `root_absent`/unknown `root_loop`/`root_error`/`root_not_dir`）→ S2 `_lstat(入口)`（ENOENT→`none/entry_absent`；EACCES→`denied/entry_denied`；其它含 ENOTDIR/ELOOP→`unknown/entry_error`）→ S3 `_readlink` → S4 `_stat(入口)`（仅链接：ENOENT/ENOTDIR/ELOOP→`broken_link` `target_absent`/`target_enotdir`/`link_loop`；EACCES→`denied/target_denied`）→ S5 `realpath(strict)`（只算 `target_scope`：inside/outside_shared_root，纯信息，不改 state）→ S6 SKILL.md（缺失/悬空链接/非普通文件/空文件→`content_missing`；EACCES/读失败→`denied`/`unknown`）→ S7 `link`/`dir`。`target/resolved/errno/link_kind/target_scope` 为 null 表示"该步未到达/不适用"，绝不表示"没有"。意外异常 ⇒ `unknown/probe_exception`。区别记牢：`unscanned`=后端没跑探测；`none/root_absent`=探测跑了、根不在；配置不可读 ⇒ `inventory_invalid`；字段缺失 ⇒ 客户端 `field_invalid`；旧 payload ⇒ `legacy`。
@@ -776,6 +779,23 @@ Skills 属于这台机器，不放进按 workspace 分组的 `/api/attention`。
 - `GET /api/skills/attention`：`?format=json|text`。text 不超过 2048 字节，空桶不出现，基线债只有一行计数、不列条目。桶代码：`missing`、`version_changed`、`unrecorded`、`capability_pending`、`modified`、`upgradable`、`overlap`。`badge` 是这些桶的条数之和，不含 `baseline_debt`。
 
 每个 skill 只进一个桶，优先级是上面的桶代码顺序。`version_changed` 是记录的插件版本目录不在、同级有新版本。`modified` 同时收 `unverified`。升级检查只读 npm registry 和 GitHub API，不带凭证、不安装、不改 skill。Skills CLI 的 GitHub 安装用 lock 里的目录树哈希和 git trees API 比较；版本号坐标比 `latest` 或 release/tag。成功且没有更新时，可升级桶 `connected: true` 且 items 为空。请求失败、本轮限频没查完，或候选 skill 没有可比较版本时，数据源是 `fallback`；还没有确认到可升级项时桶保持 `connected: false`，页面显示原因，不显示成「无」。确认到的更新仍进入桶，条目带 `upgrade: {installed, latest, via}`，`via` 为 `github` 或 `npm`。
+
+attention 已提供 ACM-827 的 `upgrade_candidates[]:{identifier,installed,latest,via}`，包含被更高优先桶遮住的升级项；空列表须结合上述升级数据源状态判断。`last_gate` 提供 `{state,time,result,source,summary_json_path,reason,...}`，`state` 为 `empty`（无记录）、`recorded`、`fallback` 或 `error`；`result` 为 `pass|block|null`。fallback 的 pass 只代表本地风险信号，不能称为 SkilLock 通过。查询不运行 gate、不 activate；这两项也可从 `/api/skills` 的 `attention` 读取。
+
+### Steward / 执行 agent 只读消费（ACM-892）
+
+在仓库根目录执行：
+
+```sh
+python3 multica-board/scripts/query-skill.py --name colgrep-search --json
+python3 multica-board/scripts/query-skill.py --id 'grok_bot:colgrep-search' --json
+# 显式离线样例，路径和身份均为 fixture，不代表本机观测
+python3 multica-board/scripts/query-skill.py --name colgrep-search --json --fixture multica-board/backend/tests/fixtures/query-skill.json
+```
+
+脚本仅 GET `http://127.0.0.1:8765/api/skills`，不走代理或重定向；超时 30 秒，响应/fixture 上限 16 MiB。连接失败、`ok:false`、旧登记字段缺失、非法 JSON、超限或未命中均退出 1，并在 stderr 报错；参数错误退出 2，匹配成功退出 0。不自动回退 fixture，也不把未知比较状态当失败：保留后端状态供调用方判断。输出 `input:board|fixture` 与后端 `generated_at`；fixture 时间不是本轮观测时间。
+
+`--name` 精确匹配，保留本机与 Grok 同名行；后续用返回的 `--id` 对齐 Board 行。`loaders` 保留 runtime/agent/bot 加载摘要，`declarations` 从 `workspace_installs[].agents` 和 `grok_bots` 列出名称、id 与声明证据，agent 的身份须连同 `workspace_id` 使用。名称声明及 enabled 不证明当前加载。`entries` 保留原顺序及每入口 hash，以便解析比较组；缺失 `hash_compare` 输出 null 和 `hash_compare_state:"unavailable"`。省略 `--json` 输出逐字段文本。命令始终不请求或输出正文，不提供 `--with-content`，不写 inventory、不执行升级或激活。更多说明见 `--help`。
 
 ## `GET /api/skills/content`（ACM-336）
 
