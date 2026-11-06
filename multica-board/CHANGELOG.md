@@ -1,36 +1,14 @@
 # Changelog
 
-记录已合入 `main` 的用户可感知变化，采用 Keep a Changelog 的分类方式。无正式版本号，以下日期为 PR 合并日期（UTC），**不是部署或上线日期**。核对基线：`537e5fec07d239504cd86592d4a1caa55a1ff341`（2026-10-24 核对）。以下为合并历史，部署证据未完整核实，不据合并推断已上线；已找到的历史部署记录见文末，未覆盖项仍待补证。纯文档、纯测试、内部重构及已撤回的图标方案不单列。
+记录已合入 `main` 的用户可感知变化，采用 Keep a Changelog 的分类方式。无正式版本号，以下日期为 PR 合并日期（UTC），**不是部署或上线日期**。核对基线：`b91967a1f9f864d96ca265fac9788359f029de36`（2026-11-06 核对）。以下为合并历史，部署证据未完整核实，不据合并推断已上线；已找到的历史部署记录见文末，未覆盖项仍待补证。纯文档、纯测试、内部重构及已撤回的图标方案不单列。
 
 ## Unreleased
 
-### 新增
-
-- 本地候选（未合并、未部署）：Agents 页新增「职责说明对账」子视图（`?kind=diff`）与只读 `GET /api/instruction-diff`，三方（Git 真源、看板导出、线上缓存）对账 agent 职责说明与 Grok Bot 描述；手动点击才检查，五档漂移计数、部分来源失败警示、行内 20 行摘要对照；Git 真源不可读返回 500 `git_source_unreadable` 可读原因，不降级。（ACM-880；无 PR）
-
-- 本地候选（未合并、未部署）：Skills attention 只读接口提供完整升级候选与最近一次 gate 的时间、pass/block、来源和摘要路径；无记录、fallback 或损坏记录明确区分。Board 不提供 activate 写入口。（ACM-827；无 PR）
-
-### 修复
-
-- 本地候选（未合并、未部署）：Skills 缓存忽略安装路径父目录中的运行时文件抖动，避免重复重建；技能新增、删除、正文修改及插件版本变化仍触发刷新。（ACM-686；无 PR）
-
-- 本地候选（未合并、未部署）：流速采集在 110 秒预算内重试列表页，记录脱敏错误、命令、offset 和耗时，并逐轮保存采集快照与报告；timeline 缺失单独标记，不使完整清单降级。（ACM-675；无 PR）
+已写明合并但尚未按日归位的 ACM-650、572、613、642、586、630、587、542、518、454 建议下轮归位，须保留各条部署脚注。
 
 ### 新增
-
-- 本地候选（未合并、未部署）：Skills 只读接口逐项返回稳定 id、路径、正文 SHA-256、来源和加载方；共享入口与未验证的 runtime 加载状态分开表达。（ACM-825；无 PR）
-
-- 本地候选（未合并、未部署）：Skills 只读结果新增多路径 SKILL.md 原始字节 SHA-256、哈希分组及 match/mismatch 状态；缺失或不可读入口明确标为未完成比较，原有相对清单基线的漂移结果继续保留。（ACM-826；无 PR）
-
-- 本地候选（未合并、未部署）：独立 instructions 查询命令一次返回 Git、Board 与线上观测的 hash、路径及漂移矩阵；缺失与过期明确标 stale，Bots API 补齐脱敏前描述 hash。（ACM-828；无 PR）
 
 - 本地候选（未合并、未部署）：运行指标页在已批准的 ACM Lab workspace 内显示只读影子建议和审计。本地开关打开才生成建议；关掉后只保留指标展示。不改派单，不增加写入，不改 runtime 或账号。（ACM-574；无 PR）
-
-- 本地候选（未合并、未部署）：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（ACM-662；无 PR）注：ACM-715 起不再使用「能力」总称。
-
-- 本地候选（未合并、未部署）：能力条目用文字显示声明了、可达、观察到。缺数据写「未知」，不当成异常，也不新增告警。Hooks 的观察到全部为未知；可达只看命令里的绝对路径是否存在，Grok 另看加载错误和兼容状态，`enabled` 与 `trusted_hash` 不参与。命令文本不展示。（ACM-664；无 PR）
-
-- 本地候选（未合并、未部署）：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（ACM-571；仅本地提交，无 PR）
 
 - 用量页三列下方新增只读「额度池利用」节，按 6e / aq / he / mg / pe 别名逐账号展示 5h/周窗口用量、重置卡临期提示、Credits 余额与 Q4 节奏比，字段缺失标「无该字段」，超 30 分钟未更新标「陈旧」，无颜色告警、不跨账号相加；Q4 旁注只显示文字「建议阈值（未批准）：各账号节奏比 max/min > 3 且最高 > 1.5 为黄，仅提示，不自动调整」，不执行判定。（[PR #134](https://github.com/yicone/agents-lab/pull/134)；[合并提交 `c6f41bc`](https://github.com/yicone/agents-lab/commit/c6f41bcc2708359fa434bf1fe4834991904a02ce)；ACM-650；已合并、已部署到 8765，部署事实据 ACM-650 2026-10-27 部署核对：生产目录快进到该 SHA 并重启 `one.yic.multica-board`，`/api/usage` 含 `quota_pool` 且无邮箱/`account_key`/`source_path`）
 
@@ -38,15 +16,15 @@
 
 - 已合并、部署待核实：Skills 增加「Grok Bot 导出」来源，支持查看 user skill 正文与附件、显示导出时间，并按 manifest 逐文件核对 SHA-256 和字节数；缺失或校验失败时明确提示。（[PR #121](https://github.com/yicone/agents-lab/pull/121)；[合并提交 `72fd24f`](https://github.com/yicone/agents-lab/commit/72fd24f998a90cff822314ddfd017a5cd4bb676e)；ACM-613）
 
+- 已合并、部署待核实：用量页窗口展示分带（常规 / 关注 / 预警 / 危急 / 耗尽 / 未知）、24h 与今日增量、预计耗尽时间和采样年龄。采样陈旧时分带显示未知。`cursor:tertiary` 显示为 Third Party。原有可派活 / 即将耗尽标记不变。（[PR #116](https://github.com/yicone/agents-lab/pull/116)；[合并提交 `6ded6f5`](https://github.com/yicone/agents-lab/commit/6ded6f5123e97f9e0eb4fde1987d5354ac7ac7e7)；ACM-587）
+
+- 本地分支候选（未合并、未部署）：新增只读 `flow-check` 巡检，默认增量读取所有 workspace 的近 48h 变更 timeline，台账与代理分栏，用已确认下限/候选上限比较批准的 4.5 件/天阈值，附提速线索口径和缺数原因；支持 Board 状态观测导出及指定窗口对账。（ACM-486；仅本地提交，无 PR）
+
+- 本分支候选（未合并、未部署）：增加只读效能指标和流速命令、四周历史回补与覆盖率报告，变更事件保留 90 天；缺证据保持未知。（ACM-462；获批开 PR 后补链接）
+
+- 本分支候选（未合并、未部署）：支持多个监听 IP 和精确 Host/Origin 白名单，允许受信任 LAN / tailnet 直连；默认保持回环只读访问。（ACM-424；当前仅本地提交，获批开 PR 后补链接）
+
 ### 变更
-
-- 本地候选（未合并、未部署）：Agent 配置页把 Runtime、模型、推理、Tier、额度拆成只读「运行配置」字段组，与「职责」「边界」分块显示。这三块没有编辑按钮，不展示 account_key 或 source_path。二级导航和「运行配置」写入页未改。（ACM-661；无 PR）
-
-- 本地候选（未合并、未部署）：配置管理二级 tab 只写 skills、MCP、hooks，去掉「能力 ·」前缀和页内第三层切换。这三页的标题与面包屑中间段改为当前项名；证据清单返回入口改为「返回 skills」。行内「能力三态」仍是状态模型名，不改。（ACM-715；无 PR）
-
-- 本地候选（未合并、未部署）：Skills 接入本地实时重叠检测，覆盖新安装技能，分别展示检测证据与人工标记；检测缓存并在失败时明确回退。（ACM-357；无 PR）
-
-- 本地候选（未合并、未部署）：配置管理里「Agent 配置」「运行配置」「能力」的标题、面包屑和按钮用同一套词。能力页入口是 skills、MCP 与 hooks，页标题都是「能力」。这些页的来源名去掉产品前缀，展示为 Workspace。收件箱、待批准、最近运行、运行监控和用量页里当作产品名的称呼也去掉，分别改成「打开来源」「运行历史」「已完成次数」「运行层」和口径说明。能力页收到的云端独有技能说明去掉产品名前缀后再展示。证据清单的共享槽位可见名称是「共享登录配置」，内部标识仍是 shared_profile。终端里要复制的命令仍使用实际命令名。顶栏不改。对象自己的名称和历史记录保持原样。（ACM-660；仅本地提交，无 PR）注：ACM-715 起不再使用「能力」总称。
 
 - 本地候选（未合并、未部署）：全量只读巡检 project 与三属性 P1–P9；高优先结果从绑定 workspace/profile 的新鲜报告进入待批准队列，可展开当前值、候选与证据，不修改 issue。（ACM-597；无 PR）
 
@@ -92,19 +70,77 @@
 
 - 本分支候选（未合并、未部署）：completed run 的最终输出若为明确上游处理错误，单列为交付异常，展示证据及独立计数，不改任务状态、不自动重跑。（ACM-409；仅本地提交，获批开 PR 后补链接）
 
+## 2026-11-06
+
 ### 新增
 
-- 本分支候选（未合并、未部署）：Skills 对 Codex、Cursor、Hermes 显示加载探针。只有配置里的显式禁用标成未加载；没有逐条加载名单时保持未验证，不把磁盘入口当成已加载。（[PR #118](https://github.com/yicone/agents-lab/pull/118)；ACM-360；未合并、未部署）
+- 已合并、部署待核实：Agents 页新增「职责说明对账」子视图（`?kind=diff`）与只读 `GET /api/instruction-diff`，三方（Git 真源、看板导出、线上缓存）对账 agent 职责说明与 Grok Bot 描述；手动点击才检查，五档漂移计数、部分来源失败警示、行内 20 行摘要对照；Git 真源不可读返回 500 `git_source_unreadable` 可读原因，不降级。（[PR #162](https://github.com/yicone/agents-lab/pull/162)；[合并提交 `718f4cf`](https://github.com/yicone/agents-lab/commit/718f4cffef32080a9b8f3c7bde5d6ca76636b086)；ACM-880）
 
-- 已合并、部署待核实：用量页窗口展示分带（常规 / 关注 / 预警 / 危急 / 耗尽 / 未知）、24h 与今日增量、预计耗尽时间和采样年龄。采样陈旧时分带显示未知。`cursor:tertiary` 显示为 Third Party。原有可派活 / 即将耗尽标记不变。（[PR #116](https://github.com/yicone/agents-lab/pull/116)；[合并提交 `6ded6f5`](https://github.com/yicone/agents-lab/commit/6ded6f5123e97f9e0eb4fde1987d5354ac7ac7e7)；ACM-587）
+### 变更
 
-- 本地分支候选（未合并、未部署）：新增只读 `flow-check` 巡检，默认增量读取所有 workspace 的近 48h 变更 timeline，台账与代理分栏，用已确认下限/候选上限比较批准的 4.5 件/天阈值，附提速线索口径和缺数原因；支持 Board 状态观测导出及指定窗口对账。（ACM-486；仅本地提交，无 PR）
+- 已合并、部署待核实：补录 3 个 Grok Bot，对齐 Steward / Atlas PM 的 Live 描述，再生 instruction-sources.json，完成首轮职责对齐。（[PR #163](https://github.com/yicone/agents-lab/pull/163)；[合并提交 `b91967a`](https://github.com/yicone/agents-lab/commit/b91967a1f9f864d96ca265fac9788359f029de36)；ACM-866）
 
-- 本分支候选（未合并、未部署）：增加只读效能指标和流速命令、四周历史回补与覆盖率报告，变更事件保留 90 天；缺证据保持未知。（ACM-462；获批开 PR 后补链接）
+## 2026-11-05
 
-- 本分支候选（未合并、未部署）：配置管理新增单 Agent 模型与 Runtime 切换，复用预览、一次确认、执行前冲突与活动任务检查、读回、独立确认回滚和脱敏审计；写入口默认关闭，仅限回环，批量后置。（ACM-458；获批开 PR 后补链接）
+### 新增
 
-- 本分支候选（未合并、未部署）：支持多个监听 IP 和精确 Host/Origin 白名单，允许受信任 LAN / tailnet 直连；默认保持回环只读访问。（ACM-424；当前仅本地提交，获批开 PR 后补链接）
+- 已合并、部署待核实：Skills 只读结果新增多路径 SKILL.md 原始字节 SHA-256、哈希分组及 match/mismatch 状态；缺失或不可读入口明确标为未完成比较，原有相对清单基线的漂移结果继续保留。（[PR #161](https://github.com/yicone/agents-lab/pull/161)；[合并提交 `a2b3864`](https://github.com/yicone/agents-lab/commit/a2b38641300806d551776f96ed729276b1900b65)；ACM-826）
+
+- 已合并、部署待核实：独立 instructions 查询命令一次返回 Git、Board 与线上观测的 hash、路径及漂移矩阵；缺失与过期明确标 stale，Bots API 补齐脱敏前描述 hash。（[PR #160](https://github.com/yicone/agents-lab/pull/160)；[合并提交 `09fa652`](https://github.com/yicone/agents-lab/commit/09fa65227ffc37e43a22a0819266e5c51e904c30)；ACM-828）
+
+## 2026-11-04
+
+### 新增
+
+- 已合并、部署待核实：Skills attention 只读接口提供完整升级候选与最近一次 gate 的时间、pass/block、来源和摘要路径；无记录、fallback 或损坏记录明确区分。Board 不提供 activate 写入口。（[PR #159](https://github.com/yicone/agents-lab/pull/159)；[合并提交 `56bfae4`](https://github.com/yicone/agents-lab/commit/56bfae48f909cf5f1fc4d6d1a68d408dd67ad99a)；ACM-827）
+
+- 已合并、部署待核实：Skills 只读接口逐项返回稳定 id、路径、正文 SHA-256、来源和加载方；共享入口与未验证的 runtime 加载状态分开表达。（[PR #157](https://github.com/yicone/agents-lab/pull/157)；[合并提交 `92f8a23`](https://github.com/yicone/agents-lab/commit/92f8a235c23afb547b87f61c11dc48510721abb7)；ACM-825）
+
+### 变更
+
+- 已合并、部署待核实：再生 EO-PM / 育儿辅导的 instruction-sources，更新 Git 指令来源快照。（[PR #158](https://github.com/yicone/agents-lab/pull/158)；[合并提交 `9f8fe56`](https://github.com/yicone/agents-lab/commit/9f8fe56744bed351cb8d1faabcb2b286b50b80b2)；ACM-829）
+
+## 2026-10-29
+
+### 变更
+
+- 已合并、部署待核实：Agent 配置页把 Runtime、模型、推理、Tier、额度拆成只读「运行配置」字段组，与「职责」「边界」分块显示。这三块没有编辑按钮，不展示 account_key 或 source_path。二级导航和「运行配置」写入页未改。（[PR #150](https://github.com/yicone/agents-lab/pull/150)；[合并提交 `d897203`](https://github.com/yicone/agents-lab/commit/d89720347e6a4ea22958651954eed6a58b623ee8)；ACM-661）
+
+- 已合并、部署待核实：配置管理二级 tab 只写 skills、MCP、hooks，去掉「能力 ·」前缀和页内第三层切换。这三页的标题与面包屑中间段改为当前项名；证据清单返回入口改为「返回 skills」。行内「能力三态」仍是状态模型名，不改。（[PR #148](https://github.com/yicone/agents-lab/pull/148)；[合并提交 `fe4a610`](https://github.com/yicone/agents-lab/commit/fe4a610f2e23ed347414ed7497c141a0bf1f9517)；ACM-715）
+
+## 2026-10-28
+
+### 新增
+
+- 已合并、部署待核实：能力页把 skills、MCP、hooks 做成同级切换。hooks 只筛选 Cursor、Codex 用户 hooks、Grok CLI 和 Hermes 插件事件；选定一个来源时，其他来源的读取问题不出现在这一页。同名事件按来源分列，不合并。页面不显示 hook 命令，也不把 Grok Bot、Multica 或 Memory 放进 hooks 来源。Hermes shell 读到空列表时不当成异常。（[PR #146](https://github.com/yicone/agents-lab/pull/146)；[合并提交 `8bbe1a1`](https://github.com/yicone/agents-lab/commit/8bbe1a1e2e448b114c0cee298a58537e18fcaf29)；ACM-662）注：ACM-715 起不再使用「能力」总称。
+
+- 已合并、部署待核实：能力条目用文字显示声明了、可达、观察到。缺数据写「未知」，不当成异常，也不新增告警。Hooks 的观察到全部为未知；可达只看命令里的绝对路径是否存在，Grok 另看加载错误和兼容状态，`enabled` 与 `trusted_hash` 不参与。命令文本不展示。（[PR #147](https://github.com/yicone/agents-lab/pull/147)；[合并提交 `d575a82`](https://github.com/yicone/agents-lab/commit/d575a82da5d15ebb0ff9933380ad34379660feb8)；ACM-664）
+
+- 已合并、部署待核实：运行监控增加只读「运行指标」页（`#/running/metrics`），读取 S3 `run-metrics.v0.1` 报告，展示 evidence、known/unknown/missing、双成功率、返工下限和 runtime reconciliation。调度字段分开处理：明确 true/false 显示「是 / 否」，空数组显示 `0` 或「空」，字段缺失显示 `missing`，类型不对显示 `unknown`，不把缺失说成「是」、`0` 或「无」。`/api/run-metrics` 只读，不采集、不重算口径、不改调度。（[PR #140](https://github.com/yicone/agents-lab/pull/140)；[合并提交 `d2fd21b`](https://github.com/yicone/agents-lab/commit/d2fd21b8f20c3c9db37c1b8c463a69d7e53ec52c)；ACM-571）
+
+### 变更
+
+- 已合并、部署待核实：Skills 接入本地实时重叠检测，覆盖新安装技能，分别展示检测证据与人工标记；检测缓存并在失败时明确回退。（[PR #117](https://github.com/yicone/agents-lab/pull/117)；[合并提交 `9b437d6`](https://github.com/yicone/agents-lab/commit/9b437d6bd43e19bfabb4994e0b54f24f737ce96f)；ACM-357）
+
+- 已合并、部署待核实：配置管理里「Agent 配置」「运行配置」「能力」的标题、面包屑和按钮用同一套词。能力页入口是 skills、MCP 与 hooks，页标题都是「能力」。这些页的来源名去掉产品前缀，展示为 Workspace。收件箱、待批准、最近运行、运行监控和用量页里当作产品名的称呼也去掉，分别改成「打开来源」「运行历史」「已完成次数」「运行层」和口径说明。能力页收到的云端独有技能说明去掉产品名前缀后再展示。证据清单的共享槽位可见名称是「共享登录配置」，内部标识仍是 shared_profile。终端里要复制的命令仍使用实际命令名。顶栏不改。对象自己的名称和历史记录保持原样。（[PR #145](https://github.com/yicone/agents-lab/pull/145)；[合并提交 `c70a654`](https://github.com/yicone/agents-lab/commit/c70a6545bf51d1e75cd40c752b188258eba07582)；ACM-660）注：ACM-715 起不再使用「能力」总称。
+
+### 修复
+
+- 已合并、部署待核实：Skills 缓存忽略安装路径父目录中的运行时文件抖动，避免重复重建；技能新增、删除、正文修改及插件版本变化仍触发刷新。（[PR #143](https://github.com/yicone/agents-lab/pull/143)；[合并提交 `60985fe`](https://github.com/yicone/agents-lab/commit/60985fe6c67457f6bcc2b7bdd6414a93142d1268)；ACM-686）
+
+- 已合并、部署待核实：流速采集在 110 秒预算内重试列表页，记录脱敏错误、命令、offset 和耗时，并逐轮保存采集快照与报告；timeline 缺失单独标记，不使完整清单降级。（[PR #141](https://github.com/yicone/agents-lab/pull/141)；[合并提交 `97ffca9`](https://github.com/yicone/agents-lab/commit/97ffca98777f5c4a6b4404467118655c14a503ee)；ACM-675）
+
+## 2026-10-26
+
+### 新增
+
+- 已合并、部署待核实：Skills 对 Codex、Cursor、Hermes 显示加载探针。只有配置里的显式禁用标成未加载；没有逐条加载名单时保持未验证，不把磁盘入口当成已加载。（[PR #118](https://github.com/yicone/agents-lab/pull/118)；[合并提交 `7d47cac`](https://github.com/yicone/agents-lab/commit/7d47cacebb6282571ccb11739a76b8b67bf844ae)；ACM-360）
+
+## 2026-10-24
+
+### 新增
+
+- 已合并、部署/启用待核实：配置管理新增单 Agent 模型与 Runtime 切换，复用预览、一次确认、执行前冲突与活动任务检查、读回、独立确认回滚和脱敏审计；默认不配置 `--write-policy`，写入口关闭，启用与部署须另批，仅限回环，批量后置。（[PR #98](https://github.com/yicone/agents-lab/pull/98)；[合并提交 `326b9ff`](https://github.com/yicone/agents-lab/commit/326b9fffd5bb08d4d81df1f8a2725d94e76c336e)；[PR #101](https://github.com/yicone/agents-lab/pull/101)；[合并提交 `f8b8e89`](https://github.com/yicone/agents-lab/commit/f8b8e8942d99f61f2321c6d00632bae340b26030)；ACM-458）
 
 ## 2026-10-23
 

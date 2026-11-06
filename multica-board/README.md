@@ -1,6 +1,8 @@
 # Multica Board
 
-本地只读、跨 workspace 的 Multica 看板（ACM-161 第一阶段）。默认只监听 `127.0.0.1`，可显式开放受信任网络只读访问。ACM-458 新增默认关闭的单 agent runtime 写入入口，仅允许回环监听。
+本地只读、跨 workspace 的 Multica 看板（ACM-161 第一阶段）。默认只监听 `127.0.0.1`，可显式开放受信任网络只读访问。ACM-458 单 agent runtime 写入代码已合入 main（#98 / #101）；默认关闭，仅允许回环监听，启用与部署另批。
+
+方向与优先级只看 [路线图](docs/roadmap.md)，执行状态以 Multica 为准。
 
 ```text
 multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multica-board）→ 127.0.0.1 上的 GET-only API + 静态页面
@@ -13,9 +15,9 @@ multica CLI（你本人的登录，--output json）→ SQLite 缓存（~/.multic
 - `docs/frontend-design.md`：信息架构与交互设计。
 - `docs/design-system.md`：信息结构、版式模式、组件与视觉规范，以及新板块设计检查清单（新板块从这里开始）。
 
-## 模型与 Runtime 写入（ACM-458，本地候选，未部署）
+## 模型与 Runtime 写入（ACM-458，已合入 main；默认关闭）
 
-页面为 `#/configure/runtime`；顶栏由另一任务负责，本改动不加导航。先交公共管线和单 agent，批量请求一律拒绝。旧 G1 计划页和只读 CLI runner 保持只读，不能把 G1 hash 当成批准。
+代码已合入 main（#98 / #101），不代表已启用或已部署；启用与部署须另行批准。页面为 `#/configure/runtime`，当前支持单 agent，批量请求一律拒绝。旧 G1 计划页和只读 CLI runner 保持只读，不能把 G1 hash 当成批准。
 
 写入口需要启动参数 `--write-policy /private/path/policy.json`。策略是操作者本人安装的 0600 普通文件，不允许符号链接。无策略时所有 POST 仍为 405；启用后仅接受回环监听、回环来源和与 Host 完全相同的 HTTP Origin，不开放网络写入口。启用 `features.write_token_required` 时，浏览器必须提供独立授权码 `X-Atlas-Write-Token`（不写 URL、日志或 localStorage，离开页面清除）。策略只保存授权码 SHA-256，实际授权码应由操作者用安全随机数生成并妥善保存，不应使用下面 fixture 的固定字符串。
 
@@ -146,8 +148,6 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 | `--refresh` | `60` | 两轮采集之间的秒数，即 `/api/meta` 的 `collect_interval_s`；`0` 只读缓存 |
 | `--full-every` | `30` | 每 N 轮做一次 run 历史全量校对，其余轮次增量 |
 | `--mcp-every` | `5` | 库指纹不变时，每 N 轮重读一次各 agent 的 MCP 分配（首个含自有配置的轮次例外，强制读一次） |
-
-`/api/mcp`（schema 2，见 `docs/mcp-redesign.md`）另读 `config/mcp-sources.json` 声明的本地 MCP 配置文件；该文件自带逐工具来源说明。
 | `--run-days` | `14` | run 缓存窗口（`latest_run=null` 表示窗口内没有 run） |
 | `--max-task-pages` | `10` | 每个 agent 每轮最多翻几页（每页 200 条） |
 | `--concurrency` / `--max-cli` | `3` / `4` | 并行的 workspace（及 agent）数 / 同时运行的 `multica` 进程上限 |
@@ -156,11 +156,13 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 | `--static-dir` | `../web` | `/` 下托管的前端目录 |
 | `--app-url` | `https://multica.ai` | 深链前缀：`{app_url}/{slug}/issues/{issue_uuid}`、`{app_url}/{slug}/agents/{agent_uuid}` |
 
+`/api/mcp`（schema 2，见 `docs/mcp-redesign.md`）另读 `config/mcp-sources.json` 声明的本地 MCP 配置文件；该文件自带逐工具来源说明。
+
 参考耗时：ACM Lab（144 issue、8 agent）一轮约 20–30 秒，每次 CLI 调用 1–3 秒。
 
 ## API
 
-契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`（每条带 `layer`）、`/api/layers`（ACM Lab 五层计数）、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未被状态迁移覆盖的 agent 交付，以及未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=&kind=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）、`/api/skills`、`/api/skills/meta`、`/api/skills/attention`（清单和 drift 合并；`?format=text` 不超过 2048 字节，基线债只计数）、`/api/evidence-inventory`（只读证据清单，页面 `#/configure/skills/evidence`）。全部 GET，其它方法 `405`，错误统一为 `{"error":{"code","message"}}`。
+契约见 `docs/api-contract.md`。实现的接口：`/api/meta`、`/api/issues`（每条带 `layer`）、`/api/layers`（ACM Lab 五层计数）、`/api/agents`、`/api/runtimes`、`/api/issues/{workspace_id}/{issue_id}/runs`（缓存里最近 20 次）、`/api/attention`（需处理事项，含未被状态迁移覆盖的 agent 交付，以及未启用 `hermes-async-delegation` 的 Hermes agent；`?format=text` 为不超过 2048 字节的纯文本）、`/api/changes?since=&kind=`、`/api/stats/failures`（按 provider / runtime / agent 汇总 24h 与 7d 失败次数及前 3 个 `failure_reason`）、`/api/skills`、`/api/skills/meta`、`/api/skills/attention`（清单和 drift 合并；`?format=text` 不超过 2048 字节，基线债只计数）、`/api/evidence-inventory`（只读证据清单，页面 `#/configure/skills/evidence`）。上述只读接口使用 GET，其它方法 `405`；ACM-458 显式启用后的 POST 协议见上文。错误统一为 `{"error":{"code","message"}}`。
 
 实现上需要知道的约定：
 
@@ -175,35 +177,15 @@ ps -p <上面两处一致的PID> -o pid=,ppid=,args=
 ## 安全边界
 
 - **默认回环，显式开放**：默认只绑定 `127.0.0.1`，只接受 `Host: 127.0.0.1:<port>`；绑 `::1` 时默认为 `[::1]:<port>`。非回环监听默认仍只放行回环 Host，必须用 `--allowed-host` 追加实际访问地址。监听地址不会自动加入白名单；`0.0.0.0` / `::` 不代表任意 Host。Host 不匹配返回 `421`，重复 Host 也拒绝；Origin 若存在，只接受 HTTP(S) 且其地址和有效端口必须匹配同一白名单，畸形、重复或未知 Origin 返回 `403`。没有 Origin 的 GET/HEAD（普通导航、CLI）仍可用。`Sec-Fetch-Site: cross-site` 的 API / 子资源请求继续返回 `403`，保留已有顶层页面导航例外。不发 CORS 头，白名单不会开放跨站 fetch。静态页 CSP：`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`。
-- **没有写接口**：HTTP 只有 GET/HEAD。CLI 只能执行精确白名单（`workspace list`、`workspace member list`、`issue list`、`project list`、`agent list`、`agent tasks`、`runtime list`、`property list`），白名单外的命令在启动进程前就被拒绝；调用方也不能注入 `--profile` / `--workspace-id` / `--server-url`。没有“立即刷新”接口。`suggest_layers` 另外只允许 `issue list`、`project list`、`property list`，用来出回填建议，不写属性。
+- **默认只读**：未配置 `--write-policy` 时 HTTP 仅开放 GET/HEAD；显式启用后的写协议与安全边界见上文 ACM-458。只读采集 CLI 只能执行精确白名单（`workspace list`、`workspace member list`、`issue list`、`project list`、`agent list`、`agent tasks`、`runtime list`、`property list`），白名单外的命令在启动进程前就被拒绝；调用方也不能注入 `--profile` / `--workspace-id` / `--server-url`。没有“立即刷新”接口。`suggest_layers` 另外只允许 `issue list`、`project list`、`property list`，用来出回填建议，不写属性。
 - **MCP 配置文件只按声明读**：后端只读 `config/mcp-sources.json` 声明的本机/项目级 MCP 配置文件（相对路径，逐目录 fd 打开、`O_NOFOLLOW` 不跟随符号链接、只读固定白名单字段、值只在内存里解析；不入 SQLite、不进 API、不进日志）。指纹比较用 `<db 目录>/mcp-fingerprint.key`（0600、属主/链接/长度校验，拒绝就停用指纹）；自有配置指纹只在进程内存。不读 CLI 配置或 token。子进程 env 去掉 `MULTICA_TOKEN`、`MULTICA_SERVER_URL`、`MULTICA_TASK_*`、`MULTICA_WORKSPACE_ID`，加 `GODEBUG=tlsmlkem=0`，每次调用都带 `--profile <p> --workspace-id <id>`。子进程 cwd 固定为一个空的私有临时目录：CLI 会从 cwd 向上查找 `.multica` 并覆盖 `--profile`，所以从哪个目录启动看板都不影响采集。不缓存：issue 正文、agent instructions、custom_env/args、mcp_config、runtime_config、launch_header、run 输出与 workdir、成员邮箱。错误文本脱敏（Bearer/PAT/`m??_` token、`sk-`、`ghp_`、JWT、`key=value`、长 hex/base64、home 路径）。缓存目录 `0700`，文件 `0600`。
 - **workspace 隔离**：返回行的 `workspace_id` 和请求的不一致时，整批丢弃，该 workspace 标 `collect_state=error`、`kind=auth`（"CLI identity scoped to another workspace"）。一个 workspace 失败不影响其他 workspace，旧缓存保留并标为过期，不会显示成 0 条。
 
-## 不在本期
+## 局域网 / Tailscale 访问
 
-批量切换 runtime（第二阶段）、run transcript、评论正文、squad。
+**只在受信任的 LAN / tailnet 使用，不映射公网。** Board 没有客户端登录认证；Host / Origin 白名单不能证明客户端身份，能连到端口的客户端可自行设置 Host 读取缓存。用防火墙 / Tailscale ACL 限制客户端；网络监听只读，不能与 runtime 写入一起启用。
 
-### 局域网 / Tailscale 访问与切换草稿
-
-**只在受信任的局域网或 tailnet 中使用。** Board 没有登录认证；白名单防止意外 Host / 浏览器跨站访问，不是客户端身份验证。能连到端口的客户端可以自行设置 Host 并读取缓存数据。请用防火墙 / Tailscale ACL 限制客户端，不映射到公网。优先绑定具体网卡 IP；`0.0.0.0` 会开放所有 IPv4 网卡。不要同时绑定 `0.0.0.0` 和具体 IPv4 地址，否则端口冲突会使整个启动失败。
-
-```sh
-# 保留回环并直连 LAN / Tailscale IP；替换所有占位地址
-python3 -m multica_board serve --all-workspaces --port 8765 \
-  --host 127.0.0.1 --host <LAN_IP>,<TAILSCALE_IP> \
-  --allowed-host <LAN_IP>,<TAILSCALE_IP> \
-  --allowed-host tr-mini-m4.tailc98f73.ts.net:8443
-```
-
-白名单条目是地址，不是 URL；IPv6 用 `[IPv6]:端口`。不带端口的条目绑定到服务实际端口（包括 `--port 0` 的临时端口），显式端口适用于 Tailscale Serve 等反代外部入口。Host 精确匹配地址和端口（域名不区分大小写），不匹配子域名；Origin 的 HTTP/HTTPS 默认端口按 80/443 处理。不信任 `X-Forwarded-Host` / `X-Forwarded-For`。
-
-由 Steward 审阅后执行，当前实现交付不会操作 LaunchAgent 或重启 8765：
-
-1. 备份 Board 启动配置、两个转发器配置和 Tailscale Serve 当前配置。核对 `one.yic.multica-board` 的实际启动链：若 LaunchAgent 调用 App / 壳脚本，应在最终 `python -m multica_board serve` 参数处追加以上 `--host` / `--allowed-host`，每个参数独立成 argv，不把整行放入一个 plist 字符串。保留现有 DB、workspace、采集等参数。
-2. 将审核通过的本地提交按正常流程纳入部署版本，再由 Steward 重启 Board。先验证回环与手机 LAN / tailnet 直连 `:8765`，未知 Host 应为 421、未知 Origin 应为 403、POST 应为 405。
-3. 将既有 Tailscale Serve 的 HTTPS `:8443` 后端从 `127.0.0.1:8766` 改为 `127.0.0.1:8765`，保持 tailnet-only、不开 Funnel。具体命令先按机器上 `tailscale serve --help` 核对；确认代理保留的实际 Host 与白名单一致，不依赖转发器改写。手机验证 HTTPS 页面与 API 加载。
-4. 全部通过后，再卸载 `one.yic.atlas-lan-forward` 和 `one.yic.atlas-ts-forward` 的 launchd 作业，禁用对应自动启动配置，保留备份；先不删除 `~/.local/bin/lan-forward.py`。确认 8766 转发监听消失，8765 和 HTTPS 8443 继续可用。
-5. 失败时恢复原 Board 启动参数 / 部署版本、两个转发器作业和 Tailscale Serve 的旧后端，再验证原有入口。网卡 IP 变化时需同步更新绑定与白名单。
+监听和白名单参数见[运行参数表](#运行)中的 `--host`、`--port`、`--allowed-host`。优先绑定具体网卡 IP；不同时绑定 `0.0.0.0` 与具体 IPv4 地址。白名单使用精确 `host[:port]`，IPv6 写作 `[IPv6]:端口`，不信任转发头。改监听、反代、launchd 或重启服务须单独批准；本文不提供切换运维步骤。
 
 ### 效能指标与流速（ACM-462）
 
@@ -240,9 +222,6 @@ Atlas 接入需显式使用与 Board 相同的只读 `--profile <profile>`，并
 
 可选 `--exceptions approved.json` 是按稳定 issue UUID 索引的已批准白名单，字段为 `category`、`reason`、`owner`、`review_at`（含时区）、`allowed_statuses`、`allowed_projects`（可含 null）、`content_sha256`（标题 + 换行 + 描述）。类别为 `dispatch_inbox / weekly_triage / getting_started / operations_shell / migrated_history`。内容哈希变化、过期、project/status 不符均失效；关键词只提示候选，不能豁免。冻结目录中的 Getting Started 与已结束的「已迁出」project 为内置历史例外。扫描失败不替换上一次成功报告；旧报告仍受 24 小时与版本校验约束。
 
-### Instructions 三方脚本查询
+### Instructions 三方查询
 
-在仓库根运行 `python3 instructions-governance/scripts/query_instructions.py`，一次读取
-Git、运行在 8765 的 Board 导出及当前可读 agent／bot 描述，输出三方 hash 和 drift 矩阵。
-这是独立 instructions 查询，不经过 Skills。Grok 数据来自本地 roster 缓存，过期明确标 stale。
-参数、hash、时效和枚举见 [API 契约](docs/api-contract.md#instructions-三方查询acm-828)。
+独立只读脚本 `instructions-governance/scripts/query_instructions.py` 对账 Git、Board 与线上观测；参数、hash 与新鲜度见 [API 契约](docs/api-contract.md#instructions-三方查询acm-828)。页面入口为 `#/agents?kind=diff`（ACM-880）。
