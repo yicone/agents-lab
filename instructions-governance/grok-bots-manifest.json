@@ -379,6 +379,11 @@
         "video-to-longform",
         "wechatide-skill"
       ]
+    },
+    {
+      "id": "5e08c936-cc85-4d49-8ac3-0af97ccfbca2",
+      "name": "aimaiai 迁移协调",
+      "skills": []
     }
   ]
 }

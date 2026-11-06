@@ -17,13 +17,16 @@ from multica_board.views import Views
 class GrokBotSkillTests(unittest.TestCase):
     def test_manifest_names_and_evidence_are_read_only(self):
         before = hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest()
-        expected_bot_count = len(json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))['bots'])
+        declared_bots = json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))['bots']
         with mock.patch('subprocess.run', side_effect=AssertionError('no CLI/RPC allowed')):
             items, source = grok_bot_skills()
         self.assertEqual(source['state'], 'ok')
         self.assertEqual(len(items), 8)
         self.assertEqual(len({row['key'] for row in items}), 8)
         for item in items:
+            expected_bot_ids = {bot['id'] for bot in declared_bots if item['name'] in bot['skills']}
+            expected_bot_count = len(expected_bot_ids)
+            self.assertEqual({bot['id'] for bot in item['grok_bots']}, expected_bot_ids)
             self.assertEqual(len(item['grok_bots']), expected_bot_count)
             observed = [bot['name'] for bot in item['grok_bots'] if bot['evidence_state'] == 'observed']
             self.assertEqual(set(observed), {'Agent Steward · Agent 基建总管', 'EO-PM · Elder Oasis PM'})
