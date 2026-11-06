@@ -8,6 +8,8 @@
 
 ### 新增
 
+- 本地候选（未合并、未部署）：Agents、Skills、MCP 的焦点写进地址。从 Agent 打开 Skill、从 Skill 打开同一 Agent 上的 MCP，返回只退一层，刷新和新页面能恢复；找不到、没权限、下线或网络失败留在原目标并可以返回或重试。（ACM-390；无 PR）
+
 - 本地候选（未合并、未部署）：新增 `query-skill.py` 只读查询，按名称/ID 返回 Skills 登记、当前入口 hash 比较及 agent/bot 声明反查，支持显式离线 fixture；API 契约补齐 ACM-826 比较状态与执行 agent 消费方式。（ACM-892；无 PR）
 
 - 本地候选（未合并、未部署）：运行指标页在已批准的 ACM Lab workspace 内显示只读影子建议和审计。本地开关打开才生成建议；关掉后只保留指标展示。不改派单，不增加写入，不改 runtime 或账号。（ACM-574；无 PR）

@@ -1,0 +1,4 @@
+{
+  "ok": false,
+  "error": { "code": "network", "message": "连接中断" }
+}

@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "error": null,
+  "generated_at": "2026-11-06T00:00:00Z",
+  "attention": { "badge": 0, "counts": {} },
+  "summary": [
+    { "id": "runtime_plugin", "label": "运行时插件", "count": 12, "statuses": {} }
+  ],
+  "items": [
+    {
+      "name": "colgrep-search",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "channel_label": "运行时插件",
+      "reconciliation_status": "aligned",
+      "status_label": "一致",
+      "tools": {},
+      "entries": []
+    },
+    {
+      "name": "other-skill",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "channel_label": "运行时插件",
+      "reconciliation_status": "aligned",
+      "status_label": "一致",
+      "tools": {},
+      "entries": []
+    },
+    {
+      "name": "old-skill",
+      "origin": "inventory",
+      "source_class": "runtime_plugin",
+      "source_label": "运行时插件",
+      "channel_label": "运行时插件",
+      "reconciliation_status": "aligned",
+      "status_label": "一致",
+      "archived": true,
+      "tools": {},
+      "entries": []
+    },
+    { "name": "filler-04", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-05", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-06", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-07", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-08", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-09", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-10", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-11", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] },
+    { "name": "filler-12", "origin": "inventory", "source_class": "runtime_plugin", "source_label": "运行时插件", "channel_label": "运行时插件", "reconciliation_status": "aligned", "status_label": "一致", "tools": {}, "entries": [] }
+  ]
+}

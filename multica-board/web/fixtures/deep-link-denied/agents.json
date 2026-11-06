@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-11-06T00:00:00Z",
+  "recent_window_h": 24,
+  "items": [
+    {
+      "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:agent-1",
+      "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+      "id": "agent-1",
+      "name": "Repo Analyst",
+      "status": "idle",
+      "archived": false,
+      "runtime_id": null,
+      "model": null,
+      "tasks": { "running": 0, "queued": 0 },
+      "recent": { "completed": 2, "failed": 0, "delivery_anomalies": 0 },
+      "description": "阅读仓库结构",
+      "instructions": "先看目录。",
+      "skills": [
+        { "id": "skill-colgrep", "name": "colgrep-search", "description": "按语义搜索代码", "enabled": true }
+      ]
+    },
+    {
+      "key": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2:agent-2",
+      "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+      "id": "agent-2",
+      "name": "Other Agent",
+      "status": "idle",
+      "archived": false,
+      "runtime_id": null,
+      "tasks": { "running": 0, "queued": 0 },
+      "recent": { "completed": 0, "failed": 0, "delivery_anomalies": 0 },
+      "skills": [
+        { "id": "skill-other", "name": "other-skill", "description": "另一项技能", "enabled": true }
+      ]
+    }
+  ]
+}

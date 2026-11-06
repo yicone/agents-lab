@@ -327,7 +327,17 @@ export function renderAgentDrawer(h, ctx, drawer) {
         ? h(
             "ul",
             { class: "skill-list" },
-            enabled.map((skill) => h("li", null, skill.name || skill.id, skill.description ? h("span", { class: "muted" }, ` · ${skill.description}`) : null)),
+            enabled.map((skill) => h(
+              "li",
+              null,
+              h("button", {
+                type: "button",
+                class: "text-btn",
+                "aria-label": `打开 skill ${skill.name || skill.id}`,
+                onclick: () => ctx.focusSkill?.(skill.name || skill.id, null, ctx.originOf?.(agent)),
+              }, skill.name || skill.id),
+              skill.description ? h("span", { class: "muted" }, ` · ${skill.description}`) : null,
+            )),
           )
         : h("p", { class: "muted" }, "没有已启用的 skill"),
       disabled.length ? h("p", { class: "muted" }, `未启用 ${disabled.map(skillLabel).filter(Boolean).join("、")}`) : null,

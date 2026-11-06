@@ -4,6 +4,7 @@ import { TRI_LEGEND, mcpTriState, renderTriState } from "./capability-state.js";
  * the repo's project-level files, and workspace libraries. Read-only. */
 
 import { pageHead, visibleLabel } from "./ia-view.js";
+import { mcpRef, renderFocusState } from "./deep-link.js";
 
 export const PROJECT_SOURCE = "project"; // 伪来源：按 in_project 筛选，重叠于其他三类
 export const REPO_TOOL = "repo";
@@ -610,13 +611,15 @@ function bucketTag(h, item) {
 function row(ctx, tools, item, payload) {
   const { h } = ctx;
   const selected = ctx.drawerMcp === item.id;
+  const focused = !!ctx.route?.focus && mcpRef(item) === ctx.route.focus;
   return h("tr", {
     id: mcpRowId(item),
-    class: `skill-row${item.quiet ? " quiet" : ""}${selected ? " selected" : ""}`,
+    class: `skill-row${item.quiet ? " quiet" : ""}${selected ? " selected" : ""}${focused ? " focus-current" : ""}`,
+    "aria-current": focused ? "true" : null,
     tabindex: "0",
-    onclick: (e) => ctx.openMcp(item.id, e.currentTarget),
+    onclick: (e) => ctx.focusMcp(item.id, e.currentTarget),
     onkeydown: (e) => {
-      if (e.key === "Enter") ctx.openMcp(item.id, e.currentTarget);
+      if (e.key === "Enter") ctx.focusMcp(item.id, e.currentTarget);
     },
   },
     h("td", null,
@@ -801,6 +804,9 @@ function capabilityHead(h) {
 export function renderMcp(ctx) {
   const { h, route } = ctx;
   const payload = ctx.mcp;
+  if (route.focus && ctx.focusState) {
+    return [...capabilityHead(h), renderFocusState(h, { ...ctx.focusState, origin: ctx.originText }, ctx.focusActions)];
+  }
   if (!payload || payload.absent) {
     return [...capabilityHead(h), h("div", { class: "atlas-guide" }, h("h2", null, "后端还没有 MCP 采集"), h("p", { class: "muted" }, "升级后端后刷新。"))];
   }
@@ -1036,6 +1042,26 @@ function drawerTerminal(h, ctx, item, payload) {
   return section(h, "在终端处理", nodes);
 }
 
+function mcpFocusLinks(h, ctx, item) {
+  if (!ctx.route?.focus || mcpRef(item) !== ctx.route.focus) return [];
+  const links = Array.isArray(ctx.linkedSkills) ? ctx.linkedSkills : [];
+  return [
+    ctx.originText ? h("p", { class: "focus-origin" }, ctx.originText) : null,
+    section(h, "同一 Agent 上的 Skill", [
+      h("p", { class: "muted" }, "这是同一个 Agent 上的绑定，不是依赖关系。"),
+      links.length
+        ? h("ul", { class: "skill-list" }, links.map((link) => h("li", null, h("button", {
+          type: "button",
+          class: "text-btn",
+          "aria-label": `打开 skill ${link.name}`,
+          onclick: () => ctx.focusSkill?.(link.name, null, `mcp/${ctx.route.focus}`),
+        }, link.name))))
+        : h("p", { class: "muted" }, "没有同一 Agent 上的 Skill 绑定。"),
+    ]),
+    ctx.retreatFocus ? h("p", null, h("button", { type: "button", "aria-label": "返回上一层", onclick: ctx.retreatFocus }, "返回上一层")) : null,
+  ];
+}
+
 export function renderMcpDrawer(ctx, item) {
   const { h } = ctx;
   const close = h("button", { type: "button", class: "drawer-close", "aria-label": "关闭", onclick: ctx.closeDrawer }, "×");
@@ -1045,7 +1071,8 @@ export function renderMcpDrawer(ctx, item) {
         h("span", { class: "mono" }, item.display_name),
         (item.transports || []).map((t) => h("span", { class: "tag" }, t))),
       close),
-    h("h2", { class: "drawer-title" }, visibleLabel(item.source_label)),
+    h("h2", { class: "drawer-title", tabindex: "-1" }, visibleLabel(item.source_label)),
+    ...mcpFocusLinks(h, ctx, item),
     section(h, "能力三态", [renderTriState(h, mcpTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     drawerSourceScope(h, item),
     drawerConsistency(h, item),

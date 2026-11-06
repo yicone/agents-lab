@@ -4,6 +4,7 @@ import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
+import { renderFocusState } from "./deep-link.js";
 
 /** 伪来源 id：选中时按「已安装到 Workspace」筛选，不是 source_class。 */
 export const CLOUD_SOURCE = "cloud";
@@ -312,6 +313,9 @@ function columnChooser(h, tools) {
 export function renderSkills(ctx) {
   const { h, route } = ctx;
   const payload = ctx.skills;
+  if (route.focus && ctx.focusState) {
+    return [...capabilityHead(h, "skills"), renderFocusState(h, { ...ctx.focusState, origin: ctx.originText }, ctx.focusActions)];
+  }
   if (!payload) return [...capabilityHead(h, "skills"), h("div", { class: "empty big" }, "正在读取 Skills 清单…")];
   if (payload.ok === false) {
     return [
@@ -512,17 +516,19 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
 function row(ctx, harness, projectTool, item, payload) {
   const { h } = ctx;
   const selected = ctx.drawerSkill === skillKey(item);
+  const focused = !!ctx.route?.focus && (item.name === ctx.route.focus || skillKey(item) === ctx.route.focus);
   const shared = sharedEntryOf(item, payload);
   const sharedTitle = [shared.path, shared.target ? `→ ${shared.target}` : null, shared.resolved ? `解析到 ${shared.resolved}` : null, shared.detail].filter(Boolean).join("\n");
   return h(
     "tr",
     {
       id: skillRowId(item),
-      class: `skill-row${item.quiet ? " quiet" : ""}${selected ? " selected" : ""}`,
+      class: `skill-row${item.quiet ? " quiet" : ""}${selected ? " selected" : ""}${focused ? " focus-current" : ""}`,
+      "aria-current": focused ? "true" : null,
       tabindex: "0",
-      onclick: (e) => ctx.openSkill(item, e.currentTarget),
+      onclick: (e) => ctx.focusSkill(item.name, e.currentTarget),
       onkeydown: (e) => {
-        if (e.key === "Enter") ctx.openSkill(item, e.currentTarget);
+        if (e.key === "Enter") ctx.focusSkill(item.name, e.currentTarget);
       },
     },
     h("td", { class: "skill-name-col" }, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
@@ -908,12 +914,35 @@ function runtimeLoadSection(h, item) {
   return rows.map(([id, row]) => h("p", null, `${id} · ${loadStateText(row, item.tools?.[id]) || "未验证"}`, row.load_detail ? h("span", { class: "muted" }, ` · ${row.load_detail}`) : null));
 }
 
+function focusLinks(ctx, item) {
+  const { h } = ctx;
+  const current = !!ctx.route?.focus && (item.name === ctx.route.focus || skillKey(item) === ctx.route.focus);
+  if (!current) return [];
+  const links = Array.isArray(ctx.linkedMcp) ? ctx.linkedMcp : null;
+  return [
+    ctx.originText ? h("p", { class: "focus-origin" }, ctx.originText) : null,
+    links ? section(h, "同一 Agent 上的 MCP", [
+      h("p", { class: "muted" }, "这是同一个 Agent 上的绑定，不是依赖关系。"),
+      links.length
+        ? h("ul", { class: "skill-list" }, links.map((link) => h("li", null, h("button", {
+          type: "button",
+          class: "text-btn",
+          "aria-label": `打开 MCP ${link.label}`,
+          onclick: () => ctx.openLinkedMcp?.(link.ref, item.name),
+        }, link.label))))
+        : h("p", { class: "muted" }, "没有同一 Agent 上的 MCP 绑定。"),
+    ]) : null,
+    ctx.retreatFocus ? h("p", null, h("button", { type: "button", "aria-label": "返回上一层", onclick: ctx.retreatFocus }, "返回上一层")) : null,
+  ];
+}
+
 export function renderSkillDrawer(ctx, item) {
   const { h } = ctx;
   const close = h("button", { type: "button", class: "drawer-close", "aria-label": "关闭", onclick: ctx.closeDrawer }, "×");
   if (isGrokBot(item)) return [
     h("header", { class: "drawer-head" }, h("span", { class: "mono" }, item.name), close),
-    h("h2", { class: "drawer-title" }, visibleLabel(item.source_label) || "Grok Bot"),
+    h("h2", { class: "drawer-title", tabindex: "-1" }, visibleLabel(item.source_label) || "Grok Bot"),
+    ...focusLinks(ctx, item),
     section(h, "能力三态", [renderTriState(h, skillTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     section(h, "证据范围", [h("p", null, item.evidence_detail), line(h, "只读来源", item.manifest_path), item.export ? line(h, "导出时间", item.export.exported_at) : null, h("p", { class: "muted" }, item.export ? "只读导出样本；后续由 Steward 重新导出覆盖，不调用 Grok Bot API。" : "仅展示 Git 清单中的名称声明；不调用 Grok 接口，不表示所有 Bot 均已实测。")]),
     section(h, "使用此技能的 Bot", (item.grok_bots || []).map(bot => h("p", { title: bot.evidence_label }, h("strong", null, bot.name), " · ", h("span", { class: bot.evidence_state === "observed" ? "info" : "muted" }, bot.evidence_label)))),
@@ -924,7 +953,8 @@ export function renderSkillDrawer(ctx, item) {
   ].filter(Boolean);
   return [
     h("header", { class: "drawer-head" }, h("div", null, h("span", { class: "mono" }, item.name), item.scope ? h("span", { class: "tag" }, item.scope) : null), close),
-    h("h2", { class: "drawer-title" }, visibleLabel(item.channel_label) || "Skill"),
+    h("h2", { class: "drawer-title", tabindex: "-1" }, visibleLabel(item.channel_label) || "Skill"),
+    ...focusLinks(ctx, item),
     section(h, "能力三态", [renderTriState(h, skillTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     section(h, "来源与权责", [
       line(h, "来源", visibleLabel(item.source_label)),

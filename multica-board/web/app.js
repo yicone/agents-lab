@@ -14,7 +14,8 @@ import {
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar, currentScopeLabel } from "./filter-bar.js";
-import { applyPatch, formatHash, navGroup, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, canonicalHash, formatHash, navGroup, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+import { agentOrigin, assessFocus, describeOrigin, drawerSnap, mcpForSkill, mcpRef, parentRoute, rehydrateDrawer, resolveMcp, resolveSkill, skillOrigin, skillsForMcp } from "./deep-link.js";
 import { mapPlanDetail, mapPlanList } from "./plan-api.js";
 import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
@@ -508,6 +509,20 @@ function now() {
 
 let adoptedHash = null;
 
+const focusSnaps = new Map();
+let historyRestore = false;
+let focusTitleToken = "";
+
+function rememberFocusSnap() {
+  const main = document.getElementById("main");
+  focusSnaps.set(canonicalHash(location.hash), {
+    x: window.scrollX || 0,
+    y: window.scrollY || 0,
+    list: captureScroll(main, SKILLS_LIST_SCROLL),
+    drawer: drawerSnap(state.drawer),
+  });
+}
+
 function setRoute(patch) {
   const active = document.activeElement;
   const label = active instanceof HTMLInputElement ? active.getAttribute("aria-label") : "";
@@ -515,8 +530,10 @@ function setRoute(patch) {
   const r = applyPatch(state.route, patch);
   const hash = formatHash(r);
   const action = historyWrite(location.hash, hash, patch);
-  if (action === "push") history.pushState(null, "", hash);
-  else if (action === "replace") history.replaceState(null, "", hash);
+  if (action === "push") {
+    rememberFocusSnap();
+    history.pushState({ atlasFocus: !!r.focus, entry: "pushed" }, "", hash);
+  } else if (action === "replace") history.replaceState(history.state, "", hash);
   state.route = r;
   adoptedHash = hash;
   render();
@@ -534,7 +551,25 @@ function follow(event, patch) {
   setRoute(patch);
 }
 
+function restoreFocusSnap(hash) {
+  const snap = focusSnaps.get(canonicalHash(hash));
+  if (!snap) return;
+  const main = document.getElementById("main");
+  const apply = () => {
+    restoreScroll(main, snap.list, SKILLS_LIST_SCROLL);
+    if (snap.x || snap.y) window.scrollTo(snap.x, snap.y);
+  };
+  apply();
+  requestAnimationFrame(apply);
+  if (state.route.focus) return;
+  const drawer = rehydrateDrawer(snap.drawer, { agents: state.agents, skills: state.skills, mcp: state.mcp });
+  if (!drawer) return;
+  state.drawer = drawer;
+  renderDrawer();
+}
+
 function syncFromLocation() {
+  const restoring = historyRestore;
   const next = redirectHash(location.hash);
   if (next && next !== location.hash) {
     location.replace(locationHash(next));
@@ -543,13 +578,27 @@ function syncFromLocation() {
   const route = parseHash(location.hash);
   const hash = formatHash(route);
   state.route = route;
-  if (hash === adoptedHash) return;
+  if (hash === adoptedHash) {
+    if (restoring) restoreFocusSnap(location.hash);
+    return;
+  }
   adoptedHash = hash;
   render();
+  if (restoring) {
+    focusTitleToken = "";
+    restoreFocusSnap(location.hash);
+    applyDeepFocus();
+    return;
+  }
+  if (route.focus && history.state?.entry !== "pushed") history.replaceState({ atlasFocus: true, entry: "landed" }, "", location.hash);
 }
 
 window.addEventListener("hashchange", syncFromLocation);
-window.addEventListener("popstate", syncFromLocation);
+window.addEventListener("popstate", () => {
+  historyRestore = true;
+  syncFromLocation();
+  historyRestore = false;
+});
 window.addEventListener("scroll", syncChromeOffsets, { passive: true });
 window.addEventListener("resize", syncChromeOffsets);
 
@@ -809,14 +858,117 @@ async function loadSkillContent(name, path, file = "SKILL.md") {
   if (state.drawer?.kind === "skill" && state.drawer.skill?.name === name) renderDrawer();
 }
 
-function focusSkill(name, opener) {
-  const item = (state.skills?.items || []).find((row) => row.name === name);
-  if (!item) return;
-  state.expandedSkills.add(item.source_class || "unknown");
-  setRoute({ view: "skills", source: "", skillStatus: "", tool: "", custom: false, debt: false, q: "" });
-  const row = document.getElementById(skillRowId(item));
-  if (row) row.scrollIntoView({ block: "center" });
-  openSkill(item, opener || row);
+function focusSkill(name, opener, origin) {
+  const item = resolveSkill(state.skills?.items, name);
+  if (item) state.expandedSkills.add(item.source_class || "unknown");
+  const patch = { view: "skills", section: "configure", evidence: false, focus: name };
+  if (typeof origin === "string") patch.origin = origin;
+  else if (state.route.focus !== name) patch.origin = "";
+  const reveal = state.route.view !== "skills" || state.route.evidence || opener?.classList?.contains("queue-item");
+  if (reveal) Object.assign(patch, { source: "", skillStatus: "", tool: "", custom: false, debt: false, q: "" });
+  setRoute(patch);
+}
+
+function retreatFocus() {
+  if (history.state?.entry === "pushed") {
+    history.back();
+    return;
+  }
+  const route = state.route;
+  const origin = route.origin;
+  setRoute(parentRoute(route));
+  const parsed = parentRoute({ origin });
+  if (parsed.view === "agents" && parsed.sel) {
+    const agent = (state.agents || []).find((item) => item.id === parsed.sel);
+    if (!agent) return;
+    state.drawer = { kind: "agent", agent, section: "skills", opener: null, rowId: `agent-row-${agent.workspace_id}-${agent.id}` };
+    renderDrawer();
+    return;
+  }
+  if (state.route.view === "agents" && state.drawer?.kind !== "agent") {
+    state.drawer = null;
+    renderDrawer();
+  }
+}
+
+async function retryFocus() {
+  if (state.route.view === "skills") state.skills = await loadSkills();
+  else if (state.route.view === "mcp") state.mcp = await loadMcp();
+  focusTitleToken = "";
+  render();
+}
+
+function pageFocusState() {
+  const route = state.route;
+  if (!route.focus || route.evidence || (route.view !== "skills" && route.view !== "mcp")) return null;
+  const payload = route.view === "skills" ? state.skills : state.mcp;
+  if (payload?.absent) return assessFocus({ focus: route.focus, payload: { ok: true, items: [] }, error: null, item: null });
+  const failed = payload?.ok === false;
+  const item = payload && !failed
+    ? (route.view === "skills" ? resolveSkill(payload.items, route.focus) : resolveMcp(payload.items, route.focus))
+    : null;
+  return assessFocus({ focus: route.focus, payload, error: failed ? payload.error : null, item: payload && !failed ? item : undefined });
+}
+
+function focusDrawerTitle() {
+  const token = `${state.route.view}:${state.route.focus}`;
+  if (focusTitleToken === token) return;
+  const title = document.querySelector("#drawer .drawer-title");
+  if (!title) return;
+  focusTitleToken = token;
+  title.tabIndex = -1;
+  setTimeout(() => {
+    if (focusTitleToken !== token) return;
+    title.focus();
+  }, 0);
+}
+
+function applyDeepFocus() {
+  const route = state.route;
+  const failure = pageFocusState();
+  if (route.view === "skills" && route.focus) {
+    if (failure) {
+      if (state.drawer) { state.drawer = null; renderDrawer(); }
+      const heading = document.querySelector("[data-focus-title]");
+      if (heading) setTimeout(() => heading.focus(), 0);
+      return;
+    }
+    const item = resolveSkill(state.skills?.items, route.focus);
+    if (!item) return;
+    const group = item.source_class || "unknown";
+    if (!document.getElementById(skillRowId(item)) && !state.expandedSkills.has(group)) {
+      state.expandedSkills.add(group);
+      renderMain();
+    }
+    const same = state.drawer?.kind === "skill" && skillKey(state.drawer.skill) === skillKey(item);
+    if (!same) {
+      state.drawer = { kind: "skill", skill: item, opener: null };
+      state.skillContent = new Map();
+      state.skillContentReq = new Map();
+      renderDrawer();
+    }
+    if (!historyRestore) document.getElementById(skillRowId(item))?.scrollIntoView({ block: "nearest" });
+    focusDrawerTitle();
+    return;
+  }
+  if (route.view === "mcp" && route.focus) {
+    if (failure) {
+      if (state.drawer) { state.drawer = null; renderDrawer(); }
+      const heading = document.querySelector("[data-focus-title]");
+      if (heading) setTimeout(() => heading.focus(), 0);
+      return;
+    }
+    const item = resolveMcp(state.mcp?.items, route.focus);
+    if (!item) return;
+    state.expandedMcp.add(item.source_class || "multica_only");
+    const same = state.drawer?.kind === "mcp" && (state.drawer.ref === route.focus || state.drawer.id === item.id);
+    if (!same) {
+      state.drawer = { kind: "mcp", ref: route.focus, id: item.id, rowId: mcpRowId(item), opener: null };
+      renderDrawer();
+    }
+    if (!historyRestore) document.getElementById(mcpRowId(item))?.scrollIntoView({ block: "nearest" });
+    focusDrawerTitle();
+  }
 }
 
 // ---------- chrome (header) ----------
@@ -1360,6 +1512,8 @@ function renderDrawer() {
           ago,
           errKind,
           gitSource: gitAgent(d.agent),
+          focusSkill,
+          originOf: agentOrigin,
         },
         state.drawer,
       ),
@@ -1404,7 +1558,7 @@ function renderDrawer() {
     return;
   }
   if (d.kind === "mcp") {
-    const item = (state.mcp?.items || []).find((row) => row.id === d.id);
+    const item = (state.mcp?.items || []).find((row) => (d.ref && mcpRef(row) === d.ref) || row.id === d.id);
     if (!item) {
       // id 消失（如后端重启后盐变了）：关闭抽屉，焦点回到表格顶部
       state.drawer = null;
@@ -1412,7 +1566,7 @@ function renderDrawer() {
       document.querySelector(".table-wrap")?.focus();
       return;
     }
-    el.replaceChildren(...renderMcpDrawer({ ...mcpCtx(), closeDrawer }, item));
+    el.replaceChildren(...renderMcpDrawer({ ...mcpCtx(), closeDrawer, linkedSkills: skillsForMcp(item, state.agents) }, item));
     return;
   }
   if (!d.opener) d.opener = document.activeElement;
@@ -2443,15 +2597,21 @@ function openMcp(id, opener) {
   setTimeout(() => document.querySelector("#drawer .drawer-close")?.focus(), 0);
 }
 
-function focusMcp(id, opener) {
-  const item = (state.mcp?.items || []).find((row) => row.id === id);
-  if (!item) return;
-  const group = state.route.mcpGroup || "source";
-  state.expandedMcp.add(group === "tool" ? (item.source_class === "multica_only" ? "multica_only" : group) : item.source_class || "multica_only");
-  setRoute({ view: "mcp", source: "", mcpStatus: "", tool: "", mcpAssigned: false, mcpTidy: false, q: "" });
-  const row = document.getElementById(mcpRowId(item));
-  if (row) row.scrollIntoView({ block: "center" });
-  openMcp(id, opener || row);
+function focusMcp(idOrRef, openerOrOrigin) {
+  const items = state.mcp?.items || [];
+  const byId = items.find((row) => row.id === idOrRef);
+  const item = byId || resolveMcp(items, idOrRef);
+  const ref = item ? (mcpRef(item) || idOrRef) : idOrRef;
+  if (!ref) return;
+  if (item) state.expandedMcp.add(item.source_class || "multica_only");
+  const origin = typeof openerOrOrigin === "string"
+    ? openerOrOrigin
+    : (state.route.view === "skills" && state.route.focus ? skillOrigin(state.route.focus) : "");
+  const patch = { view: "mcp", section: "configure", focus: ref };
+  if (origin) patch.origin = origin;
+  else if (state.route.focus !== ref) patch.origin = "";
+  if (state.route.view !== "mcp") Object.assign(patch, { source: "", mcpStatus: "", tool: "", mcpAssigned: false, mcpTidy: false, q: "" });
+  setRoute(patch);
 }
 
 function mcpCtx() {
@@ -2465,6 +2625,11 @@ function mcpCtx() {
     copyWithFallback: (text) => copyWithFallback(text),
     openMcp,
     focusMcp,
+    focusSkill,
+    retreatFocus,
+    originText: describeOrigin(state.route.origin, state.agents),
+    focusState: pageFocusState(),
+    focusActions: { onBack: retreatFocus, onRetry: () => { void retryFocus(); } },
     toggleMcpGroup,
     expandedMcp: state.expandedMcp,
     drawerMcp: state.drawer?.kind === "mcp" ? state.drawer.id : "",
@@ -2575,6 +2740,12 @@ function atlasCtx() {
     drawerSkill: state.drawer?.kind === "skill" ? skillKey(state.drawer.skill) : "",
     openSkill,
     focusSkill,
+    retreatFocus,
+    openLinkedMcp: (ref) => focusMcp(ref, state.route.focus ? skillOrigin(state.route.focus) : ""),
+    originText: describeOrigin(state.route.origin, state.agents),
+    linkedMcp: mcpForSkill(state.route.view === "skills" ? state.route.focus : "", state.agents, state.mcp?.items),
+    focusState: pageFocusState(),
+    focusActions: { onBack: retreatFocus, onRetry: () => { void retryFocus(); } },
     skillContent: state.skillContent,
     loadSkillContent,
     toggleSkillGroup,
@@ -2656,6 +2827,7 @@ function render() {
     view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : view === "metrics" ? "搜索 run / issue / 规则 / evidence" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
+  applyDeepFocus();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
   if (state.route.evidence) void ensureEvidence();
   ensurePlans();
