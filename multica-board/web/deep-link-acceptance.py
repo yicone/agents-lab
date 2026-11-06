@@ -126,9 +126,19 @@ def main():
             denied = light.new_page()
             denied.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link-denied#/configure/skills?focus=colgrep-search", wait_until="networkidle")
             denied.wait_for_timeout(100)
-            check("forbidden state", "没有权限" in denied.locator("[data-focus-state='forbidden']").inner_text())
-            shot(denied, "forbidden-1440-light.png")
+            check("business forbidden", denied.locator("[data-focus-state='forbidden']").is_visible())
+            http403 = light.new_page()
+            http403.route(
+                "**/deep-link-denied/skills.json",
+                lambda route: route.fulfill(status=403, content_type="application/json", body='{"error":{"code":"permission_denied","message":"没有权限"}}'),
+            )
+            http403.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link-denied#/configure/skills?focus=colgrep-search&from=agent%2Fe8659de2-7504-4ee2-9f0a-fd608a9a8bc2%2Fagent-1", wait_until="networkidle")
+            http403.wait_for_timeout(100)
+            forbidden = http403.locator("[data-focus-state='forbidden']")
+            check("http 403 is forbidden", forbidden.is_visible() and "没有权限" in forbidden.inner_text() and "网络失败" not in forbidden.inner_text())
+            shot(http403, "forbidden-1440-light.png")
             denied.close()
+            http403.close()
 
             keys = light.new_page()
             keys.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link#/running", wait_until="networkidle")
@@ -143,6 +153,10 @@ def main():
             check("keyboard lands on title", keys.evaluate("() => document.activeElement?.classList.contains('drawer-title')"))
             back = keys.get_by_role("button", name="返回上一层")
             check("back is focusable", back.evaluate("el => el.tabIndex >= 0"))
+            keys.keyboard.press("Escape")
+            keys.wait_for_timeout(50)
+            landed_on = keys.evaluate("() => document.activeElement?.id || document.activeElement?.tagName")
+            check("escape returns to skill row", landed_on == "skill-colgrep-search", landed_on)
             keys.close()
 
             scroll = light.new_page()
@@ -160,6 +174,78 @@ def main():
             y2 = scroll.evaluate("() => window.scrollY")
             check("scroll restored", abs(y2 - y) <= 40, f"{y} -> {y2}")
             scroll.close()
+
+            direct = (
+                "http://127.0.0.1:%s/index.html?mock=deep-link#/configure/mcp?focus=ws%%2Fe8659de2-7504-4ee2-9f0a-fd608a9a8bc2%%2Fsrv%%2Fsrv-github&from=skill%%2Fcolgrep-search"
+                % PORT
+            )
+            cycle = light.new_page()
+            cycle.goto(direct, wait_until="networkidle")
+            cycle.wait_for_timeout(100)
+            check("second library entry opens", cycle.locator("#drawer").is_visible() and "找不到目标" not in cycle.locator("#main").inner_text())
+            cycle.get_by_role("button", name="返回上一层").click()
+            cycle.wait_for_function("() => location.hash.includes('configure/skills') && location.hash.includes('colgrep-search')")
+            cycle.get_by_role("button", name="返回上一层").click()
+            cycle.wait_for_timeout(80)
+            landed = cycle.evaluate("() => location.hash")
+            check("direct return reaches agents", "running" in landed and "configure/mcp" not in landed and "focus=" not in landed, landed)
+            cycle.close()
+
+            space = light.new_page()
+            space.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link#/configure/skills", wait_until="networkidle")
+            space.locator("#skill-colgrep-search").focus()
+            before_y = space.evaluate("() => window.scrollY")
+            space.keyboard.press("Space")
+            space.wait_for_function("() => location.hash.includes('focus=colgrep-search')")
+            after_y = space.evaluate("() => window.scrollY")
+            check("space opens skill", "focus=colgrep-search" in space.evaluate("() => location.hash"))
+            check("space does not scroll", abs(after_y - before_y) <= 5, f"{before_y}->{after_y}")
+            space.keyboard.press("Escape")
+            space.wait_for_timeout(50)
+            space.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link#/configure/mcp", wait_until="networkidle")
+            space.locator("#mcp-row-hmac-salted-id").focus()
+            before_y = space.evaluate("() => window.scrollY")
+            space.keyboard.press("Space")
+            space.wait_for_function("() => location.hash.includes('focus=')")
+            after_y = space.evaluate("() => window.scrollY")
+            mcp_space = space.evaluate("() => location.hash")
+            check("space opens mcp", "focus=" in mcp_space and "srv-" in mcp_space, mcp_space)
+            check("mcp space does not scroll", abs(after_y - before_y) <= 5, f"{before_y}->{after_y}")
+            space.keyboard.press("Enter")
+            space.wait_for_timeout(40)
+            space.keyboard.press("Escape")
+            space.wait_for_timeout(50)
+            mcp_focus = space.evaluate("() => document.activeElement?.id || document.activeElement?.tagName")
+            check("escape returns to mcp row", mcp_focus == "mcp-row-hmac-salted-id", mcp_focus)
+            space.close()
+
+            held = []
+
+            def hold_slow(route):
+                url = route.request.url
+                if url.endswith("/fixtures/meta.json") or url.endswith("/fixtures/deep-link/skills.json"):
+                    held.append(route)
+                    return
+                route.continue_()
+
+            slow = light.new_page()
+            slow.route("**/*", hold_slow)
+            slow.goto(
+                f"http://127.0.0.1:{PORT}/index.html?mock=deep-link#/configure/skills?focus=colgrep-search&from=agent%2Fe8659de2-7504-4ee2-9f0a-fd608a9a8bc2%2Fagent-1",
+                wait_until="commit",
+            )
+            slow.wait_for_selector("[data-focus-state='loading']", timeout=5000)
+            loading = slow.locator("[data-focus-state='loading']").inner_text()
+            check("slow load names target", "colgrep-search" in loading and "正在打开" in loading, loading[:180])
+            check("slow load names origin", "来自" in loading)
+            check("slow load return", slow.get_by_role("button", name="返回上一层").is_visible())
+            check("slow load is not only the page placeholder", "加载中…" not in slow.locator("#main").inner_text())
+            slow.get_by_role("button", name="返回上一层").click()
+            slow.wait_for_timeout(50)
+            check("slow return leaves the target", "focus=colgrep-search" not in slow.evaluate("() => location.hash"))
+            for route in held:
+                route.continue_()
+            slow.close()
             light.close()
 
             dark = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme="dark")

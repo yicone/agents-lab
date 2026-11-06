@@ -35,11 +35,33 @@ export function parseOrigin(token) {
   return { kind: "" };
 }
 
+export function mcpEntryRef(entry) {
+  if (!entry?.workspace_id || !entry?.server_id) return "";
+  return `ws/${encodeURIComponent(entry.workspace_id)}/srv/${encodeURIComponent(entry.server_id)}`;
+}
+
+/** Every workspace/server id on the item. Order does not decide identity. */
+export function mcpEntryRefs(item) {
+  const refs = [];
+  const seen = new Set();
+  for (const entry of item?.workspace_entries || []) {
+    const ref = mcpEntryRef(entry);
+    if (!ref || seen.has(ref)) continue;
+    seen.add(ref);
+    refs.push({ ref, entry });
+  }
+  if (!refs.length && item?.display_name) refs.push({ ref: `name/${encodeURIComponent(item.display_name)}`, entry: null });
+  return refs;
+}
+
 export function mcpRef(item) {
-  const lib = (item?.workspace_entries || []).find((entry) => entry.kind === "library" && entry.workspace_id && entry.server_id);
-  if (lib) return `ws/${encodeURIComponent(lib.workspace_id)}/srv/${encodeURIComponent(lib.server_id)}`;
-  if (item?.display_name) return `name/${encodeURIComponent(item.display_name)}`;
-  return "";
+  return mcpEntryRefs(item)[0]?.ref || "";
+}
+
+export function mcpMatches(item, focus) {
+  const ref = String(focus || "");
+  if (!ref) return false;
+  return mcpEntryRefs(item).some((itemRef) => itemRef.ref === ref);
 }
 
 export function focusLabel(focus) {
@@ -58,7 +80,7 @@ export function resolveSkill(items, focus) {
 export function resolveMcp(items, focus) {
   const ref = String(focus || "");
   if (!ref) return null;
-  return (items || []).find((item) => mcpRef(item) === ref) || null;
+  return (items || []).find((item) => mcpMatches(item, ref)) || null;
 }
 
 function enabledSkill(skill, name) {
@@ -77,12 +99,13 @@ export function mcpForSkill(skillName, agents, mcpItems) {
   const links = [];
   const seen = new Set();
   for (const item of mcpItems || []) {
-    const bound = (item.workspace_entries || []).some((entry) => entry.kind === "library" && (entry.agents || []).some((agent) => holders.has(agent.id) && agent.enabled !== false));
-    if (!bound) continue;
-    const ref = mcpRef(item);
-    if (!ref || seen.has(ref)) continue;
-    seen.add(ref);
-    links.push({ ref, label: item.display_name || ref, item });
+    for (const { ref, entry } of mcpEntryRefs(item)) {
+      if (!entry) continue;
+      const bound = (entry.agents || []).some((agent) => holders.has(agent.id) && agent.enabled !== false);
+      if (!bound || seen.has(ref)) continue;
+      seen.add(ref);
+      links.push({ ref, label: item.display_name || ref, item });
+    }
   }
   return links;
 }
@@ -121,12 +144,30 @@ export function describeOrigin(origin, agents) {
   return "";
 }
 
+const PERMISSION_CODES = new Set(["forbidden", "permission_denied", "unauthorized", "not_a_member", "auth"]);
+
+export function focusFailureError(err) {
+  const status = Number(err?.status);
+  const code = typeof err?.code === "string" ? err.code : "";
+  return {
+    status: Number.isFinite(status) && status > 0 ? status : null,
+    code,
+    message: String(err?.message || err || ""),
+  };
+}
+
+export function isPermissionFailure(error) {
+  if (!error || typeof error !== "object") return false;
+  const status = Number(error.status);
+  if (status === 401 || status === 403) return true;
+  return PERMISSION_CODES.has(String(error.code || "").toLowerCase());
+}
+
 export function assessFocus({ focus, payload, error, item }) {
   if (!focus) return null;
   const name = focusLabel(focus);
   if (!payload && !error) return { state: "loading", title: "正在打开", detail: `正在读取「${name}」。`, name };
-  const code = error?.code || error?.status;
-  if (code === 403 || code === "forbidden" || code === "permission_denied") {
+  if (isPermissionFailure(error)) {
     return { state: "forbidden", title: "没有权限", detail: `没有权限打开「${name}」。可以回到上一层。`, name };
   }
   if (error || payload?.ok === false) {
@@ -138,6 +179,20 @@ export function assessFocus({ focus, payload, error, item }) {
     return { state: "archived", title: "已下线", detail: `「${label}」已归档或下线。`, name: label };
   }
   return null;
+}
+
+/** Walk a direct focus URL back to Agents. A repeat means the return chain loops. */
+export function unwindFocus(route) {
+  const steps = [];
+  let current = { ...(route || {}) };
+  for (let i = 0; i < 6; i += 1) {
+    const key = `${current.view || ""}|${current.focus || ""}`;
+    if (steps.includes(key)) return { cycle: true, steps };
+    steps.push(key);
+    if (!current.focus) return { cycle: false, steps };
+    current = { ...current, ...parentRoute(current) };
+  }
+  return { cycle: true, steps };
 }
 
 /** One layer back for a focus URL opened directly, without browser history. */
@@ -183,7 +238,7 @@ export function renderFocusState(h, model, actions) {
   const retry = model.state === "network";
   return h(
     "section",
-    { class: "focus-state", "data-focus-state": model.state, role: "status" },
+    { class: "focus-state", "data-focus-state": model.state, role: "status", "aria-busy": model.state === "loading" ? "true" : null },
     h("h2", { tabindex: "-1", "data-focus-title": "true" }, model.title),
     h("p", null, model.detail),
     model.origin ? h("p", { class: "muted" }, model.origin) : null,

@@ -31,6 +31,16 @@
           "kind": "library",
           "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
           "workspace_name": "Alpha Lab",
+          "server_id": "srv-first",
+          "transport": "stdio",
+          "agent_count": 0,
+          "bindings_known": true,
+          "agents": []
+        },
+        {
+          "kind": "library",
+          "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+          "workspace_name": "Alpha Lab",
           "server_id": "srv-github",
           "transport": "stdio",
           "agent_count": 1,

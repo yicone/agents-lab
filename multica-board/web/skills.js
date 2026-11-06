@@ -152,6 +152,7 @@ export function skillsRefreshKey(payload) {
   return [
     payload.ok === false ? "bad" : "ok",
     payload.error?.code || "",
+    payload.error?.status || "",
     payload.error?.message || "",
     payload.generated_at || "",
     attention.badge ?? "",
@@ -528,7 +529,9 @@ function row(ctx, harness, projectTool, item, payload) {
       tabindex: "0",
       onclick: (e) => ctx.focusSkill(item.name, e.currentTarget),
       onkeydown: (e) => {
-        if (e.key === "Enter") ctx.focusSkill(item.name, e.currentTarget);
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        ctx.focusSkill(item.name, e.currentTarget);
       },
     },
     h("td", { class: "skill-name-col" }, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),

@@ -4,7 +4,7 @@ import { TRI_LEGEND, mcpTriState, renderTriState } from "./capability-state.js";
  * the repo's project-level files, and workspace libraries. Read-only. */
 
 import { pageHead, visibleLabel } from "./ia-view.js";
-import { mcpRef, renderFocusState } from "./deep-link.js";
+import { mcpMatches, renderFocusState } from "./deep-link.js";
 
 export const PROJECT_SOURCE = "project"; // 伪来源：按 in_project 筛选，重叠于其他三类
 export const REPO_TOOL = "repo";
@@ -611,7 +611,7 @@ function bucketTag(h, item) {
 function row(ctx, tools, item, payload) {
   const { h } = ctx;
   const selected = ctx.drawerMcp === item.id;
-  const focused = !!ctx.route?.focus && mcpRef(item) === ctx.route.focus;
+  const focused = !!ctx.route?.focus && mcpMatches(item, ctx.route.focus);
   return h("tr", {
     id: mcpRowId(item),
     class: `skill-row${item.quiet ? " quiet" : ""}${selected ? " selected" : ""}${focused ? " focus-current" : ""}`,
@@ -619,7 +619,9 @@ function row(ctx, tools, item, payload) {
     tabindex: "0",
     onclick: (e) => ctx.focusMcp(item.id, e.currentTarget),
     onkeydown: (e) => {
-      if (e.key === "Enter") ctx.focusMcp(item.id, e.currentTarget);
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      ctx.focusMcp(item.id, e.currentTarget);
     },
   },
     h("td", null,
@@ -1043,7 +1045,7 @@ function drawerTerminal(h, ctx, item, payload) {
 }
 
 function mcpFocusLinks(h, ctx, item) {
-  if (!ctx.route?.focus || mcpRef(item) !== ctx.route.focus) return [];
+  if (!ctx.route?.focus || !mcpMatches(item, ctx.route.focus)) return [];
   const links = Array.isArray(ctx.linkedSkills) ? ctx.linkedSkills : [];
   return [
     ctx.originText ? h("p", { class: "focus-origin" }, ctx.originText) : null,
