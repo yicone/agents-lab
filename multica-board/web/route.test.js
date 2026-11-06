@@ -286,6 +286,17 @@ test("agents subviews round-trip and leaving the page clears them", () => {
   assert.equal(bots.botLinked, true);
   assert.equal(bots.q, "职责");
   assert.equal(formatHash(bots), "#/running?ws=alpha-lab&q=%E8%81%8C%E8%B4%A3&kind=bots&linked=1");
+  const diff = parseHash("#/agents?kind=diff&q=Builder");
+  assert.equal(diff.view, "agents");
+  assert.equal(diff.kind, "diff");
+  assert.equal(diff.q, "Builder");
+  assert.equal(formatHash(diff), "#/running?q=Builder&kind=diff");
+  assert.equal(parseHash("#/agents?kind=bogus").kind, "");
+  assert.equal(formatHash(parseHash("#/agents?kind=bogus")), "#/running");
+  const diffLeft = applyPatch(diff, { view: "map" });
+  assert.equal(diffLeft.kind, "");
+  assert.equal(formatHash(diffLeft), "#/map?q=Builder");
+  assert.equal(historyWrite("#/agents", "#/running?kind=diff", { kind: "diff" }), "push");
   const instructions = parseHash("#/agents?has_instructions=1");
   assert.equal(instructions.hasInstructions, true);
   assert.equal(instructions.kind, "");

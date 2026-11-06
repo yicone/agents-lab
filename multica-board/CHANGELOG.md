@@ -6,6 +6,8 @@
 
 ### 新增
 
+- 本地候选（未合并、未部署）：Agents 页新增「职责说明对账」子视图（`?kind=diff`）与只读 `GET /api/instruction-diff`，三方（Git 真源、看板导出、线上缓存）对账 agent 职责说明与 Grok Bot 描述；手动点击才检查，五档漂移计数、部分来源失败警示、行内 20 行摘要对照；Git 真源不可读返回 500 `git_source_unreadable` 可读原因，不降级。（ACM-880；无 PR）
+
 - 本地候选（未合并、未部署）：Skills attention 只读接口提供完整升级候选与最近一次 gate 的时间、pass/block、来源和摘要路径；无记录、fallback 或损坏记录明确区分。Board 不提供 activate 写入口。（ACM-827；无 PR）
 
 ### 修复

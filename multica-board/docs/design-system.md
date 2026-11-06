@@ -35,7 +35,7 @@ Atlas 的每个数字都来自下面四层之一。板块设计稿必须写明�
 
 现状：
 
-- Agents 有两个子视图，不占顶栏：Grok Bots（`?kind=bots`）和切换计划（`?plan=1`、`#/agents/plan/new`、`#/agents/plans[/<id>]`），由工具栏的 `kindSwitch` 切换。用量只从地图 L1 进入。
+- Agents 有三个子视图，不占顶栏：Grok Bots（`?kind=bots`）、职责说明对账（`?kind=diff`）和切换计划（`?plan=1`、`#/agents/plan/new`、`#/agents/plans[/<id>]`），由工具栏的 `kindSwitch` 切换。用量只从地图 L1 进入。
 - 顶栏三个角标：待决事项（ACM Lab 待验收 + 受阻）、Skills（`attention.badge`，基线债不计入）、MCP（`attention.badge`：五桶条数之和，待清理桶不计入；`attention.tone=unknown` 时显示灰色 `?` 不计数，见 `mcp-redesign.md` §5）。
 
 规则：新板块加不加顶栏，看它是不是一个独立的问题、数据层和筛选维度是否不同。MCP 单独成栏的理由是「Skills 属于本机，MCP 属于 workspace」（`mcp-design.md`），新板块照这个标准写理由。只是某个板块的另一种看法时，做成子视图（参考 Agents 的 `kindSwitch`），或者只从地图进入（参考用量）。

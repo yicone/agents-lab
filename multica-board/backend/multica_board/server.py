@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, unquote, urlsplit
 
+from .instruction_diff import GitSourceUnreadable
 from .views import BadRequest, NotFound, Views
 
 log = logging.getLogger("multica_board.http")
@@ -290,6 +291,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/skills/attention":
                 self._skills_attention(views)
                 return
+            elif path == "/api/instruction-diff":
+                if urlsplit(self.path).query:
+                    raise BadRequest("instruction-diff endpoint does not accept query parameters")
+                body = views.instruction_diff(self.server.static_dir)
             elif path == "/api/mcp":
                 if urlsplit(self.path).query:
                     raise BadRequest("mcp endpoint does not accept query parameters")
@@ -326,6 +331,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         except NotFound as exc:
             self._error(HTTPStatus.NOT_FOUND, "not_found", str(exc))
+            return
+        except GitSourceUnreadable as exc:
+            log.warning("instruction-diff git source unreadable: %s", exc)
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "git_source_unreadable", str(exc))
             return
         except Exception:
             log.exception("handler error on %s", path)

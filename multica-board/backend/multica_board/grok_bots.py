@@ -461,9 +461,17 @@ def load_bots(paths: GrokPaths | None = None, *, reader: Reader | None = None) -
     except Exception:
         return _unreadable()
 
+    try:
+        observed_at = datetime.fromtimestamp(
+            selected["roster"].stat().st_mtime, timezone.utc
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except OSError:
+        observed_at = None
+
     return {
         "ok": True,
         "reason": None,
+        "observed_at": observed_at,
         "account_slot": short_account_slot(slot_payload),
         "weekly_usage": _weekly_usage(usage),
         "sections": sections,

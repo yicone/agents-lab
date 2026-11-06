@@ -1120,3 +1120,32 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 }
 
 .governance-evidence { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch; font-size: 12px; }
+
+/* ---------- instruction diff (agents ?kind=diff) ---------- */
+
+.diff-bar { align-items: center; }
+.diff-check { cursor: pointer; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); padding: 6px 14px; font-weight: 600; }
+.diff-check:hover:not(:disabled) { border-color: var(--accent); }
+.diff-check:disabled { cursor: default; opacity: .55; }
+.diff-chips { flex-wrap: wrap; }
+.diff-warning { padding: 8px 12px; border: 1px solid var(--warn); border-radius: 8px; background: color-mix(in srgb, var(--warn-bg) 60%, var(--panel)); font-size: 12px; }
+.diff-error { padding: 10px 12px; border: 1px solid var(--bad); border-radius: 8px; background: color-mix(in srgb, var(--bad-bg) 50%, var(--panel)); font-size: 12px; }
+.diff-error p { margin: 0 0 6px; }
+.diff-error-msg { white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff-outdated { opacity: .55; pointer-events: none; }
+.diff-row { cursor: pointer; }
+.diff-reason { white-space: normal; min-width: 140px; }
+.diff-detail-row td { background: var(--panel-2); white-space: normal; }
+.diff-detail { display: grid; gap: 8px; font-size: 12px; }
+.diff-detail-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.diff-sides { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.diff-side h4 { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+.diff-preview { margin: 0; padding: 6px 8px; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font: 11px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 620px) {
+  .diff-sides { grid-template-columns: minmax(0, 1fr); }
+  .diff-table thead { display: none; }
+  .diff-table, .diff-table tbody, .diff-table tr, .diff-table td { display: block; width: 100%; }
+  .diff-table td { border-bottom: none; padding: 2px 10px; white-space: normal; }
+  .diff-table tr.diff-row { border-bottom: 1px solid var(--line); padding: 6px 0; }
+  .diff-table tr.diff-detail-row td { padding: 6px 10px; }
+}

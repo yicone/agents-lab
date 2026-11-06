@@ -22,6 +22,8 @@ const workspaces = [
 test("Issues and Agents share the workspace filter; Decide and Skills do not", () => {
   assert.equal(filterChrome("issues"), "shared");
   assert.equal(filterChrome("agents"), "shared");
+  assert.equal(filterChrome("agents", "bots"), "shared");
+  assert.equal(filterChrome("agents", "diff"), "diff");
   assert.equal(filterChrome("decide"), "decide");
   assert.equal(filterChrome("skills"), "skills");
   assert.equal(filterChrome("map"), "none");
@@ -30,6 +32,8 @@ test("Issues and Agents share the workspace filter; Decide and Skills do not", (
   assert.match(scopeNote("decide"), /ACM Lab/);
   assert.equal(scopeNote("decide"), "范围：ACM Lab");
   assert.equal(scopeNote("skills"), "范围：全部来源");
+  assert.match(scopeNote("diff"), /对账范围/);
+  assert.match(scopeNote("diff"), /workspace 筛选不作用于本页/);
 
   assert.equal(scopeNote("map"), "");
 });

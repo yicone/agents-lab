@@ -321,6 +321,54 @@ withheld 单列。过期的 split 仍保留 `comparison:split`，避免掩盖内
 脚本应检查 drift 和 source_errors；参数错误退出 2，Git 真源不可读取时失败，不返回伪矩阵。
 静态 JSON 下载成功本身不构成三方验收；此命令还必须读取 live 并比较。
 
+## `GET /api/instruction-diff`（ACM-880）
+
+`instruction-query/v1` 的进程内只读版本：在 serve 进程里直接调用同一套 `matrix()`，
+不起子进程、不发 HTTP、不写文件。给「职责说明对账」子视图（`#/agents?kind=diff`）用。
+只接受 GET / HEAD；带任何 query 参数返回 400，其他方法沿用统一 405。
+
+三方取值与时效（口径同脚本，来源不同）：
+
+| 来源 | 取值 | 时效 |
+|---|---|---|
+| Git | serve 进程仓库的 `instructions-governance/`（默认）；`--instructions-root` 仅开发/演示/测试用，只改变 Git 真源数据根，不改变脚本位置 | 随部署 |
+| 看板导出 | 本进程静态目录下发的 `instruction-sources.json`，校验 schema、声明 hash 与 text | 文件 mtime 距今 ≤300 秒为 fresh，否则 stale（同脚本 `--board-json` 口径） |
+| 线上 Agent | 采集缓存 `/api/agents` 的 `instructions_sha256`（脱敏前计算，归档行除外） | `generated_at` 距今 ≤300 秒为 fresh |
+| 线上 Bot | `/api/bots` 本机 roster 缓存的 `description_sha256`，不等于云端实时 | 选中 roster 文件 mtime（`/api/bots` 返回的 `observed_at`），≤300 秒为 fresh；取不到记 stale 且观测时间为 null |
+
+响应 200（部分数据源不可用也返回 200，调用方看 `source_errors`）：
+
+```json
+{
+  "schema": "instruction-diff/v1",
+  "generated_at": "2026-11-05T15:30:00Z",
+  "summary": { "total": 12, "aligned": 9, "modified": 1, "stale": 1, "split": 1, "withheld": 0 },
+  "freshness": { "board": "fresh", "agent": "fresh", "bot": "stale" },
+  "live_sources": { "agent": "board-cache", "bot": "local-roster-cache" },
+  "source_errors": { "board": "unavailable_or_invalid" },
+  "inaccessible_workspaces": [],
+  "items": [
+    {
+      "kind": "agent", "workspace_id": "ws-uuid", "id": "agent-uuid", "name": "Builder",
+      "drift": "modified", "comparison": "modified", "stale_reasons": [],
+      "path": "instructions-governance/sources/agents/acm-lab/builder.md",
+      "git_sha256": "…64hex", "board_sha256": "…", "live_sha256": "…",
+      "updated_at": "2026-11-05T15:29:10Z"
+    }
+  ]
+}
+```
+
+- `summary` 五档键（`aligned / modified / stale / split / withheld`）始终齐全，`total` 为五档之和。
+- `items` 只含 `drift != "aligned"` 的行；排序 split → modified → stale → withheld，同档先 agent 后 bot 再按 `name`。`name` 取 live 行名 → Git 登记名 → id。
+- `source_errors`：`board`（导出缺失或 schema 不符）、`agent`（缓存空且无观测时间）、`bot`（roster 不可用），值固定 `unavailable_or_invalid`。
+- `inaccessible_workspaces` 恒为 `[]`：线上数据来自采集缓存而非 CLI，缓存层没有逐 workspace 拒绝信息，不编造。
+- 不返回正文、`text / instructions / description / skills` 键或原始错误；withheld 行三方 hash 全为 null。脱敏缓存正文不参与线上 hash 重算。
+- Git 真源不可读（目录缺失、`sources/index.json` 缺失或非法、所列文件不可读，或仓库 checkout 缺 `instructions-governance/scripts/` 对账脚本）→ 500 `{"error":{"code":"git_source_unreadable","message":"…"}}`；message 写明缺的仓库相对路径与建议（随看板一起检出或单独挂载只读，由用户另批），不降级为两方对比、不返回伪矩阵。
+- index 条目缺 `path`（已登记但无正文文件）视为未纳管，该行按 `git_hash_missing` 记 stale，不触发 500；index 的 `agents`/`bots` 若存在必须是数组，否则同上 500。
+- 与静态 `instruction-sources.json` 的关系：它只是三方里的「看板导出」一方；本端点只读它，不生成、不改写。
+- 本端点不写回任何东西；`updated_at` 是观测时间不是对象编辑时间。
+
 ## `GET /api/bots`
 
 ACM-828：`items[].description_sha256` 是规范化原始 description 的 SHA-256，在脱敏之前计算，空值为 null；口径见上文 Instructions 三方查询。该 API 读取本地 roster 缓存，不承诺云端实时状态。
@@ -331,7 +379,7 @@ ACM-828：`items[].description_sha256` 是规范化原始 description 的 SHA-25
 {"ok": false, "reason": "absent", "items": []}
 ```
 
-登录后 `ok: true`。`account_slot` 只保留账号标识末 8 位。`items` 是花名册（单人 Bot 与 Room），带分组、`pinned`、`is_group`、`member_ids`。`weekly_usage` 是账号级周额度。`delivery` 是 bridge 的 `shadow` 或 `send`。每个 item 的 `bridge` 含负责的 workspace、webhook `routine`、`delivery`、outbox 的 `pending` / `dead_letter` / `shadow_record`，以及该目的地的断路器。数量以本机 roster 为准。
+登录后 `ok: true`。顶层 `observed_at` 是所选 roster 文件的 mtime（UTC ISO 秒级 `…Z`），取不到为 `null`；roster 缺失/不可读的响应（`ok: false` 分支）不含该键，读侧按缺失处理。`account_slot` 只保留账号标识末 8 位。`items` 是花名册（单人 Bot 与 Room），带分组、`pinned`、`is_group`、`member_ids`。`weekly_usage` 是账号级周额度。`delivery` 是 bridge 的 `shadow` 或 `send`。每个 item 的 `bridge` 含负责的 workspace、webhook `routine`、`delivery`、outbox 的 `pending` / `dead_letter` / `shadow_record`，以及该目的地的断路器。数量以本机 roster 为准。
 
 ## `GET /api/skills` 的 `workspace_installs`
 
