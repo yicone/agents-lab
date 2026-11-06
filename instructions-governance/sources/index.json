@@ -210,7 +210,7 @@
     },
     {
       "id": "9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985",
-      "name": "Agent Steward",
+      "name": "Agent Steward · Agent 基建总管",
       "path": "bots/9cb8bf94-4ca4-4e1e-81f9-b174b5e0a985.md"
     },
     {
@@ -256,7 +256,7 @@
     {
       "id": "b4453b34-7f7c-4e44-8fab-12f73e28f2bb",
       "name": "Healthcare",
-      "path": null
+      "path": "bots/b4453b34-7f7c-4e44-8fab-12f73e28f2bb.md"
     },
     {
       "id": "b1039ace-42cb-40aa-9dd3-74885eca31a9",
@@ -316,7 +316,7 @@
     {
       "id": "27dc4c84-21d9-417f-8e7a-b98fc7c7ae00",
       "name": "macOS 执委会",
-      "path": null
+      "path": "bots/27dc4c84-21d9-417f-8e7a-b98fc7c7ae00.md"
     },
     {
       "id": "d167e79b-b889-4192-a83b-dc56f854a55e",
@@ -361,7 +361,7 @@
     {
       "id": "5e08c936-cc85-4d49-8ac3-0af97ccfbca2",
       "name": "aimaiai 迁移协调",
-      "path": null
+      "path": "bots/5e08c936-cc85-4d49-8ac3-0af97ccfbca2.md"
     }
   ]
 }
