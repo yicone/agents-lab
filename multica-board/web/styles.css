@@ -828,6 +828,9 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .filter { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .filter select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
 .skill-entry { margin: 4px 0; }
+.skill-loader { margin: 4px 0; }
+.skill-evidence { border-top: 1px solid var(--line); padding: 8px 0; }
+.skill-evidence .drawer-sub { margin: 0 0 6px; }
 .tag.info { background: var(--info-bg); color: var(--info); }
 .tri-state { font-size: 12px; line-height: 1.45; }
 .tri-col { min-width: 132px; }
