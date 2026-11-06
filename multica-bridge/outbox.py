@@ -292,8 +292,13 @@ def _resolve_dest(change, routes=None):
     return steward, "fallback"
 
 
-def latest_status_actor(events, new_status):
-    """actor_type of the newest timeline event that entered new_status."""
+def select_latest_status_event(events, new_status):
+    """Return (event or None, ordered).
+
+    Times are parsed as UTC, including fractional seconds and numeric offsets.
+    ordered is False when a matching event has no parseable timestamp, so the
+    caller must not treat another event as the latest.
+    """
     hits = []
     for event in events or []:
         if not isinstance(event, dict) or event.get("action") != "status_changed":
@@ -303,9 +308,23 @@ def latest_status_actor(events, new_status):
             continue
         hits.append(event)
     if not hits:
+        return None, True
+    keyed = []
+    for event in hits:
+        when = parse_ts(event.get("created_at"))
+        if when is None:
+            return None, False
+        keyed.append((when, str(event.get("id") or ""), event))
+    keyed.sort(key=lambda item: (item[0], item[1]))
+    return keyed[-1][2], True
+
+
+def latest_status_actor(events, new_status):
+    """actor_type of the newest timeline event that entered new_status."""
+    event, ordered = select_latest_status_event(events, new_status)
+    if not ordered or event is None:
         return None
-    hits.sort(key=lambda event: (str(event.get("created_at") or ""), str(event.get("id") or "")))
-    actor = hits[-1].get("actor_type")
+    actor = event.get("actor_type")
     if actor is None:
         return None
     text = str(actor).strip().lower()

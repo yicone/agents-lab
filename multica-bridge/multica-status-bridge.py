@@ -33,7 +33,7 @@ Rerun:  ~/.local/state/multica-bridge/rerun.json  (capacity planner; auto_rerun 
         on = `issue rerun` for at-capacity failures only, 3 attempts 5/10/20 min, steward notified)
 Replay: --replay EVENT_ID... | --replay-dead-letter  [--reset-circuit]
 """
-import json, os, socket, subprocess, sys, urllib.error, urllib.request, datetime
+import json, os, re, socket, subprocess, sys, urllib.error, urllib.request, datetime
 from urllib.parse import urlparse
 
 HOME = os.path.expanduser("~")
@@ -96,9 +96,15 @@ def ts(s):
     except Exception:
         return 0.0
 
+_TIMELINE_TRUNC_RE = re.compile(r"truncat", re.I)
+
+
+def mc_raw(*args):
+    return subprocess.run(["multica", "--profile", PROFILE, *args], cwd="/tmp", env=ENV,
+                          capture_output=True, text=True, timeout=90)
+
 def mc(*args):
-    out = subprocess.run(["multica", "--profile", PROFILE, *args], cwd="/tmp", env=ENV,
-                         capture_output=True, text=True, timeout=90)
+    out = mc_raw(*args)
     if out.returncode != 0:
         raise RuntimeError(f"multica {' '.join(args)}: {out.stderr.strip()[:300]}")
     if not out.stdout.strip():
@@ -107,6 +113,97 @@ def mc(*args):
         return json.loads(out.stdout)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"json parse: {e}") from e
+
+def unwrap_timeline(payload, stderr=""):
+    """Return (events, complete, reason).
+
+    A blank CLI result, has_more, or a truncation warning on stderr is incomplete.
+    An incomplete read must not be used as the latest-event judgment.
+    """
+    truncated = bool(_TIMELINE_TRUNC_RE.search(stderr or ""))
+    if payload is None:
+        return [], False, "empty"
+    if isinstance(payload, list):
+        if truncated:
+            return payload, False, "truncated"
+        return payload, True, "ok"
+    if not isinstance(payload, dict):
+        return [], False, "empty"
+    events = payload.get("items")
+    if events is None:
+        events = payload.get("timeline")
+    if events is None:
+        events = payload.get("events")
+    if not isinstance(events, list):
+        return [], False, "empty"
+    if payload.get("has_more"):
+        return events, False, "has_more"
+    if truncated:
+        return events, False, "truncated"
+    return events, True, "ok"
+
+def judge_timeline(payload, stderr, new_status):
+    """send, skip, or pending. pending means the cursor must stay put."""
+    events, complete, reason = unwrap_timeline(payload, stderr)
+    if not complete:
+        return {"action": "pending", "reason": reason, "actor": None, "event": None}
+    event, ordered = ob.select_latest_status_event(events, new_status)
+    if not ordered:
+        return {"action": "pending", "reason": "unordered", "actor": None, "event": None}
+    actor = None
+    if event is not None and event.get("actor_type") is not None:
+        actor = str(event.get("actor_type")).strip().lower() or None
+    if ob.status_actor_allows(new_status, actor):
+        return {"action": "send", "reason": "ok", "actor": actor, "event": event}
+    return {"action": "skip", "reason": "actor", "actor": actor, "event": event}
+
+def consider_status(new_status, fetched, prev_t=None, reentry=False):
+    """fetched is (payload, stderr, error). error keeps the event pending."""
+    payload, stderr, err = fetched
+    if err is not None:
+        return {"action": "pending", "reason": "unavailable", "actor": None, "event": None}
+    decision = judge_timeline(payload, stderr, new_status)
+    if decision["action"] != "send" or not reentry:
+        return decision
+    event = decision.get("event")
+    when = ob.parse_ts((event or {}).get("created_at"))
+    floor = ob.parse_ts(prev_t)
+    if when is None or floor is None or when <= floor:
+        return {"action": "skip", "reason": "no_reentry", "actor": decision.get("actor"), "event": event}
+    return decision
+
+def hold_pending_issues(current, prev, pending_ids):
+    """Keep the previous status and activity for issues still awaiting a timeline."""
+    for iid in pending_ids:
+        previous = (prev or {}).get(iid)
+        if isinstance(previous, dict):
+            current[iid] = dict(previous)
+        else:
+            current.pop(iid, None)
+
+def saved_cursor(prev_t, tick_t, pending_ids):
+    """Do not move the activity cursor while a timeline judgment is unfinished."""
+    if pending_ids and prev_t:
+        return prev_t
+    return tick_t
+
+def fetch_issue_timeline(workspace_id, issue_id):
+    """(payload, stderr, error). Blank stdout is payload None and error None."""
+    try:
+        out = mc_raw("--workspace-id", workspace_id, "issue", "timeline", issue_id, "--output", "json")
+    except Exception as exc:
+        return None, "", exc
+    stderr = out.stderr or ""
+    if out.returncode != 0:
+        detail = stderr.strip()[:300] or f"exit={out.returncode}"
+        return None, stderr, RuntimeError(detail)
+    stdout = (out.stdout or "").strip()
+    if not stdout:
+        return None, stderr, None
+    try:
+        return json.loads(stdout), stderr, None
+    except json.JSONDecodeError as exc:
+        return None, stderr, exc
 
 def load_conf():
     conf = {}
@@ -430,25 +527,31 @@ def _main():
         runs_cache[iid] = runs
         return runs
 
-    def gate_status(m, c, timeline=None):
-        """in_review / blocked enter the outbox only for actor_type agent."""
-        new_status = c.get("new_status")
-        if c.get("actor_type") is None and timeline is not None:
-            c["actor_type"] = ob.latest_status_actor(timeline, new_status)
-        elif c.get("actor_type") is None:
-            try:
-                tl = mc("--workspace-id", m.get("workspace_id"), "issue", "timeline",
-                        c.get("issue_id"), "--output", "json") or []
-                tl = tl if isinstance(tl, list) else (tl.get("items") or tl.get("timeline") or [])
-            except Exception as e:
-                note_collect(m.get("workspace"), m.get("workspace_id"), m.get("workspace_slug"),
-                             "timeline", e, ident=m.get("identifier"))
-                tl = []
-            c["actor_type"] = ob.latest_status_actor(tl, new_status)
-        if ob.status_actor_allows(new_status, c.get("actor_type")):
-            return True
-        log(f"skip status {c.get('identifier')} {new_status} actor_type={c.get('actor_type') or 'unknown'}")
-        return False
+    pending_ids = set()
+
+    def open_status(m, c, reentry=False):
+        """send, skip, or pending. pending keeps this issue's status and activity."""
+        iid = c.get("issue_id")
+        fetched = fetch_issue_timeline(m.get("workspace_id"), iid)
+        if fetched[2] is not None:
+            note_collect(m.get("workspace"), m.get("workspace_id"), m.get("workspace_slug"),
+                         "timeline", fetched[2], ident=m.get("identifier"))
+        decision = consider_status(c.get("new_status"), fetched, prev_t=prev_t, reentry=reentry)
+        c["actor_type"] = decision.get("actor")
+        if decision["action"] == "pending":
+            pending_ids.add(iid)
+            log(f"pending status {c.get('identifier')} {c.get('new_status')} reason={decision.get('reason')}")
+            return "pending"
+        if decision["action"] == "send":
+            event = decision.get("event") or {}
+            if event.get("created_at"):
+                c["updated_at"] = event.get("created_at")
+            if reentry:
+                c["reentered"] = True
+                c["old_status"] = ((event.get("details") or {}).get("from")) or c.get("old_status")
+            return "send"
+        log(f"skip status {c.get('identifier')} {c.get('new_status')} actor_type={c.get('actor_type') or 'unknown'}")
+        return "skip"
 
     # 1) status changes (only when previously known; v1 state already holds target statuses)
     if not first_run:
@@ -463,28 +566,15 @@ def _main():
                 c = base(iid, "status"); c.update(old_status=old, new_status=ent["s"], updated_at=m.get("updated_at"))
                 if old is None:
                     unseen.setdefault(ent["w"], []).append(c)
-                elif gate_status(m, c):
+                elif open_status(m, c) == "send":
                     changes.append(c)
             elif pe and prev_t and ent.get("a") and ent.get("a") != pe.get("a"):
                 # same status at both ticks but activity moved: catch round trips
                 # (e.g. in_review -> in_progress -> in_review) inside one poll window
-                try:
-                    tl = mc("--workspace-id", m["workspace_id"], "issue", "timeline", iid, "--output", "json") or []
-                    tl = tl if isinstance(tl, list) else (tl.get("items") or tl.get("timeline") or [])
-                except Exception as e:
-                    note_collect(m.get("workspace"), m.get("workspace_id"), m.get("workspace_slug"),
-                                 "timeline", e, ident=m.get("identifier"))
-                    tl = []
-                hits = [e for e in tl if e.get("action") == "status_changed"
-                        and (e.get("details") or {}).get("to") == ent["s"]
-                        and ts(e.get("created_at")) > ts(prev_t)]
-                if hits:
-                    e = max(hits, key=lambda x: ts(x.get("created_at")))
-                    c = base(iid, "status")
-                    c.update(old_status=(e.get("details") or {}).get("from"), new_status=ent["s"],
-                             updated_at=e.get("created_at"), reentered=True)
-                    if gate_status(m, c, timeline=tl):
-                        changes.append(c)
+                c = base(iid, "status")
+                c.update(old_status=old, new_status=ent["s"], updated_at=ent.get("a"), reentered=True)
+                if open_status(m, c, reentry=True) == "send":
+                    changes.append(c)
         for wid, cs in unseen.items():
             if len(cs) > NULL_BURST:
                 log(f"WARN baseline rebuild workspace={wid}: {len(cs)} unseen issue(s) in "
@@ -493,7 +583,7 @@ def _main():
             else:
                 for c in cs:
                     owner = meta.get(c.get("issue_id")) or {}
-                    if gate_status(owner, c):
+                    if open_status(owner, c) == "send":
                         changes.append(c)
 
     # 1b) assignee delivery the status pass did not already cover.
@@ -608,6 +698,7 @@ def _main():
                 shadow_deliveries.append(change)
                 log(f"agent_delivery shadow {m.get('identifier')} {change.get('event_id')} {change.get('reason')}")
 
+    hold_pending_issues(current, prev, pending_ids)
     collect_deliveries()
 
     # 2) agent comments (opt-in) + 3) failed runs (opt-in; dest forced to steward)
@@ -831,7 +922,9 @@ def _main():
             ev = ob.enqueue(box, c, now, mode=mode, dest=dest, dest_reason=reason, routes=routes)
             stats[ev] = stats.get(ev, 0) + 1
 
-    state_obj = {"_v": 2, "t": tick_t, "issues": current, "ws_base": sorted(new_base),
+    hold_pending_issues(current, prev, pending_ids)
+    state_obj = {"_v": 2, "t": saved_cursor(prev_t, tick_t, pending_ids),
+                 "issues": current, "ws_base": sorted(new_base),
                  "seen_comments": seen_c[-2000:], "seen_runs": seen_r[-2000:]}
     crash = os.environ.get("MB_CRASH_AFTER")
     ob.persist_two_phase(OUTBOX, box, STATE, state_obj, crash=crash)

@@ -5,6 +5,7 @@ import importlib.util
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -247,6 +248,21 @@ class ActorAndDeliveryTests(unittest.TestCase):
         ]
         self.assertEqual(ob.latest_status_actor(member_latest, "in_review"), "member")
         self.assertFalse(ob.status_actor_allows("in_review", "member"))
+        earlier_agent = {
+            "id": "agent-early", "action": "status_changed", "actor_type": "agent",
+            "created_at": "2026-11-06T03:00:00Z", "details": {"to": "in_review"},
+        }
+        later_member = {
+            "id": "member-late", "action": "status_changed", "actor_type": "member",
+            "created_at": "2026-11-06T03:00:00.100Z", "details": {"to": "in_review"},
+        }
+        self.assertEqual(ob.latest_status_actor([earlier_agent, later_member], "in_review"), "member")
+        self.assertEqual(ob.latest_status_actor([later_member, earlier_agent], "in_review"), "member")
+        offset_member = dict(later_member, created_at="2026-11-06T03:00:00.100+00:00")
+        self.assertEqual(ob.latest_status_actor([earlier_agent, offset_member], "in_review"), "member")
+        later_agent = dict(earlier_agent, id="agent-late", created_at="2026-11-06T03:00:00.100Z")
+        earlier_member = dict(later_member, id="member-early", created_at="2026-11-06T03:00:00Z")
+        self.assertEqual(ob.latest_status_actor([earlier_member, later_agent], "in_review"), "agent")
         self.assertFalse(ob.status_actor_allows("blocked", "member"))
         agent_latest = [
             {"id": "1", "action": "status_changed", "created_at": "2026-11-06T01:00:00Z",
@@ -290,9 +306,107 @@ class ActorAndDeliveryTests(unittest.TestCase):
     def test_bridge_wires_the_actor_gate_and_comment_type(self):
         text = (ROOT / "multica-status-bridge.py").read_text(encoding="utf-8")
         self.assertIn("status_actor_allows", text)
-        self.assertIn("latest_status_actor", text)
-        self.assertIn('comment_type', text)
-        self.assertIn("gate_status", text)
+        self.assertIn("consider_status", text)
+        self.assertIn("hold_pending_issues", text)
+        self.assertIn("comment_type", text)
+        self.assertIn("saved_cursor", text)
+
+
+class TimelineCursorTests(unittest.TestCase):
+    def bridge(self):
+        return load_bridge()
+
+    def test_two_timeouts_then_recovery_notifies_and_rereads_timeline(self):
+        bridge = self.bridge()
+        prev_row = {"s": "in_progress", "a": "2026-11-05T00:00:00Z", "w": "ws"}
+        observed = {"s": "in_review", "a": "2026-11-06T03:00:00.250Z", "w": "ws"}
+        stored = {"issue-1": dict(prev_row)}
+        cursor = "2026-11-06T01:00:00Z"
+        tick = "2026-11-06T04:00:00Z"
+        calls = []
+
+        def fetch(_wid, iid):
+            calls.append(iid)
+            if len(calls) < 3:
+                raise subprocess.TimeoutExpired("multica", 90)
+            return ({
+                "items": [{
+                    "action": "status_changed",
+                    "actor_type": "agent",
+                    "created_at": "2026-11-06T03:00:00.250Z",
+                    "details": {"to": "in_review", "from": "in_progress"},
+                }],
+                "has_more": False,
+            }, "", None)
+
+        actions = []
+        for _ in range(3):
+            try:
+                fetched = fetch("ws", "issue-1")
+            except Exception as exc:
+                fetched = (None, "", exc)
+            decision = bridge.consider_status("in_review", fetched)
+            actions.append(decision["action"])
+            snap = {"issue-1": dict(observed)}
+            pending = ["issue-1"] if decision["action"] == "pending" else []
+            bridge.hold_pending_issues(snap, stored, pending)
+            cursor = bridge.saved_cursor(cursor, tick, pending)
+            if decision["action"] == "pending":
+                self.assertEqual(snap["issue-1"]["s"], "in_progress")
+                self.assertEqual(snap["issue-1"]["a"], "2026-11-05T00:00:00Z")
+                self.assertEqual(cursor, "2026-11-06T01:00:00Z")
+            else:
+                stored = snap
+        self.assertEqual(calls, ["issue-1", "issue-1", "issue-1"])
+        self.assertEqual(actions, ["pending", "pending", "send"])
+        self.assertEqual(stored["issue-1"]["s"], "in_review")
+        self.assertEqual(cursor, tick)
+
+    def test_empty_timeout_has_more_and_stderr_do_not_advance(self):
+        bridge = self.bridge()
+        prev_row = {"s": "in_progress", "a": "2026-11-05T00:00:00Z", "w": "ws"}
+        observed = {"s": "blocked", "a": "2026-11-06T03:00:00Z", "w": "ws"}
+        agent = {
+            "action": "status_changed", "actor_type": "agent",
+            "created_at": "2026-11-06T02:00:00Z", "details": {"to": "blocked"},
+        }
+        cases = [
+            (None, "", None, "empty"),
+            (None, "", subprocess.TimeoutExpired("multica", 90), "unavailable"),
+            ({"items": [agent], "has_more": True}, "", None, "has_more"),
+            ({"timeline": [agent], "has_more": False}, "warning: status_changed history truncated\n", None, "truncated"),
+        ]
+        for payload, stderr, err, reason in cases:
+            decision = bridge.consider_status("blocked", (payload, stderr, err))
+            self.assertEqual(decision["action"], "pending", reason)
+            self.assertEqual(decision["reason"], reason)
+            snap = {"issue-1": dict(observed)}
+            bridge.hold_pending_issues(snap, {"issue-1": dict(prev_row)}, ["issue-1"])
+            self.assertEqual(snap["issue-1"]["s"], "in_progress")
+            self.assertEqual(bridge.saved_cursor("2026-11-06T01:00:00Z", "2026-11-06T04:00:00Z", ["issue-1"]),
+                             "2026-11-06T01:00:00Z")
+
+    def test_later_member_page_is_not_sent_after_a_partial_page(self):
+        bridge = self.bridge()
+        earlier_agent = {
+            "id": "a", "action": "status_changed", "actor_type": "agent",
+            "created_at": "2026-11-06T03:00:00Z", "details": {"to": "in_review"},
+        }
+        later_member = {
+            "id": "m", "action": "status_changed", "actor_type": "member",
+            "created_at": "2026-11-06T03:00:00.100Z", "details": {"to": "in_review"},
+        }
+        partial = bridge.judge_timeline({"items": [earlier_agent], "has_more": True}, "", "in_review")
+        self.assertEqual(partial["action"], "pending")
+        self.assertEqual(partial["reason"], "has_more")
+        done = bridge.judge_timeline(
+            {"events": [earlier_agent, later_member], "has_more": False}, "", "in_review",
+        )
+        self.assertEqual(done["action"], "skip")
+        self.assertEqual(done["actor"], "member")
+        snap = {"issue-1": {"s": "in_review", "a": "2026-11-06T03:00:00.100Z"}}
+        bridge.hold_pending_issues(snap, {"issue-1": {"s": "in_progress", "a": "2026-11-05T00:00:00Z"}}, [])
+        self.assertEqual(snap["issue-1"]["s"], "in_review")
 
 
 class CircuitAndFirstFailureTests(unittest.TestCase):
