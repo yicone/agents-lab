@@ -1133,3 +1133,54 @@ test("deferred upgrade state stays visible in the skill row", () => {
   assert.equal(rows.length, 1);
   assert.ok(findText(rows[0], "升级状态待补"));
 });
+
+
+test("compact default keeps core columns and matches group colspan to visible headers", () => {
+  const tree = { children: renderSkills(renderCtx(today)) };
+  const headers = findAll(tree, n => n.tag === "th" && n.attrs?.colspan == null);
+  assert.equal(headers.filter(n => n.attrs?.["data-skill-column"] && !n.attrs.hidden).length, 0);
+  const visible = headers.filter(n => !n.attrs?.hidden).length;
+  assert.ok(headers.some(n => !n.attrs?.hidden && findText(n, "版本")));
+  assert.ok(headers.some(n => !n.attrs?.hidden && findText(n, "来源 / 更新通道")));
+  for (const cell of findAll(tree, n => n.attrs?.colspan != null)) assert.equal(+cell.attrs.colspan, visible);
+});
+
+test("saved Skills preferences restore disclosure and columns after rendering again", () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const store = new Map([["aa.skills.legend", "true"], ["aa.skills.columns", '["tri","review"]']]);
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value) } });
+  try {
+    let tree = { children: renderSkills(renderCtx(today)) };
+    let legend = findAll(tree, n => n.tag === "details" && n.children.some(c => c?.tag === "summary" && findText(c, "图例")))[0];
+    assert.equal(legend.attrs.open, true);
+    const columns = findAll(tree, n => n.tag === "th" && n.attrs?.["data-skill-column"]);
+    assert.deepEqual(columns.filter(n => !n.attrs.hidden).map(n => n.attrs["data-skill-column"]), ["tri", "review"]);
+    legend.attrs.ontoggle({ currentTarget: { open: false } });
+    tree = { children: renderSkills(renderCtx(today)) };
+    legend = findAll(tree, n => n.tag === "details" && n.children.some(c => c?.tag === "summary" && findText(c, "图例")))[0];
+    assert.equal(legend.attrs.open, false);
+  } finally {
+    if (original) Object.defineProperty(globalThis, "localStorage", original);
+    else delete globalThis.localStorage;
+  }
+});
+
+test("corrupt or denied preference storage leaves Skills usable", () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  try {
+    for (const value of ["not-json", '{}', '"unexpected"']) {
+      Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: () => value } });
+      const tree = { children: renderSkills(renderCtx(today)) };
+      assert.ok(findAll(tree, n => n.tag === "tr" && String(n.attrs?.class).includes("skill-row")).length);
+      assert.equal(findAll(tree, n => n.tag === "th" && n.attrs?.["data-skill-column"] && !n.attrs.hidden).length, 0);
+    }
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, get: () => { throw new Error("denied"); } });
+    const tree = { children: renderSkills(renderCtx(today)) };
+    for (const details of findAll(tree, n => n.tag === "details" && n.attrs.ontoggle)) {
+      assert.doesNotThrow(() => details.attrs.ontoggle({ currentTarget: { open: true } }));
+    }
+  } finally {
+    if (original) Object.defineProperty(globalThis, "localStorage", original);
+    else delete globalThis.localStorage;
+  }
+});

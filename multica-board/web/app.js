@@ -2,7 +2,7 @@ import { agentColumns, recentRuns, timeUTC8, agentFocusControl, COPY, pageHead, 
 import { BOUNDARY_COLUMNS, DUTY_COLUMNS, RUNTIME_COLUMNS, boundaryText, quotaText, safeConfigText } from "./agent-config.js";
 import { createRuntimeConfig } from "./runtime-config.js";
 import { runtimeIcon } from "./runtime-mark.js";
-import { QUEUED_RUN, classifyIssue, attentionSummary, scopedAttentionSummary } from "./attention.js";
+import { QUEUED_RUN, classifyIssue, scopedAttentionSummary } from "./attention.js";
 import {
   decideQueue,
   filterDecide,
@@ -1099,11 +1099,10 @@ function issueCard(it, ws, cls) {
         (cls.lane === "failed" || cls.lane === "delivery_anomaly") && run?.completed_at ? `结束于 ${ago(run.completed_at)}` : ago(it.last_activity_at),
       ),
     ),
-    cls.tags.length || degraded
+    cls.tags.length
       ? h(
           "div",
           { class: "tags" },
-          degraded ? h("span", { class: "tag warn" }, "旧数据") : null,
           cls.tags.map(([k, t]) => h("span", { class: `tag ${k}` }, t)),
         )
       : null,
@@ -1185,7 +1184,6 @@ function renderIssues() {
   const { ws: wsSlug, q } = state.route;
   const staleMs = state.staleDays * 86400_000;
   const summary = scopedAttentionSummary(state.fetchError ? null : state.meta, state.issues, now(), staleMs, wsSlug);
-  const globalSummary = attentionSummary(state.fetchError ? null : state.meta, state.issues, now(), staleMs);
   const lanes = Object.fromEntries(LANES.map((l) => [l.id, []]));
   const others = new Map();
 
@@ -1257,8 +1255,7 @@ function renderIssues() {
     h("p", { class: "muted" }, `当前 ${currentScopeLabel(state.meta?.workspaces, wsSlug)} ${Object.values(lanes).reduce((n, rows) => n + rows.length, 0)} 条${wsSlug ? "" : ` · 范围：全部 ${state.meta?.workspaces?.length || 0} 个 workspace`}`),
     h("a", { href: "#/decide" }, "待批准 →"),
     h("span", { class: "muted" }, othersTotal ? `另有 ${othersTotal} 条打开 issue 不在关注范围（${othersDetail}）` : "所有打开 issue 都在关注范围内")),
-    wsSlug && summary.incomplete ? h("p", { class: "decide-note", role: "status" }, `当前 ${currentScopeLabel(state.meta?.workspaces, wsSlug)}：缓存 ${summary.count} 条 · 当前来源异常，数量未知。`) : null,
-    globalSummary.incomplete ? h("p", { class: "decide-note", role: "status" }, `全局：缓存 ${globalSummary.count} 条 · ${globalSummary.unknown.length + globalSummary.missing || 1} 个来源异常。`, ...(state.meta?.workspaces || []).filter(ws => ws.collect_state !== "ok" || !ws.counts).map(ws => h("span", null, ` ${ws.name}：${absTime(ws.last_success_at) || "从未成功"} UTC+8；`)), h("span", null, ` 目录来源时间：${absTime(state.meta?.collector?.last_success_at) || "未知"} UTC+8`)) : null,
+    sourceNotice((state.meta?.workspaces || []).filter(ws => !wsSlug || ws.slug === wsSlug), summary.count),
     toolbar, board];
 }
 
@@ -1634,6 +1631,17 @@ function exitPlanSelect() {
   setRoute({ planMode: false, sel: "" });
 }
 
+/** One page-level source warning; row-specific failures remain in their own cells. */
+function sourceNotice(workspaces, count) {
+  const bad = workspaces.filter(ws => isWsDegraded(ws) || !ws.counts || !["ok", "stale"].includes(wsState(ws)));
+  if (!bad.length) return null;
+  const times = bad.map(ws => ws.last_success_at).filter(Boolean).sort();
+  return h("details", { class: "decide-note", role: "status" },
+    h("summary", null, h("strong", null, `缓存 ${count} 条 · ${bad.length} 个来源异常`),
+      h("small", null, ` · 最后成功 ${times.length ? absTime(times.at(-1)) : "从未成功"}`)),
+    ...bad.map(ws => h("div", null, h("small", null, `${ws.name} · ${absTime(ws.last_success_at) || "从未成功"}`))));
+}
+
 // ---------- agents view ----------
 
 function runtimeIndex() {
@@ -1687,13 +1695,11 @@ function configValueCell(value, field) {
 }
 
 function agentIdentityCell(a, ws, showWs) {
-  const degraded = isWsDegraded(ws);
   return h(
     "td",
     { class: "agent-name" },
     showWs ? wsTag(ws) : null,
     a.url ? extLink(a.url, null, a.name) : a.name,
-    degraded ? h("span", { class: "tag warn" }, "旧数据") : null,
   );
 }
 
@@ -1807,7 +1813,6 @@ function agentRow({ a, ws, rt }, showWs, planMode) {
       { class: "agent-name" },
       showWs ? wsTag(ws) : null,
       a.url ? extLink(a.url, null, a.name) : a.name,
-      degraded ? h("span", { class: "tag warn" }, "旧数据") : null,
     ),
     ...(state.route.section === "configure" || planMode ? [
     rtCell,
@@ -2089,6 +2094,7 @@ function renderAgents() {
     return [
       ...title,
       kindBar,
+      sourceNotice((state.meta?.workspaces || []).filter(ws => !r.ws || ws.slug === r.ws), scoped.length),
       strip,
       inventoryNote,
       toolbar,
@@ -2130,7 +2136,7 @@ function renderAgents() {
     ? h("div", { class: "table-wrap sticky-head", tabindex: 0, role: "region", "aria-label": "Agent 状态" }, h("table", { class: "matrix" }, head, bodies))
     : h("div", { class: "empty" }, "没有符合条件的 agent");
 
-  if (!planMode) return [...title, kindBar, strip, inventoryNote, toolbar, table];
+  if (!planMode) return [...title, kindBar, sourceNotice((state.meta?.workspaces || []).filter(ws => !r.ws || ws.slug === r.ws), scoped.length), strip, inventoryNote, toolbar, table];
   const selected = selectedAgentRecords();
   const outside = outsideCount(parseSel(r.sel), rows.map((row) => row.a.id));
   const bar = h(
@@ -2149,7 +2155,7 @@ function renderAgents() {
       "下一步",
     ),
   );
-  return [...title, kindBar, strip, toolbar, table, bar];
+  return [...title, kindBar, sourceNotice((state.meta?.workspaces || []).filter(ws => !r.ws || ws.slug === r.ws), scoped.length), strip, toolbar, table, bar];
 }
 
 // ---------- render ----------
@@ -2348,13 +2354,14 @@ function renderDecide() {
     h("a", { href: "#/issues" }, "在全部事项中查看"),
   );
 
+  const scanNote = state.governanceScan?.state === "ok"
+    ? null
+    : `只读巡检：${({ not_collected: "未采集", stale: "报告已过期", invalid: "报告不可读", incompatible: "报告范围不匹配", changed: "部分 issue 已变化，需重跑" })[state.governanceScan?.state] || "未采集"}；告警数量未知。`;
+  const warnings = [scanNote, note, degraded ? "ACM Lab 这次快照是旧数据。" : null].filter(Boolean);
   return [
     head,
-    h("div", { class: "decide-note", role: "status" }, state.governanceScan?.state === "ok"
-      ? `只读巡检：${state.governanceScan.detected_at}；巡检待决按 issue 去重，可能与待验收/受阻重叠。`
-      : `只读巡检：${({ not_collected: "未采集", stale: "报告已过期", invalid: "报告不可读", incompatible: "报告范围不匹配", changed: "部分 issue 已变化，需重跑" })[state.governanceScan?.state] || "未采集"}；告警数量未知。`),
-    note ? h("div", { class: "decide-note", role: "status" }, note) : null,
-    degraded ? h("div", { class: "decide-note" }, "ACM Lab 这次快照是旧数据。") : null,
+    state.governanceScan?.state === "ok" ? h("p", { class: "muted" }, `只读巡检：${state.governanceScan.detected_at}；巡检待决按 issue 去重，可能与待验收/受阻重叠。`) : null,
+    warnings.length ? h("div", { class: "decide-note", role: "status" }, h("strong", null, "来源提示"), h("small", null, ` · ${warnings.join(" · ")}`)) : null,
     toolbar,
     table,
     foot,

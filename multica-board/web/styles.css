@@ -380,7 +380,7 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .agent-name { font-weight: 550; }
 .agent-name .ws-tag { margin-right: 6px; }
 .agent-name a:hover { color: var(--accent); text-decoration: underline; }
-.rt { display: table-cell; }
+.matrix .rt { display: table-cell; text-align: left; }
 .rt .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .rt .dot.ok { background: var(--ok); }
 .rt .dot.off { background: var(--bad); }
@@ -548,11 +548,10 @@ a.card-title:focus-visible, .runs-btn:focus-visible { outline: 2px solid var(--a
 .field.is-pending select,
 .check.is-pending { cursor: not-allowed; }
 .decide-hint { margin-left: auto; }
-.decide-note {
+.decide-note, .skills-anomaly {
   margin: 0 0 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--warn);
-  border-left-width: 4px;
   border-radius: var(--radius);
   background: var(--warn-bg);
   color: var(--text);
@@ -836,16 +835,23 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .skills-legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0 0 10px; font-size: 11px; color: var(--muted); max-width: 100%; }
 .skills-legend .legend-group { min-width: 0; }
 .skills-legend strong { color: var(--text); font-weight: 600; }
-.skills-anomaly {
-  margin: 0 0 10px;
-  padding: 6px 10px;
-  border: 1px solid var(--warn);
-  border-radius: var(--radius);
-  background: var(--warn-bg);
-  color: var(--warn);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
+.decide-note strong, .skills-anomaly strong { color: var(--text); font-weight: 600; }
+.decide-note small, .skills-anomaly small { color: var(--muted); font-size: 11px; }
+.decide-note, .skills-anomaly { overflow-wrap: anywhere; }
+.skills-disclosure { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.skills-disclosure summary { cursor: pointer; min-height: 24px; width: fit-content; }
+.skills-disclosure :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.skills-disclosure > .skills-legend { margin-bottom: 0; }
+.skills-columns { position: relative; margin: 0; }
+.skills-column-options { position: absolute; z-index: 3; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; min-width: 164px; }
+.skills-column-options label { display: flex; align-items: center; gap: 6px; min-height: 24px; white-space: nowrap; }
+.skills-main .skills-table { width: 100%; table-layout: fixed; }
+.skills-main .skills-table td { overflow-wrap: anywhere; }
+.skills-main .skills-table .tool-col { white-space: normal; width: 60px; }
+.skills-main .skills-table [hidden] { display: none; }
+.skills-main .skills-table:has([data-skill-column]:not([hidden])) { width: max-content; min-width: 100%; table-layout: auto; }
+.skills-main .skills-table .tool-mark, .queue-item { min-width: 24px; min-height: 24px; }
+.skill-row:focus-visible, .queue-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .shared-entry .tag { white-space: nowrap; }
 .tool-mark sup { font-size: 9px; color: var(--info); margin-left: 1px; }
 .tool-mark.via-target { color: var(--info); }
@@ -1097,7 +1103,7 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .runtime-config { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; margin: 0; min-width: 0; }
 .runtime-config h2, .runtime-config h3, .runtime-config p { margin: 0; }
 .runtime-config p { max-width: 80ch; }
-.runtime-config .plan-card { display: grid; gap: 12px; }
+.runtime-config .plan-card { display: grid; gap: 12px; padding-inline: 0; border-inline: 0; }
 .runtime-config form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; max-width: 480px; }
 .runtime-config form label { display: grid; gap: 6px; flex: 0 1 360px; min-width: 0; }
 .runtime-config td, .runtime-config th { overflow-wrap: anywhere; }
