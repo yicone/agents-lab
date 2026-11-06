@@ -155,6 +155,20 @@ class DecideTests(unittest.TestCase):
         ))
         self.assertIsNone(member)
 
+    def test_system_comment_is_not_a_delivery(self):
+        system = comment("sys", T_COMMENT, "CLI exited with status 1")
+        system["comment_type"] = "system"
+        self.assertIsNone(collect_for_issue(issue(
+            comments=[system],
+            runs=[run("r-sys", T_RUN)],
+        )))
+        via_type = comment("sys2", T_COMMENT, "process failed")
+        via_type["type"] = "system"
+        self.assertIsNone(collect_for_issue(issue(
+            comments=[via_type],
+            runs=[run("r-sys2", T_RUN)],
+        )))
+
     def test_uncertain_text_is_kept(self):
         decision = decide_delivery(
             status="in_progress",
