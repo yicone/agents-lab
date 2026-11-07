@@ -272,6 +272,43 @@ function capabilityHead(h, type) {
   return pageHead(h, [{ label: type }], type);
 }
 
+const OPTIONAL_COLUMNS = [
+  ["tri", "三态"], ["workspace", "Workspace"], ["shared", "共享入口"],
+  ["reconcile", "对账"], ["custom", "定制 · 约束"], ["review", "复核"],
+];
+
+// Storage can be unavailable (private browsing, quota, or Node tests).
+function preference(key, fallback) {
+  try { return JSON.parse(globalThis.localStorage?.getItem(`aa.skills.${key}`)) ?? fallback; }
+  catch { return fallback; }
+}
+function savePreference(key, value) {
+  try { globalThis.localStorage?.setItem(`aa.skills.${key}`, JSON.stringify(value)); } catch { /* usable without storage */ }
+}
+function disclosure(h, key, label, ...children) {
+  return h("details", { class: "skills-disclosure", open: preference(key, false) === true,
+    ontoggle: (event) => savePreference(key, event.currentTarget.open) },
+    h("summary", null, label), ...children);
+}
+function optionalAttrs(id, attrs = {}) {
+  const selected = preference("columns", []);
+  return { ...attrs, "data-skill-column": id, hidden: !Array.isArray(selected) || !selected.includes(id) };
+}
+function columnChooser(h, tools) {
+  return h("details", { class: "skills-columns skills-disclosure" },
+    h("summary", null, "列选择"),
+    h("div", { class: "skills-column-options" }, OPTIONAL_COLUMNS.map(([id, label]) =>
+      h("label", null, h("input", { type: "checkbox", checked: !optionalAttrs(id).hidden,
+        onchange: (event) => {
+          const main = event.currentTarget.closest("#main");
+          for (const cell of main.querySelectorAll(`[data-skill-column="${id}"]`)) cell.hidden = !event.target.checked;
+          const selected = [...main.querySelectorAll(".skills-column-options input:checked")].map(input => input.value);
+          savePreference("columns", selected);
+          const count = 3 + tools.length + selected.length;
+          for (const cell of main.querySelectorAll(".skills-table [colspan]")) cell.colSpan = count;
+        }, value: id }), label))));
+}
+
 export function renderSkills(ctx) {
   const { h, route } = ctx;
   const payload = ctx.skills;
@@ -297,7 +334,8 @@ export function renderSkills(ctx) {
   const visible = new Map(tools.map((tool) => [tool.id, (payload.items || []).filter((item) => item.tools?.[tool.id] === "direct" || item.tools?.[tool.id] === "shared").length]));
   return [
     ...capabilityHead(h, "skills"),
-    h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block))),
+    disclosure(h, "sources", `${blocks.filter(block => block.id !== "all").length} 个来源 · 最新 ${relTime(payload.generated_at, ctx.ago)}`,
+      h("div", { class: "source-grid" }, blocks.map((block) => sourceCard(ctx, block)))),
     h(
       "div",
       { class: "toolbar" },
@@ -311,10 +349,11 @@ export function renderSkills(ctx) {
         h("input", { type: "checkbox", checked: route.custom, onchange: (e) => ctx.setRoute({ custom: e.target.checked }) }),
         "只看定制 / 有约束",
       ),
+      columnChooser(h, tools),
       h("button", { type: "button", class: "text-btn", onclick: () => ctx.setRoute({ evidence: true, source: "" }) }, "证据清单"),
     ),
     anomalyBanner(h, payload, route),
-    legend(h),
+    disclosure(h, "legend", "图例", legend(h)),
     h(
       "div",
       { class: "skills-layout" },
@@ -339,7 +378,7 @@ function anomalyBanner(h, payload, route) {
   return h(
     "div",
     { class: "skills-anomaly", role: "status" },
-    lines.map((text) => h("div", null, text)),
+    h("strong", null, lines.join(" · ")),
   );
 }
 
@@ -417,16 +456,16 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
     "tr",
     null,
     h("th", null, "Skill"),
-    h("th", { class: "tri-col", title: TRI_LEGEND }, "三态"),
+    h("th", optionalAttrs("tri", { class: "tri-col", title: TRI_LEGEND }), "三态"),
     h("th", { class: "channel-col" }, "来源 / 更新通道"),
-    h("th", { title: "Workspace（跨 Workspace）" }, "Workspace"),
-    h("th", null, "共享入口"),
+    h("th", optionalAttrs("workspace", { title: "Workspace（跨 Workspace）" }), "Workspace"),
+    h("th", optionalAttrs("shared"), "共享入口"),
     ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}\n${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
     projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, "仓库入口", h("small", null, String(visible.get(projectTool.id) || 0))) : null,
     h("th", { class: "version-col", title: "版本：记录 → 实际" }, "版本"),
-    h("th", null, "对账"),
-    h("th", null, "定制 · 约束"),
-    h("th", null, "复核"),
+    h("th", optionalAttrs("reconcile"), "对账"),
+    h("th", optionalAttrs("custom"), "定制 · 约束"),
+    h("th", optionalAttrs("review"), "复核"),
   );
   const body = [];
   for (const group of groups) {
@@ -437,7 +476,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
       h(
         "tr",
         { class: "skill-group" },
-        h("th", { colspan: String(9 + tools.length) }, group.label, h("span", { class: "muted" }, ` · ${group.items.length}`), group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null),
+        h("th", { colspan: String(3 + tools.length + OPTIONAL_COLUMNS.filter(([id]) => !optionalAttrs(id).hidden).length) }, group.label, h("span", { class: "muted" }, ` · ${group.items.length}`), group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null),
       ),
     );
     for (const item of shown) body.push(row(ctx, harness, projectTool, item, payload));
@@ -448,7 +487,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
           { class: "skill-more" },
           h(
             "td",
-            { colspan: String(9 + tools.length) },
+            { colspan: String(3 + tools.length + OPTIONAL_COLUMNS.filter(([id]) => !optionalAttrs(id).hidden).length) },
             h("button", { type: "button", class: "text-btn", onclick: () => ctx.toggleSkillGroup(group.id) }, `显示其余 ${rest} 条`),
           ),
         ),
@@ -463,7 +502,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
         : ctx.route.source === CLOUD_SOURCE
           ? "没有已安装到 Workspace 的 skill"
           : "没有符合筛选的 skill";
-    body.push(h("tr", null, h("td", { class: "empty", colspan: String(9 + tools.length) }, emptyText)));
+    body.push(h("tr", null, h("td", { class: "empty", colspan: String(3 + tools.length + OPTIONAL_COLUMNS.filter(([id]) => !optionalAttrs(id).hidden).length) }, emptyText)));
   }
   return h("div", { class: "table-wrap sticky-head" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
 }
@@ -485,16 +524,16 @@ function row(ctx, harness, projectTool, item, payload) {
       },
     },
     h("td", null, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
-    h("td", { class: "tri-col" }, renderTriState(h, skillTriState(item))),
+    h("td", optionalAttrs("tri", { class: "tri-col" }), renderTriState(h, skillTriState(item))),
     h("td", { class: "channel-col", title: [visibleLabel(item.channel_label), item.channel_detail, item.evidence_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, visibleLabel(item.channel_label)), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
-    h("td", { class: "cloud-cell" }, cloudCell(h, item)),
-    h("td", { class: "shared-entry", title: sharedTitle }, h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
+    h("td", optionalAttrs("workspace", { class: "cloud-cell" }), cloudCell(h, item)),
+    h("td", optionalAttrs("shared", { class: "shared-entry", title: sharedTitle }), h("span", { class: `tag ${SHARED_CLASS[shared.state] || "muted"}` }, shared.label)),
     ...harness.map((tool) => toolCell(h, item, tool)),
     projectTool ? h("td", { class: "repo-entries" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 没有本机仓库入口") : repoCell(h, item, payload)) : null,
     h("td", { class: "mono version-col", title: isGrokBot(item) ? "∅ 不适用：Grok Bot 清单没有版本" : `记录：${item.current_version || "未记录"}\n实际：${item.observed_version || "未采集"}` }, h("div", { class: "cell-ellipsis" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 清单没有版本") : versionCell(h, item))),
-    h("td", null, h("span", { class: `tag ${item.export?.state === "bad" ? "bad" : STATUS_CLASS[item.reconciliation_status] || ""}`, title: item.reconciliation_status === "stale" ? (item.review_time ? "复核已过期，需要重新检查" : "从未复核：尚未建立人工复核记录") : "" }, item.reconciliation_status === "stale" && !item.review_time ? "从未复核" : item.status_label || item.reconciliation_status || "—")),
-    h("td", null, isGrokBot(item) ? notApplicable(h, "Grok Bot 清单未提供定制或约束") : customCell(h, item)),
-    h("td", { class: "muted", title: item.review_time || "" }, isGrokBot(item) ? notApplicable(h, "Grok Bot 名称声明不参与本机基线复核") : relTime(item.review_time, ctx.ago)),
+    h("td", optionalAttrs("reconcile"), h("span", { class: `tag ${item.export?.state === "bad" ? "bad" : STATUS_CLASS[item.reconciliation_status] || ""}`, title: item.reconciliation_status === "stale" ? (item.review_time ? "复核已过期，需要重新检查" : "从未复核：尚未建立人工复核记录") : "" }, item.reconciliation_status === "stale" && !item.review_time ? "从未复核" : item.status_label || item.reconciliation_status || "—")),
+    h("td", optionalAttrs("custom"), isGrokBot(item) ? notApplicable(h, "Grok Bot 清单未提供定制或约束") : customCell(h, item)),
+    h("td", optionalAttrs("review", { class: "muted", title: item.review_time || "" }), isGrokBot(item) ? notApplicable(h, "Grok Bot 名称声明不参与本机基线复核") : relTime(item.review_time, ctx.ago)),
   );
 }
 
