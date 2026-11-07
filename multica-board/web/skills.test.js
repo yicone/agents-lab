@@ -1184,3 +1184,22 @@ test("corrupt or denied preference storage leaves Skills usable", () => {
     else delete globalThis.localStorage;
   }
 });
+
+
+test("Skills layout budgets the actual harness count and reserves the repository column", () => {
+  for (const tools of [
+    Array.from({ length: 14 }, (_, i) => ({ id: `runtime-${i}`, label: `Runtime ${i}` })).concat({ id: "project", label: "仓库入口" }),
+    [{ id: "codex", label: "Codex" }],
+  ]) {
+    const tree = { children: renderSkills(renderCtx({ ...today, tools })) };
+    const table = findAll(tree, n => n.tag === "table")[0];
+    assert.equal(table.attrs.style["--skills-harness-count"], String(tools.filter(t => t.id !== "project").length));
+    assert.equal(table.attrs.style["--skills-repo-width"], tools.some(t => t.id === "project") ? "88px" : "0px");
+    const names = findAll(tree, n => n.attrs?.class === "skill-name-col");
+    assert.ok(names.some(n => n.tag === "th"));
+    assert.ok(names.some(n => n.tag === "td"));
+    const labels = findAll(tree, n => n.attrs?.class === "tool-label");
+    assert.equal(labels.length, tools.length);
+    for (const tool of tools) assert.ok(labels.some(n => findText(n, tool.label)));
+  }
+});
