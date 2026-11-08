@@ -157,6 +157,10 @@ def main():
             keys.wait_for_timeout(50)
             landed_on = keys.evaluate("() => document.activeElement?.id || document.activeElement?.tagName")
             check("escape returns to skill row", landed_on == "skill-colgrep-search", landed_on)
+            keys.keyboard.press("Enter")
+            keys.wait_for_timeout(80)
+            reopened = keys.evaluate("() => document.activeElement?.classList.contains('drawer-title') ? 'title' : (document.activeElement?.tagName || '')")
+            check("reopen skill focuses title", reopened == "title", reopened)
             keys.close()
 
             scroll = light.new_page()
@@ -202,6 +206,12 @@ def main():
             check("space does not scroll", abs(after_y - before_y) <= 5, f"{before_y}->{after_y}")
             space.keyboard.press("Escape")
             space.wait_for_timeout(50)
+            space.keyboard.press("Space")
+            space.wait_for_timeout(80)
+            reopened = space.evaluate("() => document.activeElement?.classList.contains('drawer-title') ? 'title' : (document.activeElement?.tagName || '')")
+            check("reopen skill by space focuses title", reopened == "title", reopened)
+            space.keyboard.press("Escape")
+            space.wait_for_timeout(50)
             space.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link#/configure/mcp", wait_until="networkidle")
             space.locator("#mcp-row-hmac-salted-id").focus()
             before_y = space.evaluate("() => window.scrollY")
@@ -217,7 +227,33 @@ def main():
             space.wait_for_timeout(50)
             mcp_focus = space.evaluate("() => document.activeElement?.id || document.activeElement?.tagName")
             check("escape returns to mcp row", mcp_focus == "mcp-row-hmac-salted-id", mcp_focus)
+            space.keyboard.press("Enter")
+            space.wait_for_timeout(80)
+            mcp_reopen = space.evaluate("() => document.activeElement?.classList.contains('drawer-title') ? 'title' : (document.activeElement?.tagName || '')")
+            check("reopen mcp focuses title", mcp_reopen == "title", mcp_reopen)
             space.close()
+
+            detail = light.new_page()
+            detail.goto(f"http://127.0.0.1:{PORT}/index.html?mock=deep-link#/configure/skills", wait_until="networkidle")
+            detail.locator("#skill-colgrep-search").click()
+            detail.wait_for_function("() => location.hash.includes('focus=colgrep-search')")
+            detail.wait_for_timeout(50)
+            set_top = detail.evaluate("""() => {
+              const el = document.querySelector('#drawer');
+              el.scrollTop = 350;
+              const top = el.scrollTop;
+              document.querySelector('[aria-label="打开 MCP github"]').click();
+              return top;
+            }""")
+            check("drawer can scroll", set_top >= 300, str(set_top))
+            detail.wait_for_function("() => location.hash.includes('configure/mcp')")
+            detail.wait_for_timeout(50)
+            detail.get_by_role("button", name="返回上一层").click()
+            detail.wait_for_function("() => location.hash.includes('configure/skills') && location.hash.includes('colgrep-search')")
+            detail.wait_for_timeout(80)
+            back_top = detail.evaluate("() => document.querySelector('#drawer').scrollTop")
+            check("drawer scroll restored", abs(back_top - set_top) <= 2, f"{set_top}->{back_top}")
+            detail.close()
 
             held = []
 

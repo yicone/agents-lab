@@ -519,6 +519,20 @@ let adoptedHash = null;
 const focusSnaps = new Map();
 let historyRestore = false;
 let focusTitleToken = "";
+let focusTitleSession = null;
+
+function drawerScrollSnap() {
+  const drawer = document.getElementById("drawer");
+  if (!drawer || drawer.hidden) return null;
+  return { top: drawer.scrollTop || 0, left: drawer.scrollLeft || 0 };
+}
+
+function applyDrawerScroll(snap) {
+  const drawer = document.getElementById("drawer");
+  if (!drawer || drawer.hidden || !snap?.drawerScroll) return;
+  drawer.scrollTop = snap.drawerScroll.top;
+  drawer.scrollLeft = snap.drawerScroll.left;
+}
 
 function rememberFocusSnap() {
   const main = document.getElementById("main");
@@ -527,6 +541,7 @@ function rememberFocusSnap() {
     y: window.scrollY || 0,
     list: captureScroll(main, SKILLS_LIST_SCROLL),
     drawer: drawerSnap(state.drawer),
+    drawerScroll: drawerScrollSnap(),
   });
 }
 
@@ -569,9 +584,11 @@ function restoreFocusSnap(hash) {
   const apply = () => {
     restoreScroll(main, snap.list, SKILLS_LIST_SCROLL);
     if (snap.x || snap.y) window.scrollTo(snap.x, snap.y);
+    applyDrawerScroll(snap);
   };
   apply();
   requestAnimationFrame(apply);
+  setTimeout(apply, 0);
   if (state.route.focus) return;
   const drawer = rehydrateDrawer(snap.drawer, { agents: state.agents, skills: state.skills, mcp: state.mcp });
   if (!drawer) return;
@@ -922,15 +939,19 @@ function pageFocusState() {
 }
 
 function focusDrawerTitle() {
+  const session = state.drawer;
   const token = `${state.route.view}:${state.route.focus}`;
-  if (focusTitleToken === token) return;
   const title = document.querySelector("#drawer .drawer-title");
-  if (!title) return;
+  if (!title || !session) return;
+  // The route token stays the same when the same detail is closed and opened
+  // again. A new drawer object means a new entry, so the title takes focus.
+  if (focusTitleToken === token && focusTitleSession === session) return;
   focusTitleToken = token;
+  focusTitleSession = session;
   title.tabIndex = -1;
   setTimeout(() => {
-    if (focusTitleToken !== token) return;
-    title.focus();
+    if (focusTitleSession !== session || !title.isConnected) return;
+    title.focus({ preventScroll: true });
   }, 0);
 }
 
