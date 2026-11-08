@@ -157,7 +157,17 @@ export function emptyRoute() {
     magent: "",
     mrt: "",
     missue: "",
+    focus: "",
+    origin: "",
   };
+}
+
+function focusToken(raw) {
+  if (typeof raw !== "string") return "";
+  const value = raw.trim();
+  if (!value || value.length > 400) return "";
+  if (/[\u0000-\u001f\u007f]/.test(value)) return "";
+  return value;
 }
 
 export function parseHash(hash) {
@@ -230,6 +240,8 @@ export function parseHash(hash) {
       const group = params.get("group");
       route.skillGroup = group === "tool" || group === "flat" ? group : "source";
     }
+    route.focus = focusToken(params.get("focus"));
+    route.origin = focusToken(params.get("from"));
   } else if (route.view === "mcp") {
     // Legacy view=list / issue= / archived=1 are dropped on normalize (§9).
     const source = params.get("source");
@@ -242,6 +254,8 @@ export function parseHash(hash) {
     route.mcpGroup = MCP_GROUPS.has(group) ? group : "source";
     route.mcpAssigned = flag(params, "assigned");
     route.mcpTidy = flag(params, "tidy");
+    route.focus = focusToken(params.get("focus"));
+    route.origin = focusToken(params.get("from"));
   } else if (route.view === "hooks") {
     const source = params.get("source");
     route.source = HOOK_SOURCES.has(source) ? source : "";
@@ -335,6 +349,8 @@ export function formatHash(route) {
       if (r.debt) p.set("debt", "1");
       if (r.skillGroup === "tool" || r.skillGroup === "flat") p.set("group", r.skillGroup);
     }
+    if (r.focus) p.set("focus", r.focus);
+    if (r.origin) p.set("from", r.origin);
   } else if (path === "mcp") {
     if (r.source && MCP_SOURCES.has(r.source)) p.set("source", r.source);
     if (r.mcpStatus && MCP_STATUSES.has(r.mcpStatus)) p.set("status", r.mcpStatus);
@@ -342,6 +358,8 @@ export function formatHash(route) {
     if (r.mcpGroup && r.mcpGroup !== "source") p.set("group", r.mcpGroup);
     if (r.mcpAssigned) p.set("assigned", "1");
     if (r.mcpTidy) p.set("tidy", "1");
+    if (r.focus) p.set("focus", r.focus);
+    if (r.origin) p.set("from", r.origin);
   } else if (path === "hooks") {
     if (r.source && HOOK_SOURCES.has(r.source)) p.set("source", r.source);
   } else if (path === "metrics") {
@@ -375,13 +393,17 @@ export function canonicalHash(hash) {
 export function historyWrite(currentHash, nextHash, patch) {
   if (canonicalHash(currentHash) === canonicalHash(nextHash)) return "noop";
   const keys = patch && typeof patch === "object" ? Object.keys(patch) : [];
-  if (keys.some((key) => key === "view" || key === "section" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind" || key === "evidence")) return "push";
+  if (keys.some((key) => key === "view" || key === "section" || key === "ws" || key === "planPage" || key === "planMode" || key === "planId" || key === "kind" || key === "evidence" || key === "focus" || key === "origin")) return "push";
   return "replace";
 }
 
 export function applyPatch(route, patch) {
   const next = { ...emptyRoute(), ...route, ...patch };
   if (patch.view && patch.view !== route.view && !("section" in patch)) next.section = "";
+  if (patch.view && patch.view !== route.view) {
+    if (!Object.prototype.hasOwnProperty.call(patch, "focus")) next.focus = "";
+    if (!Object.prototype.hasOwnProperty.call(patch, "origin")) next.origin = "";
+  }
   if (patch.view && patch.view !== route.view && !Object.prototype.hasOwnProperty.call(patch, "layer")) {
     next.layer = "";
     next.gov = false;

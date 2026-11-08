@@ -1,0 +1,77 @@
+{
+  "ok": true,
+  "error": null,
+  "mcp_schema": 2,
+  "generated_at": "2026-11-06T00:00:00Z",
+  "tools": [
+    { "id": "cursor", "label": "Cursor", "short_label": "Cursor", "files": [{ "path": "~/.cursor/mcp.json", "scope": "global", "state": "ok", "detail": "已读", "entry_count": 1 }] }
+  ],
+  "repos": [],
+  "summary": [
+    { "id": "both", "label": "本机 + Multica", "count": 1, "statuses": {} },
+    { "id": "multica_only", "label": "仅 Workspace", "count": 1, "statuses": {} }
+  ],
+  "unknown": { "local_files": [], "project_files": [], "library": [], "bindings": [], "key": "ok", "multica": "collected" },
+  "attention": { "badge": 0, "tone": "none", "counts": {} },
+  "items": [
+    {
+      "id": "hmac-salted-id",
+      "display_name": "github",
+      "source_class": "both",
+      "source_label": "本机 + Multica",
+      "in_project": false,
+      "presence": { "local": 1, "project": 0, "library": 1, "own": 0 },
+      "transports": ["stdio"],
+      "tools": { "cursor": "direct" },
+      "repo_cells": {},
+      "entries": [],
+      "consistency": { "state": "single", "groups": [], "parts": {} },
+      "workspace_entries": [
+        {
+          "kind": "library",
+          "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+          "workspace_name": "Alpha Lab",
+          "server_id": "srv-first",
+          "transport": "stdio",
+          "agent_count": 0,
+          "bindings_known": true,
+          "agents": []
+        },
+        {
+          "kind": "library",
+          "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+          "workspace_name": "Alpha Lab",
+          "server_id": "srv-github",
+          "transport": "stdio",
+          "agent_count": 1,
+          "bindings_known": true,
+          "agents": [{ "id": "agent-1", "name": "Repo Analyst", "enabled": true }]
+        }
+      ]
+    },
+    {
+      "id": "other-hmac",
+      "display_name": "solo",
+      "source_class": "multica_only",
+      "source_label": "仅 Workspace",
+      "in_project": false,
+      "presence": { "local": 0, "project": 0, "library": 1, "own": 0 },
+      "transports": ["stdio"],
+      "tools": {},
+      "repo_cells": {},
+      "entries": [],
+      "consistency": { "state": "single", "groups": [], "parts": {} },
+      "workspace_entries": [
+        {
+          "kind": "library",
+          "workspace_id": "e8659de2-7504-4ee2-9f0a-fd608a9a8bc2",
+          "workspace_name": "Alpha Lab",
+          "server_id": "srv-solo",
+          "transport": "stdio",
+          "bindings_known": true,
+          "agents": [{ "id": "agent-2", "name": "Other Agent", "enabled": true }]
+        }
+      ]
+    }
+  ]
+}

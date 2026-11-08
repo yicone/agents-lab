@@ -14,7 +14,8 @@ import {
 } from "./decide.js";
 import { aggregateLayers, availabilityFromReport, issueLayer, layerAvailability, layerLabel, matchesLayer, modelFromReport } from "./layers.js";
 import { filterChrome, scopeNote, workspaceFilterBar, currentScopeLabel } from "./filter-bar.js";
-import { applyPatch, formatHash, navGroup, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+import { applyPatch, canonicalHash, formatHash, navGroup, historyWrite, locationHash, parseHash, redirectHash, setSkillTools, stepLayer, viewForKey } from "./route.js";
+import { agentOrigin, assessFocus, describeOrigin, drawerSnap, focusFailureError, mcpForSkill, mcpMatches, mcpRef, parentRoute, rehydrateDrawer, resolveMcp, resolveSkill, skillOrigin, skillsForMcp } from "./deep-link.js";
 import { mapPlanDetail, mapPlanList } from "./plan-api.js";
 import { createPlanReads } from "./plan-reads.js";
 import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, parseSel, planCatalog, renderPlanDrawer, renderPlanList, renderPlanNew, renderPlanReview, selectionLabel, workspaceAllowList } from "./plan.js";
@@ -162,11 +163,16 @@ async function fetchJSON(url, label) {
   const res = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
   if (!res.ok) {
     let detail = `${res.status}`;
+    let code = "";
     try {
       const body = await res.json();
       if (body?.error?.message) detail += ` ${body.error.message}`;
+      if (typeof body?.error?.code === "string") code = body.error.code;
+      else if (typeof body?.code === "string") code = body.code;
     } catch {}
-    throw new HttpError(res.status, `${label}: ${detail}`);
+    const error = new HttpError(res.status, `${label}: ${detail}`);
+    if (code) error.code = code;
+    throw error;
   }
   return res.json();
 }
@@ -303,7 +309,8 @@ async function loadSkills() {
     if (MOCK) return await getJSON("skills");
     return await fetchJSON(`/api/skills?review_days=${state.reviewDays}`, "skills");
   } catch (err) {
-    return { ok: false, error: { code: "skills_unavailable", message: String(err.message || err) }, items: [], attention: { badge: 0, baseline_debt: 0, counts: {}, buckets: {} } };
+    const parsed = focusFailureError(err);
+    return { ok: false, error: { ...parsed, code: parsed.code || "skills_unavailable" }, items: [], attention: { badge: 0, baseline_debt: 0, counts: {}, buckets: {} } };
   }
 }
 
@@ -349,7 +356,8 @@ async function loadMcp() {
     return await getJSON("mcp");
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) return { ok: false, absent: true };
-    return { ok: false, error: String(err.message || err) };
+    const parsed = focusFailureError(err);
+    return { ok: false, error: { ...parsed, code: parsed.code || "mcp_unavailable" } };
   }
 }
 
@@ -508,15 +516,50 @@ function now() {
 
 let adoptedHash = null;
 
-function setRoute(patch) {
+const focusSnaps = new Map();
+let historyRestore = false;
+let focusTitleToken = "";
+let focusTitleSession = null;
+
+function drawerScrollSnap() {
+  const drawer = document.getElementById("drawer");
+  if (!drawer || drawer.hidden) return null;
+  return { top: drawer.scrollTop || 0, left: drawer.scrollLeft || 0 };
+}
+
+function applyDrawerScroll(snap) {
+  const drawer = document.getElementById("drawer");
+  if (!drawer || drawer.hidden || !snap?.drawerScroll) return;
+  drawer.scrollTop = snap.drawerScroll.top;
+  drawer.scrollLeft = snap.drawerScroll.left;
+}
+
+function rememberFocusSnap() {
+  const main = document.getElementById("main");
+  focusSnaps.set(canonicalHash(location.hash), {
+    x: window.scrollX || 0,
+    y: window.scrollY || 0,
+    list: captureScroll(main, SKILLS_LIST_SCROLL),
+    drawer: drawerSnap(state.drawer),
+    drawerScroll: drawerScrollSnap(),
+  });
+}
+
+function setRoute(patch, mode) {
   const active = document.activeElement;
   const label = active instanceof HTMLInputElement ? active.getAttribute("aria-label") : "";
   const caret = active instanceof HTMLInputElement ? [active.selectionStart, active.selectionEnd] : null;
   const r = applyPatch(state.route, patch);
   const hash = formatHash(r);
-  const action = historyWrite(location.hash, hash, patch);
-  if (action === "push") history.pushState(null, "", hash);
-  else if (action === "replace") history.replaceState(null, "", hash);
+  let action = historyWrite(location.hash, hash, patch);
+  if (mode === "replace" && action === "push") action = "replace";
+  if (action === "push") {
+    rememberFocusSnap();
+    history.pushState({ atlasFocus: !!r.focus, entry: "pushed" }, "", hash);
+  } else if (action === "replace") {
+    const nextState = mode === "replace" ? { atlasFocus: !!r.focus, entry: "landed" } : history.state;
+    history.replaceState(nextState, "", hash);
+  }
   state.route = r;
   adoptedHash = hash;
   render();
@@ -534,7 +577,27 @@ function follow(event, patch) {
   setRoute(patch);
 }
 
+function restoreFocusSnap(hash) {
+  const snap = focusSnaps.get(canonicalHash(hash));
+  if (!snap) return;
+  const main = document.getElementById("main");
+  const apply = () => {
+    restoreScroll(main, snap.list, SKILLS_LIST_SCROLL);
+    if (snap.x || snap.y) window.scrollTo(snap.x, snap.y);
+    applyDrawerScroll(snap);
+  };
+  apply();
+  requestAnimationFrame(apply);
+  setTimeout(apply, 0);
+  if (state.route.focus) return;
+  const drawer = rehydrateDrawer(snap.drawer, { agents: state.agents, skills: state.skills, mcp: state.mcp });
+  if (!drawer) return;
+  state.drawer = drawer;
+  renderDrawer();
+}
+
 function syncFromLocation() {
+  const restoring = historyRestore;
   const next = redirectHash(location.hash);
   if (next && next !== location.hash) {
     location.replace(locationHash(next));
@@ -543,13 +606,27 @@ function syncFromLocation() {
   const route = parseHash(location.hash);
   const hash = formatHash(route);
   state.route = route;
-  if (hash === adoptedHash) return;
+  if (hash === adoptedHash) {
+    if (restoring) restoreFocusSnap(location.hash);
+    return;
+  }
   adoptedHash = hash;
   render();
+  if (restoring) {
+    focusTitleToken = "";
+    restoreFocusSnap(location.hash);
+    applyDeepFocus();
+    return;
+  }
+  if (route.focus && history.state?.entry !== "pushed") history.replaceState({ atlasFocus: true, entry: "landed" }, "", location.hash);
 }
 
 window.addEventListener("hashchange", syncFromLocation);
-window.addEventListener("popstate", syncFromLocation);
+window.addEventListener("popstate", () => {
+  historyRestore = true;
+  syncFromLocation();
+  historyRestore = false;
+});
 window.addEventListener("scroll", syncChromeOffsets, { passive: true });
 window.addEventListener("resize", syncChromeOffsets);
 
@@ -809,14 +886,121 @@ async function loadSkillContent(name, path, file = "SKILL.md") {
   if (state.drawer?.kind === "skill" && state.drawer.skill?.name === name) renderDrawer();
 }
 
-function focusSkill(name, opener) {
-  const item = (state.skills?.items || []).find((row) => row.name === name);
-  if (!item) return;
-  state.expandedSkills.add(item.source_class || "unknown");
-  setRoute({ view: "skills", source: "", skillStatus: "", tool: "", custom: false, debt: false, q: "" });
-  const row = document.getElementById(skillRowId(item));
-  if (row) row.scrollIntoView({ block: "center" });
-  openSkill(item, opener || row);
+function focusSkill(name, opener, origin) {
+  const item = resolveSkill(state.skills?.items, name);
+  if (item) state.expandedSkills.add(item.source_class || "unknown");
+  const patch = { view: "skills", section: "configure", evidence: false, focus: name };
+  if (typeof origin === "string") patch.origin = origin;
+  else if (state.route.focus !== name) patch.origin = "";
+  const reveal = state.route.view !== "skills" || state.route.evidence || opener?.classList?.contains("queue-item");
+  if (reveal) Object.assign(patch, { source: "", skillStatus: "", tool: "", custom: false, debt: false, q: "" });
+  setRoute(patch);
+}
+
+function retreatFocus() {
+  if (history.state?.entry === "pushed") {
+    history.back();
+    return;
+  }
+  const route = state.route;
+  const origin = route.origin;
+  setRoute(parentRoute(route), "replace");
+  const parsed = parentRoute({ origin });
+  if (parsed.view === "agents" && parsed.sel) {
+    const agent = (state.agents || []).find((item) => item.id === parsed.sel);
+    if (!agent) return;
+    state.drawer = { kind: "agent", agent, section: "skills", opener: null, rowId: `agent-row-${agent.workspace_id}-${agent.id}` };
+    renderDrawer();
+    return;
+  }
+  if (state.route.view === "agents" && state.drawer?.kind !== "agent") {
+    state.drawer = null;
+    renderDrawer();
+  }
+}
+
+async function retryFocus() {
+  if (state.route.view === "skills") state.skills = await loadSkills();
+  else if (state.route.view === "mcp") state.mcp = await loadMcp();
+  focusTitleToken = "";
+  render();
+}
+
+function pageFocusState() {
+  const route = state.route;
+  if (!route.focus || route.evidence || (route.view !== "skills" && route.view !== "mcp")) return null;
+  const payload = route.view === "skills" ? state.skills : state.mcp;
+  if (payload?.absent) return assessFocus({ focus: route.focus, payload: { ok: true, items: [] }, error: null, item: null });
+  const failed = payload?.ok === false;
+  const item = payload && !failed
+    ? (route.view === "skills" ? resolveSkill(payload.items, route.focus) : resolveMcp(payload.items, route.focus))
+    : null;
+  return assessFocus({ focus: route.focus, payload, error: failed ? payload.error : null, item: payload && !failed ? item : undefined });
+}
+
+function focusDrawerTitle() {
+  const session = state.drawer;
+  const token = `${state.route.view}:${state.route.focus}`;
+  const title = document.querySelector("#drawer .drawer-title");
+  if (!title || !session) return;
+  // The route token stays the same when the same detail is closed and opened
+  // again. A new drawer object means a new entry, so the title takes focus.
+  if (focusTitleToken === token && focusTitleSession === session) return;
+  focusTitleToken = token;
+  focusTitleSession = session;
+  title.tabIndex = -1;
+  setTimeout(() => {
+    if (focusTitleSession !== session || !title.isConnected) return;
+    title.focus({ preventScroll: true });
+  }, 0);
+}
+
+function applyDeepFocus() {
+  const route = state.route;
+  const failure = pageFocusState();
+  if (route.view === "skills" && route.focus) {
+    if (failure) {
+      if (state.drawer) { state.drawer = null; renderDrawer(); }
+      const heading = document.querySelector("[data-focus-title]");
+      if (heading) setTimeout(() => heading.focus(), 0);
+      return;
+    }
+    const item = resolveSkill(state.skills?.items, route.focus);
+    if (!item) return;
+    const group = item.source_class || "unknown";
+    if (!document.getElementById(skillRowId(item)) && !state.expandedSkills.has(group)) {
+      state.expandedSkills.add(group);
+      renderMain();
+    }
+    const same = state.drawer?.kind === "skill" && skillKey(state.drawer.skill) === skillKey(item);
+    if (!same) {
+      state.drawer = { kind: "skill", skill: item, opener: null, rowId: skillRowId(item) };
+      state.skillContent = new Map();
+      state.skillContentReq = new Map();
+      renderDrawer();
+    } else if (!state.drawer.rowId) state.drawer.rowId = skillRowId(item);
+    if (!historyRestore) document.getElementById(skillRowId(item))?.scrollIntoView({ block: "nearest" });
+    focusDrawerTitle();
+    return;
+  }
+  if (route.view === "mcp" && route.focus) {
+    if (failure) {
+      if (state.drawer) { state.drawer = null; renderDrawer(); }
+      const heading = document.querySelector("[data-focus-title]");
+      if (heading) setTimeout(() => heading.focus(), 0);
+      return;
+    }
+    const item = resolveMcp(state.mcp?.items, route.focus);
+    if (!item) return;
+    state.expandedMcp.add(item.source_class || "multica_only");
+    const same = state.drawer?.kind === "mcp" && (state.drawer.ref === route.focus || mcpMatches(item, route.focus) || state.drawer.id === item.id);
+    if (!same) {
+      state.drawer = { kind: "mcp", ref: route.focus, id: item.id, rowId: mcpRowId(item), opener: null };
+      renderDrawer();
+    }
+    if (!historyRestore) document.getElementById(mcpRowId(item))?.scrollIntoView({ block: "nearest" });
+    focusDrawerTitle();
+  }
 }
 
 // ---------- chrome (header) ----------
@@ -1276,20 +1460,33 @@ async function openDrawer(it, opener) {
   renderDrawer();
 }
 
+function focusAfterClose(saved) {
+  const planAgent = saved.kind === "plan" ? saved.row?.agent_id : "";
+  const fresh = planAgent ? document.getElementById(`plan-row-${planAgent}`) : saved.rowId ? document.getElementById(saved.rowId) : null;
+  if (fresh) {
+    fresh.focus();
+    return;
+  }
+  if (saved.opener?.isConnected) {
+    saved.opener?.focus();
+    return;
+  }
+  const main = document.getElementById("main");
+  const fallback = main?.querySelector("button, a[href], input, select, [tabindex='0']");
+  (fallback || document.getElementById("search"))?.focus();
+}
+
 function closeDrawer() {
   if (!state.drawer) return;
-  const opener = state.drawer.opener;
-  const planAgent = state.drawer.kind === "plan" ? state.drawer.row.agent_id : "";
-  const rowId = state.drawer.rowId || "";
-  const refreshMain = state.drawer.kind === "skill" || state.drawer.kind === "plan" || state.drawer.kind === "agent" || state.drawer.kind === "bot" || state.drawer.kind === "mcp";
+  const saved = state.drawer;
+  const refreshMain = saved.kind === "skill" || saved.kind === "plan" || saved.kind === "agent" || saved.kind === "bot" || saved.kind === "mcp";
   state.drawer = null;
   state.skillContent = new Map();
   state.skillContentReq = new Map();
   renderDrawer();
   if (refreshMain) renderMain();
-  const fresh = planAgent ? document.getElementById(`plan-row-${planAgent}`) : rowId ? document.getElementById(rowId) : null;
-  if (fresh) fresh.focus();
-  else opener?.focus();
+  focusAfterClose(saved);
+  setTimeout(() => focusAfterClose(saved), 0);
 }
 
 function openRecordDrawer(kind, record, opener) {
@@ -1360,6 +1557,8 @@ function renderDrawer() {
           ago,
           errKind,
           gitSource: gitAgent(d.agent),
+          focusSkill,
+          originOf: agentOrigin,
         },
         state.drawer,
       ),
@@ -1404,7 +1603,7 @@ function renderDrawer() {
     return;
   }
   if (d.kind === "mcp") {
-    const item = (state.mcp?.items || []).find((row) => row.id === d.id);
+    const item = (state.mcp?.items || []).find((row) => (d.ref && mcpMatches(row, d.ref)) || row.id === d.id);
     if (!item) {
       // id 消失（如后端重启后盐变了）：关闭抽屉，焦点回到表格顶部
       state.drawer = null;
@@ -1412,7 +1611,7 @@ function renderDrawer() {
       document.querySelector(".table-wrap")?.focus();
       return;
     }
-    el.replaceChildren(...renderMcpDrawer({ ...mcpCtx(), closeDrawer }, item));
+    el.replaceChildren(...renderMcpDrawer({ ...mcpCtx(), closeDrawer, linkedSkills: skillsForMcp(item, state.agents) }, item));
     return;
   }
   if (!d.opener) d.opener = document.activeElement;
@@ -2443,15 +2642,23 @@ function openMcp(id, opener) {
   setTimeout(() => document.querySelector("#drawer .drawer-close")?.focus(), 0);
 }
 
-function focusMcp(id, opener) {
-  const item = (state.mcp?.items || []).find((row) => row.id === id);
-  if (!item) return;
-  const group = state.route.mcpGroup || "source";
-  state.expandedMcp.add(group === "tool" ? (item.source_class === "multica_only" ? "multica_only" : group) : item.source_class || "multica_only");
-  setRoute({ view: "mcp", source: "", mcpStatus: "", tool: "", mcpAssigned: false, mcpTidy: false, q: "" });
-  const row = document.getElementById(mcpRowId(item));
-  if (row) row.scrollIntoView({ block: "center" });
-  openMcp(id, opener || row);
+function focusMcp(idOrRef, openerOrOrigin) {
+  const items = state.mcp?.items || [];
+  const byId = items.find((row) => row.id === idOrRef);
+  const item = byId || resolveMcp(items, idOrRef);
+  // A URL or skill link names one workspace/server entry. Keep that entry;
+  // only an item id (which changes on restart) falls back to the first ref.
+  const ref = item && mcpMatches(item, idOrRef) ? idOrRef : (item ? (mcpRef(item) || idOrRef) : idOrRef);
+  if (!ref) return;
+  if (item) state.expandedMcp.add(item.source_class || "multica_only");
+  const origin = typeof openerOrOrigin === "string"
+    ? openerOrOrigin
+    : (state.route.view === "skills" && state.route.focus ? skillOrigin(state.route.focus) : "");
+  const patch = { view: "mcp", section: "configure", focus: ref };
+  if (origin) patch.origin = origin;
+  else if (state.route.focus !== ref) patch.origin = "";
+  if (state.route.view !== "mcp") Object.assign(patch, { source: "", mcpStatus: "", tool: "", mcpAssigned: false, mcpTidy: false, q: "" });
+  setRoute(patch);
 }
 
 function mcpCtx() {
@@ -2465,6 +2672,11 @@ function mcpCtx() {
     copyWithFallback: (text) => copyWithFallback(text),
     openMcp,
     focusMcp,
+    focusSkill,
+    retreatFocus,
+    originText: describeOrigin(state.route.origin, state.agents),
+    focusState: pageFocusState(),
+    focusActions: { onBack: retreatFocus, onRetry: () => { void retryFocus(); } },
     toggleMcpGroup,
     expandedMcp: state.expandedMcp,
     drawerMcp: state.drawer?.kind === "mcp" ? state.drawer.id : "",
@@ -2575,6 +2787,12 @@ function atlasCtx() {
     drawerSkill: state.drawer?.kind === "skill" ? skillKey(state.drawer.skill) : "",
     openSkill,
     focusSkill,
+    retreatFocus,
+    openLinkedMcp: (ref) => focusMcp(ref, state.route.focus ? skillOrigin(state.route.focus) : ""),
+    originText: describeOrigin(state.route.origin, state.agents),
+    linkedMcp: mcpForSkill(state.route.view === "skills" ? state.route.focus : "", state.agents, state.mcp?.items),
+    focusState: pageFocusState(),
+    focusActions: { onBack: retreatFocus, onRetry: () => { void retryFocus(); } },
     skillContent: state.skillContent,
     loadSkillContent,
     toggleSkillGroup,
@@ -2599,8 +2817,9 @@ function renderMain() {
   const listScroll = sameView ? captureScroll(main, SKILLS_LIST_SCROLL) : [];
   const windowScroll = sameView ? { top: window.scrollY || 0, left: window.scrollX || 0 } : null;
   renderedView = view;
+  const deepFocus = (view === "skills" || view === "mcp") && state.route.focus && !state.route.evidence;
   const empty = ["configure", "schedules", "health", "settings"].includes(view) ? null : emptyState();
-  if (empty) {
+  if (empty && !deepFocus) {
     main.replaceChildren(h("div", { class: "empty big" }, empty));
     restoreViewScroll(main, listScroll, windowScroll);
     return;
@@ -2656,6 +2875,7 @@ function render() {
     view === "decide" ? "搜索待批准的 issue" : view === "agents" ? "搜索说明 / 指令 / skill / workspace" : view === "map" && state.route.layer ? "搜索本层 issue" : view === "skills" && state.route.evidence ? "搜索证据名称 / 来源" : view === "skills" ? "搜索 skill" : view === "mcp" ? "搜索 agent / server / workspace" : view === "usage" ? "搜索 runtime / provider" : view === "metrics" ? "搜索 run / issue / 规则 / evidence" : "搜索 identifier / 标题 / agent / 模型";
   renderChrome();
   renderMain();
+  applyDeepFocus();
   if (!MOCK && (view === "decide" || view === "map")) void ensureChanges();
   if (state.route.evidence) void ensureEvidence();
   ensurePlans();
