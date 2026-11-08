@@ -455,13 +455,13 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
   const head = h(
     "tr",
     null,
-    h("th", null, "Skill"),
+    h("th", { class: "skill-name-col" }, "Skill"),
     h("th", optionalAttrs("tri", { class: "tri-col", title: TRI_LEGEND }), "三态"),
     h("th", { class: "channel-col" }, "来源 / 更新通道"),
     h("th", optionalAttrs("workspace", { title: "Workspace（跨 Workspace）" }), "Workspace"),
     h("th", optionalAttrs("shared"), "共享入口"),
-    ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}\n${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, tool.label, h("small", null, String(visible.get(tool.id) || 0)))),
-    projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, "仓库入口", h("small", null, String(visible.get(projectTool.id) || 0))) : null,
+    ...harness.map((tool) => h("th", { class: "tool-col", title: `${tool.label} 可见 ${visible.get(tool.id) || 0}\n${RUNTIME_LEGEND}\n${columnEvidence(tool)}` }, h("span", { class: "tool-label" }, tool.label), h("small", null, String(visible.get(tool.id) || 0)))),
+    projectTool ? h("th", { class: "tool-col repo-col", title: `仓库入口 可见 ${visible.get(projectTool.id) || 0}` }, h("span", { class: "tool-label" }, "仓库入口"), h("small", null, String(visible.get(projectTool.id) || 0))) : null,
     h("th", { class: "version-col", title: "版本：记录 → 实际" }, "版本"),
     h("th", optionalAttrs("reconcile"), "对账"),
     h("th", optionalAttrs("custom"), "定制 · 约束"),
@@ -504,7 +504,9 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
           : "没有符合筛选的 skill";
     body.push(h("tr", null, h("td", { class: "empty", colspan: String(3 + tools.length + OPTIONAL_COLUMNS.filter(([id]) => !optionalAttrs(id).hidden).length) }, emptyText)));
   }
-  return h("div", { class: "table-wrap sticky-head" }, h("table", { class: "skills-table" }, h("thead", null, head), h("tbody", null, body)));
+  return h("div", { class: "table-wrap sticky-head" },
+    h("div", { class: "skills-table-viewport" },
+      h("table", { class: "skills-table", style: { "--skills-harness-count": String(Math.max(1, harness.length)), "--skills-repo-width": projectTool ? "88px" : "0px" } }, h("thead", null, head), h("tbody", null, body))));
 }
 
 function row(ctx, harness, projectTool, item, payload) {
@@ -523,7 +525,7 @@ function row(ctx, harness, projectTool, item, payload) {
         if (e.key === "Enter") ctx.openSkill(item, e.currentTarget);
       },
     },
-    h("td", null, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
+    h("td", { class: "skill-name-col" }, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
     h("td", optionalAttrs("tri", { class: "tri-col" }), renderTriState(h, skillTriState(item))),
     h("td", { class: "channel-col", title: [visibleLabel(item.channel_label), item.channel_detail, item.evidence_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, visibleLabel(item.channel_label)), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
     h("td", optionalAttrs("workspace", { class: "cloud-cell" }), cloudCell(h, item)),
@@ -796,7 +798,7 @@ function repoCell(h, item, payload) {
     return h(
       "div",
       { class: "repo-group" },
-      h("div", { class: "repo-name muted" }, label),
+      h("div", { class: "repo-name muted", title: label }, label),
       entries.map((entry) =>
         h(
           "span",
