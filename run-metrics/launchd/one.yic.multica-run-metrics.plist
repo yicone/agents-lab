@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  TEMPLATE ONLY. Installation/bootstrap/kickstart require separate user approval.
+  Replace every __...__ placeholder with an XML-escaped absolute local path:
+    __PYTHON__   Python 3.10+ executable (check command -v python3).
+    __REPO__     Durable checkout containing the approved local commit.
+    __CLI__      Exact CLI executable from MULTICA_CLI_PATH; do not rely on PATH.
+    __HOME__     User home, e.g. /Users/tr (launchd does not expand ~ or $HOME).
+  Output defaults to the read-only board DB sibling. For the write instance,
+  change the output directory to __HOME__/.multica-board-write instead.
+  Do not use two publishers for the same file with different workspaces.
+  CLI credentials/workspace must already be configured for this user.
+  Existing proxy settings, if required, must be explicitly reviewed and supplied.
+
+  Installation plan ONLY, after approval:
+    1. Render placeholders to a staging plist, plutil -lint it, and run the
+       configured Python/module in dry-run mode using the same environment.
+    2. mkdir -p ~/Library/Logs ~/Library/LaunchAgents
+    3. Back up any existing plist and run-metrics.v0.1.json before replacement.
+    4. Copy the rendered plist to ~/Library/LaunchAgents/one.yic.multica-run-metrics.plist
+    5. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/one.yic.multica-run-metrics.plist
+       RunAtLoad starts collection; no separate kickstart is needed.
+    6. Check launchctl print gui/$(id -u)/one.yic.multica-run-metrics, logs,
+       generated_at freshness and collection.partial/errors in the report.
+  Logs: ~/Library/Logs/multica-run-metrics.{out,err}.log (arrange rotation separately).
+  Rollback plan ONLY, after approval:
+    1. launchctl bootout gui/$(id -u)/one.yic.multica-run-metrics
+    2. Move the installed plist out of LaunchAgents; restore prior plist if any.
+    3. After collection has stopped, restore the backed-up JSON if needed.
+       Keep the lock file; no daemon, bridge, board DB or other service changes.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>one.yic.multica-run-metrics</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>-m</string><string>run_metrics.pipeline</string>
+    <string>--output</string><string>__HOME__/.multica-board/run-metrics.v0.1.json</string>
+  </array>
+  <key>WorkingDirectory</key><string>__REPO__/run-metrics</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MULTICA_CLI_PATH</key><string>__CLI__</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/multica-run-metrics.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/multica-run-metrics.err.log</string>
+</dict>
+</plist>
