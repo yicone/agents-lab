@@ -2,6 +2,12 @@
 
 The allow-list is the whole write boundary: issue/agent/runtime mutations are rejected
 before a process is started.
+
+MULTICA_CLI_ARGS optionally selects an explicit profile without changing CLI config.
+Its format is a JSON string array: ["--profile", "desktop-api.multica.ai"].
+Unset, empty, or [] retains the existing CLI defaults. Only this global option is
+accepted so extra arguments cannot introduce a command ahead of the read-only one.
+Arguments are passed directly to subprocess, never interpreted by a shell.
 """
 
 from __future__ import annotations
@@ -50,10 +56,34 @@ def assert_readonly(args: list[str]) -> None:
         raise ReadOnlyViolation(" ".join(words) or "(empty)")
 
 
+def _cli_global_args() -> list[str]:
+    raw = os.environ.get("MULTICA_CLI_ARGS", "")
+    if not raw.strip():
+        return []
+    try:
+        extra = json.loads(raw)
+    except json.JSONDecodeError:
+        raise CollectError("MULTICA_CLI_ARGS must be a JSON string array") from None
+    if not isinstance(extra, list) or any(not isinstance(value, str) for value in extra):
+        raise CollectError("MULTICA_CLI_ARGS must be a JSON string array")
+    if not extra:
+        return []
+    if (
+        len(extra) != 2
+        or extra[0] != "--profile"
+        or not extra[1].strip()
+        or extra[1].startswith("-")
+        or "\x00" in extra[1]
+    ):
+        raise CollectError("MULTICA_CLI_ARGS only accepts [\"--profile\", \"non-empty profile name\"]")
+    return extra
+
+
 def default_runner(args: list[str]) -> dict:
     assert_readonly(args)
     proc = subprocess.run(
-        [os.environ.get("MULTICA_CLI_PATH") or "multica", *args, "--output", "json"],
+        [os.environ.get("MULTICA_CLI_PATH") or "multica", *_cli_global_args(), *args, "--output", "json"],
+        shell=False,
         capture_output=True,
         text=True,
         timeout=90,
