@@ -7,6 +7,7 @@ before a process is started.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -52,7 +53,7 @@ def assert_readonly(args: list[str]) -> None:
 def default_runner(args: list[str]) -> dict:
     assert_readonly(args)
     proc = subprocess.run(
-        ["multica", *args, "--output", "json"],
+        [os.environ.get("MULTICA_CLI_PATH") or "multica", *args, "--output", "json"],
         capture_output=True,
         text=True,
         timeout=90,
