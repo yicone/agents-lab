@@ -1203,3 +1203,171 @@ test("Skills layout budgets the actual harness count and reserves the repository
     for (const tool of tools) assert.ok(labels.some(n => findText(n, tool.label)));
   }
 });
+
+function sectionByTitle(tree, title) {
+  return findAll(tree, (node) => node.tag === "section" && findAll(node, (child) => child.tag === "h3").some((heading) => findText(heading, title)))[0];
+}
+
+function textOf(node) {
+  return flatten(node).filter((item) => typeof item === "string").join("");
+}
+
+const HASH_A = "a".repeat(64);
+const HASH_B = "b".repeat(64);
+
+function compareItem(status, extra = {}) {
+  return simpleItem({
+    name: "compare-demo",
+    canonical_path: "/skills/compare-demo",
+    body_sha256: HASH_A,
+    body_hash_state: "observed",
+    entries: [
+      { path: "/skills/compare-demo-a", present: true, scope: "user", content_hash: HASH_A, hash_state: "ok" },
+      { path: "/skills/compare-demo-b", present: true, scope: "user", content_hash: status === "match" ? HASH_A : HASH_B, hash_state: status === "incomplete" ? "missing" : "ok" },
+    ],
+    hash_compare: {
+      status,
+      groups: status === "insufficient_entries" ? [] : [
+        { content_hash: HASH_A, entry_indexes: [0] },
+        ...(status === "match" ? [] : [{ content_hash: HASH_B, entry_indexes: [1] }]),
+      ],
+      unknown_entry_indexes: status === "incomplete" ? [1] : [],
+    },
+    loaders: [
+      { id: "cursor", kind: "runtime", shared_auto_load: true, runtime_loaded: null, load_state: "unverified" },
+      { id: "codex", kind: "runtime", shared_auto_load: false, runtime_loaded: null, load_state: "unverified" },
+      { id: "agent-demo", kind: "workspace_agent", enabled: true, runtime_loaded: null, load_state: "unverified" },
+    ],
+    ...extra,
+  });
+}
+
+test("one-byte copy difference renders mismatch, short hashes, and a copy of the full body hash", async () => {
+  const item = compareItem("mismatch");
+  const tree = { children: renderSkillDrawer(renderCtx(basePayload([item])), item) };
+  const compare = sectionByTitle(tree, "多副本对照");
+  const tag = findAll(compare, (node) => String(node.attrs?.class || "").includes("tag"))[0];
+  assert.equal(textOf(tag), "不一致");
+  assert.match(tag.attrs.class, /\bwarn\b/);
+  assert.doesNotMatch(tag.attrs.class, /\bok\b/);
+  const visible = textOf(tree);
+  assert.equal(visible.includes(HASH_A), false);
+  assert.equal(visible.includes(HASH_B), false);
+  assert.ok(visible.includes(HASH_A.slice(0, 12)));
+  assert.ok(visible.includes(HASH_B.slice(0, 12)));
+  assert.ok(visible.includes("无法比较") === false);
+  const button = findAll(sectionByTitle(tree, "正文哈希"), (node) => node.tag === "button" && findText(node, "复制全文"))[0];
+  const written = [];
+  const previous = Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard");
+  Object.defineProperty(globalThis.navigator, "clipboard", { configurable: true, value: { writeText: async (value) => { written.push(value); } } });
+  try {
+    button.attrs.onclick({ currentTarget: button });
+    await Promise.resolve();
+  } finally {
+    if (previous) Object.defineProperty(globalThis.navigator, "clipboard", previous);
+    else delete globalThis.navigator.clipboard;
+  }
+  assert.deepEqual(written, [HASH_A]);
+  const list = { children: renderSkills(renderCtx(basePayload([item, compareItem("match", { name: "same-bytes" })]))) };
+  const rows = findAll(list, (node) => node.tag === "tr" && String(node.attrs?.class || "").includes("skill-row"));
+  assert.equal(rows.filter((row) => findText(row, "副本不一致")).length, 1);
+});
+
+test("missing, unreadable, and single-entry copies stay incomparable", () => {
+  for (const status of ["incomplete", "insufficient_entries", "unknown", ""]) {
+    const item = compareItem(status === "" ? undefined : status, status === "" ? { hash_compare: undefined } : {});
+    if (status === "") delete item.hash_compare;
+    const tree = { children: renderSkillDrawer(renderCtx(basePayload([item])), item) };
+    const tag = findAll(sectionByTitle(tree, "多副本对照"), (node) => String(node.attrs?.class || "").includes("tag"))[0];
+    assert.equal(textOf(tag), "不足以比较", status || "missing");
+    assert.match(tag.attrs.class, /muted/);
+    assert.doesNotMatch(tag.attrs.class, /\bok\b/);
+  }
+  const matched = { children: renderSkillDrawer(renderCtx(basePayload([compareItem("match")])), compareItem("match")) };
+  const matchTag = findAll(sectionByTitle(matched, "多副本对照"), (node) => String(node.attrs?.class || "").includes("tag"))[0];
+  assert.equal(textOf(matchTag), "一致");
+  assert.match(matchTag.attrs.class, /\bok\b/);
+});
+
+test("Grok name declaration keeps not_applicable and does not render a supplied hash", () => {
+  const item = simpleItem({
+    name: "declared-only",
+    origin: "grok_bot",
+    source_class: "grok_bot",
+    source_label: "Grok Bot",
+    body_sha256: HASH_A,
+    body_hash_state: "observed",
+    loaders: [{ id: "bot-1", kind: "grok_bot", load_state: "loaded", runtime_loaded: true, enabled: true }],
+  });
+  const tree = { children: renderSkillDrawer({ ...renderCtx(basePayload([item])), focusSkill() {} }, item) };
+  const hash = sectionByTitle(tree, "正文哈希");
+  const tag = findAll(hash, (node) => String(node.attrs?.class || "").includes("tag"))[0];
+  assert.equal(textOf(tag), "不适用");
+  assert.ok(findText(hash, "not_applicable"));
+  assert.equal(textOf(hash).includes(HASH_A), false);
+  assert.equal(textOf(hash).includes(HASH_A.slice(0, 12)), false);
+  const loader = findAll(sectionByTitle(tree, "加载方"), (node) => node.attrs?.class === "skill-loader")[0];
+  assert.ok(findText(loader, "名称声明"));
+  assert.equal(findText(loader, "已加载"), false);
+});
+
+test("shared entry and unverified runtime load use different tags; a declared agent is not loaded", () => {
+  const tree = { children: renderSkillDrawer(renderCtx(basePayload([compareItem("mismatch")])), compareItem("mismatch")) };
+  const rows = findAll(sectionByTitle(tree, "加载方"), (node) => node.attrs?.class === "skill-loader");
+  assert.equal(rows.length, 3);
+  const cursor = rows.find((row) => findText(row, "cursor"));
+  const codex = rows.find((row) => findText(row, "codex"));
+  const agent = rows.find((row) => findText(row, "agent-demo"));
+  const tag = (row, label) => findAll(row, (node) => String(node.attrs?.class || "").split(" ").includes("tag") && textOf(node) === label)[0];
+  assert.match(tag(cursor, "共享目录入口").attrs.class, /info/);
+  assert.match(tag(cursor, "未验证").attrs.class, /muted/);
+  assert.equal(tag(codex, "共享目录入口"), undefined);
+  assert.match(tag(codex, "未验证").attrs.class, /muted/);
+  assert.ok(findText(agent, "已声明挂载"));
+  assert.equal(findText(agent, "已加载"), false);
+});
+
+test("empty, fallback, error, and recorded gates stay distinct and candidates stay complete", () => {
+  const item = simpleItem({ name: "compare-demo" });
+  const withAttention = (attention) => {
+    const payload = basePayload([item]);
+    payload.attention = { ...payload.attention, ...attention };
+    return { children: renderSkills(renderCtx(payload)) };
+  };
+  const empty = withAttention({ last_gate: { state: "empty", time: null, result: null, source: null, summary_json_path: "/tmp/last-gate.json" }, upgrade_candidates: [] });
+  const emptyGate = sectionByTitle(empty, "最近门禁");
+  assert.equal(textOf(findAll(emptyGate, (node) => String(node.attrs?.class || "").includes("tag"))[0]), "尚无门禁记录");
+  assert.equal(textOf(emptyGate).includes("通过"), false);
+  assert.equal(textOf(emptyGate).includes("/tmp/last-gate.json"), false);
+  const fallback = withAttention({ last_gate: { state: "fallback", time: "2026-11-06T00:00:00Z", result: "pass", source: "skill_guard", summary_json_path: "/gate/last-gate.json" } });
+  const fallbackGate = sectionByTitle(fallback, "最近门禁");
+  assert.equal(textOf(findAll(fallbackGate, (node) => String(node.attrs?.class || "").includes("tag"))[0]), "本地风险信号");
+  assert.ok(findText(fallbackGate, "SkilLock 未批准"));
+  assert.ok(findText(fallbackGate, "pass"));
+  assert.equal(textOf(fallbackGate).includes("通过"), false);
+  const failed = withAttention({ last_gate: { state: "error", result: null, source: null, summary_json_path: "/gate/last-gate.json" } });
+  const errorGate = sectionByTitle(failed, "最近门禁");
+  assert.equal(textOf(findAll(errorGate, (node) => String(node.attrs?.class || "").includes("tag"))[0]), "无法读取");
+  assert.equal(textOf(errorGate).includes("通过"), false);
+  const recorded = withAttention({ last_gate: { state: "recorded", time: "2026-11-06T01:00:00Z", result: "block", source: "skil-lock", summary_json_path: "/gate/last-gate.json" }, upgrade_candidates: [{ identifier: "compare-demo", installed: "1.0.0", latest: "1.2.0", via: "npm" }], buckets: { upgradable: { connected: false, reason: "上游请求失败，不能判断有没有更新", items: [] } } });
+  const recordedGate = sectionByTitle(recorded, "最近门禁");
+  assert.equal(textOf(findAll(recordedGate, (node) => String(node.attrs?.class || "").includes("tag"))[0]), "拦截");
+  assert.ok(findText(recordedGate, "SkilLock"));
+  assert.ok(findText(recordedGate, "/gate/last-gate.json"));
+  const candidates = sectionByTitle(recorded, "可升级候选");
+  assert.ok(findText(candidates, "compare-demo"));
+  assert.ok(findText(candidates, "1.0.0"));
+  assert.ok(findText(candidates, "1.2.0"));
+  assert.ok(findText(candidates, "npm"));
+  assert.ok(findText(candidates, "上游请求失败，不能判断有没有更新"));
+});
+
+test("registration fields participate in the skills refresh key and the page stays read-only", () => {
+  const item = compareItem("mismatch");
+  const payload = basePayload([item]);
+  const before = skillsRefreshKey(payload);
+  item.body_sha256 = HASH_B;
+  assert.notEqual(skillsRefreshKey(payload), before);
+  const source = readFileSync(new URL("./skills.js", import.meta.url), "utf8");
+  assert.equal(/\bactivate\b|method:\s*["']POST["']|fetch\(\s*["'][^"']+["']\s*,\s*\{[^}]*POST/i.test(source), false);
+});
