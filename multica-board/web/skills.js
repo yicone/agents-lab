@@ -5,6 +5,7 @@ import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
 
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
 import { renderFocusState } from "./deep-link.js";
+import { driftSuggestions } from "./skill-drift.js";
 
 /** 伪来源 id：选中时按「已安装到 Workspace」筛选，不是 source_class。 */
 export const CLOUD_SOURCE = "cloud";
@@ -941,6 +942,7 @@ function focusLinks(ctx, item) {
 
 export function renderSkillDrawer(ctx, item) {
   const { h } = ctx;
+  const suggestions = driftSuggestions(item);
   const close = h("button", { type: "button", class: "drawer-close", "aria-label": "关闭", onclick: ctx.closeDrawer }, "×");
   if (isGrokBot(item)) return [
     h("header", { class: "drawer-head" }, h("span", { class: "mono" }, item.name), close),
@@ -997,6 +999,13 @@ export function renderSkillDrawer(ctx, item) {
     section(h, "在终端处理", [
       h("p", { class: "muted" }, "页面只读，不替代命令行。"),
       item.command ? h("p", { class: "command" }, h("code", null, item.command), h("button", { type: "button", onclick: (e) => copyCommand(e.currentTarget, item.command) }, "复制")) : null,
+      h("div", { class: "skill-drift-suggestions" },
+        h("p", null, h("strong", null, "建议只读动作")),
+        h("p", { class: "muted" }, suggestions.note),
+        ...suggestions.commands.map(entry => h("p", { class: "command" },
+          h("span", { class: "muted" }, entry.label), h("code", null, entry.command),
+          h("button", { type: "button", onclick: e => copyCommand(e.currentTarget, entry.command) }, "复制"))),
+      ),
     ]),
   ].filter(Boolean);
 }
