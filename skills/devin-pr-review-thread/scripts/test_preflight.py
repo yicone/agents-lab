@@ -1,4 +1,5 @@
 import json
+import datetime as dt
 import pathlib
 import tempfile
 import unittest
@@ -9,6 +10,7 @@ from preflight import (
     MODEL_COMMAND_TIMEOUT_SECONDS,
     SESSION_LIST_COMMAND_TIMEOUT_SECONDS,
     classify_github_error,
+    model_free_window_open,
     pr_identity,
     GITHUB_IDENTITY_TIMEOUT_SECONDS,
     listed_session,
@@ -19,6 +21,11 @@ from preflight import (
 
 
 class GithubErrorClassificationTests(unittest.TestCase):
+    def test_pacific_free_period_boundary(self):
+        self.assertTrue(model_free_window_open(dt.datetime(2026, 11, 12, tzinfo=dt.timezone.utc)))
+        self.assertTrue(model_free_window_open(dt.datetime(2026, 12, 1, 7, 59, 59, tzinfo=dt.timezone.utc)))
+        self.assertFalse(model_free_window_open(dt.datetime(2026, 12, 1, 8, tzinfo=dt.timezone.utc)))
+
     def test_identity_recovers_from_transport_timeout(self):
         with patch("preflight.run", side_effect=[(127, "", "TimeoutExpired"), (0, '{"headRefOid":"abc"}', "")]) as command:
             result, error, _ = pr_identity("/repo", 263, "owner/repo")

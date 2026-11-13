@@ -12,6 +12,7 @@ import pathlib
 import subprocess
 import sys
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from repository_binding import (
     BindingError,
@@ -31,7 +32,13 @@ MODEL_COMMAND_TIMEOUT_SECONDS = 60
 SESSION_LIST_COMMAND_TIMEOUT_SECONDS = 30
 GITHUB_IDENTITY_TIMEOUT_SECONDS = 20
 GITHUB_IDENTITY_ATTEMPTS = 2
-EXPIRY = dt.date(2026, 10, 26)
+EXPIRY = dt.date(2026, 12, 1)
+
+
+def model_free_window_open(now: dt.datetime | None = None) -> bool:
+    """Conservatively stop at the start of the announced Pacific cutoff date."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    return now.astimezone(ZoneInfo("America/Los_Angeles")).date() < EXPIRY
 
 
 def run(argv: list[str], timeout: float = 12, cwd: str | None = None) -> tuple[int, str, str]:
@@ -126,7 +133,7 @@ def model_state() -> tuple[dict[str, Any], str | None]:
                for v in family["variants"] if isinstance(v, dict) and v.get("model_uid") == MODEL_UID]
     exact = [v for v in matches if v.get("label") == MODEL_LABEL]
     if exact:
-        result.update(label=MODEL_LABEL, model_uid=MODEL_UID, available=dt.date.today() <= EXPIRY)
+        result.update(label=MODEL_LABEL, model_uid=MODEL_UID, available=model_free_window_open())
         return result, None if result["available"] else "model_expired"
     return result, "model_unavailable"
 
