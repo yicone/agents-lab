@@ -1,0 +1,126 @@
+{
+  "ok": true,
+  "error": null,
+  "generated_at": "2026-11-06T06:00:00Z",
+  "skills_schema": 2,
+  "items": [
+    {
+      "name": "compare-demo",
+      "id": "compare-demo",
+      "origin": "inventory",
+      "source_class": "local_custom",
+      "source_label": "自建",
+      "scope": "machine",
+      "ownership": "local",
+      "source_authority": "local_directory",
+      "update_authority": "owner",
+      "canonical_path": "/skills/compare-demo",
+      "repo_is_source": false,
+      "channel_label": "自建",
+      "channel_detail": "两个入口差一个字节",
+      "current_version": "1.0.0",
+      "observed_version": "1.0.0",
+      "reconciliation_status": "modified",
+      "status_label": "已修改",
+      "body_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "body_hash_state": "observed",
+      "body_hash_path": "/skills/compare-demo/SKILL.md",
+      "tools": { "cursor": "shared", "codex": "direct" },
+      "entries": [
+        { "path": "/skills/compare-demo-a", "present": true, "scope": "user", "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "hash_state": "ok", "tools": ["cursor"] },
+        { "path": "/skills/compare-demo-b", "present": true, "scope": "user", "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "hash_state": "ok", "tools": ["codex"] }
+      ],
+      "hash_compare": {
+        "algorithm": "sha256",
+        "subject": "SKILL.md",
+        "status": "mismatch",
+        "entry_count": 2,
+        "compared_entry_count": 2,
+        "groups": [
+          { "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entry_indexes": [0] },
+          { "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "entry_indexes": [1] }
+        ],
+        "unknown_entry_indexes": []
+      },
+      "loaders": [
+        { "id": "cursor", "kind": "runtime", "mark": "shared", "shared_auto_load": true, "runtime_loaded": null, "load_state": "unverified" },
+        { "id": "codex", "kind": "runtime", "mark": "direct", "shared_auto_load": false, "runtime_loaded": null, "load_state": "unverified" },
+        { "id": "agent-demo", "kind": "workspace_agent", "enabled": true, "shared_auto_load": false, "runtime_loaded": null, "load_state": "unverified" }
+      ],
+      "shared_entry": { "state": "dir", "label": "目录", "detail": "共享目录里有入口", "path": "/shared/compare-demo" },
+      "workspace_installs": [],
+      "findings": [],
+      "constraints": [],
+      "constraint_count": 0,
+      "conflict_status": null,
+      "conflict_detection_state": "ok",
+      "conflict_findings": [],
+      "evidence": [],
+      "quiet": false
+    },
+    {
+      "name": "declared-only",
+      "key": "grok_bot:declared-only",
+      "id": "grok_bot:declared-only",
+      "origin": "grok_bot",
+      "source_class": "grok_bot",
+      "source_label": "Grok Bot",
+      "channel_label": "Grok Bot",
+      "channel_detail": "名称声明",
+      "evidence_detail": "仅名称声明",
+      "reconciliation_status": "unverified",
+      "status_label": "名称声明",
+      "body_sha256": null,
+      "body_hash_state": "not_applicable",
+      "tools": {},
+      "entries": [],
+      "loaders": [
+        { "id": "bot-1", "kind": "grok_bot", "mark": "declared", "shared_auto_load": false, "runtime_loaded": null, "load_state": "unverified" }
+      ],
+      "grok_bots": [
+        { "id": "bot-1", "name": "示例 Bot", "evidence_state": "inferred", "evidence_label": "按共享机制推断，未逐一实测" }
+      ],
+      "workspace_installs": [],
+      "findings": [],
+      "constraints": [],
+      "quiet": false
+    }
+  ],
+  "summary": [
+    { "id": "all", "label": "全部", "count": 2, "statuses": { "modified": 1, "unverified": 1 } },
+    { "id": "local_custom", "label": "自建", "count": 1, "statuses": { "modified": 1 } },
+    { "id": "grok_bot", "label": "Grok Bot", "count": 1, "statuses": { "unverified": 1 } }
+  ],
+  "tools": [
+    { "id": "cursor", "label": "Cursor", "roots_state": "configured" },
+    { "id": "codex", "label": "Codex", "roots_state": "configured" },
+    { "id": "project", "label": "仓库入口", "roots_state": "configured" }
+  ],
+  "shared_root": { "path": "/shared", "state": "ok", "detail": "共享根可读" },
+  "repos": [{ "id": "/repo", "label": "agents-lab", "path": "/repo" }],
+  "attention": {
+    "badge": 0,
+    "baseline_debt": 0,
+    "counts": {},
+    "buckets": {
+      "missing": { "connected": true, "reason": "", "items": [] },
+      "version_changed": { "connected": true, "reason": "", "items": [] },
+      "unrecorded": { "connected": true, "reason": "", "items": [] },
+      "capability_pending": { "connected": true, "reason": "", "items": [] },
+      "modified": { "connected": true, "reason": "", "items": [] },
+      "upgradable": { "connected": true, "reason": "", "items": [] },
+      "overlap": { "connected": true, "reason": "", "items": [] }
+    },
+    "upgrade_candidates": [
+      { "identifier": "compare-demo", "installed": "1.0.0", "latest": "1.2.0", "via": "npm" }
+    ],
+    "last_gate": {
+      "state": "empty",
+      "time": null,
+      "result": null,
+      "source": null,
+      "summary_json_path": "/tmp/skill-staging/last-gate.json",
+      "reason": "no_gate_record"
+    }
+  }
+}
