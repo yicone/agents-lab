@@ -147,6 +147,22 @@ function installStamp(payload) {
   return bits.join("\n");
 }
 
+function registrationStamp(payload) {
+  const attention = payload?.attention || {};
+  const gate = attention.last_gate && typeof attention.last_gate === "object" ? attention.last_gate : {};
+  const candidates = Array.isArray(attention.upgrade_candidates) ? attention.upgrade_candidates : [];
+  const bits = [
+    `gate:${gate.state || ""}:${gate.time || ""}:${gate.result || ""}:${gate.source || ""}`,
+    candidates.map((row) => `${row.identifier || ""}:${row.installed || ""}:${row.latest || ""}:${row.via || ""}`).join(","),
+  ];
+  for (const item of payload?.items || []) {
+    const compare = item.hash_compare && typeof item.hash_compare === "object" ? item.hash_compare.status || "" : "";
+    const loaders = (item.loaders || []).map((loader) => `${loader.kind || ""}:${loader.id || ""}:${loader.shared_auto_load ? 1 : 0}:${loader.load_state || ""}:${loader.runtime_loaded === true ? 1 : loader.runtime_loaded === false ? 0 : ""}`).join(",");
+    bits.push(`${skillKey(item)}:${item.body_hash_state || ""}:${item.body_sha256 || ""}:${compare}:${loaders}`);
+  }
+  return bits.join("\n");
+}
+
 export function skillsRefreshKey(payload) {
   if (!payload) return "";
   const attention = payload.attention || {};
@@ -159,6 +175,7 @@ export function skillsRefreshKey(payload) {
     attention.badge ?? "",
     attention.baseline_debt ?? "",
     installStamp(payload),
+    registrationStamp(payload),
   ].join("\n");
 }
 
@@ -535,7 +552,7 @@ function row(ctx, harness, projectTool, item, payload) {
         ctx.focusSkill(item.name, e.currentTarget);
       },
     },
-    h("td", { class: "skill-name-col" }, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
+    h("td", { class: "skill-name-col" }, h("span", { class: "mono" }, item.name), item.upgrade_status === "deferred" ? h("span", { class: "tag warn" }, "升级状态待补") : null, item.hash_compare?.status === "mismatch" ? h("span", { class: "tag warn" }, "副本不一致") : null, item.scope ? h("span", { class: "tag" }, item.scope) : null, cloudDrift(item) ? h("span", { class: "tag warn", title: cloudDrift(item).explanation }, cloudDrift(item).label) : null),
     h("td", optionalAttrs("tri", { class: "tri-col" }), renderTriState(h, skillTriState(item))),
     h("td", { class: "channel-col", title: [visibleLabel(item.channel_label), item.channel_detail, item.evidence_detail].filter(Boolean).join("\n") }, h("div", { class: "cell-ellipsis" }, visibleLabel(item.channel_label)), h("div", { class: "muted mono cell-ellipsis" }, item.channel_detail || "—")),
     h("td", optionalAttrs("workspace", { class: "cloud-cell" }), cloudCell(h, item)),
@@ -859,6 +876,7 @@ function queue(ctx, payload) {
     h("h2", null, "待处理"),
     cloudQueue(ctx, payload),
     ...buckets.map((bucket) => bucketBlock(ctx, bucket)),
+    ...registrationAside(ctx, payload),
     h(
       "button",
       {
@@ -912,6 +930,173 @@ function bucketBlock(ctx, bucket) {
   return h("section", { class: "skill-bucket" }, h("header", null, h("span", null, bucket.title), h("span", { class: "count" }, bucket.connected ? String(bucket.items.length) : "—")), bucket.items.length && bucket.reason ? h("p", { class: "muted" }, bucket.reason) : null, body);
 }
 
+const SHA256 = /^[a-f0-9]{64}$/i;
+const HASH_STATE_LABEL = {
+  observed: ["已采集", "ok"],
+  uncollected: ["未采集", "muted"],
+  not_applicable: ["不适用", "muted"],
+  missing: ["文件不存在", "warn"],
+  denied: ["无权限", "warn"],
+  too_large: ["文件过大", "warn"],
+  unsupported: ["无法读取", "warn"],
+  error: ["读取失败", "warn"],
+};
+const COMPARE_LABEL = {
+  match: ["一致", "ok"],
+  mismatch: ["不一致", "warn"],
+  incomplete: ["不足以比较", "muted"],
+  insufficient_entries: ["不足以比较", "muted"],
+};
+
+function validSha(value) {
+  return typeof value === "string" && SHA256.test(value) ? value.toLowerCase() : null;
+}
+
+function shortSha(value) {
+  const sha = validSha(value);
+  return sha ? sha.slice(0, 12) : null;
+}
+
+function nameDeclaration(item) {
+  return item?.origin === "grok_bot" && item.source_class !== "grok_bot_export" && !item.export;
+}
+
+function bodyHashSection(h, item) {
+  const declaration = nameDeclaration(item);
+  const state = declaration ? "not_applicable" : item?.body_hash_state || "uncollected";
+  const sha = declaration ? null : validSha(item?.body_sha256);
+  const observed = state === "observed" && Boolean(sha);
+  const known = HASH_STATE_LABEL[state];
+  const label = observed ? "已采集" : known ? known[0] : "采集失败";
+  const cls = observed ? "ok" : known ? known[1] : "warn";
+  const note = declaration || state === "not_applicable"
+    ? "名称声明没有正文哈希"
+    : observed
+      ? ""
+      : state === "uncollected"
+        ? "尚未采集正文哈希"
+        : "未能读取正文";
+  return section(h, "正文哈希", [
+    h("p", null, h("span", { class: `tag ${cls}` }, label), note ? h("span", { class: "muted" }, ` ${note}`) : null),
+    observed ? h("p", null, h("span", { class: "muted" }, "短显 "), h("span", { class: "mono" }, shortSha(sha)), " ", h("button", { type: "button", class: "text-btn", onclick: (e) => copyCommand(e.currentTarget, sha) }, "复制全文")) : h("p", { class: "muted" }, "无哈希"),
+    HASH_STATE_LABEL[state] ? h("p", { class: "muted mono" }, state) : null,
+  ]);
+}
+
+function hashCompareSection(h, item) {
+  const compare = item?.hash_compare;
+  const status = compare && typeof compare === "object" ? compare.status : "";
+  const known = COMPARE_LABEL[status];
+  const label = known ? known[0] : "不足以比较";
+  const cls = known ? known[1] : "muted";
+  const groups = Array.isArray(compare?.groups) ? compare.groups : [];
+  const unknown = Array.isArray(compare?.unknown_entry_indexes) ? compare.unknown_entry_indexes.length : 0;
+  const note = status === "match"
+    ? "各入口 SKILL.md 字节相同"
+    : status === "mismatch"
+      ? "各入口 SKILL.md 字节不同"
+      : status === "insufficient_entries"
+        ? "可比较入口不足两个"
+        : "有入口读不到或信息不足";
+  return section(h, "多副本对照", [
+    h("p", null, h("span", { class: `tag ${cls}` }, label), h("span", { class: "muted" }, ` ${note}`)),
+    ...groups.map((group) => h("p", null, h("span", { class: "mono" }, shortSha(group?.content_hash) || "—"), h("span", { class: "muted" }, ` · ${Array.isArray(group?.entry_indexes) ? group.entry_indexes.length : 0} 个入口`))),
+    unknown ? h("p", { class: "muted" }, `${unknown} 个入口无法比较`) : null,
+  ]);
+}
+
+function loaderTags(h, loader) {
+  const kind = loader?.kind;
+  if (kind === "grok_bot") return [h("span", { class: "tag muted" }, "名称声明")];
+  if (kind === "workspace_agent") return [h("span", { class: "tag muted" }, "已声明挂载")];
+  const tags = [];
+  if (loader?.shared_auto_load) tags.push(h("span", { class: "tag info" }, "共享目录入口"));
+  if (loader?.load_state === "loaded" || loader?.runtime_loaded === true) tags.push(h("span", { class: "tag ok" }, "已加载"));
+  else if (loader?.load_state === "not_loaded" || loader?.runtime_loaded === false) tags.push(h("span", { class: "tag warn" }, "未加载"));
+  else tags.push(h("span", { class: "tag muted" }, "未验证"));
+  return tags;
+}
+
+function loaderNote(loader) {
+  const kind = loader?.kind;
+  if (kind === "grok_bot" || kind === "workspace_agent") return "声明，当前会话加载未验证";
+  if (loader?.shared_auto_load && loader?.load_state !== "loaded" && loader?.runtime_loaded !== true) return "只表示共享目录里有入口";
+  if (loader?.load_state === "unverified" || (loader?.runtime_loaded == null && loader?.load_state !== "loaded" && loader?.load_state !== "not_loaded")) return "加载状态未验证";
+  return "";
+}
+
+function loaderSection(h, item) {
+  const loaders = Array.isArray(item?.loaders) ? item.loaders : [];
+  if (!loaders.length) return section(h, "加载方", [h("p", { class: "muted" }, "没有加载方记录")]);
+  return section(h, "加载方", loaders.map((loader) => h(
+    "p",
+    { class: "skill-loader" },
+    h("span", { class: "mono" }, loader?.id || "—"),
+    " ",
+    ...loaderTags(h, loader),
+    loaderNote(loader) ? h("span", { class: "muted" }, ` ${loaderNote(loader)}`) : null,
+  )));
+}
+
+function gateView(gate) {
+  if (!gate || typeof gate !== "object") return { label: "门禁记录未提供", cls: "muted", detail: "这份数据没有最近门禁" };
+  if (gate.state === "empty") return { label: "尚无门禁记录", cls: "muted", detail: "没有门禁记录" };
+  if (gate.state === "error") return { label: "无法读取", cls: "warn", detail: "门禁记录损坏或不可读" };
+  if (gate.state === "fallback") return { label: "本地风险信号", cls: "warn", detail: "SkilLock 未批准" };
+  if (gate.state === "recorded") {
+    if (gate.result === "pass") return { label: "通过", cls: "ok", detail: "" };
+    if (gate.result === "block") return { label: "拦截", cls: "bad", detail: "" };
+    return { label: "结果未知", cls: "muted", detail: "已有记录，结果字段不可用" };
+  }
+  return { label: "门禁状态未知", cls: "muted", detail: "状态无法识别" };
+}
+
+function gateSource(source) {
+  if (source === "skil-lock") return "SkilLock";
+  if (source === "skill_guard") return "skill_guard";
+  return "";
+}
+
+function registrationAside(ctx, payload) {
+  const { h } = ctx;
+  const attention = payload?.attention || {};
+  const gate = attention.last_gate;
+  const view = gateView(gate);
+  const showFacts = gate && (gate.state === "recorded" || gate.state === "fallback" || gate.state === "error");
+  const candidates = attention.upgrade_candidates;
+  const upgradeBucket = attention.buckets?.upgradable;
+  const upgradeNodes = [];
+  if (upgradeBucket && upgradeBucket.connected === false) upgradeNodes.push(h("p", { class: "muted" }, upgradeBucket.reason || "升级检查未完成"));
+  if (!Array.isArray(candidates)) upgradeNodes.push(h("p", { class: "muted" }, "升级候选未提供"));
+  else if (!candidates.length) upgradeNodes.push(h("p", { class: "muted" }, upgradeBucket?.connected === false ? "候选列表为空，检查尚未完成" : "没有可升级候选"));
+  else upgradeNodes.push(...candidates.map((row) => h(
+    "p",
+    null,
+    h("span", { class: "mono" }, row?.identifier || "—"),
+    h("span", { class: "muted" }, ` ${row?.installed || "—"} → ${row?.latest || "—"} · ${row?.via === "github" ? "GitHub" : row?.via === "npm" ? "npm" : "来源未知"}`),
+  )));
+  return [
+    h(
+      "section",
+      { class: "skill-evidence" },
+      h("h3", { class: "drawer-sub" }, "最近门禁"),
+      h("p", null, h("span", { class: `tag ${view.cls}` }, view.label), view.detail ? h("span", { class: "muted" }, ` ${view.detail}`) : null),
+      showFacts && gate.time ? line(h, "时间", ctx.absTime ? ctx.absTime(gate.time) : gate.time) : null,
+      showFacts && (gate.result === "pass" || gate.result === "block") ? line(h, "结果", gate.result) : null,
+      showFacts && gateSource(gate.source) ? line(h, "来源", gateSource(gate.source)) : null,
+      showFacts && gate.summary_json_path ? h("p", null, h("span", { class: "muted" }, "摘要路径 "), h("span", { class: "mono" }, gate.summary_json_path)) : null,
+      gate?.state === "recorded" ? h("p", { class: "muted" }, "这是已保存的记录，不是对当前安装的重新检查。") : null,
+    ),
+    h("section", { class: "skill-evidence" }, h("h3", { class: "drawer-sub" }, "可升级候选"), ...upgradeNodes),
+  ];
+}
+
+function entryHashNote(h, entry) {
+  if (!entry || (entry.content_hash == null && entry.hash_state == null)) return null;
+  if (entry.hash_state === "ok" && shortSha(entry.content_hash)) return h("span", { class: "mono" }, ` · ${shortSha(entry.content_hash)}`);
+  return h("span", { class: "muted" }, " · 无法比较");
+}
+
 function runtimeLoadSection(h, item) {
   const rows = Object.entries(item.runtime_evidence || {}).filter(([, row]) => row?.load_checked || row?.runtime_loaded != null);
   if (!rows.length) return [h("p", { class: "muted" }, "没有逐条加载探针。磁盘入口保持未验证。")];
@@ -950,6 +1135,9 @@ export function renderSkillDrawer(ctx, item) {
     ...focusLinks(ctx, item),
     section(h, "能力三态", [renderTriState(h, skillTriState(item)), h("p", { class: "muted" }, TRI_LEGEND)]),
     section(h, "证据范围", [h("p", null, item.evidence_detail), line(h, "只读来源", item.manifest_path), item.export ? line(h, "导出时间", item.export.exported_at) : null, h("p", { class: "muted" }, item.export ? "只读导出样本；后续由 Steward 重新导出覆盖，不调用 Grok Bot API。" : "仅展示 Git 清单中的名称声明；不调用 Grok 接口，不表示所有 Bot 均已实测。")]),
+    bodyHashSection(h, item),
+    loaderSection(h, item),
+    hashCompareSection(h, item),
     section(h, "使用此技能的 Bot", (item.grok_bots || []).map(bot => h("p", { title: bot.evidence_label }, h("strong", null, bot.name), " · ", h("span", { class: bot.evidence_state === "observed" ? "info" : "muted" }, bot.evidence_label)))),
     section(h, "Skill 正文", item.export ? exportContentSection(h, ctx, item) : [h("p", { class: "muted" }, "正文不可用：名称清单未提供导出正文；Cursor 官方内置 skill 正文无法导出。")]),
     section(h, "版本", [notApplicable(h, "Grok Bot 清单没有版本")]),
@@ -970,6 +1158,7 @@ export function renderSkillDrawer(ctx, item) {
       item.repo_is_source ? null : h("p", { class: "muted" }, "本仓库不是源头"),
       line(h, "scope", item.scope),
     ]),
+    bodyHashSection(h, item),
     section(h, "基线与版本", [
       line(h, "基线", [item.baseline_kind, item.baseline_subject].filter(Boolean).join(" · ") || "—"),
       line(h, "baseline_ref", item.baseline_ref),
@@ -979,7 +1168,9 @@ export function renderSkillDrawer(ctx, item) {
     ]),
     section(h, "共享入口", sharedSection(h, item, ctx)),
     section(h, "Runtime 加载", runtimeLoadSection(h, item)),
+    loaderSection(h, item),
     h("p", { class: "muted" }, "以下为磁盘安装入口；未验证 runtime 当前会话实际加载。"),
+    hashCompareSection(h, item),
     ...SCOPE_GROUPS.map(([scope, title]) =>
       section(h, title, entriesSection(h, item, dedupeEntries((item.entries || []).map((entry, index) => ({ ...entry, _index: index }))).filter((entry) => scopeOf(entry) === scope), ctx)),
     ),
@@ -1058,6 +1249,7 @@ function entriesSection(h, item, entries, ctx) {
       entry.resolved && !entry.symlink ? h("span", { class: "muted" }, ` → ${entry.resolved}`) : null,
       entry.symlink && entry.resolved ? h("span", { class: "muted" }, ` (${entry.resolved})`) : null,
       tools.length ? h("span", { class: "muted" }, ` · ${tools.join(" / ")}`) : null,
+      entryHashNote(h, entry),
     );
   });
 }
