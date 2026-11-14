@@ -3,17 +3,11 @@ import hashlib
 import json
 import os
 import stat
-import sys
-from pathlib import Path
 
 from .policy import MAX_TREE_ENTRIES, Policy
 from .safe_io import UnsafeIO, entries, open_directory, read_at, read_file, _signature
 
-# Reuse the authoritative algorithm rather than keeping a second normalization.
-_SCRIPTS = Path(__file__).resolve().parents[2] / "instructions-governance/scripts"
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-from diff_instructions import instructions_sha256  # noqa: E402
+from .instructions import instructions_sha256
 
 
 def config_fingerprint(config):

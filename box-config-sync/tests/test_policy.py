@@ -20,7 +20,7 @@ class PolicyTests(unittest.TestCase):
         names = ("connector-secrets", "box-secrets", "host-secrets", "app-secrets", "secrets", ".ssh", ".gnupg", ".aws",
                  ".env", ".env.prod", "a.pem", "a.key", "a.p12", "a.pfx", "a.keystore", "id_rsa.pub", "id_ed25519",
                  ".netrc", ".git-credentials", ".npmrc", ".pypirc", "x-token", "x-secret", "credential.json",
-                 "passwords", "cookies.json", "keychain", "a.sqlite3", "a.db", "a.db-wal", "a.db-shm", "transcript", "composer-draft")
+                 "gateway.json", "teach-queue-key.json", "passwords", "cookies.json", "keychain", "a.sqlite3", "a.db", "a.db-wal", "a.db-shm", "transcript", "composer-draft")
         for name in names:
             with self.subTest(name=name):
                 self.assertTrue(policy.skip(name.upper()))
