@@ -3,7 +3,7 @@ import json
 import re
 
 from .domains.common import UUID
-from .hashing import config_fingerprint
+from .routine_config import routine_fingerprint
 from .secrets_scan import contains_secret
 from .validation import InvalidDocument, load_schema, parse_json, timestamp, validate
 
@@ -63,7 +63,7 @@ def apply(ctx, domains, inputs):
                 safe = {k: routine[k] for k in ("name", "enabled", "schedule", "last_run_at", "next_run_at", "prompt_sha256") if k in routine}
                 domains["routines"].append({"id": "grok-routine-live:" + bot + "/" + routine["id"],
                                             "kind": "turn", "owner_id": bot, "routine_id": routine["id"], **safe,
-                                            "routine_sha256": config_fingerprint(safe), "evidence_level": evidence})
+                                            "routine_sha256": routine_fingerprint(safe), "evidence_level": evidence})
         if {"mcps", "routines"}.issubset(ctx.selected):
             consumed.append(source)
     for state in ("rejected_secret", "rejected_schema", "stale_sidecar"):

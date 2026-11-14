@@ -1,7 +1,7 @@
 """Disk routine allowlist and per-bot turn placeholders (D6)."""
 import hashlib
-from ..hashing import config_fingerprint
-from .common import UUID, directory_names, json_file, label, safe_id, safe_timestamp, walk_metadata
+from ..routine_config import routine_fingerprint
+from .common import UUID, directory_names, json_file, label, safe_id, walk_metadata
 
 
 def turn_placeholder(bot):
@@ -33,7 +33,7 @@ def collect(ctx):
                     "prompt_sha256": hashlib.sha256(data["prompt"].encode()).hexdigest() if isinstance(data.get("prompt"), str) else None}
             rows.append({"id": "grok-routine:" + bot + "/" + data["id"], "kind": "disk",
                          "owner_id": bot, "routine_id": data["id"], **item,
-                         "routine_sha256": config_fingerprint({**item, "updated_at": safe_timestamp(data.get("updated_at"))}),
+                         "routine_sha256": routine_fingerprint(item),
                          "evidence_level": "observed"})
     rows.extend(turn_placeholder(bot) for bot in sorted(ctx.bots))
     return rows, state
