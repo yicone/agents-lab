@@ -8,12 +8,14 @@ import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 from collect_support import BOT, TOOL, TOKEN, fixture, write
 from boxsync.__main__ import main
 from boxsync.safe_io import UnsafeIO
 from boxsync.secrets_scan import contains_secret, scan
 from boxsync.snapshot import collect, validate_snapshot, write_snapshot
+from boxsync.validation import InvalidDocument, load_schema, validate
 
 
 class MemoryIdentityTests(unittest.TestCase):
@@ -93,7 +95,8 @@ class MemoryIdentityTests(unittest.TestCase):
         for change in cases:
             bad = copy.deepcopy(value)
             bad["domains"]["memory"][0].update(change)
-            with self.subTest(fields=list(change)), self.assertRaises(UnsafeIO):
+            # Identity errors now fail structurally, before secret scanning.
+            with self.subTest(fields=list(change)), self.assertRaises(InvalidDocument):
                 validate_snapshot(bad)
 
     def test_same_id_text_outside_memory_identity_is_still_scanned(self):
@@ -105,3 +108,72 @@ class MemoryIdentityTests(unittest.TestCase):
         # Neither generic scanning nor explicit secret assignments get exemptions.
         self.assertTrue(contains_secret(identifier))
         self.assertTrue(contains_secret("token=" + identifier))
+
+    def test_invalid_identity_is_structurally_rejected_before_scan_and_io(self):
+        # Both scopes must obey the same UUID and equality contract, regardless
+        # of whether entropy heuristics would happen to flag the input.
+        for bot in (BOT, *self.bots):
+            for scope in ("agent_memory", "user_memory_by_agent"):
+                value = self.candidate(bot)
+                row = value["domains"]["memory"][0]
+                row.update(scope=scope, id="memory:" + scope + "/" + bot)
+                other_scope = "user_memory_by_agent" if scope == "agent_memory" else "agent_memory"
+                cases = (
+                    {"agent_id": "11111111-1111-4111-8111-111111111111"},
+                    {"id": "memory:" + scope + "/not-a-uuid"},
+                    {"id": row["id"] + "/extra"},
+                    {"scope": other_scope},
+                    {"agent_id": "not-a-uuid"},
+                    {"id": row["id"] + "\n"},
+                )
+                for case_index, delta in enumerate(cases):
+                    bad = copy.deepcopy(value)
+                    bad["domains"]["memory"][0].update(delta)
+                    before = copy.deepcopy(bad)
+                    with self.subTest(entropy="low" if bot == BOT else "high",
+                                      scope=scope, case=case_index):
+                        destination = Path(self.tmp.name) / "must-not-exist.json"
+                        with patch("boxsync.snapshot.contains_secret", side_effect=AssertionError("scan reached")), \
+                             patch("boxsync.snapshot.open_directory", side_effect=AssertionError("I/O reached")):
+                            with self.assertRaises(InvalidDocument):
+                                validate_snapshot(bad)
+                            with self.assertRaises(InvalidDocument):
+                                write_snapshot(bad, destination)
+                        self.assertFalse(destination.exists())
+                        self.assertEqual(bad, before)
+
+    def test_both_scopes_preserve_valid_high_and_low_entropy_identities(self):
+        for scope in ("agent_memory", "user_memory_by_agent"):
+            for bot in (BOT, *self.bots):
+                value = self.candidate(bot)
+                value["domains"]["memory"][0].update(scope=scope, id="memory:" + scope + "/" + bot)
+                with self.subTest(scope=scope, entropy="low" if bot == BOT else "high"):
+                    self.assertEqual(json.loads(validate_snapshot(value)), value)
+                    destination = Path(self.tmp.name) / "valid.json"
+                    write_snapshot(value, destination)
+                    self.assertEqual(json.loads(destination.read_text()), value)
+
+    def test_schema_rejects_bad_shapes_and_scope_prefix_mismatch(self):
+        try:
+            import jsonschema
+        except ImportError:
+            jsonschema = None
+        schema = load_schema("snapshot")
+        for scope in ("agent_memory", "user_memory_by_agent"):
+            row = copy.deepcopy(self.value["domains"]["memory"][0])
+            row.update(scope=scope, id="memory:" + scope + "/" + BOT)
+            validate(row, schema["$defs"]["memory"], schema)
+            mutations = (
+                {"id": "memory:" + scope + "/not-a-uuid"},
+                {"id": row["id"] + "/extra"},
+                {"scope": "user_memory_by_agent" if scope == "agent_memory" else "agent_memory"},
+                {"agent_id": "not-a-uuid"},
+            )
+            for delta in mutations:
+                with self.subTest(scope=scope, fields=list(delta)):
+                    with self.assertRaises(InvalidDocument):
+                        validate({**row, **delta}, schema["$defs"]["memory"], schema)
+                    if jsonschema is not None:
+                        with self.assertRaises(jsonschema.ValidationError):
+                            jsonschema.Draft202012Validator(schema).validate({
+                                **self.value, "domains": {**self.value["domains"], "memory": [{**row, **delta}]}})

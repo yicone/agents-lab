@@ -58,21 +58,25 @@ def tool_metadata():
 
 def validate_snapshot(value):
     validate(value, _SCHEMA)
+    # JSON Schema constrains the per-scope shape; equality between two fields
+    # needs an explicit check. Reject malformed identities before secret
+    # scanning, independently of entropy, and before write_snapshot does I/O.
+    for row in value["domains"]["memory"]:
+        agent = row["agent_id"]
+        if (not UUID.fullmatch(agent)
+                or row["id"] != "memory:" + row["scope"] + "/" + agent):
+            raise InvalidDocument()
     text = json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False)
     if len(text.encode()) > MAX_SNAPSHOT_BYTES:
         raise InvalidDocument()
     # The full serialized Memory id can exceed the entropy threshold even
     # though its UUID suffix is public structural metadata. Exclude only the
-    # exact collector-generated identity at its schema-validated location,
+    # exact contract-validated identity at its schema-validated location,
     # with scope and agent_id agreeing. Never exempt matching text elsewhere
     # or change the generic scanner (e.g. Sidecar or credential assignments).
     memory = []
     for row in value["domains"]["memory"]:
-        agent = row["agent_id"]
-        if (row["scope"] == "agent_memory" and UUID.fullmatch(agent)
-                and row["id"] == "memory:agent_memory/" + agent):
-            row = {**row, "id": ""}
-        memory.append(row)
+        memory.append({**row, "id": ""})
     scan_value = {**value, "domains": {**value["domains"], "memory": memory}}
     scan_text = json.dumps(scan_value, ensure_ascii=False, sort_keys=True, allow_nan=False)
     if contains_secret(scan_text):

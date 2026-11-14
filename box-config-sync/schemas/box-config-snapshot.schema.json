@@ -341,15 +341,25 @@
       "additionalProperties": false,
       "required": ["id", "scope", "agent_id", "file_count", "total_bytes", "latest_mtime", "evidence_level"],
       "properties": {
-        "id": {"type": "string", "pattern": "^memory:(agent_memory|user_memory_by_agent)/.+$", "maxLength": 200},
+        "id": {"type": "string", "pattern": "^memory:(agent_memory|user_memory_by_agent)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "maxLength": 200},
         "scope": {"enum": ["agent_memory", "user_memory_by_agent"]},
-        "agent_id": {"type": "string", "maxLength": 128},
+        "agent_id": {"$ref": "#/$defs/uuid"},
         "file_count": {"type": ["integer", "null"], "minimum": 0},
         "total_bytes": {"type": ["integer", "null"], "minimum": 0},
         "latest_mtime": {"$ref": "#/$defs/timestampOrNull"},
         "snapshot_age_days": {"type": ["number", "null"], "minimum": 0},
         "evidence_level": {"enum": ["historical", "unknown"]}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "agent_memory"}}, "required": ["scope"]},
+          "then": {"properties": {"id": {"pattern": "^memory:agent_memory/"}}}
+        },
+        {
+          "if": {"properties": {"scope": {"const": "user_memory_by_agent"}}, "required": ["scope"]},
+          "then": {"properties": {"id": {"pattern": "^memory:user_memory_by_agent/"}}}
+        }
+      ]
     },
     "routine": {
       "type": "object",
