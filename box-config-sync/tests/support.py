@@ -13,6 +13,6 @@ FIXTURE = PROJECT / "tests/fixtures/box-home"
 def make_fixture(destination):
     home = Path(destination) / "box-home"
     shutil.copytree(FIXTURE, home, symlinks=True)
-    workflow = home / "agent-data/workflows/example"
+    workflow = home / "sand-data/workflows/example"
     os.mkfifo(workflow / "pipe")
     return home

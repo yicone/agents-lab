@@ -34,7 +34,7 @@ class PolicyTests(unittest.TestCase):
     def test_safe_read_special_fixtures(self):
         with tempfile.TemporaryDirectory(dir=Path(tempfile.gettempdir()).resolve()) as tmp:
             home = make_fixture(tmp)
-            root = home / "agent-data/workflows/example"
+            root = home / "sand-data/workflows/example"
             started = time.monotonic()
             self.assertEqual(read_file(root, "pipe").state, "not_regular")
             self.assertLess(time.monotonic() - started, 5)
