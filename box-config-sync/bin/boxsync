@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""Run boxsync directly from a checkout; no installation required."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from boxsync.__main__ import main
+
+raise SystemExit(main())
