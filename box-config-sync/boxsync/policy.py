@@ -3,7 +3,7 @@ from collections import Counter
 from fnmatch import fnmatchcase
 from pathlib import PurePath
 
-BLACKLIST_VERSION = "2026-11-07"
+BLACKLIST_VERSION = "2026-11-14"
 MAX_FILE_BYTES = 512 * 1024
 MAX_CONFIG_BYTES = 1024 * 1024
 MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024
@@ -14,7 +14,7 @@ _GROUPS = (
                               "secrets", ".ssh", ".gnupg", ".aws")),
     ("environment_key", (".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx", "*.keystore",
                          "id_rsa*", "id_ed25519*", ".netrc", ".git-credentials", ".npmrc", ".pypirc")),
-    ("sensitive_name", ("*token*", "*secret*", "*credential*", "*password*", "cookies*", "*keychain*")),
+    ("sensitive_name", ("gateway.json", "teach-queue-key.json", "*token*", "*secret*", "*credential*", "*password*", "cookies*", "*keychain*")),
     ("database_session", ("*.sqlite*", "*.db", "*.db-wal", "*.db-shm", "*transcript*", "*composer-draft*")),
 )
 

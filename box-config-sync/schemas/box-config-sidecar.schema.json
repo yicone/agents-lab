@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yicone/agents-lab/multica-board/docs/schemas/box-config-sidecar.schema.json",
+  "title": "box-config-sidecar/v1",
+  "description": "Grok Bot Routine turn 内可见状态的注入输入。不可信输入：未知键、URL、命令、env、token、prompt 原文一律拒绝。见 box-config-sync-design.md §5.4。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "bot_id", "captured_at", "mcp_servers", "routines"],
+  "properties": {
+    "schema": {"const": "box-config-sidecar/v1"},
+    "bot_id": {"$ref": "#/$defs/uuid"},
+    "captured_at": {"$ref": "#/$defs/timestamp"},
+    "routine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {"$ref": "#/$defs/shortId"},
+        "run_id": {"$ref": "#/$defs/shortId"}
+      }
+    },
+    "mcp_servers": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\\s/:@]+( [^\\s/:@]+)*$"},
+          "status": {"enum": ["connected", "needs_auth", "failed", "disabled", "unknown"]},
+          "tool_count": {"type": "integer", "minimum": 0, "maximum": 10000},
+          "origin": {"enum": ["builtin", "plugin", "user", "unknown"]}
+        }
+      }
+    },
+    "routines": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "enabled"],
+        "properties": {
+          "id": {"$ref": "#/$defs/shortId"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 200},
+          "schedule": {"type": ["string", "null"], "maxLength": 120},
+          "enabled": {"type": "boolean"},
+          "last_run_at": {"oneOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+          "next_run_at": {"oneOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+          "prompt_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"},
+    "shortId": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"}
+  }
+}

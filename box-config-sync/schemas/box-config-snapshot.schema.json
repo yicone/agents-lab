@@ -1,0 +1,399 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yicone/agents-lab/multica-board/docs/schemas/box-config-snapshot.schema.json",
+  "title": "box-config-snapshot/v1",
+  "description": "Box + Multica 双边配置的统一只读快照。只含元数据与哈希，不含正文、prompt、配置取值或绝对路径。见 box-config-sync-design.md §4。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "box_id", "collected_at", "tool", "sources", "policy", "inaccessible_workspaces", "domains", "writeback"],
+  "properties": {
+    "schema": {"const": "box-config-snapshot/v1"},
+    "box_id": {"$ref": "#/$defs/shortId"},
+    "collected_at": {"$ref": "#/$defs/timestamp"},
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "dirty", "version"],
+      "properties": {
+        "commit": {"oneOf": [{"type": "string", "pattern": "^[0-9a-f]{40}$"}, {"type": "null"}]},
+        "dirty": {"type": ["boolean", "null"]},
+        "version": {"type": "string", "maxLength": 32}
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["box_disk", "multica_cli", "sidecar"],
+      "properties": {
+        "box_disk": {"$ref": "#/$defs/sourceState"},
+        "multica_cli": {"$ref": "#/$defs/sourceState"},
+        "sidecar": {"enum": ["ok", "partial", "absent", "stale_sidecar", "rejected_schema", "rejected_secret"]}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blacklist_version", "skips"],
+      "properties": {
+        "blacklist_version": {"type": "string", "maxLength": 32},
+        "skips": {
+          "description": "按黑名单类别计数；不记录被跳过路径或文件名。",
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "inaccessible_workspaces": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workspace_id", "reason"],
+        "properties": {
+          "workspace_id": {"$ref": "#/$defs/uuid"},
+          "reason": {"enum": ["auth", "not_found", "timeout", "error"]}
+        }
+      }
+    },
+    "domains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profiles", "multica_agents", "workflows", "managed_skills", "plugin_skills", "cloud_skills", "hooks", "mcps", "memory", "routines", "attachments"],
+      "properties": {
+        "profiles": {"type": "array", "maxItems": 500, "items": {"$ref": "#/$defs/profile"}},
+        "multica_agents": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/multicaAgent"}},
+        "workflows": {"type": "array", "maxItems": 200, "items": {"$ref": "#/$defs/workflow"}},
+        "managed_skills": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/managedSkill"}},
+        "plugin_skills": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/pluginSkill"}},
+        "cloud_skills": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/cloudSkill"}},
+        "hooks": {"$ref": "#/$defs/hooks"},
+        "mcps": {"type": "array", "maxItems": 5000, "items": {"$ref": "#/$defs/mcp"}},
+        "memory": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/memory"}},
+        "routines": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/routine"}},
+        "attachments": {"type": "array", "maxItems": 20000, "items": {"$ref": "#/$defs/attachment"}}
+      }
+    },
+    "writeback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["last_gate", "last_audit"],
+      "properties": {
+        "last_gate": {
+          "description": "Box 端最近一次写回门禁的脱敏副本，结构见 $defs/lastGate；本地 reason 自由文本、snapshot、staging、capability_gate 不出 Box。",
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/lastGate"}]
+        },
+        "last_audit": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["audit_id", "time", "action", "result"],
+              "properties": {
+                "audit_id": {"$ref": "#/$defs/uuid"},
+                "time": {"$ref": "#/$defs/timestamp"},
+                "action": {"$ref": "#/$defs/action"},
+                "result": {"enum": ["applied", "conflict", "concurrent_conflict", "refused", "rolled_back", "rollback_failed"]}
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sha256OrNull": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"},
+    "timestampOrNull": {"oneOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+    "shortId": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "displayName": {"type": ["string", "null"], "maxLength": 200},
+    "aliasPath": {
+      "description": "根别名 + 相对路径，如 workflows/skill-1793256615882/SKILL.md；禁止绝对路径与 ..。",
+      "type": "string",
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+    },
+    "action": {"enum": ["apply-workflows-to-box", "apply-workflows-to-git", "apply-multica-instructions", "apply-multica-skill", "push-snapshot", "rollback"]},
+    "sourceState": {"enum": ["ok", "partial", "absent", "denied", "error", "not_collected"]},
+    "evidenceLevel": {"enum": ["observed", "declared", "derived", "historical", "unknown", "external_host", "not_collected"]},
+    "hashState": {"enum": ["observed", "missing", "denied", "too_large", "not_regular", "changed_during_read", "uncollected", "not_applicable", "withheld_secret"]},
+    "treeState": {"enum": ["observed", "missing", "denied", "too_large", "unsupported_entry", "changed_during_read", "uncollected"]},
+    "lastGate": {
+      "description": "skill-governance-last-gate/v1 在快照与看板 attention.box_last_gate 中的唯一结构；只允许以下七个字段，reason_code 与 signals 只能是机器码。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "state", "time", "result", "source", "reason_code", "signals"],
+      "properties": {
+        "schema": {"const": "skill-governance-last-gate/v1"},
+        "state": {"enum": ["fallback", "recorded"]},
+        "time": {"$ref": "#/$defs/timestamp"},
+        "result": {"enum": ["pass", "block"]},
+        "source": {"enum": ["skill_guard", "skil-lock"]},
+        "reason_code": {"oneOf": [{"$ref": "#/$defs/machineCode"}, {"type": "null"}]},
+        "signals": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/machineCode"}}
+      }
+    },
+    "machineCode": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+    "fileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"type": "string", "maxLength": 1024, "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"},
+        "sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "bytes": {"type": ["integer", "null"], "minimum": 0},
+        "state": {"enum": ["observed", "too_large", "unsupported", "error"]}
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "bot_id", "name", "description_sha256", "profile_sha256", "evidence_level", "state"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^grok-profile:[0-9a-f-]{36}$"},
+        "bot_id": {"$ref": "#/$defs/uuid"},
+        "name": {"$ref": "#/$defs/displayName"},
+        "title": {"$ref": "#/$defs/displayName"},
+        "harness": {"type": ["string", "null"], "maxLength": 64},
+        "description_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "profile_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "notify_on_agent_updates": {"type": ["boolean", "null"]},
+        "evidence_level": {"$ref": "#/$defs/evidenceLevel"},
+        "state": {"$ref": "#/$defs/hashState"},
+        "mtime": {"$ref": "#/$defs/timestampOrNull"}
+      }
+    },
+    "multicaAgent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "workspace_id", "agent_id", "name", "instructions_sha256", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^multica-agent:[0-9a-f-]{36}/[0-9a-f-]{36}$"},
+        "workspace_id": {"$ref": "#/$defs/uuid"},
+        "agent_id": {"$ref": "#/$defs/uuid"},
+        "name": {"$ref": "#/$defs/displayName"},
+        "instructions_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "updated_at": {"$ref": "#/$defs/timestampOrNull"},
+        "archived": {"type": "boolean"},
+        "evidence_level": {"$ref": "#/$defs/evidenceLevel"}
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dir_name", "kind", "name", "name_key", "body_sha256", "body_hash_state", "tree_sha256", "tree_state", "files", "flags", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^grok-workflow:[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"},
+        "dir_name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"},
+        "kind": {"enum": ["numeric", "named"]},
+        "name": {"$ref": "#/$defs/displayName"},
+        "name_key": {"$ref": "#/$defs/displayName"},
+        "body_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "body_hash_state": {"$ref": "#/$defs/hashState"},
+        "tree_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "tree_state": {"$ref": "#/$defs/treeState"},
+        "file_count": {"type": "integer", "minimum": 0},
+        "total_bytes": {"type": "integer", "minimum": 0},
+        "files": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/fileEntry"}},
+        "files_truncated": {"type": "boolean"},
+        "fingerprint_state": {"enum": ["matches", "differs", "absent", "unknown", "format_unconfirmed"]},
+        "flags": {"type": "array", "uniqueItems": true, "items": {"enum": ["duplicate_name", "invalid_frontmatter", "no_name"]}},
+        "evidence_level": {"$ref": "#/$defs/evidenceLevel"}
+      }
+    },
+    "managedSkill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "slug", "body_sha256", "body_hash_state", "tree_sha256", "tree_state", "cache_state", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^grok-managed:.+$", "maxLength": 200},
+        "slug": {"type": "string", "maxLength": 128},
+        "name": {"$ref": "#/$defs/displayName"},
+        "version": {"type": ["string", "null"], "maxLength": 64},
+        "body_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "body_hash_state": {"$ref": "#/$defs/hashState"},
+        "tree_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "tree_state": {"$ref": "#/$defs/treeState"},
+        "cache_state": {"enum": ["listed", "cache_mismatch", "not_in_cache", "cache_unreadable"]},
+        "evidence_level": {"$ref": "#/$defs/evidenceLevel"}
+      }
+    },
+    "pluginSkill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^grok-plugin:.+$", "maxLength": 300},
+        "name": {"$ref": "#/$defs/displayName"},
+        "plugin": {"type": ["string", "null"], "maxLength": 128},
+        "version": {"type": ["string", "null"], "maxLength": 64},
+        "evidence_level": {"const": "declared"}
+      }
+    },
+    "cloudSkill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "workspace_id", "skill_id", "name", "updated_at", "api_content_hash", "body_state", "body_sha256", "body_bytes", "files", "files_truncated", "collected_at", "agents"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^multica-skill:[0-9a-f-]{36}/[0-9a-f-]{36}$"},
+        "workspace_id": {"$ref": "#/$defs/uuid"},
+        "skill_id": {"$ref": "#/$defs/uuid"},
+        "name": {"$ref": "#/$defs/displayName"},
+        "updated_at": {"$ref": "#/$defs/timestampOrNull"},
+        "api_content_hash": {"$ref": "#/$defs/sha256OrNull"},
+        "body_state": {"enum": ["observed", "empty", "too_large", "denied", "error", "uncollected", "withheld_secret"]},
+        "body_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "body_bytes": {"type": ["integer", "null"], "minimum": 0},
+        "secret_findings": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rule", "line"],
+            "properties": {
+              "rule": {"type": "string", "maxLength": 64},
+              "line": {"type": "integer", "minimum": 1},
+              "finding_id": {"type": "string", "pattern": "^[0-9a-f]{12}$"}
+            }
+          }
+        },
+        "files": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/fileEntry"}},
+        "files_truncated": {"type": "boolean"},
+        "collected_at": {"$ref": "#/$defs/timestampOrNull"},
+        "agents": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["agent_id", "enabled"],
+            "properties": {
+              "agent_id": {"$ref": "#/$defs/uuid"},
+              "enabled": {"type": ["boolean", "null"]}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "description": "observed / withheld_secret：Box 读到了非空正文并算出哈希。",
+          "if": {"properties": {"body_state": {"enum": ["observed", "withheld_secret"]}}, "required": ["body_state"]},
+          "then": {"properties": {"body_sha256": {"$ref": "#/$defs/sha256"}, "body_bytes": {"type": "integer", "minimum": 1}}}
+        },
+        {
+          "description": "empty：正文为空串，哈希固定为空串的 SHA-256。",
+          "if": {"properties": {"body_state": {"const": "empty"}}, "required": ["body_state"]},
+          "then": {"properties": {"body_sha256": {"const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}, "body_bytes": {"const": 0}}}
+        },
+        {
+          "description": "too_large：不计算哈希；大小已知时给出字节数，否则为 null。",
+          "if": {"properties": {"body_state": {"const": "too_large"}}, "required": ["body_state"]},
+          "then": {"properties": {"body_sha256": {"type": "null"}, "body_bytes": {"type": ["integer", "null"], "minimum": 0}}}
+        },
+        {
+          "description": "denied / error / uncollected：没有拿到正文，哈希和大小都为 null。",
+          "if": {"properties": {"body_state": {"enum": ["denied", "error", "uncollected"]}}, "required": ["body_state"]},
+          "then": {"properties": {"body_sha256": {"type": "null"}, "body_bytes": {"type": "null"}}}
+        },
+        {
+          "description": "secret_findings 只在 withheld_secret 时出现，且至少一条。",
+          "if": {"properties": {"body_state": {"const": "withheld_secret"}}, "required": ["body_state"]},
+          "then": {"required": ["secret_findings"], "properties": {"secret_findings": {"minItems": 1}}},
+          "else": {"not": {"required": ["secret_findings"]}}
+        }
+      ]
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "host", "state"],
+      "properties": {
+        "scope": {"const": "external_host"},
+        "host": {"type": "string", "maxLength": 64},
+        "state": {"const": "not_collected_on_box"}
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "name", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(grok-mcp-setting|grok-mcp|multica-agent-mcp):.+$", "maxLength": 300},
+        "kind": {"enum": ["box_setting", "bot_turn", "multica_agent"]},
+        "bot_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "workspace_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "agent_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "name": {"type": "string", "maxLength": 128},
+        "status": {"enum": ["connected", "needs_auth", "failed", "disabled", "unknown", null]},
+        "enabled": {"type": ["boolean", "null"]},
+        "tool_count": {"type": ["integer", "null"], "minimum": 0},
+        "config_fingerprint": {"$ref": "#/$defs/sha256OrNull"},
+        "evidence_level": {"$ref": "#/$defs/evidenceLevel"}
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "scope", "agent_id", "file_count", "total_bytes", "latest_mtime", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^memory:(agent_memory|user_memory_by_agent)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "maxLength": 200},
+        "scope": {"enum": ["agent_memory", "user_memory_by_agent"]},
+        "agent_id": {"$ref": "#/$defs/uuid"},
+        "file_count": {"type": ["integer", "null"], "minimum": 0},
+        "total_bytes": {"type": ["integer", "null"], "minimum": 0},
+        "latest_mtime": {"$ref": "#/$defs/timestampOrNull"},
+        "snapshot_age_days": {"type": ["number", "null"], "minimum": 0},
+        "evidence_level": {"enum": ["historical", "unknown"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "agent_memory"}}, "required": ["scope"]},
+          "then": {"properties": {"id": {"pattern": "^memory:agent_memory/"}}}
+        },
+        {
+          "if": {"properties": {"scope": {"const": "user_memory_by_agent"}}, "required": ["scope"]},
+          "then": {"properties": {"id": {"pattern": "^memory:user_memory_by_agent/"}}}
+        }
+      ]
+    },
+    "routine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "owner_id", "routine_id", "name", "enabled", "routine_sha256", "evidence_level"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(grok-routine|grok-routine-live):.+$", "maxLength": 300},
+        "kind": {"enum": ["disk", "turn"]},
+        "owner_id": {"type": "string", "maxLength": 128},
+        "routine_id": {"type": "string", "maxLength": 128},
+        "name": {"$ref": "#/$defs/displayName"},
+        "schedule": {"type": ["string", "null"], "maxLength": 120},
+        "enabled": {"type": ["boolean", "null"]},
+        "last_run_at": {"$ref": "#/$defs/timestampOrNull"},
+        "next_run_at": {"$ref": "#/$defs/timestampOrNull"},
+        "prompt_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "routine_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "evidence_level": {"$ref": "#/$defs/evidenceLevel"}
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "store", "agent_id", "path", "bytes", "sha256", "hash_state", "mtime"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^attachment:.+$", "maxLength": 1200},
+        "store": {"type": "string", "maxLength": 128},
+        "agent_id": {"type": "string", "maxLength": 128},
+        "path": {"$ref": "#/$defs/aliasPath"},
+        "bytes": {"type": ["integer", "null"], "minimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "hash_state": {"$ref": "#/$defs/hashState"},
+        "mtime": {"$ref": "#/$defs/timestampOrNull"}
+      }
+    }
+  }
+}

@@ -4,8 +4,7 @@ import math
 import re
 from collections import Counter
 
-from . import hashing  # loads the shared instructions module
-from diff_instructions import SECRET_PATTERNS
+from .instructions import SECRET_PATTERNS
 
 # Specific rules from Board redact, plus its assignment rule. Its broad hex and
 # base64 rules are applied separately with the design's explicit SHA exemption.

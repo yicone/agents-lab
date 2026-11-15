@@ -1,1 +1,1 @@
-"""Read-only Box configuration discovery primitives (Python 3.9+)."""
+"""Read-only Box configuration collection (Python 3.10+ standard library)."""

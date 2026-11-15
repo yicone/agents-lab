@@ -1,8 +1,9 @@
-"""Metadata-only discovery. No subprocesses, content reads, or state writes."""
+"""Read-only discovery and metadata/hash collection."""
 import argparse
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 
 from .policy import BLACKLIST_VERSION, MAX_TREE_ENTRIES, Policy
@@ -79,7 +80,17 @@ def main(argv=None):
     command.add_argument("--format", choices=("json", "text"), default="json")
     command.add_argument("--offline", action="store_true")
     command.add_argument("--fixture-home", type=Path, help="Explicit synthetic Box home (no production registration)")
+    command = subcommands.add_parser("collect")
+    command.add_argument("--state-dir", type=Path, default=BOX_STATE_DIR)
+    command.add_argument("--format", choices=("json", "text"), default="json")
+    command.add_argument("--offline", action="store_true", help="Do not invoke Multica or fetch Git")
+    command.add_argument("--fixture-home", type=Path, help="Explicit synthetic Box home; never changes the production registry")
+    command.add_argument("--domains", help="Comma-separated snapshot domain names")
+    command.add_argument("--sidecar", action="append", default=[], help="Per-Bot JSON path or - for stdin")
+    command.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
+    if args.command == "collect":
+        return collect_command(args, parser)
     roots = fixture_roots(args.fixture_home) if args.fixture_home else dict(BOX_ROOTS)
     if args.roots is not None:
         aliases = args.roots.split(",")
@@ -97,6 +108,67 @@ def main(argv=None):
             print("%s: %s %s" % (alias, domain["state"], domain["counts"]))
         print("policy.skips: " + json.dumps(result["policy"]["skips"], sort_keys=True))
     return 3 if any(row["state"] != "ok" for row in result["domains"].values()) else 0
+
+
+def collect_command(args, parser):
+    from .snapshot import Context, DOMAIN_NAMES, collect, private_directory, write_snapshot
+    from .sidecar import MAX_SIDECAR_BYTES
+    from .safe_io import read_file
+    from .validation import InvalidDocument
+
+    selected = tuple(args.domains.split(",")) if args.domains else DOMAIN_NAMES
+    if not selected or any(name not in DOMAIN_NAMES for name in selected):
+        parser.error("unknown domain")
+    if args.sidecar.count("-") > 1:
+        parser.error("stdin can only be consumed once")
+    roots = fixture_roots(args.fixture_home) if args.fixture_home else dict(BOX_ROOTS)
+    from .roots import SETTINGS_PATH
+    settings = SETTINGS_PATH
+    if args.fixture_home:
+        base = args.fixture_home / "sand-data"
+        # Explicit synthetic inputs, not registration of unmeasured Box paths.
+        roots.update({name: base / name for name in ("memory", "routines", "attachments")})
+        settings = base / "settings.json"
+    ctx = Context(roots=roots, settings=settings, offline=args.offline, selected=selected)
+    inputs = []
+    try:
+        if not check_state_dir(args.state_dir):
+            raise UnsafeIO("denied")
+        out = args.out or args.state_dir / "snapshots/latest.json"
+        # Never allow snapshot output or state below a source root or fixture home.
+        targets = [out.absolute(), args.state_dir.absolute()]
+        sources = [Path(p).absolute() for p in roots.values() if p is not None]
+        if settings is not None:
+            sources.append(settings.parent.absolute())
+        if args.fixture_home:
+            sources.append(args.fixture_home.absolute())
+        if any(target == source or source in target.parents for target in targets for source in sources):
+            raise UnsafeIO("denied")
+        if any(Path(p).absolute() == out.absolute() for p in args.sidecar if p != "-"):
+            raise UnsafeIO("denied")
+        for source in args.sidecar:
+            if source == "-":
+                data = sys.stdin.buffer.read(MAX_SIDECAR_BYTES + 1)
+            else:
+                path = Path(source)
+                result = read_file(path.parent, path.name, max_bytes=MAX_SIDECAR_BYTES)
+                # Failed reads become rejected_schema, never an empty success.
+                data = result.data if result.state == "observed" else b""
+            inputs.append((source, data))
+        value, consumed = collect(ctx, inputs)
+        private_directory(args.state_dir, create=True)
+        if args.out is None:
+            private_directory(args.state_dir / "snapshots", create=True)
+        write_snapshot(value, out)
+        # Consume only successfully persisted inputs in our private inbox.
+        # Arbitrary --sidecar files remain user-owned and are left in place.
+        from .snapshot import consume_sidecars
+        consume_sidecars(args.state_dir, inputs, consumed)
+        print(json.dumps(value, sort_keys=True) if args.format == "json" else json.dumps(value["sources"], sort_keys=True))
+        return 0 if all(v == "ok" for v in value["sources"].values()) else 3
+    except (UnsafeIO, InvalidDocument, OSError, ValueError):
+        print(json.dumps({"state": "denied", "reason_code": "collection_refused"}))
+        return 4
 
 
 if __name__ == "__main__":
