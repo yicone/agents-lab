@@ -37,6 +37,7 @@ class Context:
     multica_mcps: list = field(default_factory=list)
     inaccessible_ids: dict = field(default_factory=dict)
     selected: tuple = DOMAIN_NAMES
+    previous_cloud_skills: tuple = ()
 
     def inaccessible(self, workspace, reason):
         self.inaccessible_ids[workspace] = reason if reason in ("auth", "not_found", "timeout") else "error"

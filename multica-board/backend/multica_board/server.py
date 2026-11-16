@@ -344,14 +344,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def _skill_content_args(self) -> dict:
         try:
-            query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=6)
+            query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=8)
         except ValueError as exc:
             raise BadRequest("invalid skill content query") from exc
-        if set(query) - {"name", "path", "file", "tree", "source"} or any(len(v) != 1 for v in query.values()):
+        if set(query) - {"name", "path", "file", "tree", "source", "workspace_id", "skill_id"} or any(len(v) != 1 for v in query.values()):
             raise BadRequest("invalid or repeated skill content parameter")
         args = {key: values[0] for key, values in query.items()}
-        if not args.get("name") or args.get("source", "local") not in {"local", "cloud"}:
-            raise BadRequest("name and valid source are required")
+        complete_cloud = args.get("source") == "cloud" and args.get("workspace_id") and args.get("skill_id")
+        if (not args.get("name") and not complete_cloud) or args.get("source", "local") not in {"local", "cloud"}:
+            raise BadRequest("name or cloud identity and valid source are required")
+        if complete_cloud:
+            args.setdefault("name", "")
         if args.get("source", "local") == "local" and not args.get("path"):
             raise BadRequest("local content requires an exposed path")
         if args.get("tree", "0") not in {"0", "1"}:

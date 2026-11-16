@@ -38,6 +38,19 @@ def registration_fields(document: dict, *, repo_root: Path) -> dict:
         if body.get("ok"):
             item["body_sha256"] = body["sha256"]
 
+        for install in item.get("workspace_installs") or []:
+            content = install.get("content") or {}
+            state = content.get("body_state", "uncollected")
+            install["body_sha256"] = content.get("body_sha256")
+            install["body_hash_state"] = "observed" if state in ("observed", "empty", "withheld_secret") else state
+            install["body_hash_path"] = f"cloud:{install.get('workspace_id')}/{install.get('id')}/SKILL.md"
+        # A local row keeps its local hash. Multiple cloud installs retain their
+        # own identities and hashes rather than selecting one arbitrarily.
+        installs = item.get("workspace_installs") or []
+        if item.get("origin") == "cloud" and len(installs) == 1:
+            for field in ("body_sha256", "body_hash_state", "body_hash_path"):
+                item[field] = installs[0][field]
+
         loaders = []
         for provider, evidence in sorted((item.get("runtime_evidence") or {}).items()):
             loaded = evidence.get("runtime_loaded")

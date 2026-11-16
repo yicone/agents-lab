@@ -1301,14 +1301,14 @@ function contentPanel(h, ctx, item, target, result, requestedFile = "SKILL.md") 
     const fieldNodes = Object.entries(fields).map(([key, value]) => line(h, key, typeof value === "string" ? value : JSON.stringify(value)));
     return h("div", null,
       h("p", { class: "muted" }, `${item.export ? "Grok Bot 导出" : result.source || "local"} · ${target.path} · ${requestedFile} · ${result.bytes ?? 0} 字节 · ${result.collected_at || "采集时间未知"} · ${item.export && result.evidence_state === "observed" ? "Observed" : result.evidence_state || "证据状态未知"}${result.sha256 ? ` · ${result.sha256.slice(0, 12)}` : ""}`),
-      result.state === "empty" ? h("p", { class: "muted" }, "文件为空") : null,
+      result.state === "empty" ? h("p", { class: "muted" }, result.source === "cloud" ? "正文为空（已读取）" : "文件为空") : null,
       ...fieldNodes,
       error ? h("p", { class: "warn" }, error) : null,
       result.format === "text" ? h("pre", { class: "instr-body skill-body" }, raw) : h("div", { class: "skill-markdown" }, ...markdownNodes(h, body)),
       h("details", { dataset: { skillDetail: `raw:${target.path}:${requestedFile}` } }, h("summary", null, "查看原文"), h("pre", { class: "instr-body skill-body" }, raw)),
     );
   }
-  const retry = result.state === "loading" ? null : h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path, requestedFile) }, "重试");
+  const retry = result.state === "loading" ? null : h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path, requestedFile, target.cloud) }, "重试");
   return h("p", null, h("span", { class: `tag ${meta.cls}` }, meta.label), result.message ? h("span", { class: "muted" }, ` ${visibleLabel(result.message)}`) : null, retry ? " " : null, retry);
 }
 
@@ -1347,7 +1347,15 @@ function contentSection(h, ctx, item) {
   }
   const installs = item.workspace_installs;
   if (!Array.isArray(installs)) nodes.push(h("p", { class: "muted" }, "这份清单还没有 Workspace 安装数据。"));
-  else for (const install of installs) nodes.push(h("p", { class: "muted" }, `${workspaceLabel(install)} · Workspace 正文未采集（Workspace 清单只含元数据，后端尚未采集正文）${install.id ? ` · ${install.id}` : ""}`));
+  else for (const install of installs) {
+    const target = { path: `cloud:${install.workspace_id}/${install.id}`, cloud: install };
+    const result = ctx.skillContent?.get(contentKey(item.name, target.path));
+    nodes.push(h("div", { class: "skill-content" },
+      h("p", null, `${workspaceLabel(install)} · ${install.id || ""} `,
+        h("button", { type: "button", class: "text-btn", onclick: () => ctx.loadSkillContent(item.name, target.path, "SKILL.md", install) }, "查看云端正文")),
+      result ? contentPanel(h, ctx, item, target, result) : h("p", { class: "muted" }, "? 云端正文未采集 · Workspace 正文未采集"),
+      result?.state === "withheld_secret" ? h("p", { class: "muted" }, (result.secret_findings || []).map(f => `第 ${f.line} 行 · ${f.rule}`).join("；")) : null));
+  }
   return nodes;
 }
 

@@ -29,11 +29,13 @@ class FakeCli:
             return [{"id": "server", "name": "Server", "enabled": True, "mcp_config": {"key": TOKEN}}]
         if args == ["skill", "list"]:
             return [{"id": OTHER, "name": "Cloud Skill", "content": "Private cloud content"}]
+        if args[:2] == ["skill", "get"]:
+            return {"id": OTHER, "content": "Private cloud content"}
         raise AssertionError("unexpected CLI call")
 
 
 class MulticaTests(unittest.TestCase):
-    def test_fake_cli_drops_values_and_leaves_cloud_body_uncollected(self):
+    def test_fake_cli_drops_values_and_retains_only_cloud_body_hash(self):
         with tempfile.TemporaryDirectory(dir=Path(tempfile.gettempdir()).resolve()) as tmp:
             ctx, _ = fixture(tmp)
             ctx.offline, ctx.cli, ctx.workspaces = False, FakeCli(), (WORKSPACE,)
@@ -43,8 +45,8 @@ class MulticaTests(unittest.TestCase):
                             "mcp_config", "custom_env", "runtime_config"):
                 self.assertNotIn(private, text)
             self.assertEqual(result["sources"]["multica_cli"], "ok")
-            self.assertEqual(result["domains"]["cloud_skills"][0]["body_state"], "uncollected")
-            self.assertFalse(any("--with-content" in args for args, _ in ctx.cli.calls))
+            self.assertEqual(result["domains"]["cloud_skills"][0]["body_state"], "observed")
+            self.assertTrue(any("--with-content" in args for args, _ in ctx.cli.calls))
 
     def test_auth_error_marks_inaccessible_and_skips_skill_collection(self):
         with tempfile.TemporaryDirectory(dir=Path(tempfile.gettempdir()).resolve()) as tmp:

@@ -345,7 +345,7 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
 class Views:
     def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int,
                  server_identity: str | None = None, mcp_every: int = 5, mcp_ctx=None,
-                 instructions_root: Path | None = None):
+                 instructions_root: Path | None = None, cloud_runner=None):
         self.store = store
         self.server = server
         self.server_identity = server_identity
@@ -354,6 +354,9 @@ class Views:
         self.mcp_every = mcp_every
         self._mcp_ctx = mcp_ctx
         self.instructions_root = instructions_root
+        from .cloud_skill_content import CloudSkillReader
+        from .cli_runner import CliRunner
+        self._cloud_reader = CloudSkillReader(cloud_runner or CliRunner(profile=server))
 
     def _mcp_context(self):
         if self._mcp_ctx is None:
@@ -1333,6 +1336,16 @@ class Views:
         except (OSError, ValueError, TypeError, KeyError):
             roots = []
         installs = self._workspace_installs()
+        from .cloud_skill_content import snapshot_rows
+        cloud_rows = snapshot_rows(self.store.path.parent / "box-config-snapshot.json") if isinstance(self.store.path, Path) else []
+        by_id = {(r["workspace_id"], r["skill_id"]): r for r in cloud_rows}
+        for entries in (installs or {}).values():
+            for install in entries:
+                row = by_id.get((install.get("workspace_id"), install.get("id")))
+                if row and row["updated_at"] == install.get("updated_at"):
+                    install["content"] = {k: row[k] for k in (
+                        "body_state", "body_sha256", "body_bytes", "collected_at", "files_truncated")}
+                    install["content"]["state"] = row["body_state"]
         items = []
         seen: set[str] = set()
         for item in document.get("items") or []:
@@ -1381,6 +1394,20 @@ class Views:
         from .skills_view import REPO_ROOT, skills_document
         if arguments.get("source", "local") == "local" and arguments.get("path", "").startswith(PREFIX):
             return read_export_content(**arguments)
+        if arguments.get("source") == "cloud" and arguments.get("workspace_id") and arguments.get("skill_id"):
+            import re
+            workspace, skill = arguments["workspace_id"], arguments["skill_id"]
+            uuid = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+            if not re.fullmatch(uuid, workspace) or not re.fullmatch(uuid, skill):
+                raise BadRequest("invalid cloud skill identity")
+            installs = self._workspace_installs() or {}
+            if not any(i["workspace_id"] == workspace and i["id"] == skill
+                       for rows in installs.values() for i in rows):
+                return {"ok": False, "source": "cloud", "state": "denied", "message": "读取失败：unknown_skill"}
+            return self._cloud_reader.read(workspace, skill, file=arguments.get("file") or "SKILL.md",
+                                           tree=arguments.get("tree", False))
+        arguments.pop("workspace_id", None)
+        arguments.pop("skill_id", None)
         # Cloud selection never consults local files. Only the local inventory
         # (not workspace metadata) can authorize a filesystem read.
         document = {} if arguments.get("source") == "cloud" else skills_document()

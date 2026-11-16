@@ -1079,7 +1079,7 @@ test("Grok Bot source keeps same-name declarations separate and shows historical
 
 test("all Skills Workspace labels and tooltips use the approved name",()=>{
   const source=readFileSync(new URL("./skills.js",import.meta.url),"utf8");
-  assert.equal(source.includes("云端"),false);
+  assert.equal(source.replaceAll("云端正文", "Workspace 正文").includes("云端"),false);
   const payload=JSON.parse(readFileSync(new URL("./fixtures/skills-grok/skills.json",import.meta.url),"utf8"));
   const tree={children:renderSkills(renderCtx(payload))};
   assert.ok(findAll(tree,n=>n.tag==="th").some(n=>findText(n,"Workspace")));
@@ -1370,4 +1370,31 @@ test("registration fields participate in the skills refresh key and the page sta
   assert.notEqual(skillsRefreshKey(payload), before);
   const source = readFileSync(new URL("./skills.js", import.meta.url), "utf8");
   assert.equal(/\bactivate\b|method:\s*["']POST["']|fetch\(\s*["'][^"']+["']\s*,\s*\{[^}]*POST/i.test(source), false);
+});
+
+
+test("cloud drawer reads only clicked install and distinguishes empty, uncollected and withheld", () => {
+  const item = cloudItem();
+  const install = item.workspace_installs[0];
+  item.workspace_installs = [install];
+  const calls = [];
+  const content = new Map();
+  const ctx = {...drawerCtx(basePayload([item]), content), loadSkillContent: (...args) => calls.push(args)};
+  const path = `cloud:${install.workspace_id}/${install.id}`;
+  let tree = {children: renderSkillDrawer(ctx, item)};
+  assert.ok(findText(tree, "云端正文未采集"));
+  const button = findAll(tree, n => n.tag === "button" && findText(n, "查看云端正文"))[0];
+  button.attrs.onclick();
+  assert.deepEqual(calls, [[item.name, path, "SKILL.md", install]]);
+  content.set(contentKey(item.name, path), {state:"empty", source:"cloud", content:"", bytes:0});
+  tree = {children:renderSkillDrawer(ctx,item)};
+  assert.ok(findText(tree,"正文为空（已读取）"));
+  assert.equal(findText(tree,"云端正文未采集"),false);
+  content.set(contentKey(item.name,path), {state:"withheld_secret", source:"cloud", secret_findings:[{line:3,rule:"assignment"}]});
+  tree={children:renderSkillDrawer(ctx,item)};
+  assert.ok(findText(tree,"疑似含凭据，已隐藏"));
+  assert.ok(findText(tree,"第 3 行"));
+  const retry=findAll(tree,n=>n.tag==="button" && findText(n,"重试"))[0];
+  retry.attrs.onclick();
+  assert.deepEqual(calls[1],[item.name,path,"SKILL.md",install]);
 });

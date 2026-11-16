@@ -70,3 +70,28 @@ test("loadSkillContent turns fetch exceptions into error results", async () => {
 test("contentKey joins name and path", () => {
   assert.equal(contentKey("alpha", "/x/SKILL.md"), "alpha\n/x/SKILL.md");
 });
+
+
+test("cloud request carries an explicit install identity and preserves hidden state metadata", async () => {
+  const calls=[];
+  const result=await loadSkillContent(async (url, options) => {
+    calls.push({url,options});
+    return {status:200,json:async()=>({state:"withheld_secret",source:"cloud",body_bytes:20,secret_findings:[{line:2,rule:"assignment"}]})};
+  }, "demo", "cloud:ws/skill", "SKILL.md", {workspace_id:"ws",id:"skill"});
+  const url=new URL(calls[0].url,"http://localhost");
+  assert.equal(url.searchParams.get("source"),"cloud");
+  assert.equal(url.searchParams.get("workspace_id"),"ws");
+  assert.equal(url.searchParams.get("skill_id"),"skill");
+  assert.equal(calls[0].options.cache,"no-store");
+  assert.equal(result.state,"withheld_secret");
+  assert.equal(result.secret_findings[0].line,2);
+  assert.equal(result.body_bytes,20);
+});
+
+
+test("cloud body accompanied by file metadata keeps its preview format and hash", () => {
+  const result=classifyContentResponse({status:200,body:{state:"ok",source:"cloud",files:[],content:"raw text",format:"text",sha256:"a".repeat(64)}});
+  assert.equal(result.content,"raw text");
+  assert.equal(result.format,"text");
+  assert.equal(result.sha256,"a".repeat(64));
+});

@@ -19,8 +19,8 @@ export function classifyContentResponse({ status, body, networkError }) {
     return { state: "error", message: `HTTP ${status ?? "?"}` };
   }
   if (!body || typeof body !== "object") return { state: "error", message: "响应不是 JSON 对象" };
-  const metadata = { file: body.file, files: body.files, truncated: body.truncated, source: body.source, collected_at: body.collected_at, evidence_state: body.evidence_state, bytes: body.bytes, content: body.content };
-  if (body.state === "ok" && Array.isArray(body.files)) return { ...metadata, state: "ok" };
+  const metadata = { file: body.file, files: body.files, truncated: body.truncated, source: body.source, collected_at: body.collected_at, evidence_state: body.evidence_state, bytes: body.bytes, content: body.content, sha256: body.sha256, secret_findings: body.secret_findings, body_bytes: body.body_bytes };
+  if (body.state === "ok" && Array.isArray(body.files) && typeof body.content !== "string") return { ...metadata, state: "ok" };
   switch (body.state) {
     case "ok":
       if (typeof body.content !== "string") return { state: "error", message: "响应缺少正文 content" };
@@ -37,6 +37,7 @@ export function classifyContentResponse({ status, body, networkError }) {
       };
     case "empty":
       return { ...metadata, state: "empty", name: body.name, path: body.path };
+    case "withheld_secret":
     case "uncollected":
     case "unsupported":
       return { ...metadata, state: body.state, message: body.message };
@@ -45,7 +46,7 @@ export function classifyContentResponse({ status, body, networkError }) {
     case "denied":
       return { state: "denied", message: body.message || "无权限读取" };
     case "too_large":
-      return { state: "too_large", message: body.message || "文件过大，未载入" };
+      return { ...metadata, state: "too_large", message: body.message || "文件过大，未载入" };
     case "error":
       return { state: "error", message: body.message || "读取失败" };
     case "hash_mismatch":
@@ -55,8 +56,9 @@ export function classifyContentResponse({ status, body, networkError }) {
   }
 }
 
-export async function loadSkillContent(fetchImpl, name, path, file = "SKILL.md") {
-  const url = `/api/skills/content?name=${encodeURIComponent(name)}&path=${encodeURIComponent(path)}${file === "@tree" ? "&tree=1" : file === "SKILL.md" ? "" : `&file=${encodeURIComponent(file)}`}`;
+export async function loadSkillContent(fetchImpl, name, path, file = "SKILL.md", cloud = null) {
+  let url = `/api/skills/content?name=${encodeURIComponent(name)}&path=${encodeURIComponent(path)}${file === "@tree" ? "&tree=1" : file === "SKILL.md" ? "" : `&file=${encodeURIComponent(file)}`}`;
+  if (cloud) url += `&source=cloud&workspace_id=${encodeURIComponent(cloud.workspace_id)}&skill_id=${encodeURIComponent(cloud.id)}`;
   try {
     const res = await fetchImpl(url, { cache: "no-store", headers: { Accept: "application/json" } });
     let body = null;
@@ -71,6 +73,7 @@ export async function loadSkillContent(fetchImpl, name, path, file = "SKILL.md")
 
 export const CONTENT_LABEL = {
   uncollected: { label: "Workspace 正文未采集", cls: "muted" },
+  withheld_secret: { label: "疑似含凭据，已隐藏", cls: "warn" },
   unsupported: { label: "二进制或非 UTF-8 文本，不预览", cls: "muted" },
   loading: { label: "读取中…", cls: "muted" },
   ok: { label: "ok", cls: "ok" },
