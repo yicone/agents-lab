@@ -38,9 +38,10 @@ def assert_read_only(args):
 
 
 class CliRunner:
-    def __init__(self, binary=None, profile=BOX_MULTICA_PROFILE, offline=False, timeout=30, interval=1):
+    def __init__(self, binary=None, profile=BOX_MULTICA_PROFILE, offline=False, timeout=30, interval=1, server_url=None, env_provider=None):
         self.binary = binary or os.environ.get("MULTICA_CLI_PATH") or str(BOX_MULTICA_EXECUTABLE)
         self.profile, self.offline, self.timeout, self.interval = profile, offline, timeout, interval
+        self.server_url, self.env_provider = server_url, env_provider
         self._last = 0
 
     def run(self, args, workspace_id=None):
@@ -53,10 +54,12 @@ class CliRunner:
         if delay > 0:
             time.sleep(delay)
         argv = [self.binary, "--profile", self.profile]
+        if self.server_url:
+            argv += ["--server-url", self.server_url]
         if workspace_id:
             argv += ["--workspace-id", workspace_id]
         argv += list(args) + ["--output", "json"]
-        env = {k: v for k, v in os.environ.items() if not k.startswith("MULTICA_")}
+        env = self.env_provider() if self.env_provider else {k: v for k, v in os.environ.items() if not k.startswith("MULTICA_")}
         env["GODEBUG"] = "tlsmlkem=0"
         self._last = time.monotonic()
         try:

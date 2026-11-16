@@ -189,5 +189,204 @@ class RuntimeColumnsTests(unittest.TestCase):
             self.assertEqual(views.skills_content(name="cloud", source="cloud")["state"], "uncollected")
 
 
+
+
+class CloudContentTests(unittest.TestCase):
+    WS = "00000000-0000-4000-8000-000000000003"
+    SK = "00000000-0000-4000-8000-000000000002"
+
+    def setUp(self):
+        from multica_board.cloud_skill_content import CloudSkillReader
+        from boxsync.snapshot import Context
+        self.Context = Context
+        self.now = "2026-11-16T12:00:00Z"
+
+    def row(self, payload=None, reason=None):
+        from boxsync.domains.cloud_skills import collect
+        from boxsync.multica_cli import CliError
+        calls = []
+        ws, sk = self.WS, self.SK
+        class Fake:
+            def run(self, args, workspace_id=None):
+                calls.append((args, workspace_id))
+                if args == ["skill", "list"]:
+                    return [{"id": sk, "name": "demo", "updated_at": "2026-11-16T12:00:00Z"}]
+                if reason:
+                    raise CliError(reason)
+                return {"id": sk, "workspace_id": ws, **(payload or {})}
+        ctx = self.Context(cli=Fake(), workspaces=(ws,))
+        rows, _ = collect(ctx)
+        return rows[0], ctx, calls
+
+    def test_seven_states_schema_and_s1_matrix(self):
+        import hashlib
+        from boxsync.validation import load_schema, validate
+        from multica_board.skill_registration import registration_fields
+        schema = load_schema("snapshot")
+        cases = [({"content": "hello\r\n"}, None, "observed", "observed", 7),
+                 ({"content": ""}, None, "empty", "observed", 0),
+                 ({"content": "password=fictional"}, None, "withheld_secret", "observed", 18),
+                 ({"content": "x" * (MAX_BYTES + 1)}, None, "too_large", "too_large", MAX_BYTES + 1),
+                 ({}, "auth", "denied", "denied", None),
+                 ({}, "error", "error", "error", None),
+                 ({}, None, "uncollected", "uncollected", None)]
+        for payload, reason, state, s1, size in cases:
+            with self.subTest(state=state):
+                row, ctx, _ = self.row(payload, reason)
+                validate(row, schema["$defs"]["cloudSkill"], schema)
+                self.assertEqual(row["body_state"], state)
+                self.assertEqual(row["body_bytes"], size)
+                expected = hashlib.sha256(payload["content"].encode()).hexdigest() if s1 == "observed" else None
+                self.assertEqual(row["body_sha256"], expected)
+                install = {"workspace_id": self.WS, "id": self.SK, "content": row,
+                           "agents": [{"id": "agent", "enabled": True}]}
+                item = {"name": "demo", "origin": "cloud", "workspace_installs": [install]}
+                out = registration_fields({"items": [item]}, repo_root=Path("/unused"))["items"][0]
+                self.assertEqual(out["body_hash_state"], s1)
+                self.assertEqual(out["body_sha256"], expected)
+                self.assertEqual(out["loaders"][0]["load_state"], "unverified")
+                self.assertIsNone(out["loaders"][0]["runtime_loaded"])
+                self.assertNotIn("content", row)
+                from boxsync.snapshot import collect as snapshot_collect
+                ctx.selected = ("cloud_skills",)
+                ctx.inaccessible_ids.clear()
+                snapshot, _ = snapshot_collect(ctx, tool={"commit": "a" * 40, "dirty": False, "version": "0.2.0"})
+                self.assertNotIn("content", snapshot["domains"]["cloud_skills"][0])
+                if reason == "auth":
+                    self.assertEqual(ctx.inaccessible_ids, {self.WS: "auth"})
+                if state == "withheld_secret":
+                    self.assertNotIn("fictional", json.dumps(row))
+
+    def test_updated_at_reuses_only_valid_prior_hash(self):
+        from boxsync.domains.cloud_skills import collect
+        row, ctx, calls = self.row({"content": "hello"})
+        ctx.previous_cloud_skills = (row,)
+        calls.clear()
+        again, _ = collect(ctx)
+        self.assertEqual(again[0], row)
+        self.assertEqual(sum("--with-content" in args for args, _ in calls), 0)
+        row["updated_at"] = "2026-11-15T12:00:00Z"
+        collect(ctx)
+        self.assertEqual(sum("--with-content" in args for args, _ in calls), 1)
+        row["updated_at"] = "2026-11-16T12:00:00Z"
+        row["body_sha256"] = "bad"
+        collect(ctx)
+        self.assertEqual(sum("--with-content" in args for args, _ in calls), 2)
+
+    def test_tree_limit_unicode_boundary_and_malformed_scope(self):
+        row, _, _ = self.row({"content": "# hi\n" * (MAX_BYTES // 5) + " " * (MAX_BYTES % 5), "files": [
+            {"path": f"refs/{i}.md", "content": "hello"} for i in range(2001)]})
+        self.assertEqual(row["body_state"], "observed")
+        self.assertEqual(len(row["files"]), 2000)
+        self.assertTrue(row["files_truncated"])
+        row, _, _ = self.row({"content": "中" * (MAX_BYTES // 3 + 1)})
+        self.assertEqual(row["body_state"], "too_large")
+        for payload in ({"id": self.WS, "content": "foreign"}, {"workspace_id": self.SK, "content": "foreign"},
+                        {"files": [{"path": "../escape", "content": "x"}]}):
+            row, _, _ = self.row(payload)
+            self.assertEqual(row["body_state"], "error")
+
+    def test_fake_executable_api_and_sqlite_never_store_body(self):
+        from multica_board.cli_runner import CliRunner
+        from multica_board.store import Store
+        from multica_board.cloud_skill_content import CloudSkillReader
+        from boxsync.multica_cli import MAX_OUTPUT
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            binary = path / "fake-cli"
+            def install(code):
+                binary.write_text("#!/usr/bin/env python3\n" + code)
+                binary.chmod(0o700)
+            runner = CliRunner(profile="fixture", binary=str(binary))
+            store = Store(path / "board.sqlite")
+            self.addCleanup(store.close)
+            views = Views(store, "fixture", app_url="http://localhost", collect_interval_s=60, cloud_runner=runner)
+            views._workspace_installs = lambda: {"demo": [{"workspace_id": self.WS, "id": self.SK}]}
+            args = dict(name="demo", source="cloud", workspace_id=self.WS, skill_id=self.SK)
+            marker = "Unique ephemeral cloud body sentinel."
+            payload = {"id": self.SK, "workspace_id": self.WS, "content": marker}
+            install("import json,sys\nassert '--with-content' in sys.argv\nassert sys.argv[sys.argv.index('--workspace-id')+1]==" + repr(self.WS) + "\nprint(" + repr(json.dumps(payload)) + ")\n")
+            before = list(store._conn.iterdump())
+            result = views.skills_content(**args)
+            self.assertEqual(result["content"], marker)
+            self.assertEqual(result["state"], "ok")
+            server = BoardServer("127.0.0.1", 0, views)
+            thread = threading.Thread(target=server.serve_forever)
+            thread.start()
+            try:
+                query = urlencode({"source": "cloud", "workspace_id": self.WS, "skill_id": self.SK})
+                conn = http.client.HTTPConnection(*server.server_address)
+                conn.request("GET", "/api/skills/content?" + query)
+                response = conn.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.getheader("Cache-Control"), "no-store")
+                self.assertEqual(json.loads(response.read())["content"], marker)
+                conn.close()
+                for patch in ({"workspace_id": "--profile=owner"}, {"skill_id": "../file"}):
+                    conn = http.client.HTTPConnection(*server.server_address)
+                    conn.request("GET", "/api/skills/content?" + urlencode({**args, **patch}))
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 400)
+                    response.read()
+                    conn.close()
+            finally:
+                server.shutdown()
+                thread.join()
+                server.server_close()
+            self.assertEqual(list(store._conn.iterdump()), before)
+            self.assertNotIn(marker, "\n".join(store._conn.iterdump()))
+            self.assertNotIn(marker.encode(), (path / "board.sqlite").read_bytes())
+            # No retained body on the reader, even after success.
+            self.assertNotIn(marker, repr(views._cloud_reader.__dict__))
+            self.assertEqual(views.skills_content(name="demo", source="cloud")["state"], "uncollected")
+            denied = views.skills_content(**{**args, "skill_id": self.WS})
+            self.assertEqual(denied["state"], "denied")
+            for content, expected in (("", "empty"), ("password=fictional", "withheld_secret"), ("x" * (MAX_BYTES + 1), "too_large")):
+                install("print(" + repr(json.dumps({**payload, "content": content})) + ")\n")
+                result = views.skills_content(**args)
+                self.assertEqual(result["state"], expected)
+                if expected == "withheld_secret":
+                    self.assertNotIn("content", result)
+            install("import sys\nsys.stdout.write('x' * " + str(MAX_OUTPUT + 1) + ")\n")
+            result = views.skills_content(**args)
+            self.assertEqual(result["state"], "too_large")
+            self.assertIsNone(result["body_bytes"])
+            self.assertIsNone(result["body_sha256"])
+            install("import sys\nprint('unauthorized password=fictional', file=sys.stderr)\nsys.exit(1)\n")
+            result = views.skills_content(**args)
+            self.assertEqual(result["state"], "denied")
+            self.assertNotIn("fictional", json.dumps(result))
+
+
+    def test_same_workspace_serializes_reads_and_keeps_only_transport_state(self):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        from multica_board.cloud_skill_content import CloudSkillReader
+        from multica_board.cli_runner import CliRunner
+        from boxsync.multica_cli import CliRunner as BoundedRunner
+        active = 0
+        max_active = 0
+        guard = threading.Lock()
+        def fake_run(runner, args, workspace_id=None):
+            nonlocal active, max_active
+            with guard:
+                active += 1
+                max_active = max(active, max_active)
+            time.sleep(0.01)
+            with guard:
+                active -= 1
+            return {"id": self.SK, "content": "ordinary prose"}
+        reader = CloudSkillReader(CliRunner(profile="fixture"))
+        with mock.patch.object(BoundedRunner, "run", fake_run):
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                results = list(pool.map(lambda _: reader.read(self.WS, self.SK), range(3)))
+        self.assertEqual(max_active, 1)
+        self.assertTrue(all(r["state"] == "ok" for r in results))
+        cli = reader._workspaces[self.WS][1]
+        self.assertEqual(cli.interval, 1)
+        self.assertEqual(cli.timeout, 30)
+        self.assertNotIn("ordinary prose", repr(reader.__dict__))
+
+
 if __name__ == "__main__":
     unittest.main()

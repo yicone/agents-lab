@@ -155,6 +155,17 @@ def collect_command(args, parser):
                 # Failed reads become rejected_schema, never an empty success.
                 data = result.data if result.state == "observed" else b""
             inputs.append((source, data))
+        # Reuse validated metadata only; no body bytes are persisted.
+        prior = read_file(out.parent, out.name, max_bytes=4 * 1024 * 1024)
+        if prior.state == "observed":
+            try:
+                from .validation import parse_json
+                from .snapshot import validate_snapshot
+                previous = parse_json(prior.data)
+                validate_snapshot(previous)
+                ctx.previous_cloud_skills = tuple(previous["domains"]["cloud_skills"])
+            except (InvalidDocument, UnsafeIO):
+                pass
         value, consumed = collect(ctx, inputs)
         private_directory(args.state_dir, create=True)
         if args.out is None:

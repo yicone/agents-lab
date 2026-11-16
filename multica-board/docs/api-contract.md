@@ -803,7 +803,33 @@ python3 multica-board/scripts/query-skill.py --name colgrep-search --json --fixt
 - `?name=<skill>&path=<入口>&tree=1` 返回 `{ok:true,state:"ok",files:[{path,type,bytes,readable}],truncated,max_bytes}`。路径相对技能目录，`type=file|directory|symlink|special|unknown`，bytes 为 lstat 字节数；探测失败 bytes 为 null。`readable` 只表示普通文件且未超大小上限，UTF-8 检查仍在读取时执行。目录访问失败附 `state:"unknown"`。最多 2000 项、递归 16 层，触限 `truncated:true`。
 - 正文响应 `{ok:true,state:"ok"|"empty",name,path,file,format:"markdown"|"text",bytes,sha256,content,source:"local",collected_at,evidence_state:"observed"}`。UTF-8 原文保留（含 frontmatter、换行、HTML 字面文本），空文件 `content:""`。单文件上限 512 KiB，不预览二进制、非 UTF-8、FIFO 等特殊文件。
 - 读取失败仍 HTTP 200：`{ok:false,state:"missing"|"denied"|"too_large"|"unsupported"|"error",name,path,source,collected_at,evidence_state:"unknown",message}`。路径穿越、绝对 `file`、链接及非普通文件为 denied；错误不包含底层异常或额外本机路径。重复/未知查询参数、缺 name/path、非法 tree/source 为 HTTP 400 标准 error 对象。沿用回环、同源与 GET/HEAD 安全门禁。
-- `?name=<skill>&source=cloud` 不读取本机目录，返回 `{ok:false,state:"uncollected",source:"cloud",collected_at:null,evidence_state:"unknown",message,...}`。`workspace_installs[].content` 同样明确标注此未采集状态；Multica Workspace 更新时间不等于正文采集时间。
+- `?name=<skill>&source=cloud` 缺少 workspace/skill 参数时不读取本机目录，返回 `{ok:false,state:"uncollected",source:"cloud",collected_at:null,evidence_state:"unknown",message,...}`。没有有效快照时，`workspace_installs[].content` 同样明确标注此未采集状态；Multica Workspace 更新时间不等于正文采集时间。
+
+
+### Workspace 正文按需读取（ACM-895，本地候选）
+
+`GET /api/skills/content?name=<name>&source=cloud&workspace_id=<uuid>&skill_id=<uuid>` 只读取缓存安装清单中明确存在的这一项，完整身份请求可以省略 name。缺任一身份参数保留 `uncollected`；非法 UUID 返回 400，清单外身份返回 `denied`。可选 `file=<relative path>` / `tree=1`。沿用同源、回环与 `Cache-Control: no-store` 门禁。
+
+通过配置的 CLI binary/profile（含 task-scoped 身份）调用 `skill get <uuid> --with-content`；30 秒超时，每 workspace 串行、相邻请求至少 1 秒。stdout + stderr 合计上限 8 MiB，超出停止解析，返回 `too_large`、`body_bytes:null`。原始 CLI 错误不出接口。
+
+假 CLI 契约：返回 `{id, workspace_id?, content?: <SKILL.md UTF-8 string>, files?: [{path,content}]}`；也可在 files 中提供 `SKILL.md`。缺少正文不能视为空串。单文件最大 512 KiB；最多返回 2000 个文件元数据，超限 `files_truncated:true`。正文哈希覆盖原始 UTF-8 字节（保留 CRLF）；`api_content_hash` 另存，不替代正文 hash。
+
+| body_state | body_sha256 | body_bytes | S1 body_hash_state | 内容接口 state |
+| --- | --- | --- | --- | --- |
+| observed | SHA-256 | ≥1 | observed | ok |
+| empty | 空串 SHA-256 | 0 | observed | empty |
+| withheld_secret | SHA-256 | ≥1 | observed | withheld_secret |
+| too_large | null | 已知整数或 null | too_large | too_large |
+| denied | null | null | denied | denied |
+| error | null | null | error | error |
+| uncollected | null | null | uncollected | uncollected |
+
+预览只在成功时返回 `content` 与 `format`；哈希、大小和采集时间按下表状态约束返回；秘密命中仅返回最多 100 条 `{rule,line,finding_id}`，不返回正文或匹配片段。空正文显示「正文为空（已读取）」，未采集显示「云端正文未采集」。文件列表只含路径、大小、哈希、状态，不含正文。云端声明可读不证明 runtime 加载；loaders 保持 `declared/unverified`。
+
+Box collect 在已有输出快照通过完整 Schema 和秘密校验后，以 workspace/skill id + 未变的非空 updated_at + 已有 body_sha256 复用元数据；否则重新读取。快照只保留哈希和清单，不存正文；auth 进入 inaccessible_workspaces，并停止该 workspace 的后续正文请求。
+
+看板只读消费数据库旁的 `box-config-snapshot.json`（由后续传输单负责提供；本单不传输），通过全快照校验且 updated_at 与缓存安装项一致才投影 `workspace_installs[].content` 与 S1 字段。缺失或非法快照保持 uncollected。多份云端安装分别提供 S1 字段；单份 cloud-only 行同时提供顶层字段，本机合并行保留本机哈希。预览不修改 SQLite、快照或 Workspace，不触发全 workspace 刷新；浏览器仅在当前抽屉内存中显示，关闭后清除，不写 localStorage/磁盘。
+
 
 ### 动态 Runtime 列
 

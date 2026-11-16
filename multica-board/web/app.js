@@ -874,13 +874,13 @@ function openSkill(item, opener) {
   document.querySelector("#drawer .drawer-close")?.focus();
 }
 
-async function loadSkillContent(name, path, file = "SKILL.md") {
+async function loadSkillContent(name, path, file = "SKILL.md", cloud = null) {
   const key = skillContentKey(name, path, file);
   const token = Symbol(key);
   state.skillContentReq.set(key, token);
   state.skillContent.set(key, { state: "loading" });
   renderDrawer();
-  const result = MOCK ? { state: "unavailable", message: "mock 模式没有正文接口" } : await requestSkillContent(fetch, name, path, file);
+  const result = MOCK ? { state: "unavailable", message: "mock 模式没有正文接口" } : await requestSkillContent(fetch, name, path, file, cloud);
   if (state.skillContentReq.get(key) !== token) return;
   state.skillContent.set(key, result);
   if (state.drawer?.kind === "skill" && state.drawer.skill?.name === name) renderDrawer();

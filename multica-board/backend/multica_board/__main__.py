@@ -141,7 +141,7 @@ def cmd_serve(a: argparse.Namespace) -> int:
     mcp_ctx = McpContext(home=Path.home(), repo_root=REPO_ROOT, data_dir=a.db.parent)
     views = Views(store, a.profile, app_url=a.app_url, collect_interval_s=a.refresh,
                   server_identity=origin, mcp_every=a.mcp_every, mcp_ctx=mcp_ctx,
-                  instructions_root=a.instructions_root)
+                  instructions_root=a.instructions_root, cloud_runner=runner)
     static = a.static_dir if a.static_dir and a.static_dir.is_dir() else None
     actions = None
     journal = None
