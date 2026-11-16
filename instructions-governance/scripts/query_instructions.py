@@ -35,18 +35,21 @@ def state(git, board, live):
     return "modified"
 
 
-def matrix(root, board, agents, bots, *, observed_at, freshness=None):
+def matrix(root, board, agents, bots, *, observed_at, freshness=None, git_rows=None):
     """No bodies in the result. Identity is (kind, workspace_id, id)."""
     freshness = freshness or {}
+    # Callers that already read a Git ref can supply rows without filesystem I/O.
+    if git_rows is None:
+        git_rows = {"agents": source.git_agents(root), "bots": source.git_bots(root)}
     rows = []
-    for kind, git_rows, live_rows in (
-        ("agent", source.git_agents(root), agents),
-        ("bot", source.git_bots(root), bots),
+    for kind, source_rows, live_rows in (
+        ("agent", git_rows["agents"], agents),
+        ("bot", git_rows["bots"], bots),
     ):
         def key(row):
             return (row.get("workspace_id") if kind == "agent" else None, row["id"])
 
-        git_by = {key(row): row for row in git_rows}
+        git_by = {key(row): row for row in source_rows}
         live_by = {key(row): row for row in live_rows}
         board_by = {}
         for identity, row in board.get(kind + "s", {}).items():

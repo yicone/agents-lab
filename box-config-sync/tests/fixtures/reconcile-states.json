@@ -1,0 +1,153 @@
+[
+  {
+    "expected": "unknown",
+    "live": {
+      "state": "denied",
+      "items": []
+    },
+    "git": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "board": null
+  },
+  {
+    "expected": "missing_on_box",
+    "live": {
+      "state": "ok",
+      "items": []
+    },
+    "git": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "board": null
+  },
+  {
+    "expected": "missing_in_git",
+    "live": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "git": {
+      "state": "ok",
+      "items": []
+    },
+    "board": null
+  },
+  {
+    "expected": "orphan_export",
+    "live": {
+      "state": "ok",
+      "items": []
+    },
+    "git": {
+      "state": "ok",
+      "items": []
+    },
+    "board": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    }
+  },
+  {
+    "expected": "content_drift",
+    "live": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "git": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "board": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    }
+  },
+  {
+    "expected": "aligned",
+    "live": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "git": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    },
+    "board": {
+      "state": "ok",
+      "items": [
+        {
+          "dir_name": "example",
+          "name": "示例",
+          "tree_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree_state": "observed"
+        }
+      ]
+    }
+  }
+]

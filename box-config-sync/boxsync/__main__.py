@@ -88,9 +88,20 @@ def main(argv=None):
     command.add_argument("--domains", help="Comma-separated snapshot domain names")
     command.add_argument("--sidecar", action="append", default=[], help="Per-Bot JSON path or - for stdin")
     command.add_argument("--out", type=Path)
+    command = subcommands.add_parser("reconcile")
+    command.add_argument("--snapshot", type=Path, required=True)
+    command.add_argument("--git-ref", default="origin/main")
+    command.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
+    command.add_argument("--board", type=Path, help="Optional legacy export directory containing manifest.json")
+    command.add_argument("--max-age", type=int, default=36 * 3600, help="Snapshot freshness limit in seconds")
+    command.add_argument("--state-dir", type=Path, default=BOX_STATE_DIR)
+    command.add_argument("--format", choices=("json", "text"), default="json")
+    command.add_argument("--offline", action="store_true", help="Do not fetch; only read the local Git object database")
     args = parser.parse_args(argv)
     if args.command == "collect":
         return collect_command(args, parser)
+    if args.command == "reconcile":
+        return reconcile_command(args, parser)
     roots = fixture_roots(args.fixture_home) if args.fixture_home else dict(BOX_ROOTS)
     if args.roots is not None:
         aliases = args.roots.split(",")
@@ -108,6 +119,72 @@ def main(argv=None):
             print("%s: %s %s" % (alias, domain["state"], domain["counts"]))
         print("policy.skips: " + json.dumps(result["policy"]["skips"], sort_keys=True))
     return 3 if any(row["state"] != "ok" for row in result["domains"].values()) else 0
+
+
+def reconcile_command(args, parser):
+    from datetime import datetime, timezone
+    from .gitio import GitError, GitReader
+    from .reconcile import reconcile
+    from .safe_io import read_file
+    from .snapshot import MAX_SNAPSHOT_BYTES, validate_snapshot
+    from .validation import InvalidDocument
+    from .secrets_scan import contains_secret
+
+    if args.max_age < 0:
+        parser.error("--max-age must be nonnegative")
+    try:
+        reader = GitReader(args.repo, args.git_ref)
+    except ValueError:
+        parser.error("invalid --git-ref")
+    if not check_state_dir(args.state_dir):
+        print(json.dumps({"state": "denied", "reason_code": "unsafe_state_directory"}))
+        return 4
+    if Policy().denied_path(args.snapshot) or args.board is not None and Policy().denied_path(args.board):
+        print(json.dumps({"state": "denied", "reason_code": "blacklisted_input"}))
+        return 4
+    result = read_file(args.snapshot.parent, args.snapshot.name, max_bytes=MAX_SNAPSHOT_BYTES)
+    if result.state != "observed":
+        print(json.dumps({"state": "unknown", "reason_code": "snapshot_" + result.state}))
+        return 3
+    try:
+        snapshot = json.loads(result.data)
+        validate_snapshot(snapshot)
+    except UnsafeIO:
+        print(json.dumps({"state": "denied", "reason_code": "snapshot_secret"}))
+        return 4
+    except (InvalidDocument, ValueError, UnicodeError):
+        print(json.dumps({"state": "unknown", "reason_code": "snapshot_invalid"}))
+        return 3
+    board = None
+    if args.board is not None:
+        exported = read_file(args.board, "manifest.json", max_bytes=MAX_SNAPSHOT_BYTES)
+        board = {"state": exported.state, "items": []}
+        if exported.state == "observed":
+            try:
+                value = json.loads(exported.data)
+                if contains_secret(exported.data.decode("utf-8")):
+                    raise ValueError("manifest secret")
+                items = value["skills_user"]["skills"]
+                if (not isinstance(items, list) or len(items) > MAX_TREE_ENTRIES
+                        or any(not isinstance(row, dict) or not isinstance(row.get("slug"), str) for row in items)):
+                    raise ValueError("invalid manifest")
+                board = value
+            except (KeyError, TypeError, ValueError, UnicodeError):
+                board = {"state": "error", "items": []}
+    try:
+        if not args.offline:
+            reader.fetch()
+        git = reader.workflows()
+    except GitError as exc:
+        git = {"state": exc.state, "items": []}
+    report = reconcile(snapshot, git, board, now=datetime.now(timezone.utc), max_age=args.max_age)
+    print(json.dumps(report, ensure_ascii=False, sort_keys=True) if args.format == "json"
+          else json.dumps(report["summary"], sort_keys=True))
+    if (report["summary"].get("unknown") or git["state"] not in ("ok", "absent")
+            or snapshot["sources"]["box_disk"] != "ok"
+            or board is not None and board.get("state", "ok") not in ("ok", "absent")):
+        return 3
+    return 10 if any(state != "aligned" for state in report["summary"]) else 0
 
 
 def collect_command(args, parser):
