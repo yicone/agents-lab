@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import tempfile, pathlib, json, subprocess, sys
 from unittest.mock import patch
+from host_provider import run_review
 from host_provider import build_devin_args, build_review_prompt, is_transport_error, is_unresolvable_review_comment, parse_changed_lines, post_review_session_guard, response, review_execution_root, validate_request
 
 
@@ -105,5 +106,28 @@ def test_cross_origin_allowlist_is_invalid_request():
         assert validate_request(req,{root: "other/repo"},{"x":{"repository_root":root,"pr_number":1,"round":1,"head_sha":"a"}}) == "invalid-request"
 
 
+def test_malformed_output_stops_before_validation_or_publication():
+    for stdout, expected in [
+        ('{"session_id":"interrupted{"schema":"devin-pr-review/v1"}', "Expecting"),
+        ('{} {}', "Extra data"),
+        ('null', "top-level review must be an object"),
+    ]:
+        with patch("host_provider.github_patch", return_value=("patch", None)), patch(
+            "host_provider.parse_changed_lines", return_value={"file": [1]}
+        ), patch("host_provider.post_review_session_guard", return_value=(None, {})), patch(
+            "host_provider.subprocess.run", return_value=FakeResult(0, stdout=stdout)
+        ) as run:
+            status, comments, evidence = run_review(
+                "/repo", "owner/repo", {"pr_number": 305},
+                {"session": {"id": "fixed"}, "pr": {"head_sha": "a" * 40}}, {},
+            )
+        assert status == "await-user"
+        assert comments == []
+        assert evidence["error"] == "invalid_review_output"
+        assert expected in evidence["parse_error"]
+        assert run.call_count == 1
+
+
 if __name__ == "__main__":
+    test_malformed_output_stops_before_validation_or_publication()
     test_failure_response_has_stable_failure_code_field(); test_control_record_is_not_accepted_as_provider_request(); test_rejects_self_asserted_authorization(); test_accepts_host_bound_authorization(); test_missing_allowlist_is_operator_state(); test_cross_origin_allowlist_is_invalid_request(); print("ok")

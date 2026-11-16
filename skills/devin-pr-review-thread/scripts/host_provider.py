@@ -301,18 +301,23 @@ def run_review(root, origin, req, pf, evidence_payload):
     evidence_payload["post_review_session"] = guard_evidence
     if guard_error:
         return "await-user", [], evidence_payload | {"error": guard_error}
-    start = p.stdout.find("{")
-    cleaned = p.stdout[start:] if start >= 0 else p.stdout
     try:
-        decoder = json.JSONDecoder()
-        parsed, end = decoder.raw_decode(cleaned)
-        cleaned = cleaned[:end]
-    except json.JSONDecodeError:
-        parsed = None
-    fd, path = tempfile.mkstemp(prefix="devin-review-", suffix=".json"); os.close(fd); pathlib.Path(path).write_text(cleaned); os.chmod(path, 0o600)
+        parsed = json.loads(p.stdout)
+    except json.JSONDecodeError as exc:
+        return "await-user", [], evidence_payload | {
+            "error": "invalid_review_output",
+            "parse_error": f"{exc.msg} (line {exc.lineno}, column {exc.colno})",
+        }
+    if not isinstance(parsed, dict):
+        return "await-user", [], evidence_payload | {
+            "error": "invalid_review_output",
+            "parse_error": "top-level review must be an object",
+        }
+    fd, path = tempfile.mkstemp(prefix="devin-review-", suffix=".json"); os.close(fd)
     linefile = path + ".lines"; pathlib.Path(linefile).write_text(json.dumps(lines)); os.chmod(linefile, 0o600)
     dropped = []
-    for _ in range(len(parsed.get("findings", [])) + 1 if isinstance(parsed, dict) else 1):
+    findings = parsed.get("findings")
+    for _ in range(len(findings) + 1 if isinstance(findings, list) else 1):
         pathlib.Path(path).write_text(json.dumps(parsed, ensure_ascii=False))
         try:
             valid = subprocess.run([sys.executable, str(pathlib.Path(__file__).with_name("validate_review.py")), path, "--root", root, "--head-sha", head, "--session-id", sid, "--pr-number", str(pr), "--changed-lines", linefile], text=True, capture_output=True)
@@ -329,8 +334,6 @@ def run_review(root, origin, req, pf, evidence_payload):
         return "await-user", [], evidence_payload | {"error": "invalid_review_output", "validator_stderr": "validator did not converge"}
     if dropped:
         evidence_payload["dropped_invalid_findings"] = dropped
-    if parsed is None:
-        return "await-user", [], evidence_payload | {"error": "invalid_review_output", "parse_error": "no_complete_json_document"}
     review = parsed
     if not review.get("findings"): return "no-findings", [], evidence_payload
     comments = []
