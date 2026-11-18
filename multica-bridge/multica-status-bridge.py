@@ -8,8 +8,10 @@ Event kinds (each change carries "kind"):
                  agent left no comment and no in_review/blocked transition
                  covered it; also approval_request (“需要你做：批准…”) from
                  副调度 or an agent previously @-mentioned for 首次选派 /
-                 独立验收, even when the issue has no assignee.
-                 ACM Lab sends; other workspaces are shadow_record.
+                 独立验收, even when the issue has no assignee; also
+                 acceptance_result from a non-assignee agent (standalone
+                 READY or an acceptance phrase, or previously @-mentioned
+                 for 独立验收). Defaults to send; a route may set shadow or off.
   run_failed     an agent run ended as failed (routes with "run_failed" in events)
   parse_failed JSON/field parse failure (always steward)
   net_alert    workspace network streak >= 6 ticks (~30 min) or recovery
@@ -679,9 +681,21 @@ def _main():
             elif approval.get("reason") and approval.get("reason") != "none":
                 log(f"agent_delivery skip {ident} reason={approval.get('reason')}")
 
+            acceptance = ad.decide_acceptance_result(
+                status=payload.get("status"),
+                comments=payload.get("comments") or [],
+                assignee_id=payload.get("assignee_id"),
+                transitions=payload.get("transitions") or [],
+                same_tick_covered=bool(payload.get("same_tick_covered")),
+            )
+            if acceptance.get("action") == "notify":
+                emit_delivery(ad.collect_acceptance_result(payload, _r))
+            elif acceptance.get("reason") and acceptance.get("reason") != "none":
+                log(f"agent_delivery skip {ident} reason={acceptance.get('reason')}")
+
             assignee = m.get("assignee_id")
             if not assignee or assignee not in names(m["workspace_id"]):
-                if approval.get("reason") == "none":
+                if approval.get("reason") == "none" and acceptance.get("reason") == "none":
                     skip = ad.skip_reason_for_unassigned(comments)
                     if skip:
                         log(f"agent_delivery skip {ident} reason={skip}")
