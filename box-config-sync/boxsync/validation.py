@@ -1,6 +1,7 @@
 """Dependency-free validator for the keywords in the approved v1 schemas.
 
-Schema files are copied verbatim from the approved design at 482432f. Unsupported
+Schema files originate from the approved design at 482432f; snapshot adds optional
+domain collection evidence for ACM-927. Unsupported
 assertion keywords fail closed; this is deliberately not a general JSON Schema
 implementation. Errors never include input values, keys or paths.
 """
