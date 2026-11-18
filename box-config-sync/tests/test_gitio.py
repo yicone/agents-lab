@@ -222,6 +222,136 @@ class GitIOTests(unittest.TestCase):
         state.chmod(0o755)
         self.assertEqual(invoke()[0], 4)
 
+    def test_hermes_profiles_only_cli_is_unknown_not_missing(self):
+        from boxsync.__main__ import main
+        from boxsync.snapshot import collect, write_snapshot
+        from collect_support import TOOL, fixture
+        ctx, _ = fixture(self.repo.parent)
+        ctx.selected = ("profiles",)
+        ctx.now = datetime.now(timezone.utc)
+        snapshot, _ = collect(ctx, tool=TOOL)
+        self.assertEqual(snapshot["sources"]["box_disk"], "ok")
+        self.assertEqual(snapshot["domains"]["workflows"], [])
+        state = self.repo.parent / "state"
+        state.mkdir(mode=0o700)
+        path = state / "snapshot.json"
+        write_snapshot(snapshot, path)
+        args = ["reconcile", "--offline", "--repo", str(self.repo), "--git-ref", self.head,
+                "--snapshot", str(path), "--state-dir", str(state)]
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy):
+                if legacy:
+                    snapshot.pop("domain_states")
+                    write_snapshot(snapshot, path)
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out), patch.object(GitReader, "fetch", side_effect=AssertionError("network")):
+                    code = main(args)
+                report = json.loads(out.getvalue())
+                self.assertEqual(code, 3)
+                self.assertEqual(report["summary"], {"unknown": 1})
+                self.assertIn("live_not_collected", report["domains"]["workflows"][0]["reason_codes"])
+
+    def test_instructions_cli_matches_matrix_and_keeps_git_read_only(self):
+        from boxsync.__main__ import main
+        from boxsync.snapshot import collect, write_snapshot
+        from boxsync.reconcile import _query
+        from collect_support import TOOL, BOT, OTHER, WORKSPACE, PROFILE_BODY, fixture
+        from test_collect_multica import FakeCli
+        source = _query.source
+        ctx, _ = fixture(self.repo.parent)
+        ctx.roots["workflows"] = self.directory.parent
+        ctx.selected = ("workflows", "profiles", "multica_agents")
+        ctx.offline, ctx.cli, ctx.workspaces = False, FakeCli(), (WORKSPACE,)
+        ctx.now = datetime.now(timezone.utc)
+        snapshot, _ = collect(ctx, tool=TOOL)
+        agents = [{"id": BOT, "workspace_id": WORKSPACE, "instructions": "Private instructions never exported."}]
+        bots = [{"id": bot, "description": PROFILE_BODY} for bot in (BOT, OTHER)]
+        root = self.repo / "instructions-governance"
+        source.seed_sources(root, agents, bots)
+        board_doc = source.export_ui(root)
+        self.commit()
+        head = self.git("rev-parse", "HEAD").stdout.decode().strip()
+        state = self.repo.parent / "state"
+        state.mkdir(mode=0o700)
+        path = state / "snapshot.json"
+        write_snapshot(snapshot, path)
+        board = self.repo.parent / "board"
+        board.mkdir()
+        workflow = snapshot["domains"]["workflows"][0]
+        (board / "manifest.json").write_text(json.dumps({"skills_user": {"skills": [{
+            "slug": workflow["dir_name"], "tree_sha256": workflow["tree_sha256"]}]}}))
+        (board / "instruction-sources.json").write_text(json.dumps(board_doc))
+        args = ["reconcile", "--offline", "--repo", str(self.repo), "--git-ref", head,
+                "--snapshot", str(path), "--state-dir", str(state), "--board", str(board)]
+        stamp = snapshot["collected_at"]
+        expected = _query.matrix(root, board_doc, agents, bots,
+                                  observed_at={"agent": stamp, "bot": stamp},
+                                  freshness={"agent": "fresh", "bot": "fresh", "board": "fresh"})
+        # Change uncommitted sources to prove that CLI reads the pinned Git objects.
+        (root / "sources/index.json").write_text("dirty index must not be read")
+        before, index = self.workspace(), (self.repo / ".git/index").read_bytes()
+        original = subprocess.run
+        commands = []
+
+        def spy(argv, **kwargs):
+            command = argv[argv.index("-C") + 2]
+            self.assertIn(command, ALLOWED_COMMANDS)
+            commands.append(command)
+            return original(argv, **kwargs)
+
+        def invoke():
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), patch("subprocess.run", side_effect=spy), patch.object(
+                    GitReader, "fetch", side_effect=AssertionError("network forbidden")):
+                code = main(args)
+            return code, json.loads(out.getvalue())
+
+        code, report = invoke()
+        self.assertEqual(code, 0)
+        self.assertEqual(report["domains"]["instructions"], expected["items"])
+        self.assertEqual(report["domain_summaries"], {"workflows": {"aligned": 1}, "instructions": {"aligned": 3}})
+        self.assertEqual(commands.count("rev-parse"), 1)  # Both domains use the same commit.
+        self.assertEqual(before, self.workspace())
+        self.assertEqual(index, (self.repo / ".git/index").read_bytes())
+        for body in (PROFILE_BODY, agents[0]["instructions"]):
+            self.assertNotIn(body, json.dumps(report))
+        snapshot["domains"]["multica_agents"][0]["instructions_sha256"] = "b" * 64
+        write_snapshot(snapshot, path)
+        code, report = invoke()
+        self.assertEqual(code, 10)
+        self.assertEqual(report["domain_summaries"]["instructions"], {"modified": 1, "aligned": 2})
+        snapshot["domain_states"]["profiles"] = "not_collected"
+        write_snapshot(snapshot, path)
+        code, report = invoke()
+        self.assertEqual(code, 3)
+        self.assertEqual(report["domain_summaries"]["instructions"], {"modified": 1, "stale": 2})
+        (board / "instruction-sources.json").write_text("bad JSON")
+        self.assertEqual(invoke()[0], 3)
+        board_doc["bots"][BOT]["text"] = 123
+        (board / "instruction-sources.json").write_text(json.dumps(board_doc))
+        self.assertEqual(invoke()[0], 3)
+        with patch.object(GitReader, "instructions", return_value={"state": "denied", "agents": [], "bots": []}):
+            self.assertEqual(invoke()[0], 3)
+
+    def test_instruction_sources_failure_is_not_absence_and_withheld_not_read(self):
+        root = self.repo / "instructions-governance/sources"
+        root.mkdir(parents=True)
+        index = {"agents": [], "bots": [
+            {"id": "missing", "path": "missing.md"},
+            {"id": "withheld", "path": ".env", "withheld": True},
+            {"id": "traversal", "path": "../../../outside"},
+            {"id": "symlink", "path": "link.md"}]}
+        (root / "index.json").write_text(json.dumps(index))
+        (root / "link.md").symlink_to("../../../../outside")
+        self.commit()
+        reader = GitReader(self.repo, "HEAD")
+        result = reader.instructions()
+        self.assertEqual(result["state"], "partial")
+        self.assertEqual(len(result["bots"]), 4)
+        self.assertTrue(all(row["sha256"] is None for row in result["bots"]))
+        with patch.object(reader, "_run", side_effect=GitError("denied")):
+            self.assertEqual(reader.instructions()["state"], "denied")
+
 
 if __name__ == "__main__":
     unittest.main()

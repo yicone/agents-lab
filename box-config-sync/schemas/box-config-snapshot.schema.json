@@ -30,6 +30,24 @@
         "sidecar": {"enum": ["ok", "partial", "absent", "stale_sidecar", "rejected_schema", "rejected_secret"]}
       }
     },
+    "domain_states": {
+      "description": "Optional per-domain collection evidence. Missing evidence never proves an empty inventory.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profiles": {"$ref": "#/$defs/domainState"},
+        "multica_agents": {"$ref": "#/$defs/domainState"},
+        "workflows": {"$ref": "#/$defs/domainState"},
+        "managed_skills": {"$ref": "#/$defs/domainState"},
+        "plugin_skills": {"$ref": "#/$defs/domainState"},
+        "cloud_skills": {"$ref": "#/$defs/domainState"},
+        "hooks": {"$ref": "#/$defs/domainState"},
+        "mcps": {"$ref": "#/$defs/domainState"},
+        "memory": {"$ref": "#/$defs/domainState"},
+        "routines": {"$ref": "#/$defs/domainState"},
+        "attachments": {"$ref": "#/$defs/domainState"}
+      }
+    },
     "policy": {
       "type": "object",
       "additionalProperties": false,
@@ -104,6 +122,7 @@
     }
   },
   "$defs": {
+    "domainState": {"enum": ["ok", "partial", "absent", "denied", "error", "not_collected"]},
     "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "sha256OrNull": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},

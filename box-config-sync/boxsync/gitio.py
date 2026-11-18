@@ -5,6 +5,7 @@ Missing paths are established by a successful tree listing, never by interpretin
 stderr from a failed show/cat-file as proof of absence.
 """
 import hashlib
+import json
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -13,6 +14,7 @@ import tempfile
 
 from .domains.workflows import frontmatter
 from .policy import MAX_FILE_BYTES, MAX_TREE_ENTRIES, Policy
+from .instructions import instructions_sha256
 
 ALLOWED_COMMANDS = frozenset(("fetch", "show", "cat-file", "rev-parse", "ls-tree"))
 MAX_OUTPUT = 4 * 1024 * 1024
@@ -37,6 +39,7 @@ class GitReader:
         self.repo = Path(repo).absolute()
         self.ref = _ref(ref)
         self.timeout = timeout
+        self._commit = None
 
     def _run(self, command, *args, limit=MAX_OUTPUT):
         if command not in ALLOWED_COMMANDS:
@@ -65,12 +68,80 @@ class GitReader:
     def fetch(self, remote="origin", ref="main"):
         """Explicit opt-in; may update remote refs, never the working tree."""
         self._run("fetch", "--no-tags", "--no-write-fetch-head", "--", _ref(remote), _ref(ref))
+        self._commit = None
 
     def commit(self):
+        if self._commit is not None:
+            return self._commit
         value = self._run("rev-parse", "--verify", self.ref + "^{commit}", limit=128).strip().decode("ascii")
         if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", value):
             raise GitError("error")
+        self._commit = value
         return value
+
+    def _file(self, commit, path):
+        """None only after a successful exact tree lookup proves absence."""
+        if (not isinstance(path, str) or path.startswith("/")
+                or any(part in ("", ".", "..") for part in path.split("/"))
+                or Policy().denied_path(path)):
+            raise GitError("denied")
+        data = self._run("ls-tree", "-z", "-l", commit, "--", ":(literal)" + path)
+        if not data:
+            return None
+        records = data.rstrip(b"\0").split(b"\0")
+        if len(records) != 1:
+            raise GitError("error")
+        meta, name = records[0].split(b"\t", 1)
+        mode, kind, oid, size = meta.split()
+        if name.decode("utf-8") != path or kind != b"blob" or mode not in (b"100644", b"100755"):
+            raise GitError("unsupported_entry")
+        return self._blob(oid.decode("ascii"))
+
+    def instructions(self):
+        """Hash tracked sources/index.json bodies at the same pinned commit."""
+        result = {"state": "ok", "agents": [], "bots": []}
+        try:
+            commit = self.commit()
+            data = self._file(commit, "instructions-governance/sources/index.json")
+            if data is None:
+                return {**result, "state": "absent"}
+            index = json.loads(data)
+            if not isinstance(index, dict):
+                raise GitError("error")
+            for kind in ("agents", "bots"):
+                items = index.get(kind, [])
+                if not isinstance(items, list) or len(items) > MAX_TREE_ENTRIES:
+                    raise GitError("error")
+                seen = set()
+                for item in items:
+                    if (not isinstance(item, dict) or not isinstance(item.get("id"), str)
+                            or not item["id"] or kind == "agents" and
+                            (not isinstance(item.get("workspace_id"), str) or not item["workspace_id"])):
+                        raise GitError("error")
+                    identity = (item.get("workspace_id") if kind == "agents" else None, item["id"])
+                    if identity in seen:
+                        raise GitError("error")
+                    seen.add(identity)
+                    row = {key: item.get(key) for key in ("id", "workspace_id", "path", "withheld")}
+                    if row["path"] is not None and not isinstance(row["path"], str):
+                        raise GitError("error")
+                    row["sha256"] = None
+                    if not row["withheld"] and row["path"]:
+                        try:
+                            path = item.get("path")
+                            if not isinstance(path, str) or not path:
+                                raise GitError("error")
+                            body = self._file(commit, "instructions-governance/sources/" + path)
+                            if body is None:
+                                raise GitError("absent")
+                            row["sha256"] = instructions_sha256(body.decode("utf-8"))
+                        except (GitError, UnicodeError):
+                            result["state"] = "partial"
+                    result[kind].append(row)
+            return result
+        except (GitError, ValueError, UnicodeError, TypeError) as exc:
+            # Preserve successfully identified rows but never treat failure as absence.
+            return {**result, "state": exc.state if isinstance(exc, GitError) else "error"}
 
     def _blob(self, oid):
         size = int(self._run("cat-file", "-s", oid, limit=32).strip())

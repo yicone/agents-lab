@@ -109,6 +109,7 @@ def collect(ctx=None, sidecars=(), tool=None):
               "tool": tool if tool is not None else tool_metadata(),
               "sources": {"box_disk": "ok" if disk_states and all(v == "ok" for v in disk_states) else "partial",
                           "multica_cli": cli_state, "sidecar": source_state},
+              "domain_states": {name: states.get(name, "not_collected") for name in DOMAIN_NAMES},
               "policy": {"blacklist_version": BLACKLIST_VERSION, "skips": dict(ctx.policy.skips)},
               "inaccessible_workspaces": [{"workspace_id": k, "reason": v} for k, v in sorted(ctx.inaccessible_ids.items())],
               "domains": domains, "writeback": {"last_gate": None, "last_audit": None}}

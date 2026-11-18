@@ -133,6 +133,54 @@ class WorkflowsTests(unittest.TestCase):
         report = rec.reconcile(snapshot, leg(skill()), now=NOW)
         self.assertEqual(report["summary"], {"unknown": 1})
 
+    def test_hermes_collector_probe_uses_domain_evidence(self):
+        from collect_support import fixture, TOOL
+        from boxsync.snapshot import collect, validate_snapshot
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx, _ = fixture(Path(tmp).resolve())
+            ctx.selected = ("workflows",)
+            snapshot, _ = collect(ctx, tool=TOOL)
+            git = leg(*copy.deepcopy(snapshot["domains"]["workflows"]))
+            self.assertEqual(rec.reconcile(snapshot, git, now=ctx.now)["summary"], {"aligned": 1})
+            ctx.selected = ("workflows", "managed_skills")
+            (ctx.roots["managed_skills"] / "cache.json").write_text("bad JSON")
+            snapshot, _ = collect(ctx, tool=TOOL)
+            self.assertEqual(snapshot["sources"]["box_disk"], "partial")
+            self.assertEqual(snapshot["domain_states"]["workflows"], "ok")
+            self.assertEqual(rec.reconcile(snapshot, git, now=ctx.now)["summary"], {"aligned": 1})
+            ctx.selected = ("profiles",)
+            snapshot, _ = collect(ctx, tool=TOOL)
+            self.assertEqual(snapshot["sources"]["box_disk"], "ok")
+            self.assertEqual(snapshot["domain_states"]["workflows"], "not_collected")
+            report = rec.reconcile(snapshot, git, now=ctx.now)
+            self.assertEqual(report["summary"], {"unknown": 1})
+            self.assertIn("live_not_collected", report["domains"]["workflows"][0]["reason_codes"])
+            # Old v1 documents remain readable but carry no completeness evidence.
+            del snapshot["domain_states"]
+            validate_snapshot(snapshot)
+            self.assertEqual(rec.reconcile(snapshot, git, now=ctx.now)["summary"], {"unknown": 1})
+
+    def test_complete_empty_inventory_can_prove_missing_but_failures_cannot(self):
+        snapshot = {"collected_at": STAMP, "sources": {"box_disk": "ok"},
+                    "domains": {"workflows": []}, "domain_states": {"workflows": "ok"}}
+        self.assertEqual(rec.reconcile(snapshot, leg(skill()), now=NOW)["summary"], {"missing_on_box": 1})
+        for state in ("not_collected", "partial", "denied", "error"):
+            snapshot["domain_states"]["workflows"] = state
+            self.assertEqual(rec.reconcile(snapshot, leg(skill()), now=NOW)["summary"], {"unknown": 1})
+
+    def test_domain_evidence_is_schema_checked(self):
+        from collect_support import fixture, TOOL
+        from boxsync.snapshot import collect, validate_snapshot
+        from boxsync.validation import InvalidDocument
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx, _ = fixture(Path(tmp).resolve())
+            snapshot, _ = collect(ctx, tool=TOOL)
+            for domain, state in (("invented", "ok"), ("workflows", "complete")):
+                invalid = copy.deepcopy(snapshot)
+                invalid["domain_states"][domain] = state
+                with self.assertRaises(InvalidDocument):
+                    validate_snapshot(invalid)
+
 
 class InstructionsGoldenTests(unittest.TestCase):
     def test_rows_equal_canonical_matrix_with_real_source_fixtures(self):

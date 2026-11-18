@@ -184,12 +184,44 @@ def reconcile_instructions(git, board, agents, bots, *, observed_at, freshness=N
                          freshness=freshness, git_rows=git)
 
 
-def reconcile(snapshot, git, board=None, *, now, max_age=36 * 3600):
-    """Live/Git report; partial disk inventories cannot prove missing_on_box."""
-    live = {"state": snapshot["sources"]["box_disk"], "items": snapshot["domains"]["workflows"]}
+def reconcile(snapshot, git, board=None, *, now, max_age=36 * 3600,
+              instructions_git=None, instructions_board=None, board_state="not_visible_on_box"):
+    """Only domain-specific evidence can prove a complete workflow inventory."""
+    live = {"state": snapshot.get("domain_states", {}).get("workflows", "not_collected"),
+            "items": snapshot["domains"]["workflows"]}
     rows = reconcile_workflows(live, git, board, collected_at=snapshot.get("collected_at"),
                                now=now, max_age=max_age)
-    return {"schema": "box-config-reconcile/v1", "domains": {"workflows": rows},
+    instruction_rows = []
+    instruction_state = "not_collected"
+    if instructions_git is not None:
+        instruction_state = instructions_git["state"]
+        domains = snapshot["domains"]
+        agents = [{"id": row["agent_id"], "workspace_id": row["workspace_id"],
+                   "instructions_sha256": row.get("instructions_sha256")
+                   if row.get("evidence_level") == "observed" else None}
+                  for row in domains.get("multica_agents", [])]
+        bots = [{"id": row["bot_id"], "description_sha256": row.get("description_sha256")
+                 if row.get("state") == "observed" else None} for row in domains.get("profiles", [])]
+        stamp = snapshot.get("collected_at")
+        try:
+            age = (now - _stamp(stamp)).total_seconds()
+            fresh = 0 <= age <= max_age
+        except (TypeError, ValueError):
+            fresh = False
+        freshness = {"board": "fresh" if board_state == "ok" else board_state}
+        for kind, domain in (("agent", "multica_agents"), ("bot", "profiles")):
+            state = snapshot.get("domain_states", {}).get(domain, "not_collected")
+            freshness[kind] = ("git_" + instruction_state if instruction_state not in ("ok", "absent")
+                               else state if state != "ok" else "fresh" if fresh else "stale")
+        matrix = reconcile_instructions(instructions_git, instructions_board or {}, agents, bots,
+                                        observed_at={"agent": stamp, "bot": stamp}, freshness=freshness)
+        instruction_rows = matrix["items"]
+    workflow_summary = dict(Counter(row["state"] for row in rows))
+    return {"schema": "box-config-reconcile/v1",
+            "domains": {"workflows": rows, "instructions": instruction_rows},
             "sources": {"live": live["state"], "git": git["state"],
-                        "board": "not_visible_on_box" if board is None else board.get("state", "ok")},
-            "summary": dict(Counter(row["state"] for row in rows))}
+                        "board": "not_visible_on_box" if board is None else board.get("state", "ok"),
+                        "instructions_git": instruction_state, "instructions_board": board_state},
+            "summary": workflow_summary,
+            "domain_summaries": {"workflows": workflow_summary,
+                                 "instructions": dict(Counter(row["drift"] for row in instruction_rows))}}

@@ -92,7 +92,7 @@ def main(argv=None):
     command.add_argument("--snapshot", type=Path, required=True)
     command.add_argument("--git-ref", default="origin/main")
     command.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
-    command.add_argument("--board", type=Path, help="Optional legacy export directory containing manifest.json")
+    command.add_argument("--board", type=Path, help="Optional Board directory containing manifest.json and instruction-sources.json")
     command.add_argument("--max-age", type=int, default=36 * 3600, help="Snapshot freshness limit in seconds")
     command.add_argument("--state-dir", type=Path, default=BOX_STATE_DIR)
     command.add_argument("--format", choices=("json", "text"), default="json")
@@ -156,6 +156,8 @@ def reconcile_command(args, parser):
         print(json.dumps({"state": "unknown", "reason_code": "snapshot_invalid"}))
         return 3
     board = None
+    instructions_board = {}
+    instructions_board_state = "not_visible_on_box"
     if args.board is not None:
         exported = read_file(args.board, "manifest.json", max_bytes=MAX_SNAPSHOT_BYTES)
         board = {"state": exported.state, "items": []}
@@ -171,20 +173,46 @@ def reconcile_command(args, parser):
                 board = value
             except (KeyError, TypeError, ValueError, UnicodeError):
                 board = {"state": "error", "items": []}
+        exported = read_file(args.board, "instruction-sources.json", max_bytes=MAX_SNAPSHOT_BYTES)
+        instructions_board_state = exported.state
+        if exported.state == "observed":
+            try:
+                value = json.loads(exported.data)
+                if (not isinstance(value, dict) or value.get("schema") != "instruction-sources/v1"
+                        or any(not isinstance(value.get(key), dict) for key in ("agents", "bots"))
+                        or contains_secret(exported.data.decode("utf-8"))):
+                    raise ValueError("invalid Board instructions")
+                for key in ("agents", "bots"):
+                    if len(value[key]) > MAX_TREE_ENTRIES:
+                        raise ValueError("too many Board instructions")
+                    if any(not isinstance(row, dict) or "text" in row and not isinstance(row["text"], str)
+                           for row in value[key].values()):
+                        raise ValueError("invalid Board instruction row")
+                instructions_board = value
+                instructions_board_state = "ok"
+            except (TypeError, ValueError, UnicodeError):
+                instructions_board_state = "error"
     try:
         if not args.offline:
             reader.fetch()
         git = reader.workflows()
+        instructions_git = reader.instructions()
     except GitError as exc:
         git = {"state": exc.state, "items": []}
-    report = reconcile(snapshot, git, board, now=datetime.now(timezone.utc), max_age=args.max_age)
+        instructions_git = {"state": exc.state, "agents": [], "bots": []}
+    report = reconcile(snapshot, git, board, now=datetime.now(timezone.utc), max_age=args.max_age,
+                       instructions_git=instructions_git, instructions_board=instructions_board,
+                       board_state=instructions_board_state)
     print(json.dumps(report, ensure_ascii=False, sort_keys=True) if args.format == "json"
-          else json.dumps(report["summary"], sort_keys=True))
+          else json.dumps(report["domain_summaries"], sort_keys=True))
+    instruction_summary = report["domain_summaries"]["instructions"]
     if (report["summary"].get("unknown") or git["state"] not in ("ok", "absent")
-            or snapshot["sources"]["box_disk"] != "ok"
+            or report["sources"]["live"] not in ("ok", "absent")
+            or instructions_git["state"] not in ("ok", "absent")
+            or instruction_summary.get("stale") or instruction_summary.get("withheld")
             or board is not None and board.get("state", "ok") not in ("ok", "absent")):
         return 3
-    return 10 if any(state != "aligned" for state in report["summary"]) else 0
+    return 10 if any(state != "aligned" for state in report["summary"] | instruction_summary) else 0
 
 
 def collect_command(args, parser):
