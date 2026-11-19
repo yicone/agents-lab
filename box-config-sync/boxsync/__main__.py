@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from .policy import BLACKLIST_VERSION, MAX_TREE_ENTRIES, Policy
-from .roots import BOX_ROOTS, BOX_STATE_DIR, fixture_roots
+from .roots import BOX_ROOTS, BOX_STATE_DIR, MINI_STATE_DIR, fixture_roots
 from .safe_io import UnsafeIO, entries, open_directory
 
 
@@ -97,11 +97,33 @@ def main(argv=None):
     command.add_argument("--state-dir", type=Path, default=BOX_STATE_DIR)
     command.add_argument("--format", choices=("json", "text"), default="json")
     command.add_argument("--offline", action="store_true", help="Do not fetch; only read the local Git object database")
+    command = subcommands.add_parser("publish-snapshot")
+    command.add_argument("--snapshot", type=Path, help="Default: <state-dir>/snapshots/latest.json")
+    command.add_argument("--remote", default="origin")
+    command.add_argument("--branch", default="box-snapshots")
+    command.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
+    command.add_argument("--worktree", type=Path, help="Default: <state-dir>/data-worktree")
+    command.add_argument("--state-dir", type=Path, default=BOX_STATE_DIR)
+    command.add_argument("--format", choices=("json", "text"), default="json")
+    command = subcommands.add_parser("fetch-snapshot")
+    command.add_argument("--remote", default="origin")
+    command.add_argument("--branch", default="box-snapshots")
+    command.add_argument("--box-id", default="grok-box")
+    command.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2])
+    command.add_argument("--state-dir", type=Path, default=MINI_STATE_DIR)
+    command.add_argument("--format", choices=("json", "text"), default="json")
+    command.add_argument("--offline", action="store_true", help="Do not fetch; verify existing remote-tracking refs")
     args = parser.parse_args(argv)
     if args.command == "collect":
         return collect_command(args, parser)
     if args.command == "reconcile":
         return reconcile_command(args, parser)
+    if args.command == "publish-snapshot":
+        from .publish import command as publish_command
+        return publish_command(args, parser)
+    if args.command == "fetch-snapshot":
+        from .fetch import command as fetch_command
+        return fetch_command(args, parser)
     roots = fixture_roots(args.fixture_home) if args.fixture_home else dict(BOX_ROOTS)
     if args.roots is not None:
         aliases = args.roots.split(",")

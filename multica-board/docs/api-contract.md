@@ -957,6 +957,21 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - v0.1（2026-10-15）：按 ACM-162 审阅以后端为准：`error_kind` 加 `process` 并定匹配顺序；`url` 改用 UUID；`generated_at` 定义为最近一次采集完成时间；`project` 定为 `{id, title}`；`/runs` 记录带 `key`，转为第一阶段接口；`parent_identifier`、`last_failed_issue_identifier`、squad `name` 的空值规则；`::1`、421、更严的响应头与 CSP。新增 `meta.collector`。
 - v0（2026-10-14）：初稿。
 
+## `GET /api/box-config`（ACM-928，本地未合并）
+
+只读。不接受查询参数。看板不访问网络、不写文件：只读 Mini 状态目录里的快照副本与 `fetch-status.json`（由 `boxsync fetch-snapshot` 写入）；workflows 对账腿经 `GitReader` 对本地 git 对象库做只读 `rev-parse`/`ls-tree`/`cat-file` 读取（绝不 fetch、checkout 或写工作区）。部署目录缺少 `box-config-sync/` 时代码整体降级为 `source_state: "absent"`，不会 500。
+
+响应 `schema: "box-config-api/v1"`：
+
+- `generated_at`：本次响应生成时间（UTC 秒级 `…Z`），不是采集轮次时间。
+- `box_id`：副本对应的 Box 标识，当前固定 `grok-box`。
+- `source_state`：`ok` | `absent`（无副本）| `bad`（副本缺失/不可读/校验失败）| `stale`（`collected_at` 超过 36 小时）| `rejected`（最近一次 `fetch-snapshot` 校验拒绝）。`rejected` 优先于副本状态；此时若仍有上一份合法副本，`collected_at`/`age_seconds`/`sources`/`domain_states`/`domain_counts`/`workflows` 仍按该副本返回。
+- `reason_code`：`bad` 时为副本读失败类别（如 `invalid_snapshot`、`snapshot_secret`、`snapshot_denied`）；`rejected` 时透传 `fetch-status.reason_code`（如 `non_allowlisted_path`、`too_large`、`schema_mismatch`、`invalid_snapshot`、`snapshot_secret`、`merge_commit`、`history_rewritten`、`allowlist_unavailable`）；其它情况为 `null`。
+- `collected_at` / `age_seconds`：副本声明的采集时间与相对现在的秒数；无副本为 `null`。
+- `sources` / `domain_states` / `domain_counts`：透传快照字段；`domain_counts` 对列表域给条目数，`hooks` 域给它的 `state` 字符串（Box 采不到 Mini hooks）。无副本时为 `null`。
+- `fetch`：`fetch-status.json` 的 `{state, reason_code, checked_at, verified_commit}`；无记录为 `null`。
+- `workflows`：`{summary, items}` 或 `null`（无副本时，且不读取 git）。`items[]` 是 `box-config-reconcile/v1` workflows 行的摘要：`id`、`dir_name`、`kind`、`name`、`state`（`aligned`/`missing_on_box`/`missing_in_git`/`orphan_export`/`content_drift`/`unknown`）、`reason_codes`、`join_basis`、`duplicate_name`、`name_changed`、`export_state`、`export_side`；不含 `file_differences` 等逐文件明细。git 腿读取失败时行状态按 reconcile 的 `unknown` 语义，不转成 `missing_*`；快照超过 36 小时自然得到 `unknown`/`snapshot_stale`。
+
 ## `GET /api/hooks`（ACM-664，本地未合并）
 
 只读。不接受查询参数。不返回命令文本、`target`、`enabled`、`trusted_hash` 或密钥。`items[].observed` 恒为 `unknown`。`declared` / `reachable` 取 `yes`、`no`、`unknown`；读不到的来源 `sources[].state` 为 `unknown`，`count` 为 `null`，不当成异常，也不进入 attention。来源只有 `cursor`、`codex`、`grok_cli`、`hermes`。Grok 的加载错误留在 `grok_cli`，不并进 Cursor。Hermes shell 空列表的 `state` 是 `empty`。
