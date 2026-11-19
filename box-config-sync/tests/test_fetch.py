@@ -275,6 +275,23 @@ class FetchFixture(unittest.TestCase):
         self.rejected("invalid_snapshot")
         self.assertFalse(self.copy.exists())
 
+    def test_in_window_bad_behind_out_of_window_commit_rejected(self):
+        # A (in window, bad) -> B (out of window, legal) -> C (now, legal):
+        # --max-age traversal would stop at B and never verify A.
+        bad = json.loads(self.text)
+        bad["schema"] = "box-config-snapshot/v0"
+        now_ts = int(time.time())
+        a = self.pushed(files={dbs.SNAPSHOT_REL: json.dumps(bad) + "\n"},
+                        dates="%d +0000" % (now_ts - 86400),
+                        message="in-window bad root")
+        b = self.pushed(dates="2026-01-01T00:00:00+00:00",
+                        parents=(a,), message="out-of-window middle")
+        self.pushed(parents=(b,), message="clean tip")
+        self.rejected("schema_mismatch")
+        self.assertFalse(self.copy.exists())
+        status = json.loads(self.status.read_text())
+        self.assertIsNone(status["verified_commit"])
+
 
 if __name__ == "__main__":
     unittest.main()

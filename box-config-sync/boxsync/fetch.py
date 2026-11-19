@@ -5,13 +5,19 @@ merge or commit. Every commit inside the allowlist ``history_days`` window is
 verified in topological order — merge commits, non-allowlisted paths and bad
 blob content are rejected even when the tip itself is clean. Commits older
 than the window are not interpreted (design §5.6.2 retention trust window).
+The full ``verified_commit..tip`` id list (all of tip's history on a first
+fetch) is enumerated and date-filtered locally — never truncated by
+``--max-age``, which would stop traversal at an old-dated intermediate
+commit and let an in-window bad ancestor slip through unverified.
 Any verification failure leaves the local copy untouched and records a
 rejected fetch-status with a machine reason_code (design §5.6.6).
 
 When more than MAX_COMMITS new commits are pending, the oldest MAX_COMMITS
-are verified, ``verified_commit`` advances to the last one checked, and the
-run ends ``catching_up`` (exit 3) so the next run continues where this one
-stopped. A long healthy history with few new commits ends ``ok``.
+are content-verified, ``verified_commit`` advances to the last one checked,
+and the run ends ``catching_up`` (exit 3) so the next run continues where
+this one stopped. MAX_COMMITS bounds only per-run content verification,
+never the id enumeration. A long healthy history with few new commits ends
+``ok``.
 
 On success the run writes, in order: the snapshot copy, ``git-leg.json``
 (the Mini's last observed ``origin/main`` workflows leg for the board),
@@ -171,9 +177,15 @@ def _verify_commit(allowlist, reader, sha, verified_blobs):
 
 
 def _pending(reader, cutoff, tip, verified):
-    """In-window commits still to verify, oldest first. Topo order required."""
-    args = ["rev-list", "--parents", "--topo-order", "--reverse",
-            "--max-age=%d" % cutoff]
+    """In-window commits still to verify, oldest first. Topo order required.
+
+    Enumerate the whole ``verified..tip`` range (or tip's full history on a
+    first fetch) and date-filter in Python. ``rev-list --max-age`` would
+    stop traversal at the first out-of-window commit and silently skip any
+    in-window ancestor behind it — enumeration must not be truncated.
+    Listing ids is cheap; MAX_COMMITS bounds only content verification.
+    """
+    args = ["rev-list", "--timestamp", "--parents", "--topo-order", "--reverse"]
     if verified is not None:
         args += ["^" + verified, tip]
     else:
@@ -182,8 +194,9 @@ def _pending(reader, cutoff, tip, verified):
     commits = []
     for line in out.decode("utf-8").splitlines():
         parts = line.split()
-        if parts:
-            commits.append((parts[0], parts[1:]))
+        # --timestamp lines are "<committer-ts> <sha> <parents...>".
+        if parts and len(parts) >= 2 and int(parts[0]) >= cutoff:
+            commits.append((parts[1], parts[2:]))
     return commits
 
 
