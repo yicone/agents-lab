@@ -1,11 +1,13 @@
-"""ACM-928: GET /api/box-config reads the Mini snapshot copy plus local git."""
+"""ACM-928: GET /api/box-config reads the Mini snapshot copy, nothing else."""
 from __future__ import annotations
 
 import contextlib
 import http.client
 import io
 import json
+import os
 import stat
+import subprocess
 import sys
 import tempfile
 import threading
@@ -67,14 +69,12 @@ class TransportFixture(unittest.TestCase):
                                        "--git-ref", "origin/main", "--snapshot", str(cls.snapshot),
                                        "--state-dir", str(cls.box_state)])
         cls.assertIn(cls, code, (0, 3, 10))
-        # /api/skills before a fetched copy exists.
         static = base / "web"
         static.mkdir()
         (static / "index.html").write_text("<h1>board</h1>")
         cls.store = Store(":memory:")
         cls.views = Views(cls.store, SERVER, app_url="https://app.test",
-                          collect_interval_s=60, box_state_dir=cls.mini_state,
-                          box_repo=cls.mini, box_ref="origin/main")
+                          collect_interval_s=60, box_state_dir=cls.mini_state)
         cls.httpd = BoardServer("127.0.0.1", 0, cls.views, static_dir=static)
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
@@ -94,8 +94,9 @@ class TransportFixture(unittest.TestCase):
         conn.close()
         return response, body
 
-    def test_absent_then_publish_fetch_and_route(self):
-        # Absent: no counts, no workflows, and the endpoint stays read-only.
+    def test_acceptance_5_end_to_end_collect_reconcile_publish_fetch_route(self):
+        # §8 P1-E: collect -> reconcile -> publish -> fetch -> GET /api/box-config;
+        # API workflow states/summary equal CLI reconcile output; absent before copy.
         response, body = self.req("GET", "/api/box-config")
         self.assertEqual(response.status, 200)
         self.assertEqual(response.getheader("Content-Type"), "application/json; charset=utf-8")
@@ -107,6 +108,7 @@ class TransportFixture(unittest.TestCase):
         self.assertIsNone(data["domain_counts"])
         self.assertIsNone(data["workflows"])
         self.assertIsNone(data["sources"])
+        self.assertIsNone(data["git_leg"])
 
         def skills_body():
             fixed = datetime(2026, 11, 19, tzinfo=timezone.utc)
@@ -129,6 +131,8 @@ class TransportFixture(unittest.TestCase):
         code, fetched = boxsync(["fetch-snapshot", "--repo", str(self.mini),
                                  "--state-dir", str(self.mini_state)])
         self.assertEqual((code, fetched["state"]), (0, "ok"))
+        self.assertTrue((self.mini_state / "git-leg.json").is_file())
+        self.assertEqual(stat.S_IMODE((self.mini_state / "git-leg.json").stat().st_mode), 0o600)
 
         response, body = self.req("GET", "/api/box-config")
         self.assertEqual(response.status, 200)
@@ -138,6 +142,7 @@ class TransportFixture(unittest.TestCase):
         self.assertEqual(data["fetch"]["state"], "ok")
         self.assertEqual(data["fetch"]["verified_commit"], fetched["commit"])
         self.assertIsNotNone(data["age_seconds"])
+        self.assertEqual(data["git_leg"]["state"], "ok")
         self.assertEqual(data["domain_counts"]["workflows"],
                          len(json.loads(self.snapshot.read_text())["domains"]["workflows"]))
         # API workflow projection equals the CLI reconcile report exactly.
@@ -162,6 +167,33 @@ class TransportFixture(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(skills_after, skills_before)
 
+    def test_no_subprocess_while_serving_box_config(self):
+        # §5.6.6: the board never spawns a process serving /api/box-config.
+        calls = []
+
+        def blocked(*a, **kw):
+            calls.append(a)
+            raise AssertionError("subprocess during /api/box-config")
+
+        with mock.patch.object(subprocess, "run", blocked), \
+             mock.patch.object(subprocess, "Popen", blocked), \
+             mock.patch.object(os, "system", blocked), \
+             mock.patch.object(os, "posix_spawn", blocked, create=True), \
+             mock.patch.object(os, "fork", blocked, create=True):
+            payload = self.views.box_config()
+            self.assertIn(payload["source_state"], ("absent", "ok"))
+            response, body = self.req("GET", "/api/box-config")
+            self.assertEqual(response.status, 200)
+            json.loads(body)
+        self.assertEqual(calls, [])
+
+    def test_box_snapshot_module_imports_no_subprocess_or_gitreader(self):
+        self.assertNotIn("subprocess", vars(box_snapshot))
+        self.assertNotIn("GitReader", vars(box_snapshot))
+        source = Path(box_snapshot.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("import subprocess", source)
+        self.assertNotIn("GitReader", source)
+
 
 class ReaderStateTests(unittest.TestCase):
     """read_box_snapshot source_state: absent/bad/stale/rejected/ok."""
@@ -181,16 +213,29 @@ class ReaderStateTests(unittest.TestCase):
         self.mini_state = base / "mini-state"
         private_directory(self.mini_state, create=True)
 
-    def install(self, status=None, doc=None):
+    def install(self, status=None, doc=None, git_leg=None):
         target = self.mini_state / "box-snapshots/grok-box"
         private_directory(target, create=True)
         write_snapshot(doc or json.loads(self.snapshot.read_text()),
                        target / "snapshot.json")
+        if git_leg is not None:
+            path = self.mini_state / "git-leg.json"
+            path.write_text(git_leg if isinstance(git_leg, str) else json.dumps(git_leg))
+            path.chmod(0o600)
         if status is not None:
             private_directory(self.mini_state, create=True)
             path = self.mini_state / "fetch-status.json"
             path.write_text(json.dumps(status))
             path.chmod(0o600)
+
+    def git_leg(self):
+        return {"schema": "box-config-git-leg/v1", "ref": "origin/main",
+                "commit": "a" * 40, "observed_at": "2026-11-19T00:00:00Z",
+                "state": "ok", "items": [
+                    {"dir_name": "only-in-git", "id": "grok-workflow:only-in-git",
+                     "name": "GitOnly", "body_hash_state": "observed",
+                     "body_sha256": "a" * 64, "tree_state": "observed",
+                     "tree_sha256": "a" * 64, "files": []}]}
 
     def read(self, now=None):
         return box_snapshot.read_box_snapshot(
@@ -200,8 +245,7 @@ class ReaderStateTests(unittest.TestCase):
         doc, info = self.read()
         self.assertIsNone(doc)
         self.assertEqual(info["source_state"], "absent")
-        payload = box_snapshot.build_box_config(state_dir=self.mini_state,
-                                                repo=self.clone)
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
         self.assertEqual(payload["source_state"], "absent")
         self.assertIsNone(payload["workflows"])
 
@@ -238,26 +282,55 @@ class ReaderStateTests(unittest.TestCase):
         self.assertIsNotNone(doc)  # previous valid copy still reported
         self.assertEqual(info["source_state"], "rejected")
         self.assertEqual(info["reason_code"], "non_allowlisted_path")
-        payload = box_snapshot.build_box_config(state_dir=self.mini_state,
-                                                repo=self.clone)
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
         self.assertEqual(payload["source_state"], "rejected")
         self.assertEqual(payload["fetch"]["reason_code"], "non_allowlisted_path")
         self.assertIsNotNone(payload["domain_counts"])  # copy still summarized
 
-    def test_boxsync_unavailable_degrades_to_absent(self):
-        with mock.patch.dict(sys.modules, {"boxsync": None}):
-            payload = box_snapshot.build_box_config(state_dir=self.mini_state,
-                                                    repo=self.clone)
-        self.assertEqual(payload["source_state"], "absent")
-        self.assertIsNone(payload["workflows"])
-
-    def test_git_leg_failure_keeps_unknown_semantics(self):
-        self.install()
-        payload = box_snapshot.build_box_config(
-            state_dir=self.mini_state, repo=self.clone, ref="origin/nope")
+    def test_snapshot_without_domain_states_still_serves(self):
+        # domain_states is optional in the schema; a legacy copy stays servable.
+        doc = json.loads(self.snapshot.read_text())
+        del doc["domain_states"]
+        self.install(doc=doc, git_leg=self.git_leg())
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
         self.assertEqual(payload["source_state"], "ok")
+        self.assertIsNone(payload["domain_states"])
+        self.assertIsNotNone(payload["domain_counts"])
+        states = {row["state"] for row in payload["workflows"]["items"]}
+        self.assertEqual(states, {"unknown"})  # live leg not_collected -> unknown
+
+    def test_missing_git_leg_yields_unknown_rows_not_missing(self):
+        self.install()
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+        self.assertEqual(payload["source_state"], "ok")
+        self.assertIsNone(payload["git_leg"])
         states = {row["state"] for row in payload["workflows"]["items"]}
         self.assertEqual(states, {"unknown"})
+        reasons = {reason for row in payload["workflows"]["items"]
+                   for reason in row["reason_codes"]}
+        self.assertEqual(reasons, {"git_not_collected"})
+
+    def test_corrupt_git_leg_yields_unknown_rows_not_missing(self):
+        self.install(git_leg="{not json")
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+        self.assertEqual(payload["source_state"], "ok")
+        self.assertEqual(payload["git_leg"]["state"], "error")
+        states = {row["state"] for row in payload["workflows"]["items"]}
+        self.assertEqual(states, {"unknown"})
+
+    def test_git_leg_summary_is_exposed(self):
+        self.install(git_leg=self.git_leg())
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+        self.assertEqual(payload["git_leg"]["state"], "ok")
+        self.assertEqual(payload["git_leg"]["commit"], "a" * 40)
+        rows = {row["id"]: row["state"] for row in payload["workflows"]["items"]}
+        self.assertEqual(rows["grok-workflow:only-in-git"], "missing_on_box")
+
+    def test_boxsync_unavailable_degrades_to_absent(self):
+        with mock.patch.dict(sys.modules, {"boxsync": None}):
+            payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+        self.assertEqual(payload["source_state"], "absent")
+        self.assertIsNone(payload["workflows"])
 
 
 if __name__ == "__main__":

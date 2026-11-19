@@ -2,6 +2,12 @@
 
 Every refusal check runs before any write in the data worktree or any push.
 All git invocations pass through run_git so tests can record argv.
+
+The data worktree defaults to ``<state-dir>/data-worktree`` -- the design
+example ``/workspace/.boxsync/data-worktree`` is overridden by ``--worktree``.
+Publish appends an audit record to ``<state-dir>/audit.jsonl``; the Mini-side
+``fetch-snapshot`` instead writes ``fetch-status.json`` and ``git-leg.json``
+(no append-only audit there).
 """
 import hashlib
 import json

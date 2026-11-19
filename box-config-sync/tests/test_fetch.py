@@ -5,7 +5,9 @@ import io
 import json
 import stat
 import tempfile
+import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from collect_support import TOOL, fixture
@@ -38,10 +40,11 @@ class FetchFixture(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             return main(args), json.loads(out.getvalue())
 
-    def pushed(self, files=None, parents=(), message="fixture", push=True):
+    def pushed(self, files=None, parents=(), message="fixture", push=True,
+               dates=None):
         files = files if files is not None else {dbs.SNAPSHOT_REL: self.text}
         return dbs.push_data_commit(self.pusher, files, message=message,
-                                    parents=parents, push=push)
+                                    parents=parents, push=push, dates=dates)
 
     def copy_hash(self):
         return hashlib.sha256(self.copy.read_bytes()).hexdigest() \
@@ -169,6 +172,108 @@ class FetchFixture(unittest.TestCase):
                     parents=(tip,))
         self.rejected("non_allowlisted_path")
         self.assertEqual(self.copy_hash(), before)
+
+    def test_bad_ancestor_then_valid_tip_is_rejected(self):
+        # A legal tip never launders a bad in-window ancestor.
+        bad_schema = json.loads(self.text)
+        bad_schema["schema"] = "box-config-snapshot/v0"
+        bad_secret = json.loads(self.text)
+        bad_secret["domains"]["hooks"]["host"] = "token=abc123secret"
+        cases = {
+            "schema_mismatch": json.dumps(bad_schema) + "\n",
+            "too_large": b"x" * (1048576 + 1),
+            "invalid_snapshot": "{not json",
+            "snapshot_secret": json.dumps(bad_secret) + "\n",
+        }
+        for reason, blob in cases.items():
+            with self.subTest(reason=reason):
+                before = self.copy_hash()
+                status_before = (json.loads(self.status.read_text())
+                                 if self.status.exists() else {})
+                base = dbs.bare_tip(self.bare)
+                tip = self.pushed(files={dbs.SNAPSHOT_REL: blob},
+                                  parents=(base,) if base else (),
+                                  message="bad ancestor")
+                self.pushed(parents=(tip,), message="valid tip")
+                self.rejected(reason)
+                # Copy bytes and verified_commit survive a rejection.
+                self.assertEqual(self.copy_hash(), before)
+                status = json.loads(self.status.read_text())
+                self.assertEqual(status.get("verified_commit"),
+                                 status_before.get("verified_commit"))
+                # Human repair: a fresh valid history replaces the branch;
+                # a new verified_commit baseline clears history_rewritten.
+                repaired = self.pushed(parents=(), push=False,
+                                       message="repaired " + reason)
+                dbs.reset_data_branch(self.pusher, self.bare, repaired)
+                self.status.unlink(missing_ok=True)
+                code, payload = self.invoke()
+                self.assertEqual((code, payload["state"]), (0, "ok"))
+
+    def test_other_box_bad_snapshot_is_rejected(self):
+        # The path regex admits every box; a bad blob for another box rejects.
+        tip = self.fetch_ok()
+        before = self.copy_hash()
+        other = json.loads(self.text)
+        other["box_id"] = "other-box"
+        other["schema"] = "box-config-snapshot/v0"
+        self.pushed(files={dbs.SNAPSHOT_REL: self.text,
+                           "box-snapshots/other-box/snapshot.json":
+                           json.dumps(other) + "\n"},
+                    parents=(tip,))
+        self.rejected("schema_mismatch")
+        self.assertEqual(self.copy_hash(), before)
+
+    def test_catching_up_then_ok_then_ok_on_long_history(self):
+        from boxsync import fetch as fetch_mod
+        tip = self.pushed()
+        contents = [{dbs.SNAPSHOT_REL: self.text} for _ in range(12)]
+        tip = dbs.push_data_fast(self.pusher, contents, parent=tip)
+        with mock.patch.object(fetch_mod, "MAX_COMMITS", 5):
+            for expected in ("catching_up", "catching_up", "ok"):
+                code, payload = self.invoke()
+                self.assertEqual(payload["state"], expected)
+                if expected == "catching_up":
+                    self.assertEqual(code, 3)
+                    self.assertEqual(payload["reason_code"], "pending_commits")
+                    self.assertFalse(self.copy.exists())
+            # All 13 commits verified; the copy finally installs.
+            self.assertTrue(self.copy.exists())
+            code, payload = self.invoke()
+            self.assertEqual((code, payload["state"]), (0, "ok"))
+            self.assertEqual(payload["commit"], tip)
+
+    def test_history_over_max_commits_with_no_new_commits_is_ok(self):
+        # The old permanent-rejection bug: >MAX_COMMITS total but none pending.
+        contents = [{dbs.SNAPSHOT_REL: self.text} for _ in range(520)]
+        tip = dbs.push_data_fast(self.pusher, contents)
+        code, payload = self.invoke()
+        self.assertEqual((code, payload["state"]), (3, "catching_up"))
+        self.fetch_ok(tip)
+        code, payload = self.invoke()
+        self.assertEqual((code, payload["state"]), (0, "ok"))
+        self.assertEqual(payload["commit"], tip)
+
+    def test_tip_outside_history_window_rejected(self):
+        ancient = "%d +0000" % (int(time.time()) - 200 * 86400)
+        self.pushed(dates=ancient)
+        self.rejected("tip_outside_history_window")
+        self.assertFalse(self.copy.exists())
+
+    def test_bad_commit_older_than_window_is_not_interpreted(self):
+        ancient = "%d +0000" % (int(time.time()) - 200 * 86400)
+        old = self.pushed(files={dbs.SNAPSHOT_REL: "{not json"},
+                          dates=ancient, message="ancient bad root")
+        dbs.push_data_fast(self.pusher, [{dbs.SNAPSHOT_REL: self.text}],
+                           parent=old)
+        code, payload = self.invoke()
+        self.assertEqual((code, payload["state"]), (0, "ok"))
+
+    def test_bad_commit_inside_window_rejected(self):
+        tip = self.pushed(files={dbs.SNAPSHOT_REL: "{not json"})
+        self.pushed(parents=(tip,))
+        self.rejected("invalid_snapshot")
+        self.assertFalse(self.copy.exists())
 
 
 if __name__ == "__main__":

@@ -959,18 +959,21 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 
 ## `GET /api/box-config`（ACM-928，本地未合并）
 
-只读。不接受查询参数。看板不访问网络、不写文件：只读 Mini 状态目录里的快照副本与 `fetch-status.json`（由 `boxsync fetch-snapshot` 写入）；workflows 对账腿经 `GitReader` 对本地 git 对象库做只读 `rev-parse`/`ls-tree`/`cat-file` 读取（绝不 fetch、checkout 或写工作区）。部署目录缺少 `box-config-sync/` 时代码整体降级为 `source_state: "absent"`，不会 500。
+只读。不接受查询参数。看板不访问网络、不写文件、不启动任何子进程：只读 Mini 状态目录里的三个文件——快照副本、`fetch-status.json`、`git-leg.json`（后两者由 `boxsync fetch-snapshot` 写入，0600）。workflows 对账在进程内调用纯函数 `boxsync.reconcile.reconcile`，git 腿取自 `git-leg.json`——它是**最近一次** `fetch-snapshot` 成功时对 `origin/main` 的只读观察快照（`{schema:"box-config-git-leg/v1", ref, commit, observed_at, state, items}`），不是实时 git 状态；服务期间绝不 fetch、checkout 或读工作区。部署目录缺少 `box-config-sync/` 时代码整体降级为 `source_state: "absent"`，不会 500。
 
 响应 `schema: "box-config-api/v1"`：
 
 - `generated_at`：本次响应生成时间（UTC 秒级 `…Z`），不是采集轮次时间。
 - `box_id`：副本对应的 Box 标识，当前固定 `grok-box`。
 - `source_state`：`ok` | `absent`（无副本）| `bad`（副本缺失/不可读/校验失败）| `stale`（`collected_at` 超过 36 小时）| `rejected`（最近一次 `fetch-snapshot` 校验拒绝）。`rejected` 优先于副本状态；此时若仍有上一份合法副本，`collected_at`/`age_seconds`/`sources`/`domain_states`/`domain_counts`/`workflows` 仍按该副本返回。
-- `reason_code`：`bad` 时为副本读失败类别（如 `invalid_snapshot`、`snapshot_secret`、`snapshot_denied`）；`rejected` 时透传 `fetch-status.reason_code`（如 `non_allowlisted_path`、`too_large`、`schema_mismatch`、`invalid_snapshot`、`snapshot_secret`、`merge_commit`、`history_rewritten`、`allowlist_unavailable`）；其它情况为 `null`。
+- `reason_code`：`bad` 时为副本读失败类别（如 `invalid_snapshot`、`snapshot_secret`、`snapshot_denied`）；`rejected` 时透传 `fetch-status.reason_code`：`allowlist_unavailable`（`origin/main` 上的 allowlist 缺失/不合法；`schema_file` 必须精确等于 `box-config-sync/schemas/box-config-snapshot.schema.json`，不支持加载其它 schema 路径）、`non_allowlisted_path`、`snapshot_not_regular`、`too_large`、`invalid_snapshot`、`schema_mismatch`、`snapshot_secret`、`box_id_mismatch`、`merge_commit`、`history_rewritten`、`tip_outside_history_window`（tip 提交者时间早于 allowlist `retention.history_days` 信任窗；早于窗口的历史一律不解读）、`pending_commits`（窗口内待校验提交超过 500 条，本次只校验最旧的 500 条并推进 `verified_commit`，状态为 `catching_up`，下次运行继续）、`git_unreadable`、`fetch_failed`、`snapshot_absent`、`unsafe_state_directory`、`denied`；其它情况为 `null`。
 - `collected_at` / `age_seconds`：副本声明的采集时间与相对现在的秒数；无副本为 `null`。
-- `sources` / `domain_states` / `domain_counts`：透传快照字段；`domain_counts` 对列表域给条目数，`hooks` 域给它的 `state` 字符串（Box 采不到 Mini hooks）。无副本时为 `null`。
-- `fetch`：`fetch-status.json` 的 `{state, reason_code, checked_at, verified_commit}`；无记录为 `null`。
-- `workflows`：`{summary, items}` 或 `null`（无副本时，且不读取 git）。`items[]` 是 `box-config-reconcile/v1` workflows 行的摘要：`id`、`dir_name`、`kind`、`name`、`state`（`aligned`/`missing_on_box`/`missing_in_git`/`orphan_export`/`content_drift`/`unknown`）、`reason_codes`、`join_basis`、`duplicate_name`、`name_changed`、`export_state`、`export_side`；不含 `file_differences` 等逐文件明细。git 腿读取失败时行状态按 reconcile 的 `unknown` 语义，不转成 `missing_*`；快照超过 36 小时自然得到 `unknown`/`snapshot_stale`。
+- `sources` / `domain_states` / `domain_counts`：透传快照字段；`domain_states` 在快照 schema 中是可选字段，旧版快照缺失时透传 `null`，仍按合法快照处理；`domain_counts` 对列表域给条目数，`hooks` 域给它的 `state` 字符串（Box 采不到 Mini hooks）。无副本时为 `null`。
+- `fetch`：`fetch-status.json` 的 `{state, reason_code, checked_at, verified_commit}`；`state` 含 `catching_up`（见上）；无记录为 `null`。
+- `git_leg`：`git-leg.json` 的 `{state, commit, observed_at}` 摘要；`state` 取 `ok`/`not_collected`/`error`/`too_large`/`absent` 等 git 腿自身状态；无记录为 `null`。它反映的是上一次 `fetch-snapshot` 时刻的 `origin/main`，不代表实时 git。
+- `workflows`：`{summary, items}` 或 `null`（无副本时）。`items[]` 是 `box-config-reconcile/v1` workflows 行的摘要：`id`、`dir_name`、`kind`、`name`、`state`（`aligned`/`missing_on_box`/`missing_in_git`/`orphan_export`/`content_drift`/`unknown`）、`reason_codes`、`join_basis`、`duplicate_name`、`name_changed`、`export_state`、`export_side`；不含 `file_differences` 等逐文件明细。`git-leg.json` 缺失、损坏或 git 腿非 `ok` 时行状态按 reconcile 的 `unknown` 语义，不转成 `missing_*`/`aligned`；快照超过 36 小时自然得到 `unknown`/`snapshot_stale`。
+
+相关传输说明：`publish-snapshot` 的 data worktree 默认 `<state-dir>/data-worktree`（设计示例 `/workspace/.boxsync/data-worktree` 不一致，可用 `--worktree` 覆盖）；`fetch-snapshot` 写 `fetch-status.json`/`git-leg.json` 但不写追加审计日志（审计 `audit.jsonl` 仅 `publish-snapshot` 写）。
 
 ## `GET /api/hooks`（ACM-664，本地未合并）
 

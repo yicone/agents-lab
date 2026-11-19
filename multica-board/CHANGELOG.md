@@ -8,7 +8,7 @@
 
 ### 新增
 
-- 本地候选（未合并、未部署）：新增只读 `GET /api/box-config`（快照时间、source_state、各域计数与 workflows 对账状态）与 `boxsync publish-snapshot`/`fetch-snapshot`：Box 把脱敏快照经专用数据分支 `box-snapshots` 传输到 Mini 状态目录，路径白名单只按 `origin/main` 读取，推送禁用 force，Mini 侧逐提交校验后才落副本；副本缺失时 `/api/skills` 不变。（ACM-928；无 PR）
+- 本地候选（未合并、未部署）：新增只读 `GET /api/box-config`（快照时间、source_state、各域计数与 workflows 对账状态）与 `boxsync publish-snapshot`/`fetch-snapshot`：Box 把脱敏快照经专用数据分支 `box-snapshots` 传输到 Mini 状态目录，路径白名单只按 `origin/main` 读取（`schema_file` 精确匹配固定 schema 路径，不加载任意 schema），推送禁用 force，Mini 侧对 `history_days` 信任窗内每个提交做内容校验（拒绝合并提交、越窗 tip、非白名单路径/超大/含密钥/箱号不符的 blob），超过 500 个待校验提交分轮 `catching_up` 推进 `verified_commit`；`fetch-snapshot` 成功时另写 `git-leg.json`（上次 fetch 时 `origin/main` 的冻结观察），看板只读状态目录三个文件、对账全在进程内，不启动任何子进程；副本缺失时 `/api/skills` 不变。（ACM-928；无 PR）
 
 - 本地候选（未合并、未部署）：Skills 抽屉可按需读取单项 Workspace 正文，区分未采集、空正文、超限与凭据隐藏；快照只保留哈希和清单，读取结果不写入 SQLite，绑定声明仍不等于 runtime 已加载。（ACM-895；无 PR）
 
