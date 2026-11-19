@@ -713,6 +713,204 @@ class ApprovalRequestTests(unittest.TestCase):
         self.assertIn("approval_request", text)
 
 
+class AcceptanceResultAndDefaultSendTests(unittest.TestCase):
+    BUILDER = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"
+    REVIEWER = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2"
+
+    def _comment(self, **kw):
+        row = {
+            "id": "c-ready",
+            "author_type": "agent",
+            "author_id": self.REVIEWER,
+            "created_at": "2026-11-18T11:11:00Z",
+            "content": "READY\n验收通过，可以合。",
+            "is_new": True,
+        }
+        row.update(kw)
+        return row
+
+    def _issue(self, comments, **kw):
+        issue = {
+            "issue_id": "01a1e9ac-0913-7422-a6a3-a1e25226e0c0",
+            "identifier": "AA-31",
+            "title": "验收",
+            "status": "in_review",
+            "assignee_type": "agent",
+            "assignee_id": self.BUILDER,
+            "workspace_slug": "aimaiai",
+            "comments": comments,
+            "runs": [],
+        }
+        issue.update(kw)
+        return issue
+
+    def test_reviewer_ready_on_assigned_in_review_is_notified(self):
+        issue = self._issue([self._comment()])
+        decision = ad.decide_acceptance_result(
+            status="in_review",
+            assignee_id=self.BUILDER,
+            comments=issue["comments"],
+        )
+        self.assertEqual(decision["action"], "notify")
+        self.assertEqual(decision["reason"], "acceptance_result")
+        change = ad.collect_acceptance_result(issue)
+        self.assertIsNotNone(change)
+        self.assertEqual(change["reason"], "acceptance_result")
+        self.assertEqual(change["delivery"], "send")
+        self.assertEqual(change["event_id"], "agent_delivery:c-ready")
+        self.assertIsNone(ad.collect_for_issue(issue))
+
+    def test_default_policy_sends_outside_acm_lab(self):
+        self.assertEqual(ad.route_policy("aimaiai"), "send")
+        self.assertEqual(ad.route_policy("clipvibe"), "send")
+        self.assertEqual(ad.route_policy("acm-lab"), "send")
+        self.assertEqual(ad.route_policy("aimaiai", {"agent_delivery": "shadow"}), "shadow")
+        self.assertEqual(ad.route_policy("aimaiai", {"agent_delivery": "off"}), "off")
+
+    def test_example_routes_keep_elder_oasis_shadow(self):
+        data = json.loads((ROOT / "routes.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["workspaces"]["elder-oasis"]["agent_delivery"], "shadow")
+        self.assertEqual(ad.route_policy("elder-oasis", data["workspaces"]["elder-oasis"]), "shadow")
+        change = ad.collect_acceptance_result(self._issue(
+            [self._comment()],
+            workspace_slug="elder-oasis",
+        ), data["workspaces"]["elder-oasis"])
+        self.assertEqual(change["delivery"], "shadow")
+
+    def test_ready_is_a_standalone_word(self):
+        self.assertTrue(ad.is_acceptance_result_text("结论：READY。"))
+        self.assertFalse(ad.is_acceptance_result_text("already reviewed"))
+        self.assertFalse(ad.is_acceptance_result_text("READYfoo"))
+        self.assertFalse(ad.is_acceptance_result_text("ready"))
+
+    def test_acceptance_phrases_are_notified(self):
+        for phrase in ("验收通过", "复验通过", "验收未通过", "验收失败"):
+            comments = [self._comment(id="c-" + phrase, content="本单" + phrase + "，详见说明。")]
+            decision = ad.decide_acceptance_result(
+                status="in_review", assignee_id=self.BUILDER, comments=comments
+            )
+            self.assertEqual(decision["action"], "notify", phrase)
+            self.assertEqual(decision["comment_id"], "c-" + phrase, phrase)
+
+    def test_mentioned_acceptance_author_without_ready_is_notified(self):
+        prior = self._comment(
+            id="c-ask",
+            author_type="member",
+            author_id="18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+            created_at="2026-11-18T10:00:00Z",
+            is_new=False,
+            content="[@测试验收 · Codex](mention://agent/%s) 请做独立验收。" % self.REVIEWER,
+        )
+        reply = self._comment(id="c-report", content="已看完 diff，建议按评论 3 处再改一版。")
+        decision = ad.decide_acceptance_result(
+            status="in_review",
+            assignee_id=self.BUILDER,
+            comments=[prior, reply],
+        )
+        self.assertEqual(decision["action"], "notify")
+        self.assertEqual(decision["comment_id"], "c-report")
+
+    def test_first_time_selection_mention_is_not_acceptance(self):
+        prior = self._comment(
+            id="c-ask",
+            author_type="member",
+            author_id="18fc579e-758b-4b00-ade6-91c42ea7e4ca",
+            created_at="2026-11-18T10:00:00Z",
+            is_new=False,
+            content="[@调研 · Codex](mention://agent/%s) 请为本单做首次选派。" % self.REVIEWER,
+        )
+        reply = self._comment(id="c-report", content="建议指派 Builder · Codex。")
+        decision = ad.decide_acceptance_result(
+            status="todo",
+            assignee_id=None,
+            comments=[prior, reply],
+        )
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "none")
+
+    def test_ordinary_reviewer_chatter_is_skipped(self):
+        comments = [self._comment(content="我先看一下实现说明。")]
+        decision = ad.decide_acceptance_result(
+            status="in_review", assignee_id=self.BUILDER, comments=comments
+        )
+        self.assertEqual(decision, {"action": "skip", "reason": "none"})
+        self.assertIsNone(ad.collect_acceptance_result(self._issue(comments)))
+
+    def test_system_and_ack_and_member_are_skipped(self):
+        system = [self._comment(comment_type="system", content="READY")]
+        self.assertEqual(
+            ad.decide_acceptance_result(status="in_review", assignee_id=self.BUILDER, comments=system)["reason"],
+            "system",
+        )
+        ack = [self._comment(content="收到")]
+        # pure ack is not acceptance text and was not requested
+        self.assertEqual(
+            ad.decide_acceptance_result(status="in_review", assignee_id=self.BUILDER, comments=ack),
+            {"action": "skip", "reason": "none"},
+        )
+        requested_ack = [
+            self._comment(
+                id="c-ask",
+                author_type="member",
+                created_at="2026-11-18T10:00:00Z",
+                is_new=False,
+                content="[@测试验收](mention://agent/%s) 请做独立验收。" % self.REVIEWER,
+            ),
+            self._comment(id="c-ack", content="好的"),
+        ]
+        self.assertEqual(
+            ad.decide_acceptance_result(
+                status="in_review", assignee_id=self.BUILDER, comments=requested_ack
+            )["reason"],
+            "ack",
+        )
+        member = [self._comment(author_type="member", author_id="18fc579e-758b-4b00-ade6-91c42ea7e4ca")]
+        self.assertEqual(
+            ad.decide_acceptance_result(status="in_review", assignee_id=self.BUILDER, comments=member)["reason"],
+            "member_author",
+        )
+
+    def test_assignee_ready_is_left_to_delivery_path(self):
+        comments = [self._comment(author_id=self.BUILDER, content="READY")]
+        decision = ad.decide_acceptance_result(
+            status="in_review", assignee_id=self.BUILDER, comments=comments
+        )
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "assignee_own")
+        self.assertIsNone(ad.collect_acceptance_result(self._issue(comments)))
+        delivery = ad.decide_delivery(
+            status="in_review",
+            assignee_type="agent",
+            assignee_id=self.BUILDER,
+            comments=comments,
+            runs=[],
+            transitions=[],
+        )
+        self.assertEqual(delivery["action"], "notify")
+        self.assertEqual(delivery["reason"], "assignee_comment")
+
+    def test_unassigned_ready_is_notified(self):
+        comments = [self._comment()]
+        issue = self._issue(comments, assignee_type=None, assignee_id=None)
+        change = ad.collect_acceptance_result(issue)
+        self.assertEqual(change["reason"], "acceptance_result")
+        self.assertEqual(change["delivery"], "send")
+
+    def test_quiet_status_skips_acceptance_result(self):
+        comments = [self._comment()]
+        decision = ad.decide_acceptance_result(
+            status="done", assignee_id=self.BUILDER, comments=comments
+        )
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "quiet")
+        self.assertIsNone(ad.collect_acceptance_result(self._issue(comments, status="done")))
+
+    def test_bridge_wires_acceptance_result(self):
+        text = (ROOT / "multica-status-bridge.py").read_text(encoding="utf-8")
+        self.assertIn("collect_acceptance_result", text)
+        self.assertIn("decide_acceptance_result", text)
+        self.assertIn("acceptance_result", text)
+
 
 if __name__ == "__main__":
     unittest.main()

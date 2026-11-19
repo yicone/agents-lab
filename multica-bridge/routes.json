@@ -192,7 +192,8 @@
       "endpoint_ref": "eo-pm",
       "bot": "EO-PM",
       "bot_id": "218f6ebc-7d91-49f9-851d-d533d6a38d87",
-      "events": ["comment", "run_failed"]
+      "events": ["comment", "run_failed"],
+      "agent_delivery": "shadow"
     },
     "clipvibe": {
       "endpoint_ref": "clipvibe-pm",

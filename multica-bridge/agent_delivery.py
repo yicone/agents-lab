@@ -24,9 +24,17 @@ pass has run and the workspace is not a seed snapshot:
     elif change:
         ad.remember_shadow(box, change, now_iso)
 
-ACM Lab defaults to send. Every other workspace defaults to shadow: the event
-is stored as status=shadow_record, which the existing drain ignores because it
-only posts pending items. A route may set agent_delivery to send, shadow, or off.
+A separate acceptance_result covers a non-assignee agent's new comment that
+is an acceptance verdict (standalone word READY, or 验收通过 / 复验通过 /
+验收未通过 / 验收失败) or that comes from an agent previously @-mentioned
+on the same issue for 独立验收. The current assignee's own comments still
+use the delivery path above, so the same comment is not emitted twice.
+System comments and pure acknowledgements stay out. Generic comment events
+are not opened.
+
+agent_delivery defaults to send for every workspace. A route may set it to
+send, shadow, or off. Shadow events are stored as status=shadow_record, which
+the existing drain ignores because it only posts pending items.
 """
 
 from __future__ import annotations
@@ -44,6 +52,9 @@ SHADOW_STATUS = "shadow_record"
 DISPATCHER_ID = "9bfe8713-ce7e-499b-830e-423223a64480"
 APPROVAL_MARK = "需要你做：批准"
 REQUEST_HINTS = ("首次选派", "独立验收")
+ACCEPTANCE_HINTS = ("独立验收",)
+ACCEPTANCE_PHRASES = ("验收通过", "复验通过", "验收未通过", "验收失败")
+_READY_WORD = re.compile(r"\bREADY\b")
 _MENTION = re.compile(r"\[@[^\]]*\]\(mention://[^)]*\)")
 _AGENT_MENTION = re.compile(r"mention://agent/([0-9a-fA-F-]{36})")
 _PUNCT = re.compile(r"^[\s\.\,\!\?\;\:，。！？；：、~～…]+|[\s\.\,\!\?\;\:，。！？；：、~～…]+$")
@@ -114,8 +125,8 @@ def mentioned_agent_ids(text) -> set[str]:
     return {m.group(1).lower() for m in _AGENT_MENTION.finditer(text or "")}
 
 
-def author_was_requested(author_id, comments, before=None) -> bool:
-    """True if an earlier comment @-mentioned this agent for 首次选派 or 独立验收."""
+def author_was_requested(author_id, comments, before=None, hints=REQUEST_HINTS) -> bool:
+    """True if an earlier comment @-mentioned this agent with one of the hints."""
     aid = (author_id or "").lower()
     if not aid:
         return False
@@ -127,7 +138,7 @@ def author_was_requested(author_id, comments, before=None) -> bool:
         body = prior.get("content") or ""
         if aid not in mentioned_agent_ids(body):
             continue
-        if any(hint in body for hint in REQUEST_HINTS):
+        if any(hint in body for hint in hints):
             return True
     return False
 
@@ -212,14 +223,115 @@ def skip_reason_for_unassigned(comments) -> str | None:
     return "member_comment_only"
 
 
+def is_acceptance_result_text(text) -> bool:
+    """True for a standalone READY token or an explicit acceptance phrase."""
+    body = text or ""
+    if _READY_WORD.search(body):
+        return True
+    return any(phrase in body for phrase in ACCEPTANCE_PHRASES)
+
+
+def author_was_requested_for_acceptance(author_id, comments, before=None) -> bool:
+    """True if an earlier comment @-mentioned this agent for 独立验收."""
+    return author_was_requested(author_id, comments, before=before, hints=ACCEPTANCE_HINTS)
+
+
+def decide_acceptance_result(
+    *,
+    status,
+    status_category=None,
+    assignee_id=None,
+    comments,
+    transitions=None,
+    same_tick_covered=False,
+) -> dict:
+    """Notify a new acceptance comment from an agent who is not the assignee."""
+    def _eligible(comment) -> bool:
+        if is_acceptance_result_text(comment.get("content")):
+            return True
+        return author_was_requested_for_acceptance(
+            comment.get("author_id"), comments, comment.get("created_at")
+        )
+
+    acceptance_seen = False
+    for comment in comments or []:
+        if comment.get("is_new") and _eligible(comment):
+            acceptance_seen = True
+            break
+    if is_quiet(status, status_category) and acceptance_seen:
+        return {"action": "skip", "reason": "quiet"}
+    if is_quiet(status, status_category):
+        return {"action": "skip", "reason": "none"}
+
+    chosen = None
+    filtered = None
+    assignee = assignee_id or None
+    ordered = sorted(
+        comments or [],
+        key=lambda c: (c.get("created_at") or "", c.get("id") or ""),
+    )
+    for comment in ordered:
+        if not comment.get("is_new"):
+            continue
+        if not _eligible(comment):
+            continue
+        if is_system_comment(comment):
+            filtered = "system"
+            continue
+        if comment.get("author_type") != "agent":
+            filtered = "member_author"
+            continue
+        if not comment.get("author_id"):
+            filtered = "member_author"
+            continue
+        if assignee and comment.get("author_id") == assignee:
+            filtered = "assignee_own"
+            continue
+        if is_pure_ack(comment.get("content")):
+            filtered = "ack"
+            continue
+        if _covered(comment.get("created_at"), transitions, same_tick_covered):
+            filtered = "covered"
+            continue
+        chosen = {
+            "action": "notify",
+            "reason": "acceptance_result",
+            "comment_id": comment.get("id"),
+            "run_id": None,
+            "at": comment.get("created_at"),
+            "content": comment.get("content"),
+        }
+    if chosen:
+        return chosen
+    if filtered:
+        return {"action": "skip", "reason": filtered}
+    return {"action": "skip", "reason": "none"}
+
+
+def collect_acceptance_result(issue: dict, route=None):
+    """One outbox change for an acceptance result, or None."""
+    policy = route_policy(issue.get("workspace_slug"), route)
+    if policy == "off":
+        return None
+    decision = decide_acceptance_result(
+        status=issue.get("status"),
+        status_category=issue.get("status_category"),
+        assignee_id=issue.get("assignee_id"),
+        comments=issue.get("comments") or [],
+        transitions=issue.get("transitions") or [],
+        same_tick_covered=bool(issue.get("same_tick_covered")),
+    )
+    if decision["action"] != "notify":
+        return None
+    return build_change(issue, decision, policy)
+
+
 def route_policy(slug, route=None) -> str:
-    """send, shadow, or off. ACM Lab sends unless the route says otherwise."""
+    """send, shadow, or off. Defaults to send unless the route says otherwise."""
     explicit = (route or {}).get("agent_delivery")
     if explicit in ("off", "send", "shadow"):
         return explicit
-    if slug == ACM_LAB_SLUG:
-        return "send"
-    return "shadow"
+    return "send"
 
 
 def _covered(signal_at, transitions, same_tick: bool) -> bool:
