@@ -4,6 +4,11 @@ A delivery is the assignee agent's new comment. A completed run is only the
 fallback when that agent wrote no comment and no in_review/blocked transition
 landed within 15 minutes of the signal. done/cancelled/backlog, pure
 acknowledgements, duplicate replies, and comment_type system are not deliveries.
+
+A separate approval_request covers “需要你做：批准…” comments from the
+dispatcher (副调度) or from an agent previously @-mentioned on the same
+issue for 首次选派 / 独立验收, even when the issue has no assignee. It does
+not notify issue creation, member comments, or ordinary agent comments.
 System comments (for example a CLI non-zero exit notice) stay out of this path
 so they are not reported as a normal hand-off.
 
@@ -34,7 +39,13 @@ QUIET_STATUSES = frozenset({"done", "cancelled", "canceled", "backlog"})
 COVER_STATUSES = frozenset({"in_review", "blocked"})
 ACM_LAB_SLUG = "acm-lab"
 SHADOW_STATUS = "shadow_record"
+# 副调度 (ACM Lab dispatcher). First-time selection and independent acceptance
+# requests are posted by this agent, usually before anyone is assigned.
+DISPATCHER_ID = "9bfe8713-ce7e-499b-830e-423223a64480"
+APPROVAL_MARK = "需要你做：批准"
+REQUEST_HINTS = ("首次选派", "独立验收")
 _MENTION = re.compile(r"\[@[^\]]*\]\(mention://[^)]*\)")
+_AGENT_MENTION = re.compile(r"mention://agent/([0-9a-fA-F-]{36})")
 _PUNCT = re.compile(r"^[\s\.\,\!\?\;\:，。！？；：、~～…]+|[\s\.\,\!\?\;\:，。！？；：、~～…]+$")
 ACK_PHRASES = frozenset({
     "收到", "确认", "好的", "好", "ok", "okay", "noted", "acknowledged",
@@ -93,6 +104,112 @@ def is_pure_ack(text) -> bool:
     if not flat:
         return True
     return flat.casefold() in ACK_PHRASES
+
+
+def is_approval_request_text(text) -> bool:
+    return APPROVAL_MARK in (text or "")
+
+
+def mentioned_agent_ids(text) -> set[str]:
+    return {m.group(1).lower() for m in _AGENT_MENTION.finditer(text or "")}
+
+
+def author_was_requested(author_id, comments, before=None) -> bool:
+    """True if an earlier comment @-mentioned this agent for 首次选派 or 独立验收."""
+    aid = (author_id or "").lower()
+    if not aid:
+        return False
+    limit = parse_time(before) if before else None
+    for prior in comments or []:
+        created = parse_time(prior.get("created_at"))
+        if limit is not None and created is not None and created > limit:
+            continue
+        body = prior.get("content") or ""
+        if aid not in mentioned_agent_ids(body):
+            continue
+        if any(hint in body for hint in REQUEST_HINTS):
+            return True
+    return False
+
+
+def is_eligible_approval_author(comment, comments) -> bool:
+    if (comment or {}).get("author_type") != "agent" or not (comment or {}).get("author_id"):
+        return False
+    if comment.get("author_id") == DISPATCHER_ID:
+        return True
+    return author_was_requested(comment.get("author_id"), comments, comment.get("created_at"))
+
+
+def decide_approval_request(*, status, status_category=None, comments) -> dict:
+    """Notify a new “需要你做：批准…” from an eligible agent, even if unassigned."""
+    approval_seen = False
+    for comment in comments or []:
+        if comment.get("is_new") and is_approval_request_text(comment.get("content")):
+            approval_seen = True
+            break
+    if is_quiet(status, status_category) and approval_seen:
+        return {"action": "skip", "reason": "quiet"}
+    if is_quiet(status, status_category):
+        return {"action": "skip", "reason": "none"}
+
+    chosen = None
+    filtered = None
+    ordered = sorted(
+        comments or [],
+        key=lambda c: (c.get("created_at") or "", c.get("id") or ""),
+    )
+    for comment in ordered:
+        if not comment.get("is_new"):
+            continue
+        if not is_approval_request_text(comment.get("content")):
+            continue
+        if is_system_comment(comment):
+            filtered = "system"
+            continue
+        if comment.get("author_type") != "agent":
+            filtered = "member_author"
+            continue
+        if not is_eligible_approval_author(comment, comments):
+            filtered = "author_not_requested"
+            continue
+        chosen = {
+            "action": "notify",
+            "reason": "approval_request",
+            "comment_id": comment.get("id"),
+            "run_id": None,
+            "at": comment.get("created_at"),
+            "content": comment.get("content"),
+        }
+    if chosen:
+        return chosen
+    if filtered:
+        return {"action": "skip", "reason": filtered}
+    return {"action": "skip", "reason": "none"}
+
+
+def collect_approval_request(issue: dict, route=None):
+    """One outbox change for an approval request, or None."""
+    policy = route_policy(issue.get("workspace_slug"), route)
+    if policy == "off":
+        return None
+    decision = decide_approval_request(
+        status=issue.get("status"),
+        status_category=issue.get("status_category"),
+        comments=issue.get("comments") or [],
+    )
+    if decision["action"] != "notify":
+        return None
+    return build_change(issue, decision, policy)
+
+
+def skip_reason_for_unassigned(comments) -> str | None:
+    """Log-worthy reason when an unassigned issue has new comments but no notify."""
+    new_comments = [c for c in (comments or []) if c.get("is_new")]
+    if not new_comments:
+        return None
+    if any(c.get("author_type") == "agent" for c in new_comments):
+        return "not_assignee"
+    return "member_comment_only"
 
 
 def route_policy(slug, route=None) -> str:

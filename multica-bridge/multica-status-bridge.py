@@ -6,7 +6,10 @@ Event kinds (each change carries "kind"):
   comment        new comment written by an agent (routes with "comment" in events)
   agent_delivery assignee agent's new comment, or a completed run when that
                  agent left no comment and no in_review/blocked transition
-                 covered it. ACM Lab sends; other workspaces are shadow_record.
+                 covered it; also approval_request (“需要你做：批准…”) from
+                 副调度 or an agent previously @-mentioned for 首次选派 /
+                 独立验收, even when the issue has no assignee.
+                 ACM Lab sends; other workspaces are shadow_record.
   run_failed     an agent run ended as failed (routes with "run_failed" in events)
   parse_failed JSON/field parse failure (always steward)
   net_alert    workspace network streak >= 6 ticks (~30 min) or recovery
@@ -610,11 +613,7 @@ def _main():
             _r = ob.matched_route(routes, m.get("workspace_slug"), m.get("project_id"))
             if ad.route_policy(m.get("workspace_slug"), _r) == "off":
                 continue
-            assignee = m.get("assignee_id")
-            if not assignee or assignee not in names(m["workspace_id"]):
-                continue
-            if ad.is_quiet(m.get("status")):
-                continue
+            ident = m.get("identifier")
             since = p.get("a") or prev_t
             prev_ts = ts(p.get("a"))
             try:
@@ -622,7 +621,7 @@ def _main():
                             "--since", since, "--compact", "--output", "json") if since else []
             except Exception as e:
                 note_collect(m.get("workspace"), m.get("workspace_id"), m.get("workspace_slug"),
-                             "comment_list", e, ident=m.get("identifier"))
+                             "comment_list", e, ident=ident)
                 raw_cs = []
             if isinstance(raw_cs, dict):
                 raw_cs = raw_cs.get("comments") or raw_cs.get("items") or []
@@ -640,13 +639,29 @@ def _main():
                     "content": cm.get("content"),
                     "is_new": bool(cm.get("id")) and cm.get("id") not in seen_c_set and ts(created) > prev_ts,
                 })
+
+            def emit_delivery(change):
+                if not change:
+                    return False
+                cid = change.get("comment_id")
+                if cid and cid not in seen_c_set:
+                    seen_c.append(cid)
+                    seen_c_set.add(cid)
+                if change.get("delivery") == "send":
+                    changes.append(change)
+                    log(f"agent_delivery send {ident} {change.get('event_id')} {change.get('reason')}")
+                else:
+                    shadow_deliveries.append(change)
+                    log(f"agent_delivery shadow {ident} {change.get('event_id')} {change.get('reason')}")
+                return True
+
             payload = {
                 "issue_id": iid,
-                "identifier": m.get("identifier"),
+                "identifier": ident,
                 "title": m.get("title"),
                 "status": m.get("status"),
-                "assignee_type": "agent",
-                "assignee_id": assignee,
+                "assignee_type": "agent" if m.get("assignee_id") else None,
+                "assignee_id": m.get("assignee_id"),
                 "workspace": m.get("workspace"),
                 "workspace_slug": m.get("workspace_slug"),
                 "workspace_id": m.get("workspace_id"),
@@ -656,6 +671,23 @@ def _main():
                 "transitions": list(status_cover.get(iid) or []),
                 "same_tick_covered": iid in status_cover,
             }
+            approval = ad.decide_approval_request(
+                status=m.get("status"), comments=comments,
+            )
+            if approval.get("action") == "notify":
+                emit_delivery(ad.collect_approval_request(payload, _r))
+            elif approval.get("reason") and approval.get("reason") != "none":
+                log(f"agent_delivery skip {ident} reason={approval.get('reason')}")
+
+            assignee = m.get("assignee_id")
+            if not assignee or assignee not in names(m["workspace_id"]):
+                if approval.get("reason") == "none":
+                    skip = ad.skip_reason_for_unassigned(comments)
+                    if skip:
+                        log(f"agent_delivery skip {ident} reason={skip}")
+                continue
+            if ad.is_quiet(m.get("status")):
+                continue
             change = ad.collect_for_issue(payload, _r)
             if change is None and not payload["same_tick_covered"]:
                 payload["runs"] = []
@@ -679,7 +711,7 @@ def _main():
                     tl = tl if isinstance(tl, list) else (tl.get("items") or tl.get("timeline") or [])
                 except Exception as e:
                     note_collect(m.get("workspace"), m.get("workspace_id"), m.get("workspace_slug"),
-                                 "timeline", e, ident=m.get("identifier"))
+                                 "timeline", e, ident=ident)
                     tl = None
                 if tl is not None:
                     extra = []
@@ -693,12 +725,7 @@ def _main():
                     change = ad.collect_for_issue(payload, _r)
                     if change is None:
                         continue
-            if change.get("delivery") == "send":
-                changes.append(change)
-                log(f"agent_delivery send {m.get('identifier')} {change.get('event_id')} {change.get('reason')}")
-            else:
-                shadow_deliveries.append(change)
-                log(f"agent_delivery shadow {m.get('identifier')} {change.get('event_id')} {change.get('reason')}")
+            emit_delivery(change)
 
     hold_pending_issues(current, prev, pending_ids)
     collect_deliveries()

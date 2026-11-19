@@ -586,5 +586,133 @@ class InstallTests(unittest.TestCase):
             self.assertFalse(bins.exists())
 
 
+class ApprovalRequestTests(unittest.TestCase):
+    DISPATCHER = ad.DISPATCHER_ID
+    OTHER = "55a9164f-ddd3-4ca8-a6a5-13b14e2e6bca"
+
+    def _comment(self, **kw):
+        row = {
+            "id": "c-new",
+            "author_type": "agent",
+            "author_id": self.DISPATCHER,
+            "created_at": "2026-11-18T04:52:49Z",
+            "content": "需要你做：批准 ACM-987 由「调研 · Codex」指派开工，仅交付设计与验收口径。",
+            "is_new": True,
+        }
+        row.update(kw)
+        return row
+
+    def _issue(self, comments, **kw):
+        issue = {
+            "issue_id": "01a1ece5-bceb-7bbf-a007-fac83467dd2e",
+            "identifier": "ACM-987",
+            "title": "多 agent 关键写入",
+            "status": "todo",
+            "assignee_type": None,
+            "assignee_id": None,
+            "workspace_slug": "acm-lab",
+            "comments": comments,
+            "runs": [],
+        }
+        issue.update(kw)
+        return issue
+
+    def test_unassigned_dispatcher_approval_is_notified(self):
+        issue = self._issue([self._comment()])
+        decision = ad.decide_approval_request(status="todo", comments=issue["comments"])
+        self.assertEqual(decision["action"], "notify")
+        self.assertEqual(decision["reason"], "approval_request")
+        change = ad.collect_approval_request(issue)
+        self.assertIsNotNone(change)
+        self.assertEqual(change["kind"], "agent_delivery")
+        self.assertEqual(change["reason"], "approval_request")
+        self.assertEqual(change["delivery"], "send")
+        self.assertEqual(change["event_id"], "agent_delivery:c-new")
+        self.assertIsNone(ad.collect_for_issue(issue))
+
+    def test_member_selection_request_is_not_notified(self):
+        comments = [self._comment(
+            id="c-member",
+            author_type="member",
+            author_id="6da98acd-e914-4724-ae6e-517fcfeb0947",
+            created_at="2026-11-18T04:33:59Z",
+            content="[@副调度](mention://agent/%s) 请为本单做首次选派。" % self.DISPATCHER,
+        )]
+        decision = ad.decide_approval_request(status="todo", comments=comments)
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "none")
+        self.assertIsNone(ad.collect_approval_request(self._issue(comments)))
+        self.assertEqual(ad.skip_reason_for_unassigned(comments), "member_comment_only")
+
+    def test_todo_create_without_comments_is_silent(self):
+        decision = ad.decide_approval_request(status="todo", comments=[])
+        self.assertEqual(decision, {"action": "skip", "reason": "none"})
+        self.assertIsNone(ad.skip_reason_for_unassigned([]))
+        self.assertIsNone(ad.collect_approval_request(self._issue([])))
+
+    def test_dispatcher_approval_on_assigned_issue_is_still_notified(self):
+        comments = [self._comment()]
+        issue = self._issue(comments, assignee_type="agent", assignee_id=self.OTHER)
+        change = ad.collect_approval_request(issue)
+        self.assertIsNotNone(change)
+        self.assertEqual(change["reason"], "approval_request")
+        # existing path still ignores comments not written by the assignee
+        self.assertIsNone(ad.collect_for_issue(issue))
+
+    def test_dispatcher_comment_without_mark_is_skipped(self):
+        comments = [self._comment(content="已在本单提交选人建议，未指派、未启动。")]
+        decision = ad.decide_approval_request(status="todo", comments=comments)
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "none")
+        self.assertEqual(ad.skip_reason_for_unassigned(comments), "not_assignee")
+
+    def test_mentioned_agent_approval_is_notified(self):
+        prior = self._comment(
+            id="c-ask",
+            author_type="member",
+            author_id="6da98acd-e914-4724-ae6e-517fcfeb0947",
+            created_at="2026-11-18T04:33:59Z",
+            is_new=False,
+            content="[@调研 · Codex](mention://agent/%s) 请为本单做首次选派。" % self.OTHER,
+        )
+        reply = self._comment(id="c-reply", author_id=self.OTHER)
+        decision = ad.decide_approval_request(status="todo", comments=[prior, reply])
+        self.assertEqual(decision["action"], "notify")
+        self.assertEqual(decision["comment_id"], "c-reply")
+        change = ad.collect_approval_request(self._issue([prior, reply]))
+        self.assertEqual(change["event_id"], "agent_delivery:c-reply")
+
+    def test_unmentioned_agent_approval_is_skipped(self):
+        comments = [self._comment(author_id=self.OTHER)]
+        decision = ad.decide_approval_request(status="todo", comments=comments)
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "author_not_requested")
+        self.assertIsNone(ad.collect_approval_request(self._issue(comments)))
+
+    def test_quiet_status_skips_approval_request(self):
+        comments = [self._comment()]
+        decision = ad.decide_approval_request(status="done", comments=comments)
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "quiet")
+        self.assertIsNone(ad.collect_approval_request(self._issue(comments, status="done")))
+
+    def test_member_approval_lookalike_is_skipped(self):
+        comments = [self._comment(
+            author_type="member",
+            author_id="6da98acd-e914-4724-ae6e-517fcfeb0947",
+        )]
+        decision = ad.decide_approval_request(status="todo", comments=comments)
+        self.assertEqual(decision["action"], "skip")
+        self.assertEqual(decision["reason"], "member_author")
+
+    def test_bridge_wires_approval_request(self):
+        text = (ROOT / "multica-status-bridge.py").read_text(encoding="utf-8")
+        self.assertIn("collect_approval_request", text)
+        self.assertIn("decide_approval_request", text)
+        self.assertIn("skip_reason_for_unassigned", text)
+        self.assertIn("approval_request", text)
+
+
+
 if __name__ == "__main__":
     unittest.main()
