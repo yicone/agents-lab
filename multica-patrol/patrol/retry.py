@@ -9,7 +9,8 @@ from .cli import CliError
 from .facts import iso, parse_ts
 from .identity import verify_comment_author
 from .ledger import publish, verify_post_author
-from .selfreport import escalation_first_line
+from .selfreport import escalation_first_line, escalation_issue_gate, record_escalation_sent
+from .wake import post_steward_wake
 
 
 def _mention(issue: dict) -> str:
@@ -112,6 +113,14 @@ class _Result:
         self.retries_would_send = 0
         self.error_escalations = 0
         self.identity_violation = None
+        self.steward_wakes = []
+
+
+_ESCALATION_SKIP = {
+    "escalation_skipped_closed",
+    "escalation_skipped_unread",
+    "escalation_suppressed_24h",
+}
 
 
 def _record(state: dict, issue_id: str) -> dict:
@@ -124,12 +133,24 @@ def _drop(state: dict, issue_id: str) -> None:
 
 def _escalate(store, cli, state, issue, rec, reason, new_run_id, error_run_id,
               now, sleep, res: _Result) -> str:
+    gate = escalation_issue_gate(cli, state, issue["id"], now)
+    if gate == "closed":
+        _drop(state, issue["id"])
+        return "escalation_skipped_closed"
+    if gate == "unread":
+        return "escalation_skipped_unread"
+    if gate == "recent":
+        return "escalation_suppressed_24h"
     marker, body = _provider_escalation_body(state, issue, rec, reason,
                                              new_run_id, error_run_id)
     pub = publish(store, cli, state, config.INBOX_ISSUE_ID, marker, body,
                   f"ERR-{issue['id']}-{new_run_id}", now, sleep)
     if pub["status"] in ("posted", "duplicate"):
+        record_escalation_sent(state, issue["id"], iso(now))
         res.error_escalations += 1
+        wake = post_steward_wake(store, cli, state, pub.get("comment_id"), marker, now)
+        if wake.get("status") != "skipped":
+            res.steward_wakes.append(wake)
         return "escalated"
     return f"escalation_{pub['status']}"
 
@@ -200,7 +221,11 @@ def process_error_retries(store, cli, state, per_issue: dict, now,
                                             "retry_not_started", rec.get("run_id"),
                                             rec.get("run_id"), now, sleep, res) \
                             if not dry_run else "would_escalate"
-                        rec["state"] = "escalated"
+                        if outcome in ("escalation_suppressed_24h", "escalation_skipped_unread"):
+                            action("waiting")
+                            continue
+                        if outcome != "escalation_skipped_closed":
+                            rec["state"] = "escalated"
                         action(outcome)
                     else:
                         action("waiting")
@@ -211,7 +236,11 @@ def process_error_retries(store, cli, state, per_issue: dict, now,
                                         "error_again", newest.get("id"),
                                         rec.get("run_id"), now, sleep, res) \
                         if not dry_run else "would_escalate"
-                    rec["state"] = "escalated"
+                    if outcome in ("escalation_suppressed_24h", "escalation_skipped_unread"):
+                        action("waiting")
+                        continue
+                    if outcome != "escalation_skipped_closed":
+                        rec["state"] = "escalated"
                     action(outcome)
                 else:
                     if not dry_run:
@@ -231,10 +260,13 @@ def process_error_retries(store, cli, state, per_issue: dict, now,
             outcome = _escalate(store, cli, state, issue, {"agent_id": pe["agent_id"]},
                                 "dispatcher_error", pe["run_id"], pe["run_id"],
                                 now, sleep, res) if not dry_run else "would_escalate"
-            if not dry_run:
+            if not dry_run and outcome not in _ESCALATION_SKIP:
                 records[issue_id] = {"run_id": pe["run_id"], "agent_id": pe["agent_id"],
                                      "state": "escalated", "retried_at": None}
-            action(outcome)
+            if outcome in ("escalation_suppressed_24h", "escalation_skipped_unread"):
+                action("waiting")
+            else:
+                action(outcome)
             continue
         # Fresh detection: re-read guards before any write.
         try:

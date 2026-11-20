@@ -57,6 +57,11 @@ APPROVAL_WAIT_PATTERNS = [
 ]
 SELF_COMMENT_PREFIXES = ("[patrol-batch:", "[dispatch-batch:")
 ESCALATION_PREFIX = "[patrol-escalate:"
+# Steward member account that wakes the dispatcher under an escalation comment.
+# The hourly task must not use this profile; the wake subprocess does.
+STEWARD_PROFILE = "agent-steward"
+STEWARD_MEMBER_ID = "fe8e538f-fc76-492c-be82-87328a2d6a07"
+WAKE_PREFIX = "[patrol-wake:"
 DAILY_PREFIX = "[patrol-daily:"
 ERROR_RUN_WINDOW_S = 6 * 3600
 RETRY_NO_RUN_ESCALATE_S = 2 * 3600

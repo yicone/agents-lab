@@ -32,6 +32,34 @@ def iso(dt: datetime) -> str:
     return dt.isoformat()
 
 
+_VALUE_FLAGS = {
+    "--profile", "--workspace-id", "--server-url", "--output", "--content-file",
+    "--parent", "--since", "--status", "--limit", "--offset", "--instruction-file",
+    "--agent-id", "--at", "--after", "--kind",
+}
+
+
+def _positionals(argv: list[str]) -> list[str]:
+    """Drop the binary, flags, and values of flags that take a value.
+
+    Global flags such as `--profile` sit before the subcommand. Their values
+    must not be read as `issue` / the target id.
+    """
+    words = []
+    index = 1
+    while index < len(argv):
+        arg = argv[index]
+        if arg.startswith("-"):
+            if "=" not in arg and arg in _VALUE_FLAGS and index + 1 < len(argv):
+                index += 2
+            else:
+                index += 1
+            continue
+        words.append(arg)
+        index += 1
+    return words
+
+
 def make_issue(identifier: str, status: str, *, uid: str | None = None,
                assignee_id: str | None = "agent-other",
                created_at: datetime | None = None, updated_at: datetime | None = None,
@@ -93,6 +121,10 @@ class FakeMultica:
         self.write_mode = "normal"        # normal|timeout_found|timeout_lost|nonzero
         self.author_type = "agent"
         self.author_id = config.DISPATCHER_AGENT_ID
+        # None -> Steward profile writes are the steward member. Tests can
+        # force a wrong author without changing dispatcher-task writes.
+        self.force_profile_author = None
+        self.spawn_meta: list[dict] = []
         self.comment_list_fail_ids: set[str] = set()
         self.mono = 0.0
         self.mono_step = 0.0
@@ -116,12 +148,18 @@ class FakeMultica:
     def exec(self, argv, **kwargs):
         argv = list(argv)
         self.calls.append(argv)
+        env = kwargs.get("env")
+        self.spawn_meta.append({
+            "argv": argv,
+            "env": None if env is None else dict(env),
+            "cwd": kwargs.get("cwd"),
+        })
         if self.fail_handler:
             injected = self.fail_handler(argv)
             if injected is not None:
                 return injected
         args = argv[1:]
-        words = [a for a in args if not a.startswith("-")]
+        words = _positionals(argv)
 
         def out(data):
             return subprocess.CompletedProcess(argv, 0, json.dumps(data), "")
@@ -196,13 +234,20 @@ class FakeMultica:
             raise subprocess.TimeoutExpired(argv, 90)
         if self.write_mode == "nonzero":
             return fail("write failed", 1)
-        entry = {"id": cid, "content": content, "author_type": self.author_type,
-                 "author_id": self.author_id, "created_at": iso(self.now),
-                 "type": "comment"}
+        author_type, author_id = self.author_type, self.author_id
+        if "--profile" in argv:
+            if self.force_profile_author:
+                author_type, author_id = self.force_profile_author
+            else:
+                author_type, author_id = "member", config.STEWARD_MEMBER_ID
+        parent_id = args[args.index("--parent") + 1] if "--parent" in args else None
+        entry = {"id": cid, "content": content, "author_type": author_type,
+                 "author_id": author_id, "created_at": iso(self.now),
+                 "parent_id": parent_id, "type": "comment"}
         self.comments.setdefault(issue_id, []).append(entry)
         if self.write_mode == "timeout_found":
             raise subprocess.TimeoutExpired(argv, 90)
-        return out({"id": cid, "author_type": self.author_type, "author_id": self.author_id})
+        return out({"id": cid, "author_type": author_type, "author_id": author_id})
 
 
 def invoke(fake: FakeMultica, argv: list[str], *, env=None, now=None, state_dir):

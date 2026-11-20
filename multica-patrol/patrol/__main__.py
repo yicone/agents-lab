@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import config, daily, ledger, retry, rules, run_metrics_source, scan, selfreport, unwoken
+from . import config, daily, ledger, retry, rules, run_metrics_source, scan, selfreport, unwoken, wake
 from .cli import CliError, PatrolCLI
 from .facts import SGT, iso, parse_ts
 from .identity import check_dispatcher_identity
@@ -63,6 +63,7 @@ def _base_result(batch_id, slot, mode, scan_kind="?", duration=0.0, writes=0):
         "coverage": {"issues_discovered": 0, "deep_checked": 0, "from_cache": 0,
                      "errors": 0, "complete": False, "deadline_hit": False},
         "findings_count": 0, "suppressed": 0, "escalations": 0,
+        "steward_wake": [],
         "ledger": {"status": "unknown", "comment_id": None},
         "self_failures_consecutive": 0, "duration_s": round(duration, 1),
         "writes_attempted": writes,
@@ -133,6 +134,10 @@ def run_hourly(args, ctx) -> int:
         delivered = (state.get("slots") or {}).get(slot)
         if delivered and delivered.get("status") in ("posted", "duplicate") and not dry_run:
             return finish(0, "duplicate", delivered.get("comment_id"))
+
+        if not dry_run:
+            result["steward_wake"].extend(
+                wake.replay_pending_wakes(store, cli, state, now))
 
         missed = selfreport.detect_missed_slots(state, slot) if not dry_run else []
         if missed:
@@ -259,6 +264,7 @@ def run_hourly(args, ctx) -> int:
         result["retries_sent"] = err_res.retries_sent
         result["retries_would_send"] = err_res.retries_would_send
         result["error_escalations"] = err_res.error_escalations
+        result["steward_wake"].extend(err_res.steward_wakes)
         unw_res = unwoken.process_unwoken(
             store, cli, state, scanned["per_issue"], now, dry_run, ctx["sleep"])
         result["unwoken_sent"] = unw_res.sent
@@ -316,6 +322,9 @@ def run_hourly(args, ctx) -> int:
         if not dry_run:
             for key in rejected_keys:
                 alerted.pop(key, None)
+            if escalate_keys:
+                escalate_keys = selfreport.select_escalation_keys(
+                    cli, state, escalate_keys, now)
 
         duration = ctx["monotonic"]() - started
         now_sgt = now.astimezone(SGT)
@@ -369,19 +378,61 @@ def run_hourly(args, ctx) -> int:
                 rec["first_at"] = iso(now)
             rec["last_at"] = iso(now)
 
-        if prior_pending:
-            repub = ledger.publish(store, cli, state, config.INBOX_ISSUE_ID,
-                                   prior_pending["marker"], prior_pending["body"],
-                                   f"ESC-retry-{slot}", now, ctx["sleep"])
-            if repub["status"] in ("posted", "duplicate"):
-                for key in prior_pending.get("keys") or []:
-                    selfreport.mark_key_escalated(state, key, iso(now))
-                if prior_pending.get("self"):
-                    state["self_escalated_at"] = iso(now)
-                state["pending_escalation"] = None
-            else:
-                fail("escalation_write", f"pending escalation {repub['status']}")
+        def _wake_escalation(pub, marker):
+            outcome = wake.post_steward_wake(
+                store, cli, state, pub.get("comment_id"), marker, now)
+            # A failed wake is a result row only. It must not latch
+            # identity_violation or mark the patrol round as a self-failure.
+            if outcome.get("status") != "skipped":
+                result["steward_wake"].append(outcome)
 
+        def _mark_sent(keys, self_flag):
+            for key in keys:
+                selfreport.mark_key_escalated(state, key, iso(now))
+                selfreport.record_escalation_sent(
+                    state, selfreport.issue_id_of_key(key), iso(now))
+            if self_flag:
+                state["self_escalated_at"] = iso(now)
+            state["pending_escalation"] = None
+
+        if prior_pending:
+            pending_keys = selfreport.select_escalation_keys(
+                cli, state, list(prior_pending.get("keys") or []), now)
+            self_flag = bool(prior_pending.get("self"))
+            if not pending_keys and not self_flag:
+                still_open = [
+                    key for key in (prior_pending.get("keys") or [])
+                    if key in alerted and not (alerted[key] or {}).get("escalated_at")
+                ]
+                if not still_open:
+                    state["pending_escalation"] = None
+            else:
+                marker = prior_pending["marker"]
+                body_to_send = prior_pending["body"]
+                if pending_keys != list(prior_pending.get("keys") or []):
+                    kind = "keys" if pending_keys else "self"
+                    body_to_send = selfreport.render_escalation(
+                        marker, pending_keys, state, self_flag, now,
+                        selfreport.escalation_first_line(state, kind))
+                repub = ledger.publish(
+                    store, cli, state, config.INBOX_ISSUE_ID, marker, body_to_send,
+                    f"ESC-retry-{slot}", now, ctx["sleep"])
+                if repub["status"] in ("posted", "duplicate"):
+                    _mark_sent(pending_keys, self_flag)
+                    _wake_escalation(repub, marker)
+                else:
+                    state["pending_escalation"] = {
+                        "marker": marker, "body": body_to_send,
+                        "keys": pending_keys, "self": self_flag,
+                    }
+                    fail("escalation_write", f"pending escalation {repub['status']}")
+
+        if escalate_keys:
+            escalate_keys = [
+                key for key in escalate_keys
+                if key in alerted and not selfreport.escalation_recent(
+                    state, selfreport.issue_id_of_key(key), now)
+            ]
         if escalate_keys or self_escalate:
             esc_marker = f"[patrol-escalate:ESC-{slot}]"
             esc_kind = "keys" if escalate_keys else "self"
@@ -391,12 +442,9 @@ def run_hourly(args, ctx) -> int:
             esc = ledger.publish(store, cli, state, config.INBOX_ISSUE_ID, esc_marker,
                                  esc_body, f"ESC-{slot}", now, ctx["sleep"])
             if esc["status"] in ("posted", "duplicate"):
-                for key in escalate_keys:
-                    selfreport.mark_key_escalated(state, key, iso(now))
-                if self_escalate:
-                    state["self_escalated_at"] = iso(now)
-                state["pending_escalation"] = None
+                _mark_sent(escalate_keys, self_escalate)
                 escalations_sent = escalate_keys + (["self"] if self_escalate else [])
+                _wake_escalation(esc, esc_marker)
             else:
                 state["pending_escalation"] = {"marker": esc_marker, "body": esc_body,
                                                "keys": escalate_keys, "self": self_escalate}
