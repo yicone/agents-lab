@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from . import config
+from .cli import CliError
 from .facts import parse_ts
 from .redact import redact
 
@@ -81,6 +82,70 @@ def mark_key_escalated(state: dict, key: str, now_iso: str) -> None:
         rec["escalated_at"] = now_iso
 
 
+def issue_id_of_key(key: str) -> str:
+    return key.split("|", 1)[0]
+
+
+def escalation_recent(state: dict, issue_id: str, now) -> bool:
+    """True when this issue was successfully escalated inside the 24h window."""
+    stamp = (state.get("escalation_sent") or {}).get(issue_id)
+    last = parse_ts(stamp)
+    if last is None:
+        return False
+    return (now - last).total_seconds() < config.DEDUPE_WINDOW_S
+
+
+def record_escalation_sent(state: dict, issue_id: str, now_iso: str) -> None:
+    if issue_id:
+        state.setdefault("escalation_sent", {})[issue_id] = now_iso
+
+
+def drop_alerted_issue(state: dict, issue_id: str) -> None:
+    alerted = state.get("alerted") or {}
+    for key in list(alerted):
+        if issue_id_of_key(key) == issue_id:
+            alerted.pop(key, None)
+
+
+def escalation_issue_gate(cli, state: dict, issue_id: str, now) -> str:
+    """Re-read live status before any escalation of this issue.
+
+    Returns ok, closed, unread, or recent. Closed issues are removed from
+    alerted. Unread and recent issues are left untouched, including
+    escalated_at.
+    """
+    try:
+        data = cli.run_json(["issue", "get", issue_id, "--output", "json"]).data
+    except CliError:
+        return "unread"
+    status = data.get("status") if isinstance(data, dict) else None
+    if not status:
+        return "unread"
+    if status in ("done", "cancelled"):
+        drop_alerted_issue(state, issue_id)
+        return "closed"
+    if escalation_recent(state, issue_id, now):
+        return "recent"
+    return "ok"
+
+
+def select_escalation_keys(cli, state: dict, keys: list[str], now) -> list[str]:
+    """Keep standing keys whose issue is still open and outside the 24h window."""
+    grouped: dict[str, list[str]] = {}
+    order: list[str] = []
+    for key in keys:
+        issue_id = issue_id_of_key(key)
+        if issue_id not in grouped:
+            order.append(issue_id)
+            grouped[issue_id] = []
+        grouped[issue_id].append(key)
+    kept: list[str] = []
+    for issue_id in order:
+        if escalation_issue_gate(cli, state, issue_id, now) == "ok":
+            kept.extend(grouped[issue_id])
+    return kept
+
+
 def dispatcher_name(state: dict) -> str:
     return (state.get("agent_names") or {}).get(config.DISPATCHER_AGENT_ID, "副调度")
 
@@ -143,3 +208,12 @@ def prune_state(state: dict, now, standing_keys: set | None = None) -> None:
     state["failures"] = (state.get("failures") or [])[-50:]
     cutoff_daily = (now - timedelta(days=30)).strftime("%Y%m%d")
     state["daily"] = {d: v for d, v in (state.get("daily") or {}).items() if d >= cutoff_daily}
+    keep_after = now - timedelta(days=14)
+    state["escalation_sent"] = {
+        issue_id: stamp for issue_id, stamp in (state.get("escalation_sent") or {}).items()
+        if (ts := parse_ts(stamp)) is not None and ts >= keep_after
+    }
+    state["steward_wakes"] = {
+        marker: stamp for marker, stamp in (state.get("steward_wakes") or {}).items()
+        if (ts := parse_ts(stamp)) is not None and ts >= keep_after
+    }

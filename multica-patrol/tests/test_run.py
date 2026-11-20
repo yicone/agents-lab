@@ -85,6 +85,7 @@ class TestIdentity(PatrolCase):
         self.assertEqual(last_result(out)["ledger"]["status"], "dry_run")
         self.assertEqual(last_result(out)["writes_attempted"], 0)
         self.assertEqual(self.fake.comment_add_count, 0)
+        self.assertNotIn("--profile", "\n".join(" ".join(c) for c in self.fake.calls))
 
 
 class TestAllowlist(PatrolCase):
@@ -216,6 +217,14 @@ class TestDedupeEscalation(PatrolCase):
         code, out, _ = self._run_at("2026102222")
         self.assertEqual(last_result(out)["findings_count"], 1)
 
+    def _escalations(self):
+        return [c for c in self.fake.inbox_comments()
+                if "[patrol-escalate:" in (c.get("content") or "")]
+
+    def _wakes(self):
+        return [c for c in self.fake.inbox_comments()
+                if "[patrol-wake:" in (c.get("content") or "")]
+
     def test_48h_standing_escalates_once(self):
         self._setup_finding()
         self._run_at("2026102221")
@@ -228,11 +237,167 @@ class TestDedupeEscalation(PatrolCase):
         code, out, _ = self._run_at("2026102222")
         res = last_result(out)
         self.assertEqual(res["escalations"], 1)
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
-        self.assertIn("[patrol-escalate:", self.fake.inbox_comments()[0]["content"])
+        self.assertEqual(res["writes_attempted"], 2)
+        escalations = self._escalations()
+        wakes = self._wakes()
+        self.assertEqual(len(escalations), 1)
+        self.assertEqual(len(wakes), 1)
+        esc, wake = escalations[0], wakes[0]
+        self.assertEqual(esc["author_type"], "agent")
+        self.assertEqual(esc["author_id"], config.DISPATCHER_AGENT_ID)
+        self.assertNotIn("mention://agent/", esc["content"])
+        self.assertNotIn("mention://member/", esc["content"])
+        self.assertEqual(wake["author_type"], "member")
+        self.assertEqual(wake["author_id"], config.STEWARD_MEMBER_ID)
+        self.assertEqual(wake["parent_id"], esc["id"])
+        mention = f"mention://agent/{config.DISPATCHER_AGENT_ID}"
+        self.assertEqual(wake["content"].count(mention), 1)
+        self.assertEqual(wake["content"].count("mention://"), 1)
+        self.assertIn("[@副调度](mention://agent/"
+                      f"{config.DISPATCHER_AGENT_ID})", wake["content"])
+        profile_calls = [c for c in self.fake.calls if "--profile" in c]
+        self.assertEqual(len(profile_calls), 1)
+        self.assertIn(config.STEWARD_PROFILE, profile_calls[0])
+        self.assertIn(config.WORKSPACE_ID, profile_calls[0])
+        self.assertIn("--parent", profile_calls[0])
+        self.assertIn(esc["id"], profile_calls[0])
+        self.assertIn("--allow-external-file", profile_calls[0])
+        meta = next(m for m in self.fake.spawn_meta if "--profile" in m["argv"])
+        self.assertIsInstance(meta["env"], dict)
+        self.assertFalse(any(key.startswith("MULTICA_") for key in meta["env"]))
+        cwd = Path(meta["cwd"]).resolve()
+        home = Path.home().resolve()
+        self.assertNotIn(home, (cwd, *cwd.parents))
+        self.assertNotIn(home / ".multica", (cwd, *cwd.parents))
         code, out, _ = self._run_at("2026102223")
         self.assertEqual(last_result(out)["escalations"], 0)
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
+        self.assertEqual(len(self._escalations()), 1)
+        self.assertEqual(len(self._wakes()), 1)
+
+    def test_dry_run_aged_key_does_not_write_or_profile(self):
+        self.fake.issues.append(stale_issue())
+        state = Store(self.state_dir).load()
+        state["alerted"] = {
+            "uuid-ACM-50|in_progress_no_active_run|x": {
+                "first_at": (BASE_NOW - timedelta(hours=49)).isoformat(),
+                "escalated_at": None,
+            },
+        }
+        Store(self.state_dir).save(state)
+        code, out, err = self.run_patrol("run", "--slot", "2026102221", "--dry-run")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(last_result(out)["writes_attempted"], 0)
+        self.assertEqual(self.fake.comment_add_count, 0)
+        self.assertEqual(self.fake.inbox_comments(), [])
+        self.assertNotIn("--profile", "\n".join(" ".join(c) for c in self.fake.calls))
+
+    def test_done_issue_is_dropped_not_escalated(self):
+        self._setup_finding()
+        self._run_at("2026102221")
+        issue = next(i for i in self.fake.issues if i["identifier"] == "ACM-50")
+        issue["status"] = "done"
+        state = Store(self.state_dir).load()
+        for rec in state["alerted"].values():
+            rec["first_at"] = (BASE_NOW - timedelta(hours=49)).isoformat()
+        Store(self.state_dir).save(state)
+        code, out, err = self._run_at("2026102222")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(last_result(out)["escalations"], 0)
+        self.assertEqual(self._escalations(), [])
+        self.assertEqual(self._wakes(), [])
+        state = Store(self.state_dir).load()
+        self.assertNotIn(issue["id"], state.get("alerted") or {})
+        self.assertTrue(all(not key.startswith(issue["id"] + "|")
+                            for key in (state.get("alerted") or {})))
+        self.assertNotIn(issue["id"], state.get("escalation_sent") or {})
+        self.assertNotIn("--profile", "\n".join(" ".join(c) for c in self.fake.calls))
+
+    def test_status_read_failure_does_not_escalate(self):
+        self._setup_finding()
+        self._run_at("2026102221")
+        issue = next(i for i in self.fake.issues if i["identifier"] == "ACM-50")
+        state = Store(self.state_dir).load()
+        key = next(iter(state["alerted"]))
+        state["alerted"][key]["first_at"] = (BASE_NOW - timedelta(hours=49)).isoformat()
+        Store(self.state_dir).save(state)
+
+        def fail_get(argv):
+            args = argv[1:]
+            words = [a for a in args if not a.startswith("-")]
+            if words[:2] == ["issue", "get"] and words[2] == issue["id"]:
+                return subprocess.CompletedProcess(argv, 1, "", "read dead")
+            return None
+
+        self.fake.fail_handler = fail_get
+        code, out, err = self._run_at("2026102222")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("identity_violation", err)
+        self.assertEqual(last_result(out)["escalations"], 0)
+        self.assertEqual(self._escalations(), [])
+        state = Store(self.state_dir).load()
+        self.assertIsNone(state.get("identity_violation"))
+        self.assertIsNone((state.get("alerted") or {}).get(key, {}).get("escalated_at"))
+        self.assertNotIn(issue["id"], state.get("escalation_sent") or {})
+        self.assertIn(key, state.get("alerted") or {})
+
+    def test_second_key_same_issue_suppressed_within_24h(self):
+        self._setup_finding()
+        self._run_at("2026102221")
+        state = Store(self.state_dir).load()
+        key = next(iter(state["alerted"]))
+        issue_id = key.split("|", 1)[0]
+        for rec in state["alerted"].values():
+            rec["first_at"] = (BASE_NOW - timedelta(hours=49)).isoformat()
+        Store(self.state_dir).save(state)
+        self._run_at("2026102222")
+        self.assertEqual(len(self._escalations()), 1)
+        state = Store(self.state_dir).load()
+        self.assertIn(issue_id, state["escalation_sent"])
+        second = f"{issue_id}|in_review_stale|other-anchor"
+        state["alerted"][second] = {
+            "first_at": (BASE_NOW - timedelta(hours=50)).isoformat(),
+            "last_at": (BASE_NOW - timedelta(hours=1)).isoformat(),
+            "escalated_at": None,
+        }
+        Store(self.state_dir).save(state)
+        code, out, err = self._run_at("2026102223")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(last_result(out)["escalations"], 0)
+        self.assertEqual(len(self._escalations()), 1)
+        self.assertEqual(len(self._wakes()), 1)
+        state = Store(self.state_dir).load()
+        self.assertIsNone(state["alerted"][second].get("escalated_at"))
+
+    def test_wake_author_mismatch_does_not_latch_or_self_mention(self):
+        self.fake.force_profile_author = ("agent", config.DISPATCHER_AGENT_ID)
+        self._setup_finding()
+        self._run_at("2026102221")
+        state = Store(self.state_dir).load()
+        for rec in state["alerted"].values():
+            rec["first_at"] = (BASE_NOW - timedelta(hours=49)).isoformat()
+        Store(self.state_dir).save(state)
+        code, out, err = self._run_at("2026102222")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("identity_violation", err)
+        res = last_result(out)
+        self.assertEqual(res["escalations"], 1)
+        self.assertEqual(res["steward_wake"][0]["status"], "author_mismatch")
+        state = Store(self.state_dir).load()
+        self.assertIsNone(state.get("identity_violation"))
+        self.assertEqual(state.get("steward_wakes") or {}, {})
+        mentions = [c for c in self.fake.inbox_comments()
+                    if f"mention://agent/{config.DISPATCHER_AGENT_ID}" in c["content"]]
+        self.assertEqual(len(mentions), 1)
+        self.assertNotEqual(mentions[0]["author_id"], config.STEWARD_MEMBER_ID)
+        profiles = [c for c in self.fake.calls if "--profile" in c]
+        code, out, err = self._run_at("2026102223")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("identity_violation", err)
+        self.assertIsNone(Store(self.state_dir).load().get("identity_violation"))
+        self.assertEqual(len([c for c in self.fake.calls if "--profile" in c]), len(profiles))
+        mentions = [c for c in self.fake.inbox_comments()
+                    if f"mention://agent/{config.DISPATCHER_AGENT_ID}" in c["content"]]
+        self.assertEqual(len(mentions), 1)
 
     def test_missed_slot_detection(self):
         self._run_at("2026102221")
@@ -263,12 +428,15 @@ class TestDedupeEscalation(PatrolCase):
         code, out, _ = self._run_at("2026102223")
         self.assertEqual(code, 0, out)
         self.assertEqual(last_result(out)["escalations"], 1)
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
-        self.assertIn("[patrol-escalate:", self.fake.inbox_comments()[0]["content"])
+        self.assertEqual(len(self._escalations()), 1)
+        self.assertEqual(len(self._wakes()), 1)
+        self.assertIn("[patrol-escalate:", self._escalations()[0]["content"])
+        self.assertNotIn("mention://agent/", self._escalations()[0]["content"])
         # Still failing inside 24h -> pending streak already escalated once.
         self._break_backlog_listing()
         code, out, _ = self._run_at("2026102300")
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
+        self.assertEqual(len(self._escalations()), 1)
+        self.assertEqual(len(self._wakes()), 1)
 
 
 class TestStreakSemantics(PatrolCase):
@@ -341,7 +509,8 @@ class TestEscalationBody(PatrolCase):
         later = BASE_NOW + timedelta(hours=1)
         code, out, _ = self.run_patrol("run", "--slot", "2026102222", now=later)
         self.assertEqual(code, 0)
-        body = self.fake.inbox_comments()[0]["content"]
+        body = next(c["content"] for c in self.fake.inbox_comments()
+                    if "[patrol-escalate:" in c["content"])
         esc_lines = body.splitlines()
         self.assertEqual(esc_lines[0],
                          "不需要你做，下一步由 副调度 做：核对下列巡检升级事项并处理；处理不了会再向你升级。")

@@ -77,6 +77,8 @@ class TestDetection(RetryCase):
         res = last_result(out)
         self.assertEqual(res["retries_would_send"], 1)
         self.assertEqual(self.fake.comment_add_count, 0)  # dry-run: zero writes
+        self.assertEqual(last_result(out)["writes_attempted"], 0)
+        self.assertNotIn("--profile", "\n".join(" ".join(c) for c in self.fake.calls))
 
     def test_completed_without_error_not_detected(self):
         issue, r = self.add_error_issue()
@@ -238,14 +240,26 @@ class TestRetryLifecycle(RetryCase):
         issue["updated_at"] = iso(t2)
         code, out, err = self._run_at("2026102222")
         self.assertEqual(len(self.retry_comments(issue)), 1)  # no second mention
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
-        body = self.fake.inbox_comments()[0]["content"]
+        escalations = [c for c in self.fake.inbox_comments()
+                       if "[patrol-escalate:" in c["content"]]
+        wakes = [c for c in self.fake.inbox_comments() if "[patrol-wake:" in c["content"]]
+        self.assertEqual(len(escalations), 1)
+        self.assertEqual(len(wakes), 1)
+        body = escalations[0]["content"]
         self.assertTrue(body.splitlines()[0].startswith("不需要你做，下一步由 副调度 做：核对 ACM-335"))
         self.assertIn("[patrol-escalate:ERR-", body)
         self.assertNotIn("mention://agent/", body)
+        self.assertEqual(wakes[0]["author_type"], "member")
+        self.assertEqual(wakes[0]["author_id"], config.STEWARD_MEMBER_ID)
+        self.assertEqual(wakes[0]["parent_id"], escalations[0]["id"])
+        self.assertEqual(wakes[0]["content"].count(
+            f"mention://agent/{config.DISPATCHER_AGENT_ID}"), 1)
         # Escalated once: next run does not repost.
         code, out, _ = self._run_at("2026102223")
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
+        self.assertEqual(len([c for c in self.fake.inbox_comments()
+                              if "[patrol-escalate:" in c["content"]]), 1)
+        self.assertEqual(len([c for c in self.fake.inbox_comments()
+                              if "[patrol-wake:" in c["content"]]), 1)
 
     def test_retry_then_clean_run_recovers(self):
         issue, r1 = self.add_error_issue()
@@ -267,8 +281,12 @@ class TestRetryLifecycle(RetryCase):
         issue, r1 = self.add_error_issue()
         self._run_at("2026102221")
         code, out, _ = self._run_at("2026102223")  # +2h, no newer run
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
-        self.assertIn("retry_not_started", self.fake.inbox_comments()[0]["content"])
+        escalations = [c for c in self.fake.inbox_comments()
+                       if "[patrol-escalate:" in c["content"]]
+        self.assertEqual(len(escalations), 1)
+        self.assertEqual(len([c for c in self.fake.inbox_comments()
+                              if "[patrol-wake:" in c["content"]]), 1)
+        self.assertIn("retry_not_started", escalations[0]["content"])
 
     def test_retry_run_still_active_after_2h_does_not_escalate(self):
         issue, r1 = self.add_error_issue()
@@ -320,8 +338,32 @@ class TestRetryLifecycle(RetryCase):
         code, out, err = invoke(self.fake, ["run", "--slot", "2026102221"],
                                 state_dir=self.state_dir)
         self.assertEqual(len(self.retry_comments(issue)), 0)
-        self.assertEqual(len(self.fake.inbox_comments()), 1)
-        self.assertIn("[patrol-escalate:ERR-", self.fake.inbox_comments()[0]["content"])
+        escalations = [c for c in self.fake.inbox_comments()
+                       if "[patrol-escalate:" in c["content"]]
+        self.assertEqual(len(escalations), 1)
+        self.assertEqual(len([c for c in self.fake.inbox_comments()
+                              if "[patrol-wake:" in c["content"]]), 1)
+        self.assertIn("[patrol-escalate:ERR-", escalations[0]["content"])
+        self.assertNotIn("mention://agent/", escalations[0]["content"])
+
+    def test_provider_escalation_respects_same_issue_24h_window(self):
+        issue, r = self.add_error_issue(agent=config.DISPATCHER_AGENT_ID)
+        r["agent_id"] = config.DISPATCHER_AGENT_ID
+        self.fake.comments[issue["id"]] = [comment(
+            "[Error] boom", BASE_NOW - timedelta(minutes=30),
+            author_type="agent", author_id=config.DISPATCHER_AGENT_ID)]
+        state = Store(self.state_dir).load()
+        state["escalation_sent"] = {issue["id"]: iso(BASE_NOW)}
+        Store(self.state_dir).save(state)
+        code, out, err = invoke(self.fake, ["run", "--slot", "2026102221"],
+                                state_dir=self.state_dir)
+        self.assertEqual(code, 0, err)
+        self.assertEqual([c for c in self.fake.inbox_comments()
+                          if "[patrol-escalate:" in c["content"]], [])
+        self.assertNotIn("--profile", "\n".join(" ".join(c) for c in self.fake.calls))
+        state = Store(self.state_dir).load()
+        self.assertNotEqual((state.get("error_retry") or {}).get(issue["id"], {}).get("state"),
+                            "escalated")
 
     def test_max_three_retries_per_run(self):
         issues = [self.add_error_issue(f"ACM-{400 + i}")[0] for i in range(5)]
