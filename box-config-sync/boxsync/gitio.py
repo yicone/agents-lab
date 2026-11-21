@@ -35,6 +35,9 @@ def _ref(value):
 
 
 class GitReader:
+    # Read-only verbs; subclasses may widen (never to write commands).
+    ALLOWED_COMMANDS = ALLOWED_COMMANDS
+
     def __init__(self, repo, ref="origin/main", *, timeout=15):
         self.repo = Path(repo).absolute()
         self.ref = _ref(ref)
@@ -42,7 +45,7 @@ class GitReader:
         self._commit = None
 
     def _run(self, command, *args, limit=MAX_OUTPUT):
-        if command not in ALLOWED_COMMANDS:
+        if command not in self.ALLOWED_COMMANDS:
             raise ValueError("Git command is not read-only")
         env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
         env.update(GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0", GIT_NO_REPLACE_OBJECTS="1")
@@ -96,6 +99,11 @@ class GitReader:
         if name.decode("utf-8") != path or kind != b"blob" or mode not in (b"100644", b"100755"):
             raise GitError("unsupported_entry")
         return self._blob(oid.decode("ascii"))
+
+    def file(self, path):
+        """Blob bytes at path on the pinned commit; None only when the exact
+        tree lookup proves absence."""
+        return self._file(self.commit(), path)
 
     def instructions(self):
         """Hash tracked sources/index.json bodies at the same pinned commit."""

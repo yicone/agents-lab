@@ -299,6 +299,10 @@ class Handler(BaseHTTPRequestHandler):
                 if urlsplit(self.path).query:
                     raise BadRequest("mcp endpoint does not accept query parameters")
                 body = views.mcp()
+            elif path == "/api/box-config":
+                if urlsplit(self.path).query:
+                    raise BadRequest("box-config endpoint does not accept query parameters")
+                body = views.box_config()
             elif path == "/api/hooks":
                 if urlsplit(self.path).query:
                     raise BadRequest("hooks endpoint does not accept query parameters")

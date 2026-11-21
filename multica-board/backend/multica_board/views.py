@@ -345,7 +345,8 @@ def _cloud_only_item(name: str, installs: list[dict[str, Any]]) -> dict[str, Any
 class Views:
     def __init__(self, store: Store, server: str, *, app_url: str, collect_interval_s: int,
                  server_identity: str | None = None, mcp_every: int = 5, mcp_ctx=None,
-                 instructions_root: Path | None = None, cloud_runner=None):
+                 instructions_root: Path | None = None, cloud_runner=None,
+                 box_state_dir: Path | None = None, box_id: str | None = None):
         self.store = store
         self.server = server
         self.server_identity = server_identity
@@ -357,6 +358,9 @@ class Views:
         from .cloud_skill_content import CloudSkillReader
         from .cli_runner import CliRunner
         self._cloud_reader = CloudSkillReader(cloud_runner or CliRunner(profile=server))
+        from .box_snapshot import BOX_ID
+        self.box_state_dir = box_state_dir
+        self.box_id = box_id or BOX_ID
 
     def _mcp_context(self):
         if self._mcp_ctx is None:
@@ -773,6 +777,14 @@ class Views:
         from .mcp_view import build_mcp
 
         return build_mcp(self.store, self.server, self.generated_at(), self._mcp_context())
+
+    # --- /api/box-config -----------------------------------------------------
+
+    def box_config(self) -> dict[str, Any]:
+        from .box_snapshot import build_box_config
+
+        return build_box_config(state_dir=self.box_state_dir, box_id=self.box_id,
+                                now=_now())
 
     # --- /api/hooks ----------------------------------------------------------
 
