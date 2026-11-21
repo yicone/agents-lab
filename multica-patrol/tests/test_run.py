@@ -248,7 +248,7 @@ class TestDedupeEscalation(PatrolCase):
         self.assertNotIn("mention://agent/", esc["content"])
         self.assertNotIn("mention://member/", esc["content"])
         self.assertEqual(wake["author_type"], "member")
-        self.assertEqual(wake["author_id"], config.STEWARD_MEMBER_ID)
+        self.assertEqual(wake["author_id"], config.STEWARD_USER_ID)
         self.assertEqual(wake["parent_id"], esc["id"])
         mention = f"mention://agent/{config.DISPATCHER_AGENT_ID}"
         self.assertEqual(wake["content"].count(mention), 1)
@@ -388,7 +388,7 @@ class TestDedupeEscalation(PatrolCase):
         mentions = [c for c in self.fake.inbox_comments()
                     if f"mention://agent/{config.DISPATCHER_AGENT_ID}" in c["content"]]
         self.assertEqual(len(mentions), 1)
-        self.assertNotEqual(mentions[0]["author_id"], config.STEWARD_MEMBER_ID)
+        self.assertNotEqual(mentions[0]["author_id"], config.STEWARD_USER_ID)
         profiles = [c for c in self.fake.calls if "--profile" in c]
         code, out, err = self._run_at("2026102223")
         self.assertEqual(code, 0, err)
@@ -712,6 +712,59 @@ class TestExemptionsAndSections(PatrolCase):
         code, out, _ = self.run_patrol("run", "--slot", "2026102222", now=later)
         body2 = self.fake.ledger_comments()[-1]["content"]
         self.assertNotIn("待用户口径", body2)
+
+
+class TestWakeReadBackAuthor(unittest.TestCase):
+    """Read-back accepts the Steward user_id, not the workspace member_id."""
+
+    def _judge(self, comment):
+        from patrol.wake import _judge_existing
+        marker = "[patrol-wake:ACM-50]"
+        state = {
+            "pending_wakes": {
+                marker: {
+                    "parent_id": "parent-1",
+                    "escalation_marker": "[patrol-escalate:ACM-50]",
+                },
+            },
+            "steward_wakes": {},
+        }
+        outcome = _judge_existing(
+            state, comment, marker, "2026-11-21T00:00:00+00:00")
+        return state, outcome, marker
+
+    def test_steward_user_id_posts_and_clears_pending(self):
+        state, outcome, marker = self._judge({
+            "id": "wake-ok",
+            "author_type": "member",
+            "author_id": config.STEWARD_USER_ID,
+        })
+        self.assertEqual(outcome["status"], "posted")
+        self.assertIsNone(outcome["reason"])
+        self.assertEqual(state["steward_wakes"][marker], "2026-11-21T00:00:00+00:00")
+        self.assertNotIn(marker, state["pending_wakes"])
+
+    def test_workspace_member_id_is_author_mismatch(self):
+        state, outcome, marker = self._judge({
+            "id": "wake-member",
+            "author_type": "member",
+            "author_id": config.STEWARD_MEMBER_ID,
+        })
+        self.assertEqual(outcome["status"], "author_mismatch")
+        self.assertIn("user_id", outcome["reason"])
+        self.assertEqual(state["steward_wakes"], {})
+        self.assertIn(marker, state["pending_wakes"])
+
+    def test_other_id_or_non_member_is_author_mismatch(self):
+        comments = (
+            {"id": "other", "author_type": "member", "author_id": "someone-else"},
+            {"id": "agent", "author_type": "agent", "author_id": config.STEWARD_USER_ID},
+        )
+        for comment in comments:
+            state, outcome, marker = self._judge(comment)
+            self.assertEqual(outcome["status"], "author_mismatch", comment)
+            self.assertEqual(state["steward_wakes"], {})
+            self.assertIn(marker, state["pending_wakes"])
 
 
 class TestIdentityViolationLatch(PatrolCase):

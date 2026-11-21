@@ -98,14 +98,14 @@ def _clear_pending(state: dict, wake_marker: str) -> None:
 def _judge_existing(state, comment: dict, wake_marker: str, now_iso: str) -> dict:
     author_ok = (
         comment.get("author_type") == "member"
-        and comment.get("author_id") == config.STEWARD_MEMBER_ID
+        and comment.get("author_id") == config.STEWARD_USER_ID
     )
     if not author_ok:
         return {
             "marker": wake_marker,
             "status": "author_mismatch",
             "comment_id": comment.get("id"),
-            "reason": "wake author is not the steward member",
+            "reason": "wake comment author_id is not the Steward user_id",
         }
     state.setdefault("steward_wakes", {})[wake_marker] = now_iso
     _clear_pending(state, wake_marker)

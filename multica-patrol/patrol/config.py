@@ -60,7 +60,11 @@ ESCALATION_PREFIX = "[patrol-escalate:"
 # Steward member account that wakes the dispatcher under an escalation comment.
 # The hourly task must not use this profile; the wake subprocess does.
 STEWARD_PROFILE = "agent-steward"
+# Workspace member_id of the Steward account. Wake-comment read-back does not
+# use this value: Multica sets author_id to STEWARD_USER_ID.
 STEWARD_MEMBER_ID = "fe8e538f-fc76-492c-be82-87328a2d6a07"
+# Read-back comment author_id is the Steward user_id, not the workspace member_id.
+STEWARD_USER_ID = "29db547c-062a-492c-80cb-1fc10dc33e33"
 WAKE_PREFIX = "[patrol-wake:"
 DAILY_PREFIX = "[patrol-daily:"
 ERROR_RUN_WINDOW_S = 6 * 3600

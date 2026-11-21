@@ -250,7 +250,7 @@ class TestRetryLifecycle(RetryCase):
         self.assertIn("[patrol-escalate:ERR-", body)
         self.assertNotIn("mention://agent/", body)
         self.assertEqual(wakes[0]["author_type"], "member")
-        self.assertEqual(wakes[0]["author_id"], config.STEWARD_MEMBER_ID)
+        self.assertEqual(wakes[0]["author_id"], config.STEWARD_USER_ID)
         self.assertEqual(wakes[0]["parent_id"], escalations[0]["id"])
         self.assertEqual(wakes[0]["content"].count(
             f"mention://agent/{config.DISPATCHER_AGENT_ID}"), 1)
