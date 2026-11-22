@@ -121,8 +121,9 @@ class FakeMultica:
         self.write_mode = "normal"        # normal|timeout_found|timeout_lost|nonzero
         self.author_type = "agent"
         self.author_id = config.DISPATCHER_AGENT_ID
-        # None -> Steward profile writes are the steward member. Tests can
-        # force a wrong author without changing dispatcher-task writes.
+        # None -> Steward profile writes return the Steward user_id, matching
+        # API read-back. Tests can force a wrong author without changing
+        # dispatcher-task writes.
         self.force_profile_author = None
         self.spawn_meta: list[dict] = []
         self.comment_list_fail_ids: set[str] = set()
@@ -239,7 +240,7 @@ class FakeMultica:
             if self.force_profile_author:
                 author_type, author_id = self.force_profile_author
             else:
-                author_type, author_id = "member", config.STEWARD_MEMBER_ID
+                author_type, author_id = "member", config.STEWARD_USER_ID
         parent_id = args[args.index("--parent") + 1] if "--parent" in args else None
         entry = {"id": cid, "content": content, "author_type": author_type,
                  "author_id": author_id, "created_at": iso(self.now),
