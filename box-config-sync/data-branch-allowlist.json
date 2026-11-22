@@ -1,0 +1,19 @@
+{
+  "schema": "data-branch-allowlist/v1",
+  "branch": "box-snapshots",
+  "entries": [
+    {
+      "id": "box-config-snapshot",
+      "path_pattern": "box-snapshots/{box_id}/snapshot.json",
+      "path_regex": "^box-snapshots/[A-Za-z0-9][A-Za-z0-9._-]{0,63}/snapshot\\.json$",
+      "content_schema": "box-config-snapshot/v1",
+      "schema_file": "box-config-sync/schemas/box-config-snapshot.schema.json",
+      "max_bytes": 1048576,
+      "retention": {"tree": "latest_only", "history_days": 90, "rewrite_history": false},
+      "producer": "box-config-sync publish-snapshot",
+      "consumers": ["box-config-sync fetch-snapshot", "multica-board /api/box-config"],
+      "approved_by": "ACM-910"
+    }
+  ],
+  "excluded_kinds": ["schema", "fixture", "instructions_source_of_truth", "write_policy", "schedule_config"]
+}
