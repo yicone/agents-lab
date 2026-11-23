@@ -29,6 +29,8 @@ class DomainTests(unittest.TestCase):
             self.assertEqual(flow["body_sha256"], hashlib.sha256(SKILL_BODY.encode()).hexdigest())
             self.assertEqual(flow["tree_sha256"], tree_sha256(ctx.roots["workflows"] / "example")["tree_sha256"])
             self.assertEqual(result["domains"]["hooks"]["scope"], "external_host")
+            self.assertEqual(result["domains"]["hooks"]["state"], "not_collected_on_box")
+            self.assertEqual(result["domain_states"]["hooks"], "not_collected")
             try:
                 import jsonschema
             except ImportError:
@@ -67,7 +69,13 @@ class DomainTests(unittest.TestCase):
                 ctx.roots[name] = None
             result, _ = collect(ctx, tool=TOOL)
             self.assertEqual(result["sources"]["box_disk"], "partial")
+            for name in ("memory", "routines", "attachments", "hooks"):
+                self.assertEqual(result["domain_states"][name], "not_collected", name)
+            self.assertEqual(result["domains"]["hooks"]["state"], "not_collected_on_box")
+            self.assertTrue(result["domains"]["memory"])
             self.assertTrue(all(r["file_count"] is None for r in result["domains"]["memory"]))
+            self.assertTrue(result["domains"]["routines"])
+            self.assertTrue(all(r["evidence_level"] == "not_collected" for r in result["domains"]["routines"]))
             self.assertEqual(result["domains"]["attachments"], [])
             self.assertEqual({k for k, v in BOX_ROOTS.items() if v is None}, {"mcps", "memory", "routines", "attachments"})
 
