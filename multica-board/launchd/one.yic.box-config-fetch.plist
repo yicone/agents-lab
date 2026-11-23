@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Sample only (ACM-934). Do not copy this into ~/Library/LaunchAgents and do
+  not launchctl load it until the install is separately approved.
+  Mini-side consumer for the box-snapshots data branch: runs fetch-snapshot
+  (read-only git fetch + per-commit allowlist/schema verification) once an
+  hour. It never pushes and never writes the repository checkout.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>one.yic.box-config-fetch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>/Users/tr/Workspace/agents-lab/box-config-sync/bin/boxsync</string>
+    <string>fetch-snapshot</string>
+    <string>--repo</string>
+    <string>/Users/tr/Workspace/agents-lab</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/tmp</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin</string>
+    <key>HTTPS_PROXY</key>
+    <string>http://127.0.0.1:7890</string>
+    <key>HTTP_PROXY</key>
+    <string>http://127.0.0.1:7890</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/tr/Library/Logs/box-config-fetch.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/tr/Library/Logs/box-config-fetch.log</string>
+</dict>
+</plist>
