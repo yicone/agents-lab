@@ -90,11 +90,7 @@ class RoutineFlow(unittest.TestCase):
                               "--state-dir", os.fspath(self.state)],
                 "publish-snapshot": ["publish-snapshot",
                                      "--repo", os.fspath(self.clone),
-                                     "--state-dir", os.fspath(self.state)],
-                "plan-writeback": ["plan-writeback",
-                                   "--snapshot", os.fspath(self.snapshot),
-                                   "--repo", os.fspath(self.clone),
-                                   "--state-dir", os.fspath(self.state)]}[name]
+                                     "--state-dir", os.fspath(self.state)]}[name]
         self.calls.append(name)
         out = io.StringIO()
         try:
@@ -122,9 +118,8 @@ class RoutineFlow(unittest.TestCase):
             for name in template_commands():
                 code, out = self.invoke(name)
                 report[name] = {"exit": code, "payload": json.loads(out)}
-                # §5.4 step 4: exit 10 -> plan-writeback (lands with P2-A).
-                if name == "reconcile" and code == 10:
-                    report["plan-writeback"] = {"exit": self.invoke("plan-writeback")[0]}
+        # 口径(2026-11-23 返工): reconcile 退出 10 只汇报差异，不执行任何
+        # 写回命令；plan-writeback 留待第二期 ACM-930 并另行批准。
         return report
 
     def audit(self):
@@ -161,6 +156,27 @@ class RoutineFlow(unittest.TestCase):
         self.assertEqual(report["publish-snapshot"]["payload"]["state"], "push_failed")
         self.assertEqual(len(self.pushes), 2)
         self.assertEqual(self.audit()[-1]["result"], "push_failed")
+
+    def test_exit_10_reports_drift_and_never_invokes_plan_writeback(self):
+        # 返工口径(2026-11-23): reconcile 退出 10 只汇报差异，不调用
+        # plan-writeback（写回留待第二期 ACM-930）；publish-snapshot 仍恰好一次。
+        path = self.clone / "grok-workflows/skills-user/example/SKILL.md"
+        path.write_text("---\nname: Example\n---\ndrifted body\n",
+                        encoding="utf-8")
+        dbs.git(self.clone, "add", "-A")
+        dbs.git(self.clone, "commit", "-qm", "drift fixture")
+        dbs.git(self.clone, "push", "-q", "origin", "main")
+        report = self.routine_turn()
+        self.assertEqual([row["exit"] for row in report.values()], [3, 10, 0])
+        for forbidden in ("plan-writeback", "apply-writeback", "rollback"):
+            self.assertNotIn(forbidden, self.calls)
+        self.assertEqual(self.calls.count("publish-snapshot"), 1)
+        self.assertEqual(report["publish-snapshot"]["payload"]["state"], "pushed")
+        # 「汇报差异」的输入：reconcile 输出的差异行在 report 中可取。
+        rows = report["reconcile"]["payload"]["domains"]["workflows"]
+        self.assertEqual(rows[0]["state"], "content_drift")
+        self.assertEqual(report["reconcile"]["payload"]["summary"],
+                         {"content_drift": 1})
 
 
 class DeliverableDocs(unittest.TestCase):

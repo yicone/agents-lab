@@ -18,17 +18,18 @@ Box（Grok Bot 共享 Linux 机）配置快照的采集、只读对账与受控�
    python3 box-config-sync/bin/boxsync collect --sidecar <上一步路径>
    python3 box-config-sync/bin/boxsync reconcile --snapshot /home/box/.local/state/box-config-sync/snapshots/latest.json
    python3 box-config-sync/bin/boxsync publish-snapshot --snapshot /home/box/.local/state/box-config-sync/snapshots/latest.json
-4. 退出码 10 时再执行 plan-writeback（只生成 dry-run 计划），在会话里汇报计划路径与 plan_sha256。
-5. 绝不执行 apply-writeback、rollback、直接的 git push、gh pr 或任何 multica 写命令；
+4. 第 3 步 reconcile 返回 10（发现漂移）时，只汇报差异行与汇总计数；
+   不执行 plan-writeback（写回能力留待第二期 ACM-930，启用另行批准）。
+5. 绝不执行 plan-writeback、apply-writeback、rollback、直接的 git push、gh pr 或任何 multica 写命令；
    唯一的推送是第 3 步的 publish-snapshot。
 ```
 
-`plan-writeback` 随 P2-A 交付。落地之前第 3 步 `reconcile` 返回 10（发现漂移）时，Routine 没有可执行的第 4 步命令：照常汇报漂移行与汇总计数即可，不自造命令、不改成跑别的命令。
+当前阶段口径（ACM-934，2026-11-23）：`reconcile` 返回 10（发现漂移）只汇报差异行与汇总计数，不执行任何写回命令——`plan-writeback` 等写回能力留待第二期 ACM-930 交付并经另行批准后启用（设计 §5.4 原第 4 步即按届时口径执行）。
 
 ### Routine 的边界
 
 - 每个 turn 只按模板顺序执行第 3 步的三个命令；`collect` / `reconcile` / `publish-snapshot` 的退出码只会是 0、3 或 10，出现其他退出码一律视为异常：照常汇报，不重试、不换命令。
-- 绝不执行 `apply-writeback`、`rollback`、直接的 `git push`、`gh pr` 或任何 `multica` 写命令。Routine 全程唯一的推送是 `publish-snapshot` 对数据分支 `box-snapshots` 的受控推送（白名单只按 `origin/main` 读取，见 §5.6）。
+- 绝不执行 `plan-writeback`、`apply-writeback`、`rollback`、直接的 `git push`、`gh pr` 或任何 `multica` 写命令。Routine 全程唯一的推送是 `publish-snapshot` 对数据分支 `box-snapshots` 的受控推送（白名单只按 `origin/main` 读取，见 §5.6）。
 - `publish-snapshot` 推送失败（退出码 3）时流程照常结束并汇报 `push_failed`；命令内部对非快进只重试一次，不循环重试。
 - Sidecar 是会话内产出：只写 §5.4 schema 允许的字段（MCP 名称/状态/tool_count/origin，Routine 元数据与 `prompt_sha256`），不落 URL、命令、env、token 与 prompt 原文。CLI 对未知键、URL、秘密逐份拒绝（`rejected_schema` / `rejected_secret`），拒绝后该 Bot 的 turn 内数据记 `not_collected`。
 
