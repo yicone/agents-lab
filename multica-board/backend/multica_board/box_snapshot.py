@@ -149,6 +149,47 @@ def read_box_snapshot(state_dir, box_id, now, max_age=MAX_AGE) -> tuple[Any, dic
     return doc, info
 
 
+# Uncollected, missing, and failed inventories are not a number (including not 0).
+_NO_NUMBER_STATES = frozenset({"not_collected", "absent", "denied", "error"})
+
+
+def _presented_domain_states(domains: dict[str, Any], domain_states):
+    """Copy snapshot states for the response.
+
+    A snapshot collected before hooks was marked not_collected can still say
+    ok while domains.hooks.state is not_collected_on_box. The response uses
+    not_collected so the state matches the count. The snapshot file is not
+    rewritten.
+    """
+    if not isinstance(domain_states, dict):
+        return domain_states
+    states = dict(domain_states)
+    hooks = domains.get("hooks") if isinstance(domains, dict) else None
+    if (isinstance(hooks, dict) and hooks.get("state") == "not_collected_on_box"
+            and states.get("hooks") == "ok"):
+        states["hooks"] = "not_collected"
+    return states
+
+
+def _domain_count(rows, state, *, states_present: bool):
+    if isinstance(rows, dict) and str(rows.get("state", "")).startswith("not_collected"):
+        return None
+    if not states_present:
+        return len(rows) if isinstance(rows, list) else None
+    if state in _NO_NUMBER_STATES or state is None:
+        return None
+    if state in ("ok", "partial") and isinstance(rows, list):
+        return len(rows)
+    return None
+
+
+def _domain_counts(domains: dict[str, Any], domain_states) -> dict[str, Any]:
+    states_present = isinstance(domain_states, dict)
+    return {name: _domain_count(rows, domain_states.get(name) if states_present else None,
+                                states_present=states_present)
+            for name, rows in domains.items()}
+
+
 def _workflow_item(row: dict[str, Any]) -> dict[str, Any]:
     """Pass through summary keys; large per-file diff lists are dropped."""
     keys = ("id", "dir_name", "kind", "name", "state", "reason_codes",
@@ -180,10 +221,9 @@ def build_box_config(*, state_dir=None, box_id=BOX_ID, now=None,
                        workflows=None, git_leg=None)
         return payload
     domains = doc.get("domains") or {}
-    payload.update(sources=doc.get("sources"), domain_states=doc.get("domain_states"),
-                   domain_counts={name: len(rows) if isinstance(rows, list)
-                                  else rows.get("state") if isinstance(rows, dict) else None
-                                  for name, rows in domains.items()})
+    domain_states = _presented_domain_states(domains, doc.get("domain_states"))
+    payload.update(sources=doc.get("sources"), domain_states=domain_states,
+                   domain_counts=_domain_counts(domains, domain_states))
     leg, leg_summary = _git_leg(state_dir)
     payload["git_leg"] = leg_summary
     try:

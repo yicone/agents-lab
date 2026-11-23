@@ -296,6 +296,9 @@ class ReaderStateTests(unittest.TestCase):
         self.assertEqual(payload["source_state"], "ok")
         self.assertIsNone(payload["domain_states"])
         self.assertIsNotNone(payload["domain_counts"])
+        self.assertIsNone(payload["domain_counts"]["hooks"])
+        self.assertEqual(payload["domain_counts"]["workflows"],
+                         len(doc["domains"]["workflows"]))
         states = {row["state"] for row in payload["workflows"]["items"]}
         self.assertEqual(states, {"unknown"})  # live leg not_collected -> unknown
 
@@ -325,6 +328,32 @@ class ReaderStateTests(unittest.TestCase):
         self.assertEqual(payload["git_leg"]["commit"], "a" * 40)
         rows = {row["id"]: row["state"] for row in payload["workflows"]["items"]}
         self.assertEqual(rows["grok-workflow:only-in-git"], "missing_on_box")
+
+    def test_uncollected_domains_are_not_numbered(self):
+        # ACM-1005: not_collected/absent/denied/error are not a number, and a
+        # stale hooks=ok snapshot must not report the not_collected string.
+        doc = json.loads(self.snapshot.read_text())
+        doc["domain_states"]["memory"] = "not_collected"
+        doc["domain_states"]["routines"] = "not_collected"
+        doc["domain_states"]["attachments"] = "not_collected"
+        doc["domain_states"]["profiles"] = "absent"
+        doc["domain_states"]["managed_skills"] = "denied"
+        doc["domain_states"]["cloud_skills"] = "error"
+        doc["domain_states"]["hooks"] = "ok"
+        doc["domains"]["attachments"] = []
+        self.install(doc=doc, git_leg=self.git_leg())
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+        counts = payload["domain_counts"]
+        for name in ("memory", "routines", "attachments", "hooks",
+                     "profiles", "managed_skills", "cloud_skills"):
+            self.assertIsNone(counts[name], name)
+        self.assertNotIsInstance(counts["hooks"], (int, str))
+        self.assertEqual(payload["domain_states"]["hooks"], "not_collected")
+        self.assertEqual(counts["workflows"], len(doc["domains"]["workflows"]))
+        self.assertEqual(counts["mcps"], len(doc["domains"]["mcps"]))
+        self.assertGreater(counts["mcps"], 0)
+        stored = json.loads((self.mini_state / "box-snapshots/grok-box/snapshot.json").read_text())
+        self.assertEqual(stored["domain_states"]["hooks"], "ok")
 
     def test_boxsync_unavailable_degrades_to_absent(self):
         with mock.patch.dict(sys.modules, {"boxsync": None}):
