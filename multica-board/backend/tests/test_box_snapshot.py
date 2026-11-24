@@ -299,6 +299,7 @@ class ReaderStateTests(unittest.TestCase):
         self.assertIsNone(payload["domain_counts"]["hooks"])
         self.assertEqual(payload["domain_counts"]["workflows"],
                          len(doc["domains"]["workflows"]))
+        self.assertEqual(payload["domain_counts"]["mcps"], len(doc["domains"]["mcps"]))
         states = {row["state"] for row in payload["workflows"]["items"]}
         self.assertEqual(states, {"unknown"})  # live leg not_collected -> unknown
 
@@ -350,10 +351,79 @@ class ReaderStateTests(unittest.TestCase):
         self.assertNotIsInstance(counts["hooks"], (int, str))
         self.assertEqual(payload["domain_states"]["hooks"], "not_collected")
         self.assertEqual(counts["workflows"], len(doc["domains"]["workflows"]))
-        self.assertEqual(counts["mcps"], len(doc["domains"]["mcps"]))
-        self.assertGreater(counts["mcps"], 0)
+        # ACM-1008: this fixture mixes one observed box_setting with turn
+        # placeholders. Placeholders are not counted, and ok is not claimed.
+        collected = [row for row in doc["domains"]["mcps"]
+                     if row.get("evidence_level") != "not_collected"]
+        self.assertGreater(len(doc["domains"]["mcps"]), len(collected))
+        self.assertGreater(len(collected), 0)
+        self.assertEqual(payload["domain_states"]["mcps"], "partial")
+        self.assertEqual(counts["mcps"], len(collected))
         stored = json.loads((self.mini_state / "box-snapshots/grok-box/snapshot.json").read_text())
         self.assertEqual(stored["domain_states"]["hooks"], "ok")
+        self.assertEqual(stored["domain_states"]["mcps"], "ok")
+
+    def test_mcps_display_splits_placeholders_from_collected_rows(self):
+        # ACM-1008: response only. Snapshot domain_states.mcps stays as collected.
+        doc = json.loads(self.snapshot.read_text())
+        placeholders = [row for row in doc["domains"]["mcps"]
+                        if row.get("evidence_level") == "not_collected"]
+        settings = [row for row in doc["domains"]["mcps"] if row.get("kind") == "box_setting"]
+        self.assertGreater(len(placeholders), 0)
+        self.assertEqual(len(settings), 1)
+        self.assertEqual(doc["domain_states"]["mcps"], "ok")
+
+        def present(rows, state):
+            sample = json.loads(self.snapshot.read_text())
+            sample["domains"]["mcps"] = rows
+            sample["domain_states"]["mcps"] = state
+            self.install(doc=sample, git_leg=self.git_leg())
+            payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+            stored = json.loads(
+                (self.mini_state / "box-snapshots/grok-box/snapshot.json").read_text())
+            self.assertEqual(stored["domain_states"]["mcps"], state)
+            self.assertEqual(stored["domains"]["mcps"], rows)
+            self.assertEqual(payload["domain_counts"]["workflows"],
+                             len(sample["domains"]["workflows"]))
+            self.assertIsNone(payload["domain_counts"]["hooks"])
+            return payload
+
+        only_placeholders = present(placeholders, "ok")
+        self.assertEqual(only_placeholders["domain_states"]["mcps"], "not_collected")
+        self.assertIsNone(only_placeholders["domain_counts"]["mcps"])
+        self.assertNotEqual(only_placeholders["domain_counts"]["mcps"], len(placeholders))
+
+        only_settings = present(settings, "ok")
+        self.assertEqual(only_settings["domain_states"]["mcps"], "ok")
+        self.assertEqual(only_settings["domain_counts"]["mcps"], 1)
+
+        mixed = present(settings + placeholders, "ok")
+        self.assertEqual(mixed["domain_states"]["mcps"], "partial")
+        self.assertEqual(mixed["domain_counts"]["mcps"], 1)
+
+        failed_read = present(placeholders, "partial")
+        self.assertEqual(failed_read["domain_states"]["mcps"], "partial")
+        self.assertIsNone(failed_read["domain_counts"]["mcps"])
+
+        failed_with_settings = present(settings + placeholders, "partial")
+        self.assertEqual(failed_with_settings["domain_states"]["mcps"], "partial")
+        self.assertEqual(failed_with_settings["domain_counts"]["mcps"], 1)
+
+        for state in ("not_collected", "absent", "denied", "error"):
+            held = present(settings + placeholders, state)
+            self.assertEqual(held["domain_states"]["mcps"], state)
+            self.assertIsNone(held["domain_counts"]["mcps"])
+
+        empty_ok = present([], "ok")
+        self.assertEqual(empty_ok["domain_states"]["mcps"], "ok")
+        self.assertEqual(empty_ok["domain_counts"]["mcps"], 0)
+
+        missing = json.loads(self.snapshot.read_text())
+        del missing["domain_states"]["mcps"]
+        self.install(doc=missing, git_leg=self.git_leg())
+        payload = box_snapshot.build_box_config(state_dir=self.mini_state)
+        self.assertNotIn("mcps", payload["domain_states"])
+        self.assertIsNone(payload["domain_counts"]["mcps"])
 
     def test_boxsync_unavailable_degrades_to_absent(self):
         with mock.patch.dict(sys.modules, {"boxsync": None}):

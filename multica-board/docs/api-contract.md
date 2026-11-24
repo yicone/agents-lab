@@ -938,6 +938,7 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 
 ## 变更记录
 
+- v0.12（2026-11-24）：ACM-1008 收紧 `GET /api/box-config` 的 `mcps` 展示。快照里只有 turn 占位且状态为 `ok` 时，响应改为 `not_collected`，计数为 `null`；已采集行与占位并存时只计已采集行，并把 `ok` 显示为 `partial`。不改快照文件，不改 hooks / memory / routines / attachments。
 - v0.12（2026-10-26）：ACM-360 给 Codex、Cursor、Hermes 增加 `load_probe`。`runtime_loaded: false` 只表示配置显式禁用；没有逐条加载名单时保持 null。证据清单接口的 `runtime_loaded` 仍恒为 null。
 
 - v0.11（2026-10-26）：ACM-581 增加 `GET /api/evidence-inventory`。它把现有 Skills 清单投影成 `atlas.evidence_inventory/v1`：来源不按名字合并，`related_name` 只做同名对照；Grok CLI 与 Grok Bot 分开；未采集保持 `uncollected`，不显示成 0。Memory 只有未采集元数据槽位。响应没有正文、哈希原文或命令。不新增 POST。页面入口 `#/configure/skills/evidence`。
@@ -970,9 +971,15 @@ ACM-298 的 8 个名称在 Agent Steward、EO-PM 上标 `observed`（历史实�
 - `collected_at` / `age_seconds`：副本声明的采集时间与相对现在的秒数；无副本为 `null`。
 - `sources` / `domain_states` / `domain_counts`：`sources` 透传快照。`domain_states` 在快照 schema 中是可选字段，整份缺失时响应为 `null`，仍按合法快照处理。`domain_counts` 与状态对齐，无副本时整份为 `null`：
   - `not_collected` / `absent` / `denied` / `error`，或 `domain_states` 对象里缺少该域：该域计数为 `null`（不是 0，也不用列表长度）。未采集域的占位行可以仍在快照 `domains` 里，但不计成数字。
-  - `ok` / `partial` 且该域是列表：计数为条目数。`mcps` 仍按条目数，不在本口径里拆「已观察设置」和 turn 占位。
+  - `ok` / `partial` 且该域是列表：计数为条目数。`mcps` 不按整表长度计，见下一条。
+  - `mcps`（ACM-1008）：只改这份响应，不改快照文件，也不改采集写出的 `domain_states`。`evidence_level: not_collected` 的 turn 占位不是已采集条目。`hooks` / `memory` / `routines` / `attachments` 仍按上一条，不在这里拆行。
+    - 只有 turn 占位，且快照状态为 `ok`：响应 `domain_states.mcps` 为 `not_collected`，`domain_counts.mcps` 为 `null`。与「未采集 / absent / denied / error 不是数字」对齐，不再显示 `ok` 加占位条数。
+    - 只有已采集行（`evidence_level` 不是 `not_collected` 的 `box_setting`、`multica_agent` 或已替换的 `bot_turn`），没有占位：状态保持快照里的 `ok` 或 `partial`，计数为这些行的条数。空列表且快照为 `ok` 时计数为 0。
+    - 已采集行和 turn 占位并存：计数只含已采集行。快照状态为 `ok` 时响应改为 `partial`（turn 未采集，不能显示成已覆盖）；快照已是 `partial` 则保持 `partial`。`historical` 算已采集，不当成占位。
+    - settings 读失败或 `mcpBoxServers` 不可用时，采集仍把该域写成 `partial`（本单不改采集）。没有任何已采集行时，响应保持 `partial`，计数为 `null`（不是 0，也不是占位条数）。已有部分已采集行时，计数为已采集行数，状态保持 `partial`。
+    - 快照状态已是 `not_collected` / `absent` / `denied` / `error`，或 `domain_states` 对象里缺少 `mcps`：计数仍为 `null`，状态不另造。
   - `hooks`：Box 不采集 Mini hooks。`domains.hooks` 仍是 `{scope, host, state: "not_collected_on_box"}`；`domain_states.hooks` 为 `not_collected`；`domain_counts.hooks` 为 `null`，不再回传 `state` 字符串。旧快照若把 `domain_states.hooks` 写成 `ok` 而对象状态仍是 `not_collected_on_box`，响应改为 `not_collected`，不改快照文件。
-  - 整份 `domain_states` 缺失的旧快照：列表域仍按条目数；`hooks` 仍为 `null`。
+  - 整份 `domain_states` 缺失的旧快照：列表域（含 `mcps`）仍按条目数；`hooks` 仍为 `null`。
 - `fetch`：`fetch-status.json` 的 `{state, reason_code, checked_at, verified_commit}`；`state` 含 `catching_up`（见上）；无记录为 `null`。
 - `git_leg`：`git-leg.json` 的 `{state, commit, observed_at}` 摘要；`state` 取 `ok`/`not_collected`/`error`/`too_large`/`absent` 等 git 腿自身状态；无记录为 `null`。它反映的是上一次 `fetch-snapshot` 时刻的 `origin/main`，不代表实时 git。
 - `workflows`：`{summary, items}` 或 `null`（无副本时）。`items[]` 是 `box-config-reconcile/v1` workflows 行的摘要：`id`、`dir_name`、`kind`、`name`、`state`（`aligned`/`missing_on_box`/`missing_in_git`/`orphan_export`/`content_drift`/`unknown`）、`reason_codes`、`join_basis`、`duplicate_name`、`name_changed`、`export_state`、`export_side`；不含 `file_differences` 等逐文件明细。`git-leg.json` 缺失、损坏或 git 腿非 `ok` 时行状态按 reconcile 的 `unknown` 语义，不转成 `missing_*`/`aligned`；快照超过 36 小时自然得到 `unknown`/`snapshot_stale`。
