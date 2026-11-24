@@ -168,10 +168,42 @@ def _presented_domain_states(domains: dict[str, Any], domain_states):
     if (isinstance(hooks, dict) and hooks.get("state") == "not_collected_on_box"
             and states.get("hooks") == "ok"):
         states["hooks"] = "not_collected"
+    if isinstance(domains, dict) and "mcps" in states:
+        states["mcps"], _ = _present_mcps(domains.get("mcps"), states.get("mcps"))
     return states
 
 
-def _domain_count(rows, state, *, states_present: bool):
+def _present_mcps(rows, state):
+    """Response-only mcps state and count. The snapshot file is not rewritten.
+
+    Turn placeholders use evidence_level not_collected and are not an
+    inventory. not_collected/absent/denied/error stay unnumbered. Mixed
+    evidence counts only collected rows; ok becomes partial while any
+    placeholder remains. A partial snapshot with no collected row (settings
+    read failed, or mcpBoxServers unusable) stays partial and counts null.
+    """
+    if state in _NO_NUMBER_STATES or state is None:
+        return state, None
+    if not isinstance(rows, list) or state not in ("ok", "partial"):
+        return state, None
+    collected = sum(1 for row in rows
+                    if not (isinstance(row, dict) and row.get("evidence_level") == "not_collected"))
+    placeholders = len(rows) - collected
+    if collected == 0:
+        if placeholders and state == "ok":
+            return "not_collected", None
+        if state == "partial":
+            return "partial", None
+        return "ok", 0
+    if state == "ok" and placeholders:
+        return "partial", collected
+    return state, collected
+
+
+def _domain_count(rows, state, *, states_present: bool, name: str | None = None):
+    if name == "mcps" and states_present:
+        _, count = _present_mcps(rows, state)
+        return count
     if isinstance(rows, dict) and str(rows.get("state", "")).startswith("not_collected"):
         return None
     if not states_present:
@@ -186,7 +218,7 @@ def _domain_count(rows, state, *, states_present: bool):
 def _domain_counts(domains: dict[str, Any], domain_states) -> dict[str, Any]:
     states_present = isinstance(domain_states, dict)
     return {name: _domain_count(rows, domain_states.get(name) if states_present else None,
-                                states_present=states_present)
+                                states_present=states_present, name=name)
             for name, rows in domains.items()}
 
 
