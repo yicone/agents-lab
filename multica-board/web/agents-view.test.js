@@ -66,11 +66,17 @@ test("search fields include description, instructions, skill names, and workspac
 });
 
 test("copied commands use the real update and skill-id flags", () => {
-  const agent = { id: "agent-1", instructions: "一行\n第二行", skills: [{ id: "skill-a", name: "alpha", enabled: true }, { id: "skill-b", name: "beta", enabled: false }] };
+  const agent = { id: "agent-1", workspace_id: "ws-1", instructions: "一行\n第二行", skills: [{ id: "skill-a", name: "alpha", enabled: true }, { id: "skill-b", name: "beta", enabled: false }] };
   const command = instructionCommand(agent);
-  assert.match(command, /^multica agent update agent-1 --instructions/);
+  assert.match(command, /^multica --workspace-id ws-1 agent update agent-1 --instructions/);
   assert.match(command, /一行\n第二行/);
   assert.deepEqual(skillCommands(agent), [
+    "multica --workspace-id ws-1 agent skills add agent-1 --skill-ids skill-a",
+    "multica --workspace-id ws-1 agent skills set agent-1 --skill-ids skill-a",
+  ]);
+  const bare = { id: "agent-1", skills: [{ id: "skill-a", enabled: true }] };
+  assert.match(instructionCommand(bare), /^multica agent update agent-1 --instructions/);
+  assert.deepEqual(skillCommands(bare), [
     "multica agent skills add agent-1 --skill-ids skill-a",
     "multica agent skills set agent-1 --skill-ids skill-a",
   ]);

@@ -101,7 +101,7 @@ async function open(url) {
 }
 async function measure() {
   return await p.evaluate(()=>{
-    const table=document.querySelector('.skills-main .skills-table'), wrap=table.parentElement;
+    const table=document.querySelector('.board-main .skills-table'), wrap=table.parentElement;
     const rows=[...table.querySelectorAll('.skill-row')];
     let overlap=0;
     for(const row of rows.slice(0,20))for(const cell of row.cells){
@@ -124,7 +124,7 @@ async function measure() {
       firstY:rows[0].getBoundingClientRect().top,
       visibleRows:rows.filter(n=>{const r=n.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}).length,
       width:wrap.clientWidth,scrollWidth:wrap.scrollWidth,overlap,
-      queueWidth:document.querySelector('.skills-queue').getBoundingClientRect().width,
+      queueWidth:document.querySelector('.attention-queue').getBoundingClientRect().width,
       minToolWidth:Math.min(...[...rows[0].querySelectorAll('.tool-mark')].map(n=>n.getBoundingClientRect().width)),
       sticky:getComputedStyle(table.querySelector('thead th')).position,
       rowPadding:getComputedStyle(rows[0].cells[0]).padding,

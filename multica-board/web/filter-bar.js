@@ -1,4 +1,8 @@
-/** Shared workspace filter visibility. Issues and Agents use route.ws; the other pages do not. */
+/** Shared workspace filter visibility.
+ * route.ws is read by the shared bar: Issues, Agents, and recent runs.
+ * Decide, Skills, MCP, hooks, and instruction diff show a fixed scope note and do not read route.ws.
+ * Map and usage show neither.
+ */
 
 export const DECIDE_SCOPE = "范围：ACM Lab";
 export const SKILLS_SCOPE = "范围：全部来源";
@@ -6,7 +10,7 @@ export const MCP_SCOPE = "范围：全部来源";
 export const HOOKS_SCOPE = "范围：全部来源";
 export const DIFF_SCOPE = "对账范围：已登记到 Git 的 Agent 与 Grok Bot；workspace 筛选不作用于本页";
 
-/** "shared" shows the filter. "decide" / "skills" / "mcp" / "diff" show a fixed scope. "none" shows neither. */
+/** "shared" shows the filter. "decide" / "skills" / "mcp" / "hooks" / "diff" show a fixed scope. "none" shows neither. */
 export function filterChrome(view, kind) {
   if (view === "agents" && kind === "diff") return "diff";
   if (view === "issues" || view === "agents" || view === "runs") return "shared";

@@ -1,6 +1,8 @@
 import { pageHead, visibleLabel } from "./ia-view.js";
 import { TRI_LEGEND, renderTriState, skillTriState } from "./capability-state.js";
 import { splitFrontmatter, markdownNodes, lineDiff } from "./skill-viewer.js";
+import { READONLY_LINE, markCopy } from "./copy.js";
+import { diffBlock, line, section } from "./drawer-fields.js";
 /** Skills governance page. Buckets come from the API; this file only displays them. */
 
 import { contentKey, CONTENT_LABEL } from "./skill-content.js";
@@ -379,8 +381,8 @@ export function renderSkills(ctx) {
     disclosure(h, "legend", "图例", legend(h)),
     h(
       "div",
-      { class: "skills-layout" },
-      h("div", { class: "skills-main" }, table(ctx, tools, harness, projectTool, groups, visible, payload)),
+      { class: "board-layout" },
+      h("div", { class: "board-main" }, table(ctx, tools, harness, projectTool, groups, visible, payload)),
       queue(ctx, payload),
     ),
   ].filter(Boolean);
@@ -503,7 +505,8 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
       ),
     );
     for (const item of shown) body.push(row(ctx, harness, projectTool, item, payload));
-    if (rest > 0) {
+    const moreLabel = rest > 0 ? `显示其余 ${rest} 条` : open && group.items.length > GROUP_LIMIT ? `收起到 ${GROUP_LIMIT} 条` : "";
+    if (moreLabel) {
       body.push(
         h(
           "tr",
@@ -511,7 +514,7 @@ function table(ctx, tools, harness, projectTool, groups, visible, payload) {
           h(
             "td",
             { colspan: String(3 + tools.length + OPTIONAL_COLUMNS.filter(([id]) => !optionalAttrs(id).hidden).length) },
-            h("button", { type: "button", class: "text-btn", onclick: () => ctx.toggleSkillGroup(group.id) }, `显示其余 ${rest} 条`),
+            h("button", { type: "button", class: "text-btn", onclick: () => ctx.toggleSkillGroup(group.id) }, moreLabel),
           ),
         ),
       );
@@ -693,7 +696,7 @@ function cloudQueue(ctx, payload) {
         ),
       )
     : h("p", { class: "muted" }, "无");
-  return h("section", { class: "skill-bucket cloud-pending" }, h("header", null, h("span", null, "Workspace 待核对"), h("span", { class: "count" }, String(pending.length))), body);
+  return h("section", { class: "queue-bucket cloud-pending" }, h("header", null, h("span", null, "Workspace 待核对"), h("span", { class: "count" }, String(pending.length))), body);
 }
 
 export function cloudCommands(item, install) {
@@ -726,7 +729,7 @@ function cloudSection(h, item) {
   if (!installs.length) return [h("p", { class: "muted" }, "已采集的 Workspace 里没有同名 Workspace Skill。")];
   const drift = cloudDrift(item);
   const nodes = [
-    h("p", { class: "muted" }, "页面只读，不代为执行。复制命令后在自己的终端运行。"),
+    h("p", { class: "muted" }, READONLY_LINE),
   ];
   if (item.local_source) {
     nodes.push(h("p", null, h("span", { class: "muted" }, "本机 "), h("span", { class: "mono" }, item.local_source.path), item.local_source.updated_at ? h("span", { class: "muted" }, ` · ${item.local_source.updated_at}`) : null));
@@ -866,10 +869,10 @@ function queue(ctx, payload) {
   const debt = payload.attention?.baseline_debt || 0;
   return h(
     "aside",
-    { class: "skills-queue", "aria-label": "待处理" },
+    { class: "attention-queue", "aria-label": "待处理" },
     h(
       "div",
-      { class: "skills-compact" },
+      { class: "attention-compact" },
       h("span", null, "Workspace 待核对 ", String(cloudPending(payload).length)),
       buckets.map((bucket) => h("span", null, bucket.title, " ", bucket.connected ? String(bucket.items.length) : "—")),
     ),
@@ -927,7 +930,7 @@ function bucketBlock(ctx, bucket) {
       ),
     );
   }
-  return h("section", { class: "skill-bucket" }, h("header", null, h("span", null, bucket.title), h("span", { class: "count" }, bucket.connected ? String(bucket.items.length) : "—")), bucket.items.length && bucket.reason ? h("p", { class: "muted" }, bucket.reason) : null, body);
+  return h("section", { class: "queue-bucket" }, h("header", null, h("span", null, bucket.title), h("span", { class: "count" }, bucket.connected ? String(bucket.items.length) : "—")), bucket.items.length && bucket.reason ? h("p", { class: "muted" }, bucket.reason) : null, body);
 }
 
 const SHA256 = /^[a-f0-9]{64}$/i;
@@ -1188,7 +1191,7 @@ export function renderSkillDrawer(ctx, item) {
     section(h, "Skill 正文", contentSection(h, ctx, item)),
     section(h, "Workspace（跨 Workspace）", cloudSection(h, item)),
     section(h, "在终端处理", [
-      h("p", { class: "muted" }, "页面只读，不替代命令行。"),
+      h("p", { class: "muted" }, READONLY_LINE),
       item.command ? h("p", { class: "command" }, h("code", null, item.command), h("button", { type: "button", onclick: (e) => copyCommand(e.currentTarget, item.command) }, "复制")) : null,
       h("div", { class: "skill-drift-suggestions" },
         h("p", null, h("strong", null, "建议只读动作")),
@@ -1342,7 +1345,10 @@ function contentSection(h, ctx, item) {
       const before = loaded[0];
       const diff = lineDiff(before.result.content || "", row.result.content || "");
       return h("details", { dataset: { skillDetail: `diff:${before.target.path}:${row.target.path}` } }, h("summary", null, `只读 diff：${before.target.path} → ${row.target.path}`),
-        diff.error ? h("p", null, diff.error) : h("pre", { class: "diff-block" }, ...(diff.parts || []).map(part => h("span", { class: part.added ? "diff-add" : part.removed ? "diff-del" : "diff-same" }, `${part.added ? "+ " : part.removed ? "- " : "  "}${part.value}`))));
+        diff.error ? h("p", null, diff.error) : diffBlock(h, (diff.parts || []).map((part) => ({
+          kind: part.added ? "add" : part.removed ? "del" : "same",
+          text: `${part.added ? "+ " : part.removed ? "- " : "  "}${part.value}`,
+        }))));
     })));
   }
   const installs = item.workspace_installs;
@@ -1381,21 +1387,6 @@ function customSection(h, item) {
   return [mode ? line(h, "模式", mode) : null, ...(item.constraints || []).map((constraint) => h("p", null, `${constraint.kind} · ${constraint.value}`))];
 }
 
-function section(h, title, nodes) {
-  return h("section", null, h("h3", { class: "drawer-sub" }, title), ...nodes.filter(Boolean));
-}
-
-function line(h, label, value) {
-  return h("p", null, h("span", { class: "muted" }, `${label} `), h("span", { class: "mono" }, value || "—"));
-}
-
 function copyCommand(button, command) {
-  navigator.clipboard?.writeText(command).then(
-    () => {
-      button.textContent = "已复制";
-    },
-    () => {
-      button.textContent = "复制失败";
-    },
-  );
+  return markCopy(button, command);
 }

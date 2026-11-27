@@ -49,7 +49,7 @@ async function rowMetrics() {
     rows:[...document.querySelectorAll('.skill-row')].filter(n=>{const r=n.getBoundingClientRect();return r.top>=0 && r.bottom<=900;}).length,
     width:document.querySelector('.table-wrap').clientWidth,
     scrollWidth:document.querySelector('.table-wrap').scrollWidth,
-    queueWidth:document.querySelector('.skills-queue').getBoundingClientRect().width,
+    queueWidth:document.querySelector('.attention-queue').getBoundingClientRect().width,
     padding:getComputedStyle(document.querySelector('.skill-row td')).padding,
     sticky:getComputedStyle(document.querySelector('.skills-table thead th')).position,
   }));

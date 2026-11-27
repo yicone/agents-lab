@@ -235,7 +235,7 @@ test("queue zero counts are muted, partial question marks and nonzero tones surv
   for (const payload of [emptyFx, warnFx, partialFx, unknownFx, mcpFx]) {
     const buckets = queueModel(payload).buckets;
     const sections = findAll(renderMcp(ctx({ mcp: payload })),
-      (n) => n.tag === "section" && n.attrs.class === "skill-bucket");
+      (n) => n.tag === "section" && n.attrs.class === "queue-bucket");
     for (const [index, section] of sections.entries()) {
       const count = findAll(section, (n) => n.attrs.class?.startsWith("count "))[0];
       const bucket = buckets[index];
