@@ -164,6 +164,111 @@ def _materialize(root, files):
         _write(dest, body)
 
 
+def _gate_manifests(work, before):
+    """Expected manifest bytes shared by creation and read-only reuse checks."""
+    baseline, staging = work / "baseline", work / "staging"
+    metadata = []
+    for path, body in sorted(before.items()):
+        # Match skill_guard.entries, including directories and their modes.
+        metadata.append({"path": path, "type": "file", "mode": 0o600,
+                         "sha256": _sha(body), "size": len(body)})
+    directories = {str(parent) for path in before for parent in Path(path).parents if str(parent) != "."}
+    metadata += [{"path": path, "type": "directory", "mode": 0o700} for path in sorted(directories)]
+    return {
+        "baseline/manifest.json": canonical({"schema": "skill-governance-snapshot/v1", "roots": [
+            {"kind": "skill", "original_path": str(baseline / "root"), "snapshot_path": "root", "entries": metadata}]}),
+        "staging/manifest.json": canonical({"schema": "skill-governance-staging/v1", "roots": [
+            {"staging_path": "root"}]}),
+    }
+
+
+def _artifact_info(info, directory=False):
+    kind = stat.S_ISDIR if directory else stat.S_ISREG
+    if (not kind(info.st_mode) or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) != (0o700 if directory else 0o600)
+            or not directory and info.st_nlink != 1):
+        raise UnsafeIO("unsafe_artifact")
+
+
+def _artifact_read_at(fd, name, limit):
+    before = os.stat(name, dir_fd=fd, follow_symlinks=False)
+    _artifact_info(before)
+    result = read_at(fd, name, max_bytes=limit)
+    after = os.stat(name, dir_fd=fd, follow_symlinks=False)
+    _artifact_info(after)
+    if result.state != "observed" or _signature(before) != _signature(after):
+        raise UnsafeIO("artifact_conflict")
+    return result.data
+
+
+def _artifact_read(root, name, limit, *, missing_ok=False):
+    with open_directory(root) as fd:
+        _artifact_info(os.fstat(fd), directory=True)
+        try:
+            return _artifact_read_at(fd, name, limit)
+        except FileNotFoundError:
+            if missing_ok:
+                return None
+            raise UnsafeIO("artifact_conflict") from None
+
+
+def _verify_gate_artifacts(work, before, after):
+    """Validate exact private trees against fresh inputs, never repair or restage.
+
+    Unknown entries, missing entries, links, wrong owners/modes and changed bytes
+    all refuse reuse. Manifests cannot redirect verification to a different tree.
+    """
+    expected = _gate_manifests(work, before)
+    expected.update({"baseline/root/" + path: body for path, body in before.items()})
+    expected.update({"staging/root/" + path: body for path, body in after.items()})
+    expected["last-gate.json"] = None
+    directories = {"", "baseline/root", "staging/root"}
+    for path in tuple(expected) + tuple(directories):
+        directories.update(str(p) for p in Path(path).parents if str(p) != ".")
+    children = {path: set() for path in directories}
+    for path in set(expected) | (directories - {""}):
+        parent, _, name = path.rpartition("/")
+        children[parent].add(name)
+    record = None
+
+    def walk(fd, parent=""):
+        nonlocal record
+        start = os.fstat(fd)
+        _artifact_info(start, directory=True)
+        seen = set()
+        with os.scandir(fd) as iterator:
+            for entry in iterator:
+                if entry.name not in children[parent]:
+                    raise UnsafeIO("artifact_conflict")
+                seen.add(entry.name)
+                path = parent + "/" + entry.name if parent else entry.name
+                if path in directories:
+                    info = os.stat(entry.name, dir_fd=fd, follow_symlinks=False)
+                    _artifact_info(info, directory=True)
+                    child = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                    try:
+                        if _signature(info) != _signature(os.fstat(child)):
+                            raise UnsafeIO("artifact_conflict")
+                        walk(child, path)
+                        if _signature(info) != _signature(os.stat(entry.name, dir_fd=fd, follow_symlinks=False)):
+                            raise UnsafeIO("artifact_conflict")
+                    finally:
+                        os.close(child)
+                else:
+                    body = expected[path]
+                    data = _artifact_read_at(fd, entry.name, 1024 * 1024 if body is None else len(body))
+                    if body is None:
+                        record = data
+                    elif data != body:
+                        raise UnsafeIO("artifact_conflict")
+        if seen != children[parent] or _signature(start) != _signature(os.fstat(fd)):
+            raise UnsafeIO("artifact_conflict")
+
+    with open_directory(work) as fd:
+        walk(fd)
+    return parse_json(record)
+
+
 def _gate(work, before, after):
     """Run the existing gate on private copies, forcing its skill_guard fallback.
 
@@ -175,17 +280,8 @@ def _gate(work, before, after):
         _private_dir(directory)
     _materialize(baseline / "root", before)
     _materialize(staging / "root", after)
-    metadata = []
-    for path, body in sorted(before.items()):
-        # Match skill_guard.entries, including directories and their modes.
-        metadata.append({"path": path, "type": "file", "mode": 0o600,
-                         "sha256": _sha(body), "size": len(body)})
-    directories = {str(parent) for path in before for parent in Path(path).parents if str(parent) != "."}
-    metadata += [{"path": path, "type": "directory", "mode": 0o700} for path in sorted(directories)]
-    _write(baseline / "manifest.json", canonical({"schema": "skill-governance-snapshot/v1", "roots": [
-        {"kind": "skill", "original_path": str(baseline / "root"), "snapshot_path": "root", "entries": metadata}]}))
-    _write(staging / "manifest.json", canonical({"schema": "skill-governance-staging/v1", "roots": [
-        {"staging_path": "root"}]}))
+    for path, body in _gate_manifests(work, before).items():
+        _write(work / path, body)
     record = work / "last-gate.json"
     env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTHON", "SKIL_LOCK"))}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -336,26 +432,26 @@ def plan_writeback(snapshot, reader, live_root, state_dir, *, direction="box-to-
     plans = state_dir / "plans"
     _private_dir(plans)
     work = plans / plan_id
-    existing = read_file(plans, plan_id + ".json", max_bytes=MAX_SNAPSHOT_BYTES)
-    if existing.state == "observed":
-        saved = parse_json(existing.data)
+    existing = _artifact_read(plans, plan_id + ".json", MAX_SNAPSHOT_BYTES, missing_ok=True)
+    if existing is not None:
+        saved = parse_json(existing)
         validate_plan(saved)
-        diff = read_file(plans, plan_id + ".diff", max_bytes=64 * 1024 * 1024)
-        record = read_file(work, "last-gate.json", max_bytes=1024 * 1024)
-        gate_record = parse_json(record.data)
+        diff = _artifact_read(plans, plan_id + ".diff", 64 * 1024 * 1024)
+        gate_record = _verify_gate_artifacts(work, baseline, candidate)
+        timestamp(gate_record.get("time"))
         if (any(saved.get(key) != value for key, value in plan.items())
                 or saved["plan_id"] != plan_id
                 or saved.get("diff_path") != "plans/" + plan_id + ".diff"
                 or saved["gate"].get("gate_record") != "plans/" + plan_id + "/last-gate.json"
-                or diff.state != "observed" or diff.data != "".join(diffs).encode()
-                or record.state != "observed" or gate_record.get("source") != "skill_guard"
+                or diff != "".join(diffs).encode()
+                or gate_record.get("state") not in ("fallback", "recorded")
+                or saved["gate"]["state"] not in ("block", "fallback")
+                or gate_record.get("source") != "skill_guard"
                 or gate_record.get("schema") != "skill-governance-last-gate/v1"
                 or gate_record.get("result") != ("block" if saved["gate"]["state"] == "block" else "pass")
                 or sorted(set(gate_record.get("signals", []))) != saved["gate"].get("signals")):
             raise UnsafeIO("artifact_conflict")
         return saved
-    if existing.state != "absent":
-        raise UnsafeIO("artifact_conflict")
     # Never rerun a gate in an existing artifact directory; refuse collisions safely.
     with open_directory(plans) as fd:
         os.mkdir(plan_id, 0o700, dir_fd=fd)

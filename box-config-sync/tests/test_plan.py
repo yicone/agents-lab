@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -99,6 +100,129 @@ class PlanTests(unittest.TestCase):
                 target = target[part]
             target[path[-1]] = "modified value"
             self.assertNotEqual(plan_sha256(changed), first["plan_sha256"], path)
+
+    def artifact_paths(self, plan):
+        work = self.state / "plans" / plan["plan_id"]
+        return [self.state / "plans", self.state / "plans" / (plan["plan_id"] + ".json"),
+                self.state / plan["diff_path"], work, *sorted(work.rglob("*"))]
+
+    def evidence(self):
+        # Reads may update atime; all other target/artifact metadata and bytes
+        # must remain unchanged even when refusing tainted cached artifacts.
+        return {str(p.relative_to(self.root)): (p.lstat().st_mode, p.lstat().st_uid,
+                p.lstat().st_ino, p.lstat().st_mtime_ns, p.lstat().st_ctime_ns,
+                p.read_bytes() if p.is_file() and not p.is_symlink() else None)
+                for p in self.root.rglob("*")}
+
+    def test_reuse_rejects_each_file_or_directory_mode_without_repair(self):
+        plan = self.plan()
+        for path in self.artifact_paths(plan):
+            original = stat.S_IMODE(path.stat().st_mode)
+            path.chmod(0o755 if path.is_dir() else 0o644)
+            try:
+                before = self.evidence()
+                with self.subTest(path=path.relative_to(self.state)), self.assertRaises(UnsafeIO):
+                    self.plan()
+                self.assertEqual(before, self.evidence())
+            finally:
+                path.chmod(original)
+        self.assertEqual(plan, self.plan())
+
+    def test_reuse_rejects_each_artifact_owner_without_chown_privileges(self):
+        plan = self.plan()
+        real_stat, real_fstat = os.stat, os.fstat
+        for path in self.artifact_paths(plan):
+            identity = (path.stat().st_dev, path.stat().st_ino)
+            def foreign_owner(info):
+                if (info.st_dev, info.st_ino) != identity:
+                    return info
+                # Only UID is simulated. Kernel metadata and bytes stay intact.
+                values = {key: getattr(info, key) for key in (
+                    "st_dev", "st_ino", "st_size", "st_mode", "st_mtime_ns", "st_ctime_ns", "st_nlink")}
+                return SimpleNamespace(**values, st_uid=os.getuid() + 1)
+            def statted(*args, **kwargs):
+                return foreign_owner(real_stat(*args, **kwargs))
+            def fstatted(*args, **kwargs):
+                return foreign_owner(real_fstat(*args, **kwargs))
+            before = self.evidence()
+            with patch("os.stat", side_effect=statted), patch("os.fstat", side_effect=fstatted):
+                with self.subTest(path=path.relative_to(self.state)), self.assertRaises(UnsafeIO):
+                    self.plan()
+            self.assertEqual(before, self.evidence())
+        self.assertEqual(plan, self.plan())
+
+    def test_reuse_rejects_staging_bytes_mode_and_combined_tampering(self):
+        plan = self.plan()
+        staged = self.state / "plans" / plan["plan_id"] / "staging/root/example/SKILL.md"
+        body = staged.read_bytes()
+        for change_bytes, change_mode in ((True, False), (False, True), (True, True)):
+            try:
+                if change_bytes:
+                    staged.write_bytes(body + b"Tampered staged prose.\n")
+                if change_mode:
+                    staged.chmod(0o644)
+                before = self.evidence()
+                with self.subTest(bytes=change_bytes, mode=change_mode), self.assertRaises(UnsafeIO):
+                    self.plan()
+                self.assertEqual(before, self.evidence())
+            finally:
+                staged.write_bytes(body)
+                staged.chmod(0o600)
+        self.assertEqual(plan, self.plan())
+
+    def test_reuse_rejects_baseline_and_manifest_bytes(self):
+        plan = self.plan()
+        work = self.state / "plans" / plan["plan_id"]
+        for relative in ("baseline/root/example/SKILL.md", "baseline/manifest.json", "staging/manifest.json"):
+            path = work / relative
+            body = path.read_bytes()
+            try:
+                path.write_bytes(body + b" ")
+                before = self.evidence()
+                with self.subTest(path=relative), self.assertRaises(UnsafeIO):
+                    self.plan()
+                self.assertEqual(before, self.evidence())
+            finally:
+                path.write_bytes(body)
+
+    def test_reuse_rejects_unexpected_missing_and_linked_staging_entries(self):
+        plan = self.plan()
+        work = self.state / "plans" / plan["plan_id"]
+        staged = work / "staging/root/example/SKILL.md"
+        body = staged.read_bytes()
+        extra = staged.parent / "extra.txt"
+        extra.write_text("Unexpected file")
+        try:
+            with self.assertRaises(UnsafeIO):
+                self.plan()
+        finally:
+            extra.unlink()
+        for kind in ("missing", "symlink", "hardlink", "fifo"):
+            staged.unlink()
+            try:
+                if kind == "symlink":
+                    staged.symlink_to(self.live / "example/SKILL.md")
+                elif kind == "hardlink":
+                    os.link(work / "baseline/root/example/SKILL.md", staged)
+                elif kind == "fifo":
+                    os.mkfifo(staged, 0o600)
+                with self.subTest(kind=kind), self.assertRaises(UnsafeIO):
+                    self.plan()
+            finally:
+                if staged.exists() or staged.is_symlink():
+                    staged.unlink()
+                staged.write_bytes(body)
+                staged.chmod(0o600)
+        self.assertEqual(plan, self.plan())
+
+    def test_clean_reuse_runs_no_gate_and_mutates_no_artifact_or_target(self):
+        plan = self.plan()
+        before = self.evidence()
+        with patch("boxsync.plan._gate", side_effect=AssertionError("reuse must not rerun gate")), \
+                patch("os.chmod", side_effect=AssertionError("reuse must not repair modes")), \
+                patch("os.fchmod", side_effect=AssertionError("reuse must not repair modes")):
+            self.assertEqual(plan, self.plan())
+        self.assertEqual(before, self.evidence())
 
     def test_schema_is_exact_approved_schema_and_jsonschema_accepts_plan(self):
         approved = subprocess.run(["git", "-C", str(REPO), "show",
