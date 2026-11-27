@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yicone/agents-lab/multica-board/docs/schemas/box-config-writeback-plan.schema.json",
+  "title": "box-config-plan/v1",
+  "description": "plan-writeback 产出的 dry-run 计划。apply-writeback 只接受与本文件 plan_sha256、base.git_commit、action 完全一致的批准参数。审计记录定义在 $defs/audit（box-config-audit/v1）。见 box-config-sync-design.md §5.3、§6.3、§6.5。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "plan_sha256", "created_at", "expires_at", "action", "direction", "domain", "base", "items", "gate"],
+  "properties": {
+    "schema": {"const": "box-config-plan/v1"},
+    "plan_id": {"$ref": "#/$defs/uuid"},
+    "plan_sha256": {
+      "description": "去掉本字段后，对计划做 json.dumps(sort_keys=True, separators=(',',':'), ensure_ascii=False) 的 UTF-8 字节取 SHA-256。",
+      "$ref": "#/$defs/sha256"
+    },
+    "created_at": {"$ref": "#/$defs/timestamp"},
+    "expires_at": {"$ref": "#/$defs/timestamp"},
+    "action": {"$ref": "#/$defs/action"},
+    "direction": {"enum": ["box-to-git", "git-to-box", "git-to-multica", "changeset-only"]},
+    "domain": {"enum": ["workflows", "instructions", "cloud-skills", "profiles", "routines"]},
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_ref", "git_commit", "snapshot_sha256", "snapshot_collected_at"],
+      "properties": {
+        "git_ref": {"type": "string", "maxLength": 200},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "snapshot_sha256": {"$ref": "#/$defs/sha256"},
+        "snapshot_collected_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow_create": {"type": "boolean"},
+        "allow_delete": {"type": "boolean"}
+      }
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "gate": {
+      "description": "workflows 计划必须带 skill_guard 门禁结果；其他域为 not_applicable。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": {"enum": ["pass", "block", "fallback", "not_applicable", "error"]},
+        "gate_record": {"type": ["string", "null"], "maxLength": 300},
+        "signals": {"type": "array", "maxItems": 50, "items": {"type": "string", "maxLength": 64}}
+      }
+    },
+    "diff_path": {
+      "description": "本地状态目录内的 diff 文件别名路径；diff 内容不进计划、不进审计。",
+      "type": ["string", "null"],
+      "maxLength": 300
+    }
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sha256OrNull": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"},
+    "action": {"enum": ["apply-workflows-to-box", "apply-workflows-to-git", "apply-multica-instructions", "apply-multica-skill", "push-snapshot", "rollback", "changeset-only"]},
+    "relPath": {"type": "string", "maxLength": 1024, "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"},
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_id", "target_kind", "op", "writer", "expected_live_sha256", "expected_git_sha256", "after_sha256", "files"],
+      "properties": {
+        "target_id": {"type": "string", "maxLength": 300},
+        "target_kind": {"enum": ["box_workflow", "git_workflow", "multica_agent_instructions", "multica_skill", "grok_profile", "grok_routine", "grok_update_skill"]},
+        "op": {"enum": ["create", "update", "delete"]},
+        "writer": {
+          "description": "W2 由本 CLI 执行（boxsync_fs / git_local_commit / multica_cli）；W1 只产出变更包（bot_turn）。",
+          "enum": ["boxsync_fs", "git_local_commit", "multica_cli", "bot_turn"]
+        },
+        "expected_live_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "expected_git_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "after_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "hash_algorithm": {"enum": ["boxsync-tree/v1", "instructions-sha256", "body-sha256"]},
+        "files": {
+          "type": "array",
+          "maxItems": 2000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "op", "before_sha256", "after_sha256", "after_bytes"],
+            "properties": {
+              "path": {"$ref": "#/$defs/relPath"},
+              "op": {"enum": ["create", "update", "delete"]},
+              "before_sha256": {"$ref": "#/$defs/sha256OrNull"},
+              "after_sha256": {"$ref": "#/$defs/sha256OrNull"},
+              "after_bytes": {"type": ["integer", "null"], "minimum": 0}
+            }
+          }
+        },
+        "changeset": {
+          "description": "仅 writer=bot_turn：交给 Bot 会话执行的工具与参数摘要（不含正文；正文由执行者从 Git ref 读取）。",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["tool", "bot_id", "source_ref"],
+          "properties": {
+            "tool": {"enum": ["UpdateProfile", "UpdateRoutine", "UpdateSkill"]},
+            "bot_id": {"$ref": "#/$defs/uuid"},
+            "field": {"type": ["string", "null"], "maxLength": 64},
+            "source_ref": {"type": "string", "maxLength": 400}
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"op": {"const": "create"}}},
+          "then": {"properties": {"expected_live_sha256": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"op": {"const": "delete"}}},
+          "then": {"properties": {"after_sha256": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"writer": {"const": "bot_turn"}}},
+          "then": {"required": ["changeset"], "properties": {"changeset": {"type": "object"}}}
+        }
+      ]
+    },
+    "audit": {
+      "title": "box-config-audit/v1",
+      "description": "audit.jsonl 每行一条。只记 id、哈希、字节数、别名路径与原因码；不记正文、diff、秘密命中片段。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "audit_id", "time", "approve", "approval", "action", "plan_id", "plan_sha256", "base_sha", "actor", "targets", "result"],
+      "properties": {
+        "schema": {"const": "box-config-audit/v1"},
+        "audit_id": {"$ref": "#/$defs/uuid"},
+        "time": {"$ref": "#/$defs/timestamp"},
+        "approve": {"type": ["string", "null"], "pattern": "^ACM-\\d+$"},
+        "action": {"$ref": "#/$defs/action"},
+        "plan_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "plan_sha256": {"$ref": "#/$defs/sha256OrNull"},
+        "base_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "rollback_of": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "approval": {
+          "description": "§6.3 批准凭据核验结果。publish-snapshot（D1 长期批准）与被拒绝在核验之前的记录为 null。",
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["method", "issue", "comment_id", "author_id", "comment_created_at", "signature_fingerprint"],
+              "properties": {
+                "method": {"enum": ["multica_comment", "multica_comment+ssh_signature"]},
+                "issue": {"type": "string", "pattern": "^ACM-\\d+$"},
+                "comment_id": {"$ref": "#/$defs/uuid"},
+                "author_id": {"$ref": "#/$defs/uuid"},
+                "comment_created_at": {"$ref": "#/$defs/timestamp"},
+                "signature_fingerprint": {"type": ["string", "null"], "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"}
+              },
+              "allOf": [
+                {
+                  "if": {"properties": {"method": {"const": "multica_comment"}}},
+                  "then": {"properties": {"signature_fingerprint": {"type": "null"}}},
+                  "else": {"properties": {"signature_fingerprint": {"type": "string"}}}
+                }
+              ]
+            }
+          ]
+        },
+        "actor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["user", "host"],
+          "properties": {
+            "user": {"type": "string", "maxLength": 64},
+            "host": {"type": "string", "maxLength": 128}
+          }
+        },
+        "targets": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "before_sha256", "after_sha256", "result"],
+            "properties": {
+              "id": {"type": "string", "maxLength": 300},
+              "before_sha256": {"$ref": "#/$defs/sha256OrNull"},
+              "after_sha256": {"$ref": "#/$defs/sha256OrNull"},
+              "readback_sha256": {"$ref": "#/$defs/sha256OrNull"},
+              "result": {"enum": ["applied", "conflict", "concurrent_conflict", "refused", "rolled_back", "rollback_failed", "skipped"]},
+              "conflict_files": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/relPath"}},
+              "fingerprint_state": {"enum": ["matches_new", "matches_old", "absent", "unknown", "format_unconfirmed", "not_applicable"]},
+              "no_start_flag": {"enum": ["passed", "unsupported", "not_applicable"]}
+            }
+          }
+        },
+        "backup_path": {"type": ["string", "null"], "maxLength": 300},
+        "commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "bundle_path": {"type": ["string", "null"], "maxLength": 300},
+        "allowed_findings": {"type": "array", "maxItems": 50, "items": {"type": "string", "pattern": "^[0-9a-f]{12}$"}},
+        "result": {"enum": ["applied", "conflict", "concurrent_conflict", "refused", "rolled_back", "rollback_failed"]},
+        "reason": {"type": ["string", "null"], "maxLength": 200}
+      }
+    }
+  }
+}

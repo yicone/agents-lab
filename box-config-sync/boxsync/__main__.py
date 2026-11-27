@@ -74,6 +74,8 @@ def check_state_dir(path):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="boxsync")
     subcommands = parser.add_subparsers(dest="command", required=True)
+    from .plan import add_parser, command as plan_command
+    add_parser(subcommands)
     command = subcommands.add_parser("discover")
     command.add_argument("--roots", help="Comma-separated registered root aliases")
     command.add_argument("--state-dir", type=Path, default=BOX_STATE_DIR)
@@ -114,6 +116,8 @@ def main(argv=None):
     command.add_argument("--format", choices=("json", "text"), default="json")
     command.add_argument("--offline", action="store_true", help="Do not fetch; verify existing remote-tracking refs")
     args = parser.parse_args(argv)
+    if args.command == "plan-writeback":
+        return plan_command(args, parser)
     if args.command == "collect":
         return collect_command(args, parser)
     if args.command == "reconcile":
