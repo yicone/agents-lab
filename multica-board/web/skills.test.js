@@ -260,7 +260,7 @@ test("upgrade failure stays a dash and a finished empty check stays 无", () => 
   const upgrade = queueModel(finished).find((bucket) => bucket.id === "upgradable");
   assert.equal(upgrade.connected, true);
   assert.equal(upgrade.items.length, 0);
-  const section = findAll({ children: renderSkills(renderCtx(finished)) }, (node) => node.tag === "section" && node.attrs.class === "skill-bucket")
+  const section = findAll({ children: renderSkills(renderCtx(finished)) }, (node) => node.tag === "section" && node.attrs.class === "queue-bucket")
     .find((node) => findText(node, "可升级"));
   assert.equal(findText(section, "无"), true);
   assert.equal(findText(section, "不能判断有没有更新"), false);
@@ -700,7 +700,7 @@ test("local skills directory newer than the cloud copy enters the pending queue"
   const payload = basePayload([stale, fresh, summaryOnly]);
   assert.deepEqual(cloudPending(payload).map((item) => item.name), ["colgrep-search", "summary-skill"]);
   const tree = { children: renderSkills(renderCtx(payload)) };
-  const queue = findAll(tree, (n) => n.attrs?.class === "skill-bucket cloud-pending")[0];
+  const queue = findAll(tree, (n) => n.attrs?.class === "queue-bucket cloud-pending")[0];
   assert.ok(findText(queue, "Workspace 待核对"));
   assert.ok(findText(queue, "colgrep-search"));
   assert.ok(findText(queue, "Workspace 较旧（按时间推断）"));

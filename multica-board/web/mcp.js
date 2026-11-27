@@ -5,12 +5,14 @@ import { TRI_LEGEND, mcpTriState, renderTriState } from "./capability-state.js";
 
 import { pageHead, visibleLabel } from "./ia-view.js";
 import { mcpMatches, renderFocusState } from "./deep-link.js";
+import { COPY_FAILED, READONLY_LINE, copyWithFallback } from "./copy.js";
+import { line, section } from "./drawer-fields.js";
+
+export { READONLY_LINE, copyWithFallback };
 
 export const PROJECT_SOURCE = "project"; // 伪来源：按 in_project 筛选，重叠于其他三类
 export const REPO_TOOL = "repo";
 export const mcpRowId = (item) => `mcp-row-${item.id}`;
-
-export const READONLY_LINE = "页面只读，不代为执行。复制命令后在自己的终端运行。";
 const READONLY_WS = "写命令需要 workspace admin/owner；agent 会话里运行会被拒绝。";
 const READONLY_LOCAL = "改本机文件后，下一次扫描生效。";
 export const FILE_HINT_WS = "文件里有密钥：建议 chmod 600，用完删除，不要放进 git 仓库。";
@@ -259,45 +261,9 @@ export function queueModel(payload) {
   };
 }
 
-// ---------- copy with fallback（§8）----------
-
-/**
- * 三条复制路径：clipboard → execCommand(textarea) → 返回 false。
- * env 可注入 { clipboard, document } 以便测试。
- */
-export async function copyWithFallback(text, env = {}) {
-  const clipboard = env.clipboard !== undefined
-    ? env.clipboard
-    : (typeof navigator !== "undefined" ? navigator.clipboard : undefined);
-  const doc = env.document ?? (typeof document !== "undefined" ? document : undefined);
-  try {
-    if (clipboard?.writeText) {
-      await clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // fall through to path 2
-  }
-  try {
-    if (!doc) return false;
-    const ta = doc.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    doc.body.appendChild(ta);
-    ta.select();
-    const ok = doc.execCommand("copy");
-    ta.remove();
-    return ok === true;
-  } catch {
-    return false;
-  }
-}
-
-/** 失败回退：按钮「复制失败」，选中命令 <code>，加灰字提示行。 */
+/** 失败回退：按钮写统一失败文案，选中命令 <code>，加灰字提示行。 */
 function fallbackCopy(h, ctx, button, commandEl) {
-  button.textContent = "复制失败";
+  button.textContent = COPY_FAILED;
   const doc = commandEl?.ownerDocument;
   if (doc && commandEl) {
     const range = doc.createRange();
@@ -360,15 +326,6 @@ export function openConfigCommand(path) {
 }
 
 // ---------- rendering ----------
-
-function section(h, title, nodes) {
-  return h("section", null, h("h3", { class: "drawer-sub" }, title), ...nodes.filter(Boolean));
-}
-
-function line(h, label, value) {
-  return h("p", null, h("span", { class: "muted" }, `${label} `),
-    typeof value === "string" || value == null ? h("span", { class: "mono" }, value || "—") : value);
-}
 
 function commandRows(h, ctx, entries) {
   return entries.flatMap((entry) => commandNode(h, ctx, entry)).filter(Boolean);
@@ -680,11 +637,12 @@ function table(ctx, tools, groups, payload) {
         h("span", { class: "muted" }, ` · ${group.items.length}`),
         group.note ? h("span", { class: "muted" }, ` · ${group.note}`) : null)));
     for (const item of shown) body.push(row(ctx, tools, item, payload));
-    if (rest > 0) {
+    const moreLabel = rest > 0 ? `显示其余 ${rest} 条` : open && group.items.length > GROUP_LIMIT ? `收起到 ${GROUP_LIMIT} 条` : "";
+    if (moreLabel) {
       body.push(h("tr", { class: "skill-more" },
         h("td", { colspan },
           h("button", { type: "button", class: "text-btn", onclick: () => ctx.toggleMcpGroup(group.id) },
-            `显示其余 ${rest} 条`))));
+            moreLabel))));
     }
   }
   if (!groups.length) {
@@ -697,8 +655,8 @@ function table(ctx, tools, groups, payload) {
 function queue(ctx, payload) {
   const { h, route } = ctx;
   const model = queueModel(payload);
-  return h("aside", { class: "skills-queue", "aria-label": "待处理" },
-    h("div", { class: "skills-compact" },
+  return h("aside", { class: "attention-queue", "aria-label": "待处理" },
+    h("div", { class: "attention-compact" },
       model.buckets.map((b) => h("span", null, `${b.title} ${b.countText}`)),
       h("span", null, `待清理 ${model.tidy.countText}`)),
     h("h2", null, "待处理"),
@@ -740,7 +698,7 @@ function bucketBlock(ctx, bucket) {
     }
     body = nodes;
   }
-  return h("section", { class: "skill-bucket" },
+  return h("section", { class: "queue-bucket" },
     h("header", null,
       h("span", null, bucket.title),
       h("span", { class: `count ${bucket.connected ? countCls : "muted"}` }, bucket.countText)),
@@ -836,8 +794,8 @@ export function renderMcp(ctx) {
         "只看已分配给 agent")),
     anomalyBanner(h, payload, route),
     legend(h),
-    h("div", { class: "skills-layout" },
-      h("div", { class: "skills-main" },
+    h("div", { class: "board-layout" },
+      h("div", { class: "board-main" },
         noItems ? emptyGuide(h, ctx, payload) : table(ctx, tools, groups, payload)),
       queue(ctx, payload)),
   ].filter(Boolean);

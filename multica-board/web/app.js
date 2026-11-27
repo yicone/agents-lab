@@ -22,7 +22,8 @@ import { clockLine, composeTarget, findPlan, formatSel, hashOk, outsideCount, pa
 import { captureScroll, placeChildren, restoreScroll } from "./view-mount.js";
 import { badgeOf, renderSkillDrawer, renderSkills, skillsRefreshKey, skillKey, skillRowId } from "./skills.js";
 import { EVIDENCE_SCOPE, reasonText, renderEvidence, sourceChipState } from "./evidence.js";
-import { badgeOf as mcpBadgeOf, badgeTitle as mcpBadgeTitle, badgeTone as mcpBadgeTone, copyWithFallback, mcpRowId, renderMcp, renderMcpDrawer } from "./mcp.js";
+import { badgeOf as mcpBadgeOf, badgeTitle as mcpBadgeTitle, badgeTone as mcpBadgeTone, mcpRowId, renderMcp, renderMcpDrawer } from "./mcp.js";
+import { copyWithFallback } from "./copy.js";
 import { renderHooks } from "./hooks.js";
 import { setMcpTools } from "./route.js";
 import { contentKey as skillContentKey, loadSkillContent as requestSkillContent } from "./skill-content.js";
@@ -1399,7 +1400,7 @@ function renderIssues() {
     { class: "toolbar" },
     h(
       "label",
-      { class: "field" },
+      { class: "filter" },
       "停滞阈值",
       h(
         "select",
@@ -1687,16 +1688,9 @@ function ensurePlans() {
 }
 
 async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    document.body.append(area);
-    area.select();
-    document.execCommand("copy");
-    area.remove();
-  }
+  const ok = await copyWithFallback(text);
+  if (!ok) throw new Error("copy failed");
+  return true;
 }
 
 function planActions() {

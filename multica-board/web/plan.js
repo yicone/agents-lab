@@ -1,4 +1,5 @@
 import { runtimeIcon, runtimeOption } from "./runtime-mark.js";
+import { COPY_FAILED, COPY_OK } from "./copy.js";
 /** G1 switch-plan views. Fixture data stays local; live reads go through plan-api.js. No POST, approve, apply, or rollback. */
 
 import { buildPlans } from "./fixtures/plan-data.js";
@@ -511,7 +512,18 @@ function crumbs(h, ctx, tail) {
 function copyButton(h, ctx, text, label = "复制") {
   return h(
     "button",
-    { type: "button", disabled: !text, onclick: () => text && ctx.copy(text) },
+    {
+      type: "button",
+      disabled: !text,
+      onclick: (event) => {
+        if (!text) return;
+        const button = event.currentTarget;
+        Promise.resolve(ctx.copy(text)).then(
+          (ok) => { button.textContent = ok === false ? COPY_FAILED : COPY_OK; },
+          () => { button.textContent = COPY_FAILED; },
+        );
+      },
+    },
     label,
   );
 }

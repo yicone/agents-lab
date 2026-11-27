@@ -1,4 +1,6 @@
 import { runtimeIcon } from "./runtime-mark.js";
+import { COPY_FAILED, COPY_OK, READONLY_LINE, multicaCommand } from "./copy.js";
+import { diffBlock } from "./drawer-fields.js";
 /** Agents subviews: instruction/skill columns, Grok Bots, and the read-only drawers. */
 
 export const HERMES_SKILL = "hermes-async-delegation";
@@ -52,7 +54,7 @@ function heredoc(body) {
 export function instructionCommand(agent, body) {
   const id = agent?.id || "";
   const text = body === undefined ? instructionStat(agent?.instructions).text : instructionStat(body).text;
-  return `multica agent update ${id} --instructions ${heredoc(text)}`;
+  return multicaCommand(agent?.workspace_id, `agent update ${id} --instructions ${heredoc(text)}`);
 }
 
 export function normalizeInstruction(text) {
@@ -109,8 +111,8 @@ export function skillCommands(agent) {
   const ids = enabledSkills(agent).map((skill) => skill.id).filter(Boolean);
   const value = ids.length ? ids.join(",") : "<skill-id>";
   return [
-    `multica agent skills add ${id} --skill-ids ${value}`,
-    `multica agent skills set ${id} --skill-ids ${value}`,
+    multicaCommand(agent?.workspace_id, `agent skills add ${id} --skill-ids ${value}`),
+    multicaCommand(agent?.workspace_id, `agent skills set ${id} --skill-ids ${value}`),
   ];
 }
 
@@ -243,10 +245,10 @@ function copyButton(h, copy, text, label) {
         const button = event.currentTarget;
         Promise.resolve(copy(text)).then(
           () => {
-            button.textContent = "已复制";
+            button.textContent = COPY_OK;
           },
           () => {
-            button.textContent = "请手抄";
+            button.textContent = COPY_FAILED;
           },
         );
       },
@@ -275,11 +277,10 @@ function renderGitDrift(h, copy, { liveHash, liveText, git, noun }) {
     nodes.push(h("p", { class: "muted" }, "逐行对比：减号是 Git 真源，加号是当前缓存。"));
     nodes.push(
       rows.length
-        ? h(
-            "div",
-            { class: "diff-block" },
-            rows.map((row) => h("div", { class: `diff-line diff-${row.op === "+" ? "add" : row.op === "-" ? "del" : "same"}` }, `${row.op} ${row.text}`)),
-          )
+        ? diffBlock(h, rows.map((row) => ({
+          kind: row.op === "+" ? "add" : row.op === "-" ? "del" : "same",
+          text: `${row.op} ${row.text}`,
+        })))
         : h("p", { class: "muted" }, "哈希不一致，缓存正文和 Git 规范化后相同。"),
     );
   }
@@ -344,7 +345,7 @@ export function renderAgentDrawer(h, ctx, drawer) {
       runtimeOff.length ? h("p", { class: "muted" }, `关掉的 runtime skill ${runtimeOff.map(skillLabel).filter(Boolean).join("、")}`) : null,
       missingHermesSkill(agent, ctx.provider) ? h("p", { class: "skill-missing" }, `缺少 ${HERMES_SKILL}`) : null,
       h("h3", { class: "drawer-sub" }, "复制命令"),
-      h("p", { class: "muted" }, "页面只读。复制后在自己的终端执行。"),
+      h("p", { class: "muted" }, READONLY_LINE),
       ...skillCommands(agent).map((command) => commandBlock(h, ctx.copy, command)),
     );
   } else if (section === "runs") {

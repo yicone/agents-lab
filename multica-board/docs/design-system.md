@@ -107,7 +107,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 ├ 工具栏 .toolbar：来源▾ 状态▾ 工具▾ 分组▾ □只看定制                              ┤
 ├ 异常提示条 .skills-anomaly（只在采集本身有问题时出现）                           ┤
 ├ 图例 .skills-legend                                                              ┤
-│ ┌ 一览表 .table-wrap.sticky-head ───────────────────┐ ┌ 待处理 .skills-queue 352px ┐ │
+│ ┌ 一览表 .table-wrap.sticky-head ───────────────────┐ ┌ 待处理 .attention-queue 352px ┐ │
 │ │ ▸ 分组行 自建 · 12                                │ │ Multica Workspace 待核对 1 │ │
 │ │   name  来源/通道  Workspace  共享  ● ○ ✕ …  版本  │ │ 缺失 / 坏链 0  无          │ │
 │ │   … 显示其余 4 条                                 │ │ 版本已变 3                 │ │
@@ -202,7 +202,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 |---|---|---|
 | `.main` | 主区域，`12px 16px 32px` 内边距 | 全部 |
 | `.toolbar` | 一行筛选控件，`gap 14px`，12px 字号 | 全部 |
-| `.skills-layout` | 主区 + 352px 侧栏，<1200px 变单栏、侧栏在上 | Skills、MCP |
+| `.board-layout` | 主区 + 352px 侧栏，<1200px 变单栏、侧栏在上 | Skills、MCP |
 | `.layer-layout` | 主区 + 240px 侧栏 | 层视图 |
 | `.atlas-guide` | 整页引导卡（数据没就绪、清单无效） | 地图、Skills、用量 |
 | `.empty` / `.empty.big` | 灰色居中短句；`.big` 是整页占位 | 全部 |
@@ -211,7 +211,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 
 | 类 / 函数 | 用途 | 说明 |
 |---|---|---|
-| `.filter` / `.field` | 标签 + 下拉 | 两个类做同一件事，见第 6 节 |
+| `.filter`（`.field` 为同一样式别名） | 标签 + 下拉 | 页面上用 `.filter` |
 | `.check` | 复选框 + 文字 | |
 | `.seg` | 分段按钮，`.active` 为当前项 | 视图、分组、子视图（`kindSwitch`） |
 | `.ws-chip`、`.ws-clear`、`.scope-current`、`.scope-note` | workspace 筛选条和固定范围说明 | 只由 `filter-bar.js` + `renderChrome` 生成 |
@@ -226,7 +226,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 | `.provider`（`.providers`） | 按 provider 汇总 | 点击切换筛选 |
 | `.decide-stat` | 只读统计块，`.warn` / `.bad` | 不可点 |
 | `.bot-stat`、`.foot-bucket`、`.plan-counts button`、`.trio` | 各页专用 | |
-| `.tab-badge` | 顶栏角标，默认黄，`.skills` 红 | |
+| `.tab-badge` | 顶栏角标。红 = 坏，黄 = 等用户处理，灰 `?` = 未知；确定为 0 时隐藏 | |
 
 规则：新板块的顶部卡片默认用 `.source-card` 的做法：卡片是行的分区，全部可点，点击等于设置对应筛选。只读统计用 `.decide-stat`。
 
@@ -263,13 +263,13 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 
 | 类 | 用途 |
 |---|---|
-| `aside.skills-queue` | 侧栏外框，`h2` 写「待处理」 |
-| `.skill-bucket` | 一个桶，`header` 放标题和计数 |
+| `aside.attention-queue` | 侧栏外框，`h2` 写「待处理」 |
+| `.queue-bucket` | 一个桶，`header` 放标题和计数 |
 | `.queue-item` | 桶内条目按钮：等宽标识 / 说明 / 灰色时间 |
-| `.skills-queue .debt` | 不计入角标的计数，虚线按钮，`.active` 时实线 |
-| `.skills-compact` | <1200px 时的一行桶计数 |
+| `.attention-queue .debt` | 不计入角标的计数，虚线按钮，`.active` 时实线 |
+| `.attention-compact` | <1200px 时的一行桶计数 |
 
-这些类名带 `skills` 前缀，实际已经被 MCP 复用，是通用组件。改名见第 6 节。
+这些类名不再带页面名。ACM-389 从 `skills-layout`、`skills-queue`、`skill-bucket` 改来。
 
 ### 3.7 抽屉和命令
 
@@ -277,7 +277,7 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 |---|---|
 | `#drawer.drawer` | 唯一的右侧抽屉，`min(420px, 100vw)`，非模态；`renderDrawer()` 按 `state.drawer.kind` 分派 |
 | `.drawer-head`、`.drawer-close`、`.drawer-title`、`.drawer-link`、`.drawer-sub` | 抽屉头、关闭、标题、外链、节标题 |
-| `section()`、`line()` | 节和「标签 值」行（`skills.js`、`mcp.js` 各有一份） |
+| `section()`、`line()`、`diffBlock()` | 节、「标签 值」行、统一的 diff 块（`drawer-fields.js`） |
 | `.seg.drawer-tabs` | 抽屉内分段（Agents） |
 | `.command` | 可复制命令 |
 | `.drawer-actions` | 抽屉内按钮行（复制全文等） |
@@ -368,10 +368,10 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 规则：
 
 - 页面没有写接口、没有配置输入框、不代为执行。所有修改都给可复制的命令，由用户在自己的终端运行。
-- 命令区上方固定一句只读提示。**暂定**统一为「页面只读，不代为执行。复制命令后在自己的终端运行。」（Skills 现在用的这一句），后面可以再跟一句这条命令的影响，例如「下一轮采集后生效」「只影响这个 agent」。
+- 命令区上方固定一句只读提示。统一为「页面只读，不代为执行。复制命令后在自己的终端运行。」，后面可以再跟一句这条命令的影响，例如「下一轮采集后生效」「只影响这个 agent」。
 - 涉及 Multica 资源的命令一律带 `multica --workspace-id <uuid>`，id 用 UUID，不用名字。
 - 有破坏性的命令先列出影响范围，确认后才显示（MCP 删除库条目的两步做法）。
-- 复制成功写「已复制」；**暂定**失败统一写「复制失败」，并用 `app.js` 的 `copyText`（带 textarea 回退）。
+- 复制成功写「已复制」；失败统一写「复制失败，请手抄」，并用 `copy.js` 的 `copyWithFallback`（clipboard，失败再走 textarea）。
 
 ### 4.7 密钥
 
@@ -442,24 +442,24 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 
 ### 6.2 跨页面
 
-- **G1** 表格有六套样式：`.matrix`、`.skills-table`、`.decide-table`、`.layer-table`、`.plan-table`、`.mcp-support`。表头底色（`--panel` 或 `--panel-2`）、单元格内边距（5/10、6/8、7/10、8/10）、分组行底色（`--panel-2` 或 `--bg`）各不相同。
-- **G2** 摘要卡有七套：`.provider`、`.source-card`、`.decide-stat`、`.mcp-card`、`.bot-stat`、`.foot-bucket`、`.plan-counts button`。选中态有三种写法（边框加内阴影、边框加 `--info-bg`、只换边框）。
-- **G3** 下拉筛选有两个类：`.field`（Issues、待决事项）和 `.filter`（Skills、MCP）。
-- **G4** 提示条有四种做法：`.banner`、`.skills-anomaly`（黄字）、`.decide-note`（正文色）、`.usage-gap`。
-- **G5** 「显示其余 N 条」：Issues 能收起、每栏 30 条，Skills 展开后不能收起、每组 8 条。
-- **G6** 顶栏角标颜色：待决事项和 MCP 黄色，Skills 红色（`.tab-badge.skills`）。
-- **G7** 直接调用剪贴板的有 3 处：`skills.js` 的 `copyCommand`（没有回退）、`app.js` 的 `copyText`（有 textarea 回退）、`view-atlas.js` 的 `drawerCommands`（内联）。另有 3 个包装，都调用 `copyText`：`agents-view.js` 的 `copyButton`、`plan.js` 的 `copyButton`，以及 `app.js` 里 `mcpCtx()` 的 `copyCommand`（MCP 用它）。失败文案有「复制失败」和「请手抄」两种。
-- **G8** 命令格式：Skills 的 workspace 命令和 MCP 命令带 `--workspace-id <uuid>`；Agents 抽屉的 `agent update`、`agent skills add/set` 不带；改层命令用 identifier，也不带 workspace。
-- **G9** 只读提示有五种说法：Skills「页面只读，不代为执行。复制命令后在自己的终端运行。」和「页面只读，不替代命令行。」，Agents「页面只读。复制后在自己的终端执行。」，issue 抽屉「页面只读。复制命令改属性，下一轮采集后生效。」，MCP 顶部的 `READONLY_LINE`。
-- **G10** 旧数据的不透明度有三个值：`.is-stale` 0.62、`.mcp-ws.is-stale` 0.65、`.plan-expired` / `.is-dim` 0.55。
-- **G11** `frontend-design.md` 写「未复核且没有别的问题的行降低不透明度」，但 `styles.css` 里 `.skill-row.quiet { opacity: 1; }` 把它取消了（`e8582b7` 引入）。文档和代码不一致，见第 7 节。
-- **G12** CSS 重复定义：`.tag.bad`（237、473 行）、`.tag.info`（239、809 行）、`.table-wrap`（345 行 `overflow-x`、758 行 `overflow`）、`.card`（282、723 行）。
-- **G13** 页面标题：地图、层视图、待决事项、用量有 `h2` 页头；Issues、Agents、Skills、MCP 没有。
-- **G14** 写死的颜色：`.usage-col` 顶边 `#6b7280`，角标文字 `#fff`、`#1c1408`，层颜色写在 `layers.js`。
-- **G15** `section()`、`line()` 在 `skills.js` 和 `mcp.js` 各有一份；`lineDiff` 在 `agents-view.js` 和 `skill-viewer.js` 各有一份，diff 的 DOM 结构也不同。
-- **G16** 通用组件带页面前缀：`skills-layout`、`skills-queue`、`skill-bucket`、`queue-item` 已经被 MCP 复用；MCP 的旧数据提示用的是 `decide-note`。
-- **G17** `filter-bar.js` 顶部注释写「Issues and Agents use route.ws」，实际 MCP 也用。
-- **G18** 跨板块跳转缺口（1.5）：Agents、Skills、MCP 互相提到对方的对象，但不能跳转。
+- **G1** 已修。表头底色统一 `--panel-2`，分组行底色统一 `--bg`，清单表（decide / layer / plan / skills）单元格 `6px 8px`。矩阵保持 §4.4 的 `5px 10px`。`.mcp-support` 已随 ACM-378 删除。
+- **G2** 已修。可点摘要卡的选中态统一为边框 `--accent` 加 `--info-bg`（`.provider.active` 与 `.source-card.active`、`.plan-counts button.active` 相同）。`.mcp-card` 已随 ACM-378 删除。只读的 `.decide-stat`、`.bot-stat`、`.foot-bucket` 仍是各自的统计块，没有选中态。
+- **G3** 已修。下拉筛选只用 `.filter`。`.field` 留作同一样式的别名。
+- **G4** 已修。四种提示条按 §3.8 分用途：`.banner` 红、`.skills-anomaly` 黄字、`.decide-note` 正文色、`.usage-gap` 灰。MCP 旧数据不再借用 `.decide-note`。
+- **G5** 已修。Skills 和 MCP 的「显示其余 N 条」展开后可以「收起到 8 条」，和 Issues 一样能收回。每组 8 条、Issues 每栏 30 条仍按各自版式保留。
+- **G6** 原「Skills 角标为红」已不在：Skills 现为 `tone-warn`（黄），损坏为 `tone-bad`（红），未知为 `tone-unknown`（灰 `?`），0 隐藏。本单约束顶栏零改动，没有再改顶栏角标 class。待批准角标目前仍是红色。
+- **G7** 已修。复制都走 `copy.js` 的 `copyWithFallback`（clipboard，失败再用 textarea）。失败文案统一「复制失败，请手抄」。
+- **G8** 已修。Agent 的 `agent update` / `agent skills`，以及改层的 `issue property set`，在有 workspace UUID 时带 `--workspace-id`。没有 UUID 时不编造。
+- **G9** 已修。只读提示统一为「页面只读，不代为执行。复制命令后在自己的终端运行。」改层命令在这句后面加「下一轮采集后生效。」
+- **G10** 已修。`.is-stale`、`.plan-expired`、`.is-dim` 都是 0.62。`.mcp-ws.is-stale` 已随 ACM-378 删除。
+- **G11** 已修。`.skill-row.quiet` 为 0.62。`quiet` 只在基线债且没有待处理桶时为真，所以缺失、失败、漂移、冲突行不淡化。悬停和选中恢复不透明。
+- **G12** 已修。`.tag.bad`、`.tag.info`、`.table-wrap`、`.card` 各只留一处定义。
+- **G13** 已由后续信息架构消除。地图、层、待批准、用量、Issues、Agents、Skills、MCP 都有页面 `h2`。
+- **G14** 已修。`.usage-col` 顶边、角标字、额度反白、层颜色改走 `--muted`、`--on-warn`、`--on-fill`、`--layer-l1`…`--layer-l5`。顶栏角标的字色值不变。
+- **G15** 已修。`section()`、`line()` 和 diff 的 DOM 收到 `drawer-fields.js`。文件 diff 与职责说明 diff 的算法仍分开：一个是有上限的文件 diff，一个是规范化后的逐行对比。
+- **G16** 已修。`skills-layout` → `board-layout`，`skills-queue` → `attention-queue`，`skill-bucket` → `queue-bucket`，`skills-compact` → `attention-compact`，`skills-main` → `board-main`。`queue-item` 本来就没有页面前缀。MCP 旧数据提示已不再用 `decide-note`。
+- **G17** 已修。`filter-bar.js` 顶部注释与 `filterChrome` 一致：Issues、Agents、最近运行读 `route.ws`；Decide、Skills、MCP、hooks、职责说明对账用固定范围，不读 `route.ws`。MCP 在 ACM-378 之后不再使用 `route.ws`。
+- **G18** 不在本单。
 
 ## 7. 已决定（用户 2026-10-24 确认）
 
@@ -467,6 +467,6 @@ Atlas 现在有七种版式。新板块先选一种，偏离的地方逐条写�
 2. **顶栏角标颜色**（G6、M13）：红色表示坏，黄色表示等用户处理，灰色 `?` 表示未知或未采集，确定为 0 时隐藏。因此 Skills 待处理角标改黄色；损坏桶仍用红色。
 3. **只读提示和复制失败文案**（G7、G9）：统一为「页面只读，不代为执行。复制命令后在自己的终端运行。」和「复制失败，请手抄」。写入功能上线后改为明确动作状态文案。
 4. **跨板块跳转**（G18）：补 Agents ↔ Skills ↔ MCP，以及运行状态 ↔ 配置管理跳转。使用稳定内部 row ID 定位、滚动并打开抽屉；抽屉不进 URL；没有目标证据时显示降级文案。
-5. **通用组件改名**（G16）：单独开清理单处理，不阻塞 MCP v2 或首个写入热点。先用测试保护行为，再改为资源无关名称。
+5. **通用组件改名**（G16）：MCP v2 落地后由 ACM-389 改为资源无关名称：`board-layout`、`attention-queue`、`queue-bucket`、`attention-compact`、`board-main`。
 
-上述决定替代本节原「待用户决定」状态；执行仍须通过对应 issue 审定。
+上述决定替代本节原「待用户决定」状态。ACM-389 已执行 G1–G17；G18 不在该单。顶栏角标 class 保持开工时的样子（Skills 待处理已是黄色）。

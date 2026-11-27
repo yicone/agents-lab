@@ -1,6 +1,7 @@
 /** Map, layer list, and the layer block inside the issue drawer. Skills live in skills.js. */
 
 import { formatWait, waitFor, waitLevel } from "./decide.js";
+import { READONLY_LINE, markCopy } from "./copy.js";
 import {
   LAYERS,
   LAYER_BY_ID,
@@ -530,7 +531,7 @@ export function drawerCommands(ctx, issue) {
     "div",
     { class: "layer-commands" },
     h("h3", { class: "drawer-sub" }, "改层"),
-    h("p", { class: "muted" }, "页面只读。复制命令改属性，下一轮采集后生效。"),
+    h("p", { class: "muted" }, `${READONLY_LINE} 下一轮采集后生效。`),
     ...layerCommands(issue).map((command) =>
       h(
         "p",
@@ -538,17 +539,7 @@ export function drawerCommands(ctx, issue) {
         h("code", null, command),
         h("button", {
           type: "button",
-          onclick: (e) => {
-            const button = e.currentTarget;
-            navigator.clipboard?.writeText(command).then(
-              () => {
-                button.textContent = "已复制";
-              },
-              () => {
-                button.textContent = "请手抄";
-              },
-            );
-          },
+          onclick: (e) => { void markCopy(e.currentTarget, command); },
         }, "复制"),
       ),
     ),

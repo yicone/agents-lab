@@ -32,8 +32,7 @@ test("mismatch drawer copies exactly one suggested command without fetching or e
   try {
     const button = flatten(region).find(node => node?.tag === "button");
     const target = {};
-    button.attrs.onclick({ currentTarget: target });
-    await Promise.resolve();
+    await button.attrs.onclick({ currentTarget: target });
     assert.deepEqual(copied, [DIGEST_COMMAND]);
     assert.equal(target.textContent, "已复制");
   } finally {

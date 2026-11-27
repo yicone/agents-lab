@@ -1,11 +1,13 @@
 /** Layer model for Agent Atlas. Live counts come from GET /api/layers; fixtures still aggregate issue.layer. */
 
+import { multicaCommand } from "./copy.js";
+
 export const LAYERS = [
-  { id: "l5", short: "L5", name: "感知与决策", objects: "监督 · Board · 清单", color: "#6d4fd8" },
-  { id: "l4", short: "L4", name: "协作", objects: "workspace · project · issue · 派活", color: "#2f6fde" },
-  { id: "l3", short: "L3", name: "能力", objects: "skills · instructions · spec", color: "#0f8f8a" },
-  { id: "l2", short: "L2", name: "执行", objects: "runtime · daemon · 运行环境", color: "#b7791f" },
-  { id: "l1", short: "L1", name: "资源", objects: "额度 · 算力", color: "#6b7280" },
+  { id: "l5", short: "L5", name: "感知与决策", objects: "监督 · Board · 清单", color: "var(--layer-l5)" },
+  { id: "l4", short: "L4", name: "协作", objects: "workspace · project · issue · 派活", color: "var(--layer-l4)" },
+  { id: "l3", short: "L3", name: "能力", objects: "skills · instructions · spec", color: "var(--layer-l3)" },
+  { id: "l2", short: "L2", name: "执行", objects: "runtime · daemon · 运行环境", color: "var(--layer-l2)" },
+  { id: "l1", short: "L1", name: "资源", objects: "额度 · 算力", color: "var(--layer-l1)" },
 ];
 
 export const LAYER_BY_ID = Object.fromEntries(LAYERS.map((layer) => [layer.id, layer]));
@@ -332,9 +334,9 @@ export function layerCommands(issue) {
   const involved = (layer?.involved || []).map((item) => OPTION_NAME[item]).filter(Boolean);
   const involvedValue = involved.length ? involved.join(",") : "L1 资源,L2 执行";
   return [
-    `multica issue property set ${id} --name 主层 --value "${primary}"`,
-    `multica issue property set ${id} --name 涉及层 --value "${involvedValue}"`,
-    `multica issue property set ${id} --name 治理线 --value ${layer?.governance ? "true" : "false"}`,
+    multicaCommand(issue?.workspace_id, `issue property set ${id} --name 主层 --value "${primary}"`),
+    multicaCommand(issue?.workspace_id, `issue property set ${id} --name 涉及层 --value "${involvedValue}"`),
+    multicaCommand(issue?.workspace_id, `issue property set ${id} --name 治理线 --value ${layer?.governance ? "true" : "false"}`),
   ];
 }
 
