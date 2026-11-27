@@ -362,6 +362,16 @@
       "id": "5e08c936-cc85-4d49-8ac3-0af97ccfbca2",
       "name": "aimaiai 迁移协调",
       "path": "bots/5e08c936-cc85-4d49-8ac3-0af97ccfbca2.md"
+    },
+    {
+      "id": "6184b18b-cc09-4a58-b39c-68dda21ce28c",
+      "name": "9router PM",
+      "path": "bots/6184b18b-cc09-4a58-b39c-68dda21ce28c.md"
+    },
+    {
+      "id": "9b2c3783-31e9-4eeb-92ba-5d00ddf814ef",
+      "name": "Agent Sessions PM",
+      "path": "bots/9b2c3783-31e9-4eeb-92ba-5d00ddf814ef.md"
     }
   ]
 }
