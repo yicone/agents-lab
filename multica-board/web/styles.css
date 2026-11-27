@@ -741,9 +741,10 @@ a.decide-title:hover { color: var(--accent); text-decoration: underline; }
 .swatch { display: inline-block; width: 10px; height: 8px; border-radius: 2px; }
 .layer-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; align-items: start; }
 .layer-table, .layer-groups { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-.layer-table h3, .layer-groups h3 { margin: 0; padding: 8px 12px; font-size: 12px; background: var(--panel-2); }
+.layer-table h3, .layer-groups h3 { margin: 0; padding: 8px 12px; font-size: 12px; background: var(--bg); }
 .layer-table table, .layer-groups table { width: 100%; border-collapse: collapse; }
 .layer-table th, .layer-table td, .layer-groups th, .layer-groups td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; font-size: 12px; }
+.layer-table th, .layer-groups th { background: var(--panel-2); }
 .layer-table tr, .decide-row { cursor: pointer; }
 .layer-table tr.is-foreign { background: var(--info-bg); }
 .foreign-tag { display: inline-block; margin-left: 6px; color: var(--info); font-size: 11px; }

@@ -60,6 +60,32 @@ CSS_CHECKS = """
 """
 
 
+LAYER_COLORS = """
+() => {
+  const paint = (name) => {
+    const probe = document.createElement("span");
+    probe.style.backgroundColor = `var(${name})`;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return color;
+  };
+  const bgOf = (selector) => {
+    const node = document.querySelector(selector);
+    return node ? getComputedStyle(node).backgroundColor : "";
+  };
+  return {
+    th: bgOf(".layer-table th"),
+    groupsTh: bgOf(".layer-groups th"),
+    h3: bgOf(".layer-table h3"),
+    groupsH3: bgOf(".layer-groups > section > h3"),
+    panel2: paint("--panel-2"),
+    bg: paint("--bg"),
+  };
+}
+"""
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     httpd = serve()
@@ -119,6 +145,30 @@ def main():
               return color;
             }""")
             check("G14 layer badge painted from --layer-l5", layer not in ("", "rgba(0, 0, 0, 0)"), layer)
+
+            for theme, label in (("light", "亮色"), ("dark", "暗色")):
+                page.emulate_media(color_scheme=theme)
+                page.set_viewport_size({"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{PORT}/index.html?mock=atlas#/map/all?seg=all", wait_until="networkidle")
+                page.wait_for_selector(".layer-table th")
+                page.wait_for_selector(".layer-groups > section > h3")
+                page.keyboard.press("Escape")
+                page.wait_for_function("() => document.querySelector('#drawer')?.hidden === true")
+                colors = page.evaluate(LAYER_COLORS)
+                check(
+                    f"G1 层清单表头 {label} 为 panel-2",
+                    colors["th"] == colors["panel2"] and colors["groupsTh"] == colors["panel2"] and colors["th"] not in ("", "rgba(0, 0, 0, 0)"),
+                    f"{colors['th']} / {colors['groupsTh']} vs {colors['panel2']}",
+                )
+                check(
+                    f"G1 层清单分组 {label} 为 bg",
+                    colors["h3"] == colors["bg"] and colors["groupsH3"] == colors["bg"] and colors["h3"] != colors["th"],
+                    f"{colors['h3']} / {colors['groupsH3']} vs {colors['bg']}",
+                )
+                page.evaluate("() => document.querySelector('.layer-groups')?.scrollIntoView({block:'start'})")
+                file = OUT / f"layers-1440-{theme}.png"
+                page.screenshot(path=str(file), full_page=False)
+                check(f"shot {file.name}", file.stat().st_size > 1000, str(file.stat().st_size))
 
             for width, height in ((1440, 900), (390, 844)):
                 for theme in ("light", "dark"):
